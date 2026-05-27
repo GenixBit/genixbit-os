@@ -1,7 +1,7 @@
 #!/bin/bash
 # menuconfig.sh — Interactive TUI configuration for AnduinOS
 # Run via: make menuconfig  or  ./menuconfig.sh
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 CONFIG_FILE="$SCRIPT_DIR/args.sh"
@@ -18,7 +18,16 @@ WHIP=(whiptail --title "AnduinOS Configuration" --backtitle "make menuconfig")
 
 set_simple() {
     local key="$1" value="$2"
-    sed -i "s|^export ${key}=\".*\"|export ${key}=\"${value}\"|" "$CONFIG_FILE"
+    local tmp
+    tmp=$(mktemp)
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^export\ ${key}= ]]; then
+            printf 'export %s="%s"\n' "$key" "$value" >> "$tmp"
+        else
+            printf '%s\n' "$line" >> "$tmp"
+        fi
+    done < "$CONFIG_FILE"
+    mv "$tmp" "$CONFIG_FILE"
 }
 
 set_multiline() {
@@ -306,7 +315,7 @@ menu_input() {
     [ $? -ne 0 ] && return 1
 
     # Map short codes to actual CONFIG_INPUT_METHOD values
-    local config_input
+    local config_input="[('xkb', 'us')]"
     case "$layout" in
         us)     config_input="[('xkb', 'us')]" ;;
         us+r)   config_input="[('xkb', 'us'), ('ibus', 'rime')]" ;;
