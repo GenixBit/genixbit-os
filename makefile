@@ -3,7 +3,6 @@ SHELL         := /usr/bin/env bash
 .DEFAULT_GOAL := current
 
 SRC_DIR       := src
-CONFIG_DIR    := config
 
 DEPS := \
   binutils \
@@ -16,13 +15,11 @@ DEPS := \
   mtools \
   dosfstools
 
-.PHONY: all fast current clean bootstrap help
+.PHONY: current clean bootstrap help
 
 help:
 	@echo "Usage:"
 	@echo "  make          (or make current)   Build current language"
-	@echo "  make all                          Build all languages"
-	@echo "  make fast                         Build fast config languages"
 	@echo "  make clean                        Remove build artifacts"
 	@echo "  make bootstrap                    Validate environment and deps"
 
@@ -53,14 +50,6 @@ bootstrap:
 current: bootstrap
 	@echo "[MAKE] Building current language..."
 	@cd $(SRC_DIR) && ./build.sh
-
-all: bootstrap
-	@echo "[MAKE] Building ALL languages (all.json)..."
-	@./build_all.sh -c $(CONFIG_DIR)/all.json
-
-fast: bootstrap
-	@echo "[MAKE] Building FAST languages (fast.json)..."
-	@./build_all.sh -c $(CONFIG_DIR)/fast.json
 
 clean:
 	@echo "[MAKE] Cleaning build artifacts..."

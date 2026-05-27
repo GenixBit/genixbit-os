@@ -84,7 +84,7 @@ export TARGET_NAME="anduinos"
 export TARGET_BUSINESS_NAME="AnduinOS"
 
 # Version number. Must be in the format of x.y.z
-export TARGET_BUILD_VERSION="1.5.0"
+export TARGET_BUILD_VERSION="2.0.0"
 
 # Fork version. Must be in the format of x.y
 # By default, it is the branch name of the git repository.
