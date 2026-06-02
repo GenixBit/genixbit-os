@@ -55,4 +55,10 @@ judge "Install anduinos-templates"
 apt install -y anduinos-dconf-defaults
 judge "Install anduinos-dconf-defaults"
 
+apt install -y anduinos-fluent-icon-theme
+judge "Install anduinos-fluent-icon-theme"
+
+apt install -y anduinos-fluent-gtk-theme
+judge "Install anduinos-fluent-gtk-theme"
+
 print_ok "Base packages installed."
