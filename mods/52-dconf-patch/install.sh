@@ -48,7 +48,7 @@ print_ok "Installing dconf system database configurations"
 mkdir -p /etc/dconf/db/anduinos.d
 cp ./dconf-db/01-custom-keybindings.conf /etc/dconf/db/anduinos.d/
 cp ./dconf-db/02-ptyxis-terminal.conf /etc/dconf/db/anduinos.d/
-cp ./dconf-db/03-gnome-extensions.conf /etc/dconf/db/anduinos.d/
+cp ./dconf-db/03-system-extensions.conf /etc/dconf/db/anduinos.d/
 judge "Copy dconf system configurations"
 
 # ==============================================================================
