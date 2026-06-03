@@ -374,7 +374,6 @@ menu_preinstalled_apps() {
         "qalculate-gtk|Powerful calculator"
         "yelp|Help browser"
         "gparted|Partition editor"
-        "gnome-shell-extension-prefs|Extension preferences"
         "gnome-disk-utility|Disk management"
         "gnome-logs|System log viewer"
         "resources|System resource monitor"

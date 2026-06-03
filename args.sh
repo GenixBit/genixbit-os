@@ -273,7 +273,6 @@ export DEFAULT_APPS="
     qalculate-gtk \
     yelp \
     gparted \
-    gnome-shell-extension-prefs \
     gnome-user-docs \
     gnome-disk-utility \
     gnome-logs \

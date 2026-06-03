@@ -119,12 +119,6 @@ print_ok "Installing nautilus..."
 apt install $INTERACTIVE nautilus --no-install-recommends
 judge "Install nautilus"
 
-print_ok "Installing gnome extension utilities..."
-apt install $INTERACTIVE \
-    gnome-shell-extension-gtk4-desktop-icons-ng \
-    gnome-shell-extension-appindicator --no-install-recommends
-judge "Install gnome extension utilities"
-
 print_ok "Installing gnome additional applications $DEFAULT_APPS..."
 apt install $INTERACTIVE \
     gnome-control-center \
