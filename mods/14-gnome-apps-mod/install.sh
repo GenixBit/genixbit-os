@@ -198,6 +198,12 @@ apt install $INTERACTIVE \
     fprintd --no-install-recommends
 judge "Install ubuntu drivers support"
 
+print_ok "Installing AnduinOS firmware packages..."
+apt install $INTERACTIVE \
+    firmware-sof-anduinos \
+    alsa-ucm-conf-anduinos
+judge "Install firmware-sof-anduinos and alsa-ucm-conf-anduinos"
+
 print_ok "Installing python3..."
 apt install $INTERACTIVE \
     python3 \

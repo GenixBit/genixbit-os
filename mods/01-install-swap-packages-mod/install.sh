@@ -49,16 +49,3 @@ print_ok "Installing AnduinOS base-files (swap)..."
 apt install -y base-files
 judge "Install base-files (swap)"
 
-print_ok "Installing AnduinOS templates and themes..."
-apt install -y anduinos-templates
-judge "Install anduinos-templates"
-
-print_ok "Installing AnduinOS desktop theme..."
-apt install -y anduinos-theme
-judge "Install anduinos-theme"
-
-print_ok "Installing AnduinOS firmware packages..."
-apt install -y firmware-sof-anduinos alsa-ucm-conf-anduinos
-judge "Install firmware-sof-anduinos and alsa-ucm-conf-anduinos"
-
-print_ok "Base packages installed."
