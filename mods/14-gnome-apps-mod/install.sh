@@ -58,7 +58,6 @@ apt install $INTERACTIVE \
     yaru-theme-gnome-shell \
     gir1.2-gmenu-3.0 \
     gnome-menus \
-    gnome-shell-extensions \
     spice-vdagent \
     gdm3 \
     libpam-gnome-keyring \
@@ -122,7 +121,7 @@ judge "Install nautilus"
 
 print_ok "Installing gnome extension utilities..."
 apt install $INTERACTIVE \
-    gnome-shell-extension-desktop-icons-ng \
+    gnome-shell-extension-gtk4-desktop-icons-ng \
     gnome-shell-extension-appindicator --no-install-recommends
 judge "Install gnome extension utilities"
 
