@@ -53,13 +53,9 @@ judge "Install basic CLI tools"
 print_ok "Installing gnome basic sessions..."
 apt install $INTERACTIVE \
     gnome-shell \
-    ubuntu-session \
-    yaru-theme-sound \
-    yaru-theme-gnome-shell \
     gir1.2-gmenu-3.0 \
     gnome-menus \
     spice-vdagent \
-    gdm3 \
     libpam-gnome-keyring \
     gnome-keyring \
     gnome-keyring-pkcs11 \

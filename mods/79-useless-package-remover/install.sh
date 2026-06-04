@@ -29,6 +29,7 @@ packages=(
     yaru-theme-unity
     yaru-theme-icon
     yaru-theme-gtk
+    ubuntu-session
     apport
     imagemagick*
     ubuntu-pro-client
