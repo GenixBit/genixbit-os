@@ -22,5 +22,8 @@ judge "Install live-boot"
 # judge "Install kernel package"
 
 print_ok "Installing kernel and thermald..."
-apt install $INTERACTIVE linux-image-generic-hwe-26.04 thermald --no-install-recommends
+apt install $INTERACTIVE \
+    linux-image-generic-hwe-26.04 \
+    linux-headers-generic-hwe-26.04 \
+    thermald --no-install-recommends
 judge "Install kernel and thermald"
