@@ -16,8 +16,6 @@ apt install $INTERACTIVE \
     --no-install-recommends
 judge "Install locales and resolvconf"
 
-print_ok "Configuring locales..."
-echo "$LANG UTF-8" > /etc/locale.gen
-locale-gen
-update-locale LANG=$LANG LC_ALL=$LANG
-judge "Configure locales"
+print_ok "Installing $LANGUAGE_PACKS language packs"
+apt install $INTERACTIVE $LANGUAGE_PACKS --no-install-recommends
+judge "Install language packs"

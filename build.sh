@@ -166,8 +166,14 @@ function build_iso() {
 
     # copy kernel files
     print_ok "Copying kernel files as /casper/vmlinuz and /casper/initrd..."
-    sudo cp new_building_os/boot/vmlinuz-**-**-generic image/casper/vmlinuz
-    sudo cp new_building_os/boot/initrd.img-**-**-generic image/casper/initrd
+    # Pick the latest kernel version — apt upgrade may have pulled in a newer one.
+    KERNEL_VERSION=$(ls -1 new_building_os/boot/vmlinuz-* 2>/dev/null | sort -V | tail -n 1 | sed 's/.*vmlinuz-//')
+    if [ -z "$KERNEL_VERSION" ]; then
+        print_error "No kernel found in new_building_os/boot/"
+        exit 1
+    fi
+    sudo cp "new_building_os/boot/vmlinuz-$KERNEL_VERSION" image/casper/vmlinuz
+    sudo cp "new_building_os/boot/initrd.img-$KERNEL_VERSION" image/casper/initrd
     judge "Copy kernel files"
 
     print_ok "Generating grub.cfg..."
@@ -283,7 +289,7 @@ $TARGET_BUSINESS_NAME is a custom Ubuntu-based Linux distribution that offers a 
 
 This image is built with the following configurations:
 
-- **Language**: $LANG_MODE
+- **Language**: $DEFAULT_LANG
 - **Version**: $TARGET_BUILD_VERSION
 - **Date**: $DATE
 
@@ -375,14 +381,14 @@ EOF
 
     judge "Create iso image"
 
-    print_ok "Moving iso image to $SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$LANG_MODE-$DATE.iso..."
+    print_ok "Moving iso image to $SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$DATE.iso..."
     mkdir -p "$SCRIPT_DIR/dist"
-    mv "$SCRIPT_DIR/$TARGET_NAME.iso" "$SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$LANG_MODE-$DATE.iso"
+    mv "$SCRIPT_DIR/$TARGET_NAME.iso" "$SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$DATE.iso"
     judge "Move iso image"
 
     print_ok "Generating sha256 checksum..."
-    HASH=$(sha256sum "$SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$LANG_MODE-$DATE.iso" | cut -d ' ' -f 1)
-    echo "SHA256: $HASH" > "$SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$LANG_MODE-$DATE.sha256"
+    HASH=$(sha256sum "$SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$DATE.iso" | cut -d ' ' -f 1)
+    echo "SHA256: $HASH" > "$SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$DATE.sha256"
     judge "Generate sha256 checksum"
 
     popd

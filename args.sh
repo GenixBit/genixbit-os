@@ -25,33 +25,88 @@ export INTERACTIVE="-y"
 # Language Information
 #==========================
 
-# Set the language environment. Can be: en_US, en_GB, zh_CN, zh_TW, zh_HK, ja_JP, ko_KR, vi_VN, th_TH, de_DE, fr_FR, es_ES, ru_RU, it_IT, pt_BR, pt_PT, ar_SA, nl_NL, sv_SE, pl_PL, tr_TR, ro_RO
-export LANG_MODE="en_US"
-# Set the language pack code. Can be: zh, en, ja, ko, vi, th, de, fr, es, ru, it, pt, pt, ar, nl, sv, pl, tr, ro
-export LANG_PACK_CODE="en"
+# Installed system default locale.
+# This is what the ISO ships as the out-of-box system language (login screen, new user sessions).
+# Ubiquity can still change it at install time when the user picks a different language.
+#
+# Common examples:
+#   DEFAULT_LANG="en_US.UTF-8"    # English (default)
+#   DEFAULT_LANG="zh_CN.UTF-8"    # Simplified Chinese
+#   DEFAULT_LANG="zh_TW.UTF-8"    # Traditional Chinese (Taiwan)
+#   DEFAULT_LANG="zh_HK.UTF-8"    # Traditional Chinese (Hong Kong)
+#   DEFAULT_LANG="ja_JP.UTF-8"    # Japanese
+#   DEFAULT_LANG="ko_KR.UTF-8"    # Korean
+#   DEFAULT_LANG="vi_VN.UTF-8"    # Vietnamese
+#   DEFAULT_LANG="th_TH.UTF-8"    # Thai
+#   DEFAULT_LANG="de_DE.UTF-8"    # German
+#   DEFAULT_LANG="fr_FR.UTF-8"    # French
+#   DEFAULT_LANG="es_ES.UTF-8"    # Spanish
+#   DEFAULT_LANG="ru_RU.UTF-8"    # Russian
+#   DEFAULT_LANG="it_IT.UTF-8"    # Italian
+#   DEFAULT_LANG="pt_BR.UTF-8"    # Portuguese (Brazil)
+#   DEFAULT_LANG="pt_PT.UTF-8"    # Portuguese (Portugal)
+#   DEFAULT_LANG="ar_SA.UTF-8"    # Arabic
+#   DEFAULT_LANG="nl_NL.UTF-8"    # Dutch
+#   DEFAULT_LANG="sv_SE.UTF-8"    # Swedish
+#   DEFAULT_LANG="pl_PL.UTF-8"    # Polish
+#   DEFAULT_LANG="tr_TR.UTF-8"    # Turkish
+#   DEFAULT_LANG="ro_RO.UTF-8"    # Romanian
+export DEFAULT_LANG="en_US.UTF-8"
 
-export LC_ALL=$LANG_MODE.UTF-8
-export LC_CTYPE=$LANG_MODE.UTF-8
-export LC_TIME=$LANG_MODE.UTF-8
-export LC_NAME=$LANG_MODE.UTF-8
-export LC_ADDRESS=$LANG_MODE.UTF-8
-export LC_TELEPHONE=$LANG_MODE.UTF-8
-export LC_MEASUREMENT=$LANG_MODE.UTF-8
-export LC_IDENTIFICATION=$LANG_MODE.UTF-8
-export LC_NUMERIC=$LANG_MODE.UTF-8
-export LC_PAPER=$LANG_MODE.UTF-8
-export LC_MONETARY=$LANG_MODE.UTF-8
-export LANG=$LANG_MODE.UTF-8
-export LANGUAGE=$LANG_MODE:$LANG_PACK_CODE
+# Build environment locale — always en_US.UTF-8 regardless of DEFAULT_LANG.
+# The build scripts need a predictable, English locale to run correctly.
+export LC_ALL=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+export LC_TIME=en_US.UTF-8
+export LC_NAME=en_US.UTF-8
+export LC_ADDRESS=en_US.UTF-8
+export LC_TELEPHONE=en_US.UTF-8
+export LC_MEASUREMENT=en_US.UTF-8
+export LC_IDENTIFICATION=en_US.UTF-8
+export LC_NUMERIC=en_US.UTF-8
+export LC_PAPER=en_US.UTF-8
+export LC_MONETARY=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US:en
 
-# These are the language packs to be installed.
-# language-pack-zh-hans   language-pack-zh-hans-base language-pack-gnome-zh-hans \
-# language-pack-zh-hant   language-pack-zh-hant-base language-pack-gnome-zh-hant \
-# language-pack-en        language-pack-en-base      language-pack-gnome-en \
-export LANGUAGE_PACKS="language-pack-$LANG_PACK_CODE* language-pack-gnome-$LANG_PACK_CODE*"
+# Language pack codes for every language Ubuntu ships.
+# Pre-installed so Ubiquity can switch any language fully offline.
+# Each code expands to language-pack-{code}* and language-pack-gnome-{code}*
+# (the glob catches -base and any sub-variants automatically).
+export LANG_PACK_CODES="\
+af am an ar as ast az \
+be bg bn br bs \
+ca ckb crh cs cy \
+da de dz \
+el en eo es et eu \
+fa fi fr fur \
+ga gd gl gu \
+he hi hr hu \
+ia id is it \
+ja \
+ka kab kk km kn ko ku \
+lt lv \
+mk ml mr ms my \
+nb nds ne nl nn \
+oc or \
+pa pl pt \
+ro ru \
+si sk sl sq sr sv szl \
+ta te tg th tr \
+ug uk \
+vi \
+xh \
+zh-hans zh-hant"
+
+_LP=""
+for _c in $LANG_PACK_CODES; do
+    _LP="$_LP language-pack-$_c language-pack-$_c-base language-pack-gnome-$_c language-pack-gnome-$_c-base"
+done
+export LANGUAGE_PACKS="${_LP# }"
+unset _LP _c
 
 # Just logging. Continue with the rest of the script
-echo "Language environment has been set to $LANG_MODE"
+echo "Default system language: $DEFAULT_LANG"
 
 #==========================
 # OS system information

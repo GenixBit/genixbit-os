@@ -173,6 +173,3 @@ print_ok "Remove the default vim.desktop file"
 rm /usr/share/applications/vim.desktop || true
 judge "Remove the default vim.desktop file"
 
-print_ok "Installing $LANGUAGE_PACKS language packs"
-apt install $INTERACTIVE $LANGUAGE_PACKS --no-install-recommends
-judge "Install language packs"

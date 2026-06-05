@@ -159,7 +159,8 @@ menu_ubuntu_base() {
 }
 
 menu_language() {
-    local lang=$(menu_select "System language:" "$LANG_MODE" \
+    local default_bare="${DEFAULT_LANG%.UTF-8}"
+    local lang=$(menu_select "System language:" "$default_bare" \
         "en_US|English (United States)" \
         "en_GB|English (United Kingdom)" \
         "zh_CN|Chinese (Simplified)" \
@@ -184,13 +185,6 @@ menu_language() {
         "ro_RO|Romanian")
     [ $? -ne 0 ] && return 1
 
-    # Derive LANG_PACK_CODE from LANG_MODE
-    local pack_code="${lang%%_*}"
-    case "$lang" in
-        pt_BR|pt_PT) pack_code="pt" ;;
-        zh_CN|zh_TW|zh_HK) pack_code="zh" ;;
-    esac
-
     local tz=""
     while [ -z "$tz" ]; do
         tz=$(inputbox "Timezone:\n\nRun 'ls /usr/share/zoneinfo/' to browse available timezones.\nExample: America/Los_Angeles, Asia/Shanghai, Europe/London" "${TIMEZONE:-America/Los_Angeles}")
@@ -201,12 +195,10 @@ menu_language() {
     local weather=$(inputbox "Default weather location (JSON format):\n\nUsed by the GNOME weather extension.\nExample:\n['{\"name\":\"San Francisco, CA, US\",\"lat\":37.77,\"lon\":-122.41}']" "$CONFIG_WEATHER_LOCATION")
     [ $? -ne 0 ] && return 1
 
-    set_simple "LANG_MODE" "$lang"
-    set_simple "LANG_PACK_CODE" "$pack_code"
+    set_simple "DEFAULT_LANG" "${lang}.UTF-8"
     set_simple "TIMEZONE" "$tz"
     set_simple "CONFIG_WEATHER_LOCATION" "$weather"
-    LANG_MODE="$lang"
-    LANG_PACK_CODE="$pack_code"
+    DEFAULT_LANG="${lang}.UTF-8"
     TIMEZONE="$tz"
     CONFIG_WEATHER_LOCATION="$weather"
 }
@@ -470,7 +462,7 @@ show_status() {
   Target OS:      $TARGET_BUSINESS_NAME ($TARGET_NAME)
   Version:        $TARGET_BUILD_VERSION
   Ubuntu Base:    $TARGET_UBUNTU_VERSION
-  Language:       $LANG_MODE
+  Language:       $DEFAULT_LANG
   Timezone:       $TIMEZONE
   Store:          $STORE_PROVIDER
   Firefox:        $FIREFOX_PROVIDER
@@ -521,5 +513,5 @@ source "$CONFIG_FILE"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Configuration saved."
-echo "  Run 'make' to build $TARGET_BUSINESS_NAME $TARGET_BUILD_VERSION ($LANG_MODE)"
+echo "  Run 'make' to build $TARGET_BUSINESS_NAME $TARGET_BUILD_VERSION ($DEFAULT_LANG)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
