@@ -6,18 +6,12 @@ set -u                  # treat unset variable as error
 # Install AnduinOS swap packages
 #==========================
 
+print_ok "Installing AnduinOS APT configuration and keyring packages..."
+apt install $INTERACTIVE \
+    anduinos-apt-config \
+    anduinos-archive-keyring \
+    base-files
+judge "Install AnduinOS basic packages"
 
-source /root/mods/shared.sh
-source /root/mods/args.sh
 
-
-# anduinos-apt-config Depends on anduinos-archive-keyring, so one
-# apt install pulls both: keyring → trust → sources → pinning.
-print_ok "Installing anduinos-apt-config (includes anduinos-archive-keyring)..."
-apt install $INTERACTIVE anduinos-apt-config anduinos-archive-keyring
-judge "Install anduinos-apt-config + anduinos-archive-keyring"
-
-print_ok "Installing AnduinOS base-files (swap)..."
-apt install $INTERACTIVE base-files
-judge "Install base-files (swap)"
 
