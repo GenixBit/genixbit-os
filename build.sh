@@ -54,7 +54,7 @@ function setup_host() {
 
 function download_base_system() {
     print_ok "Calling debootstrap to download base debian system..."
-    sudo debootstrap  --arch=amd64 --variant=minbase --include=git,ca-certificates,wget,dbus $TARGET_UBUNTU_VERSION new_building_os $BUILD_UBUNTU_MIRROR
+    sudo debootstrap  --arch=amd64 --variant=minbase --include=ca-certificates,wget,dbus $TARGET_UBUNTU_VERSION new_building_os $BUILD_UBUNTU_MIRROR
     judge "Download base system"
 }
 
@@ -298,7 +298,7 @@ This image is built with the following configurations:
 - **Version**: $TARGET_BUILD_VERSION
 - **Date**: $DATE
 
-$TARGET_BUSINESS_NAME is distributed with GPLv3 license. You can find the license on [GPL-v3](https://gitlab.aiursoft.com/anduin/anduinos/-/blob/$TARGET_BUILD_BRANCH/LICENSE).
+$TARGET_BUSINESS_NAME is distributed with GPLv3 license. You can find the license on [GPL-v3](https://github.com/aiursoftweb/anduinos-2/blob/master/LICENSE).
 
 ## Please verify the checksum!!!
 

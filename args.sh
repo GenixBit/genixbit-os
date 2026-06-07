@@ -42,49 +42,17 @@ export LC_MONETARY=en_US.UTF-8
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US:en
 
-# Language pack codes for pre-installed languages.
-# Standard Ubuntu only ships 8 core languages to keep the ISO small.
-# Ubiquity will download missing language packs on-the-fly during install
-# if connected to the internet, so offline coverage for rare languages is unnecessary.
+# Language pack codes tightly matched with AnduinOS Official Website localizations.
+# This ensures 100% offline coverage for all 22 regions / 19 languages listed on the download portal.
+# Ubiquity will still dynamically fetch unlisted rare languages if chosen during online installation.
 #
-# en:      English
-# de:      German
-# es:      Spanish
-# fr:      French
-# it:      Italian
-# pt:      Portuguese
-# ru:      Russian
-# zh-hans: Simplified Chinese
-# ja:      Japanese
-# zh-hant: Traditional Chinese (Taiwan / Hong Kong)
-#
-# Full list of all language codes Ubuntu ships (commented out for reference):
-# export LANG_PACK_CODES="\
-# af am an ar as ast az \
-# be bg bn br bs \
-# ca ckb crh cs cy \
-# da de dz \
-# el en eo es et eu \
-# fa fi fr fur \
-# ga gd gl gu \
-# he hi hr hu \
-# ia id is it \
-# ja \
-# ka kab kk km kn ko ku \
-# lt lv \
-# mk ml mr ms my \
-# nb nds ne nl nn \
-# oc or \
-# pa pl pt \
-# ro ru \
-# si sk sl sq sr sv szl \
-# ta te tg th tr \
-# ug uk \
-# vi \
-# xh \
-# zh-hans zh-hant"
-export LANG_PACK_CODES="en de es fr it pt ru zh-hans ja zh-hant"
-
+# en: English     de: German      es: Spanish     fr: French      it: Italian
+# pt: Portuguese  ru: Russian     ja: Japanese    ko: Korean      vi: Vietnamese
+# th: Thai        ar: Arabic      nl: Dutch       sv: Swedish     pl: Polish
+# tr: Turkish     ro: Romanian    zh-hans: S-Ch   zh-hant: T-Ch
+# Language pack codes tightly matched with AnduinOS Official Website localizations.
+# This ensures 100% offline coverage for all languages listed on the download portal.
+export LANG_PACK_CODES="en de es fr it pt ru zh-hans ja zh-hant ko vi th ar nl sv pl tr ro"
 _LP=""
 for _c in $LANG_PACK_CODES; do
     _LP="$_LP language-pack-$_c language-pack-$_c-base language-pack-gnome-$_c language-pack-gnome-$_c-base"
@@ -124,10 +92,6 @@ export TARGET_BUSINESS_NAME="AnduinOS"
 
 # Version number. Must be in the format of x.y.z
 export TARGET_BUILD_VERSION="2.0.0"
-
-# Fork version. Must be in the format of x.y
-# By default, it is the branch name of the git repository.
-export TARGET_BUILD_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 #===========================
 # Installer customization
