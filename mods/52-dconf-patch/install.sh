@@ -14,9 +14,6 @@
 # final system database.
 set -euo pipefail
 
-source /root/mods/shared.sh
-source /root/mods/args.sh
-
 print_ok "Generating dynamic build-time dconf configuration"
 
 if [ -z "$CONFIG_WEATHER_LOCATION" ]; then
