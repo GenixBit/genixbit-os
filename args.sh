@@ -42,34 +42,48 @@ export LC_MONETARY=en_US.UTF-8
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US:en
 
-# Language pack codes for every language Ubuntu ships.
-# Pre-installed so Ubiquity can switch any language fully offline.
-# Each code expands to language-pack-{code}* and language-pack-gnome-{code}*
-# (the glob catches -base and any sub-variants automatically).
-export LANG_PACK_CODES="\
-af am an ar as ast az \
-be bg bn br bs \
-ca ckb crh cs cy \
-da de dz \
-el en eo es et eu \
-fa fi fr fur \
-ga gd gl gu \
-he hi hr hu \
-ia id is it \
-ja \
-ka kab kk km kn ko ku \
-lt lv \
-mk ml mr ms my \
-nb nds ne nl nn \
-oc or \
-pa pl pt \
-ro ru \
-si sk sl sq sr sv szl \
-ta te tg th tr \
-ug uk \
-vi \
-xh \
-zh-hans zh-hant"
+# Language pack codes for pre-installed languages.
+# Standard Ubuntu only ships 8 core languages to keep the ISO small.
+# Ubiquity will download missing language packs on-the-fly during install
+# if connected to the internet, so offline coverage for rare languages is unnecessary.
+#
+# en:      English
+# de:      German
+# es:      Spanish
+# fr:      French
+# it:      Italian
+# pt:      Portuguese
+# ru:      Russian
+# zh-hans: Simplified Chinese
+# ja:      Japanese
+# zh-hant: Traditional Chinese (Taiwan / Hong Kong)
+#
+# Full list of all language codes Ubuntu ships (commented out for reference):
+# export LANG_PACK_CODES="\
+# af am an ar as ast az \
+# be bg bn br bs \
+# ca ckb crh cs cy \
+# da de dz \
+# el en eo es et eu \
+# fa fi fr fur \
+# ga gd gl gu \
+# he hi hr hu \
+# ia id is it \
+# ja \
+# ka kab kk km kn ko ku \
+# lt lv \
+# mk ml mr ms my \
+# nb nds ne nl nn \
+# oc or \
+# pa pl pt \
+# ro ru \
+# si sk sl sq sr sv szl \
+# ta te tg th tr \
+# ug uk \
+# vi \
+# xh \
+# zh-hans zh-hant"
+export LANG_PACK_CODES="en de es fr it pt ru zh-hans ja zh-hant"
 
 _LP=""
 for _c in $LANG_PACK_CODES; do
