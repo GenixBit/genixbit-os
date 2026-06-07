@@ -26,17 +26,23 @@ fi
 
 # Write dynamic dconf fragment (slot 04 — after system extensions, before per-extension)
 mkdir -p /etc/dconf/db/anduinos.d/
+
+# Only write input-sources when explicitly configured (not default US keyboard).
+# GNOME Shell reads /etc/default/keyboard when no sources are set in dconf,
+# which respects the user's keyboard choice from Ubiquity.
+INPUT_SECTION=""
+if [ "$CONFIG_INPUT_METHOD" != "[('xkb', 'us')]" ]; then
+    INPUT_SECTION="[org/gnome/desktop/input-sources]
+sources=$CONFIG_INPUT_METHOD
+
+"
+fi
+
 cat > /etc/dconf/db/anduinos.d/04-dynamic-configs.conf << EOF
 # AnduinOS Dynamic Configuration
 # Auto-generated during ISO build
 
-# ============================================================================
-# Input Method Configuration
-# ============================================================================
-[org/gnome/desktop/input-sources]
-sources=$CONFIG_INPUT_METHOD
-
-# ============================================================================
+${INPUT_SECTION}# ============================================================================
 # Weather Extension Location
 # ============================================================================
 [org/gnome/shell/extensions/simple-weather]
