@@ -43,6 +43,7 @@ packages=(
     apport
     popularity-contest
     ubuntu-report
+    whoopsie
 
     # ── Ubuntu GNOME extensions (AnduinOS ships own versions) ─
     gnome-shell-ubuntu-extensions
