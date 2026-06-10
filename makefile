@@ -31,6 +31,7 @@ bootstrap:
 	  echo "Error: Unsupported OS — only Ubuntu, Debian, Tuxedo or AnduinOS allowed"; \
 	  exit 1; \
 	fi
+	@sudo -v
 
 	@missing="" ; \
 	for pkg in $(DEPS); do \
