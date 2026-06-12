@@ -32,6 +32,13 @@ bootstrap:
 	  echo "Error: Unsupported OS — only Ubuntu, Debian, Tuxedo or AnduinOS allowed"; \
 	  exit 1; \
 	fi
+	@host=$$(lsb_release -cs); \
+	target=$$(grep -oP 'export TARGET_UBUNTU_VERSION="\K[^"]+' args.sh); \
+	if [ "$$host" != "$$target" ]; then \
+	  echo "Error: Host codename '$$host' != target '$$target'"; \
+	  echo "Build machine must run the same Ubuntu release as the target ISO."; \
+	  exit 1; \
+	fi
 	@sudo -v
 
 	@missing="" ; \

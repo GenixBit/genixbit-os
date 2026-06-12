@@ -26,5 +26,5 @@ if [ ! -s /etc/locale.gen ]; then
     exit 1
 fi
 
-dpkg-reconfigure locales
+locale-gen
 judge "Generate locales from SUPPORTED_LOCALES"
