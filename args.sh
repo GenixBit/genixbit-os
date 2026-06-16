@@ -64,9 +64,9 @@ unset _LP _c
 export SUPPORTED_LOCALES="
 en_US|English (United States)
 en_GB|English (United Kingdom)
-zh_CN|Chinese (China Mainland)
-zh_TW|Chinese (Taiwan)
-zh_HK|Chinese (Hong Kong)
+zh_CN|Simplified Chinese (China Mainland)
+zh_TW|Traditional Chinese (Taiwan)
+zh_HK|Traditional Chinese (Hong Kong)
 ja_JP|Japanese
 ko_KR|Korean
 vi_VN|Vietnamese
