@@ -61,11 +61,31 @@ function mount_folders() {
 
 function setup_apt() {
     print_ok "Setting up Ubuntu apt sources in chroot..."
-    sudo tee new_building_os/etc/apt/sources.list > /dev/null <<EOF
-deb $APT_SOURCE $TARGET_UBUNTU_VERSION main restricted universe multiverse
-deb $APT_SOURCE $TARGET_UBUNTU_VERSION-updates main restricted universe multiverse
-deb $APT_SOURCE $TARGET_UBUNTU_VERSION-backports main restricted universe multiverse
-deb $APT_SOURCE $TARGET_UBUNTU_VERSION-security main restricted universe multiverse
+    sudo mkdir -p new_building_os/etc/apt/sources.list.d
+    sudo tee new_building_os/etc/apt/sources.list.d/ubuntu.sources > /dev/null <<EOF
+Types: deb
+URIs: $APT_SOURCE
+Suites: $TARGET_UBUNTU_VERSION
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: $APT_SOURCE
+Suites: $TARGET_UBUNTU_VERSION-updates
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: $APT_SOURCE
+Suites: $TARGET_UBUNTU_VERSION-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: $APT_SOURCE
+Suites: $TARGET_UBUNTU_VERSION-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 EOF
     judge "Set up Ubuntu apt sources"
 
