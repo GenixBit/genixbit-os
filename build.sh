@@ -142,10 +142,6 @@ function run_chroot() {
     print_warn "============================================"
     judge "Run install_all_mods.sh in new_building_os"
 
-    print_ok "Finalizing dconf database..."
-    sudo chroot new_building_os dconf update
-    judge "Final dconf update"
-
     print_ok "Sleeping for 5 seconds to allow chroot to exit cleanly..."
     sleep 5
 }
