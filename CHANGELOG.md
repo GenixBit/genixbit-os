@@ -19,6 +19,8 @@ and this project follows Semantic Versioning for release identifiers.
 - Original GenixBit static previews under `website/os`, `website/docs` and `website/packages`.
 - Containerized Caddy preview deployment under `deploy/`.
 - `docs/DEPLOYMENT-STATUS.md` recording non-sensitive public preview deployment and follow-up hardening requirements.
+- `tools/vm/setup-host.sh` host readiness check script for x86_64 KVM test environments.
+- `tools/vm/run-qemu.sh` QEMU VM validation test harness for Legacy BIOS and UEFI boot modes.
 
 ### Changed
 
