@@ -39,8 +39,12 @@ function download_base_system() {
 
 function mount_folders() {
     print_ok "Reloading systemd daemon..."
-    sudo systemctl daemon-reload
-    judge "Reload systemd daemon"
+    if command -v systemctl > /dev/null 2>&1 && systemctl is-system-running > /dev/null 2>&1; then
+        sudo systemctl daemon-reload
+        judge "Reload systemd daemon"
+    else
+        print_ok "Skipping systemctl daemon-reload (systemd not running; container build)"
+    fi
 
     print_ok "Mounting /dev /run from host to build dir..."
     sudo mount --bind /dev new_building_os/dev
