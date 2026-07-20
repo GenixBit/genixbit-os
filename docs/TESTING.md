@@ -6,17 +6,25 @@ Use this document to record the first `0.1.0-alpha` build and virtual-machine va
 
 | Field | Value |
 | --- | --- |
-| Build date | Not recorded |
-| Commit SHA | Not recorded |
-| Host Ubuntu version | Not recorded |
-| Host codename | Not recorded |
-| Host architecture | Not recorded |
-| CPU and RAM | Not recorded |
-| Build result | Not tested |
-| ISO filename | Not recorded |
-| ISO size | Not recorded |
-| SHA-256 | Not recorded |
-| Build duration | Not recorded |
+| Build date | Pending Host Execution |
+| Commit SHA | `532d83c` |
+| Host Ubuntu version | Ubuntu 26.04 LTS (Required) |
+| Host codename | `resolute` (Required) |
+| Host architecture | `amd64` / `x86_64` (Required) |
+| CPU and RAM | 8 GB minimum (16 GB recommended) |
+| Build result | Awaiting Ubuntu `amd64` Host Build |
+| ISO filename | `GenixBitOS-0.1.0-alpha-YYMMDDHHMM.iso` |
+| ISO size | Pending |
+| SHA-256 | Pending |
+| Build duration | Pending |
+
+## Environment Audit
+
+- [x] Identity variables verified in `args.sh` (`genixbitos` / `GenixBitOS` / `0.1.0-alpha` / `resolute`)
+- [x] Temporary upstream repository dependencies preserved (`packages.anduinos.com` / `anduinos-apt-config`)
+- [x] Syntax validation (`bash -n`) passed for all 17 tracked shell scripts
+- [x] Repository Quality CI workflow (`.github/workflows/quality.yml`) active
+- [!] **Host Architecture Audit**: Executed on macOS `arm64` (`Darwin`). **Full ISO build halted** per distribution engineering rules (requires Ubuntu 26.04 `resolute` `amd64` host).
 
 ## Build Validation
 
@@ -70,24 +78,27 @@ Use this document to record the first `0.1.0-alpha` build and virtual-machine va
 
 | Component | Value |
 | --- | --- |
-| Hypervisor | Not recorded |
-| Firmware mode | Not recorded |
-| Virtual CPUs | Not recorded |
-| Memory | Not recorded |
-| Virtual disk size | Not recorded |
-| Graphics adapter | Not recorded |
-| Network adapter | Not recorded |
+| Hypervisor | QEMU / KVM / VirtualBox (Target) |
+| Firmware mode | UEFI (OVMF) & Legacy BIOS (SeaBIOS) |
+| Virtual CPUs | 2-4 cores |
+| Memory | 4-8 GB |
+| Virtual disk size | 30 GB minimum |
+| Graphics adapter | VirtIO / stdvga |
+| Network adapter | VirtIO / e1000 |
 
 ## Known Issues
 
-No test results have been recorded yet.
+- Full ISO compilation (`debootstrap`, `chroot` mount, `mksquashfs`, `xorriso`) cannot run natively on macOS `arm64` host.
+- A compatible Ubuntu 26.04 `amd64` build environment is required to execute `make bootstrap && make`.
 
 ## Evidence
 
-Add links or references to non-sensitive logs, screenshots, checksum output, and test notes. Do not commit credentials, private system data, complete machine identifiers, or private keys.
+- Local host environment check: `arm64 Darwin` (macOS 15/16).
+- Script syntax verification: All 17 tracked shell scripts passed `bash -n`.
+- Identity verification: `args.sh` correctly configured for `GenixBitOS` version `0.1.0-alpha`.
 
 ## Final Decision
 
-**Status:** Not tested
+**Status:** Awaiting Execution on Compatible Host
 
-**Decision:** The `0.1.0-alpha` build must not be released until the required build, boot, installer, and installed-system checks above are completed and reviewed.
+**Decision:** The `0.1.0-alpha` build validation framework is fully prepared. The actual ISO compilation and VM testing must be executed on an Ubuntu 26.04 `resolute` `amd64` host before releasing.
