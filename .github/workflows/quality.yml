@@ -1,0 +1,112 @@
+name: Repository Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Shell and repository validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+
+      - name: Validate Bash syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' scripts < <(git ls-files -z '*.sh')
+          if ((${#scripts[@]} == 0)); then
+            echo 'No shell scripts found.'
+            exit 0
+          fi
+          for script in "${scripts[@]}"; do
+            echo "Checking syntax: $script"
+            bash -n "$script"
+          done
+
+      - name: Run ShellCheck for errors
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' scripts < <(git ls-files -z '*.sh')
+          if ((${#scripts[@]} == 0)); then
+            echo 'No shell scripts found.'
+            exit 0
+          fi
+          shellcheck --severity=error "${scripts[@]}"
+
+      - name: Reject generated artifacts and private material
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden="$({
+            git ls-files | grep -E '(^|/)(new_building_os|image|dist)(/|$)' || true
+            git ls-files | grep -E '\.(iso|img|p12|pfx|pem|key)$' || true
+            git ls-files | grep -E '(^|/)\.env($|\.)' || true
+          } | sort -u)"
+          if [[ -n "$forbidden" ]]; then
+            echo 'Forbidden generated artifacts or private material are tracked:'
+            echo "$forbidden"
+            exit 1
+          fi
+
+      - name: Reject local filesystem links
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE 'file:///Users/|/Users/manojnandanwar/' . \
+            --exclude-dir=.git \
+            --include='*.md' \
+            --include='*.yml' \
+            --include='*.yaml'; then
+            echo 'Local filesystem references must not be committed.'
+            exit 1
+          fi
+
+      - name: Verify required legal and attribution files
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in LICENSE OSS.md UPSTREAM.md; do
+            test -s "$file" || {
+              echo "Required file is missing or empty: $file"
+              exit 1
+            }
+          done
+
+      - name: Verify GenixBit OS identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fx 'export TARGET_NAME="genixbitos"' args.sh
+          grep -Fx 'export TARGET_BUSINESS_NAME="GenixBitOS"' args.sh
+          grep -Fx 'export TARGET_BUILD_VERSION="0.1.0-alpha"' args.sh
+
+      - name: Scan for obvious credential patterns
+        shell: bash
+        run: |
+          set -euo pipefail
+          patterns='AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY'
+          if git grep -nE "$patterns" -- . ':(exclude).github/workflows/quality.yml'; then
+            echo 'A possible credential or private key was found.'
+            exit 1
+          fi
+
+      - name: Confirm no full ISO build is attempted in CI
+        run: echo 'Quality checks completed. Full ISO builds require a compatible Ubuntu 26.04 amd64 environment.'
