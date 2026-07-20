@@ -11,28 +11,24 @@ and this project follows Semantic Versioning for release identifiers.
 
 - `GOVERNANCE.md` defining the GenixBit-controlled official maintainer and release model.
 - `.github/CODEOWNERS` assigning official repository ownership to `@GenixBit`.
-- `docs/AI-FIRST-PLATFORM.md` defining the AI-first platform, user profiles, runtime layers, GenixBit Agents integration and trust principles.
-- `docs/AI-MODEL-CATALOG.md` defining hardware-aware and license-aware model catalog requirements.
-- `docs/BRANDING-MIGRATION.md` defining safe migration from temporary upstream packages to complete GenixBit user-facing identity.
-- `docs/APP-STORE.md` defining the future GenixBit Store architecture and trust levels.
-- `docs/PLATFORM-SERVICES.md` defining the website, documentation, package, download, catalog, DNS and server topology.
-- Original GenixBit static previews under `website/os`, `website/docs` and `website/packages`.
-- Containerized Caddy preview deployment under `deploy/`.
-- `docs/DEPLOYMENT-STATUS.md` recording non-sensitive public preview deployment and follow-up hardening requirements.
-- `tools/vm/setup-host.sh` host readiness check script for x86_64 KVM test environments.
-- `tools/vm/run-qemu.sh` QEMU VM validation test harness for Legacy BIOS and UEFI boot modes.
-- Recorded `0bce5b14115fa01b4dffa02a726d22c51c732a42` as the validation starting commit in `docs/TESTING.md` and `docs/VM-VALIDATION.md`.
+- AI-first platform, model catalog, branding migration, Store and platform-service architecture documentation.
+- Original GenixBit product, documentation and package-status previews.
+- Containerized Caddy preview deployment and non-sensitive deployment-status documentation.
+- QEMU launcher, validation-host helper and candidate build/preflight tooling under `tools/vm/`.
+- `docs/VALIDATION-CANDIDATE.md` defining an immutable release-validation branch and SHA process.
+- `genixbit-os-base-files` source scaffolding, identity templates and package documentation.
 
 ### Changed
 
 - Repositioned the README around developers, AI learners, server managers, creators, local AI, GenixBit Agents, Bharat AI and the future GenixBit Store.
 - Expanded the roadmap through branding, package signing, user profiles, AI runtimes, AI Center, Agents, Store, websites, security and stable release.
 - Changed the contribution policy to an early-alpha closed maintainer model while preserving external GPL rights, bug reports, security reports, feature suggestions and compatibility feedback.
-- Corrected baseline validation terminology so successful ISO compilation and checksum verification are not confused with live-desktop, installer, installed-system or reproducibility testing.
-- Clarified that the first ISO is historical build evidence and cannot validate the current source after later EFI and container-build changes.
-- Required a fresh ISO from the exact current `main` commit before BIOS, UEFI, installer, installed-system or reproducibility approval.
-- Restored standard interactive `sudo` support in `make bootstrap`; automated hosts may still use approved passwordless sudo.
-- Updated website and documentation service status to reflect the recorded public previews while keeping the package domain status-only and non-APT.
+- Corrected baseline terminology so historical ISO compilation is not confused with current release validation.
+- Replaced the moving “current main” target with a frozen candidate branch and exact-SHA requirement.
+- Hardened `verify-runtime.sh` to reject dirty or mismatched checkouts, verify generated checksums, record BIOS/UEFI metadata and confirm `EFI/BOOT/BOOTX64.EFI`.
+- Corrected `setup-host.sh` counters so `set -e` does not terminate the script on the first pass, warning or failure count.
+- Required Ubuntu 26.04 `resolute`, x86_64, approved sudo, explicit KVM handling and complete validation commands for the candidate host.
+- Updated website and documentation service status while keeping the package domain status-only and non-APT.
 - Removed public cloud resource identifiers and administrator-specific SSH details from deployment documentation.
 - Clarified that model downloads remain optional and that open weights, open source and free access are different licensing concepts.
 
@@ -48,24 +44,22 @@ and this project follows Semantic Versioning for release identifiers.
 
 - First ISO compilation completed on an Ubuntu 26.04 `resolute` `amd64` build host.
 - ISO image `GenixBitOS-0.1.0-alpha-2607201328.iso` generated with a recorded size of 2,525,634,560 bytes.
-- SHA-256 checksum artifact `GenixBitOS-0.1.0-alpha-2607201328.sha256` independently matched digest `067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b`.
-- Hybrid BIOS/UEFI boot structures and QEMU bootloader paths recorded.
+- SHA-256 checksum artifact independently matched digest `067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b`.
+- Historical hybrid BIOS/UEFI boot structures recorded.
 - Baseline build evidence documented in `docs/TESTING.md`.
-- Created `UPSTREAM.md` establishing attribution to AnduinOS 2 and Ubuntu.
-- Created `SECURITY.md` defining security reporting policy for the early-alpha phase.
-- Created initial governance, contribution, roadmap, build, branding, package, architecture, upstream-sync and testing documentation.
-- Created GitHub issue and pull-request templates.
-- Added repository-quality checks for shell syntax, generated artifacts, private material, local paths, identity values, required legal files and obvious credential patterns.
+- Initial governance, security, contribution, roadmap, build, branding, package, architecture, upstream-sync and testing documentation.
+- GitHub issue and pull-request templates.
+- Repository-quality checks for shell syntax, generated artifacts, private material, local paths, identity values, required legal files and obvious credential patterns.
 
 ### Validation Limits
 
-- The first ISO was built from commit `2ed584c` and predates later build-pipeline changes.
-- Reaching the live desktop in UEFI and Legacy BIOS is not yet directly evidenced in the public testing record.
-- Interactive installer completion is not yet recorded.
-- Booting and validating an installed system is not yet recorded.
-- Installed-system `apt update`, hardware-function and critical-log review are not yet recorded.
-- A second same-commit clean build and reproducibility comparison are not yet recorded.
-- The alpha ISO is not yet approved for public release or production use.
+- The first ISO was built from historical commit `2ed584c` and predates later build-pipeline and identity-package changes.
+- No frozen release-validation candidate ISO is yet recorded.
+- Reaching the live desktop in UEFI and Legacy BIOS is not directly evidenced.
+- Interactive installer completion and installed-system boot are not recorded.
+- Installed-system `apt update`, package-health and critical-log review are not recorded.
+- A second same-candidate clean build and reproducibility comparison are not recorded.
+- The alpha ISO is not approved for public release or production use.
 
 ### Changed
 
