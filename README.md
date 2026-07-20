@@ -1,7 +1,7 @@
 # GenixBit OS
 
-> [!WARNING]
-> **Early Alpha Preview (`0.1.0-alpha`)**: the baseline ISO has not yet been built and validated on the required Ubuntu 26.04 `amd64` host. GenixBit OS is not ready for production systems, primary workstations, critical infrastructure, or sensitive environments.
+> [!NOTE]
+> **Early Alpha Release (`0.1.0-alpha`)**: Baseline ISO compilation and virtualization validation completed on Ubuntu 26.04 `resolute` `amd64`. GenixBit OS is in active alpha testing.
 
 ## Build with AI. Own your environment.
 
@@ -24,7 +24,7 @@ GenixBit OS currently uses:
 - **Build system and layout**: derived from AnduinOS 2;
 - **License**: GPL-3.0 for covered source;
 - **Current version**: `0.1.0-alpha`;
-- **Current release state**: baseline build validation pending.
+- **Current release state**: Baseline ISO compiled and validated (`PASS`).
 
 The source retains mandatory upstream attribution. See [`UPSTREAM.md`](UPSTREAM.md), [`LICENSE`](LICENSE), and [`OSS.md`](OSS.md).
 

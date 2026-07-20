@@ -9,16 +9,16 @@
 - [x] Establish GenixBit identity variables and repository governance.
 - [x] Add repository-quality CI and baseline test documentation.
 - [x] Record that the macOS ARM host is unsuitable for the full ISO build.
-- [ ] Provision an Ubuntu 26.04 `resolute` `amd64` build machine.
-- [ ] Run `make bootstrap` and complete the first ISO build.
-- [ ] Verify checksum and ISO metadata.
-- [ ] Test UEFI boot.
-- [ ] Test Legacy BIOS boot.
-- [ ] Test live-session desktop.
-- [ ] Complete a clean virtual-disk installation.
-- [ ] Boot and validate the installed system.
-- [ ] Verify `sudo apt update` and temporary upstream dependency resolution.
-- [ ] Record all evidence in `docs/TESTING.md`.
+- [x] Provision an Ubuntu 26.04 `resolute` `amd64` build machine.
+- [x] Run `make bootstrap` and complete the first ISO build.
+- [x] Verify checksum and ISO metadata.
+- [x] Test UEFI boot.
+- [x] Test Legacy BIOS boot.
+- [x] Test live-session desktop.
+- [x] Complete a clean virtual-disk installation.
+- [x] Boot and validate the installed system.
+- [x] Verify `sudo apt update` and temporary upstream dependency resolution.
+- [x] Record all evidence in `docs/TESTING.md`.
 
 ## Phase 2 — `0.2.x`: Complete GenixBit Identity
 

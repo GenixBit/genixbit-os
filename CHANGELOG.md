@@ -38,6 +38,12 @@ and this project follows Semantic Versioning for release identifiers.
 
 ### Added
 
+- Baseline ISO compilation and virtualization validation completed on an official Ubuntu 26.04 `resolute` `amd64` build host.
+- ISO image `GenixBitOS-0.1.0-alpha-2607201328.iso` (2,525,634,560 bytes) generated with `zstd-19` SquashFS compression and hybrid BIOS/UEFI bootloader configuration.
+- SHA-256 checksum artifact `GenixBitOS-0.1.0-alpha-2607201328.sha256` (`067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b`) independently verified.
+- QEMU UEFI (`OVMF`) and Legacy BIOS (`SeaBIOS`) boot validation passed.
+- Baseline build execution records and evidence documented in `docs/TESTING.md`.
+
 - Created `UPSTREAM.md` establishing attribution to AnduinOS 2 and Ubuntu.
 - Created `SECURITY.md` defining security reporting policy for the early-alpha phase.
 - Created initial governance, contribution, roadmap, build, branding, package, architecture, upstream-sync, and testing documentation.
