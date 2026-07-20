@@ -74,13 +74,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE \
-            --exclude-dir='.git' \
-            --exclude='quality.yml' \
-            --include='*.md' \
-            --include='*.yml' \
-            --include='*.yaml' \
-            'file:///Users/|/Users/manojnandanwar/' .; then
+          if git grep -nE \
+            'file:///Users/|/Users/manojnandanwar/' \
+            -- \
+            '*.md' '*.yml' '*.yaml' \
+            ':(exclude).github/workflows/quality.yml'; then
             echo 'Local filesystem references must not be committed.'
             exit 1
           fi
