@@ -39,8 +39,12 @@ function download_base_system() {
 
 function mount_folders() {
     print_ok "Reloading systemd daemon..."
-    sudo systemctl daemon-reload
-    judge "Reload systemd daemon"
+    if command -v systemctl > /dev/null 2>&1 && systemctl is-system-running > /dev/null 2>&1; then
+        sudo systemctl daemon-reload
+        judge "Reload systemd daemon"
+    else
+        print_ok "Skipping systemctl daemon-reload (systemd not running; container build)"
+    fi
 
     print_ok "Mounting /dev /run from host to build dir..."
     sudo mount --bind /dev new_building_os/dev
@@ -397,17 +401,24 @@ EOF
         cd isolinux && \
         dd if=/dev/zero of=efiboot.img bs=1M count=10 && \
         sudo mkfs.vfat efiboot.img && \
-        mkdir efi && \
-        sudo mount efiboot.img efi
 
-        if ! sudo grub-install --target=x86_64-efi --efi-directory=efi --boot-directory=boot --uefi-secure-boot --removable --no-nvram; then
-            sudo umount efi
-            print_error "grub-install failed!"
-            exit 1
-        fi
+        # Build self-contained EFI binary with grub-mkstandalone.
+        # grub-install cannot determine the canonical path of the overlay
+        # filesystem used by Docker, so we bypass it entirely and use
+        # grub-mkstandalone to produce a relocatable BOOTX64.EFI directly.
+        mkdir -p efi_staging/EFI/BOOT && \
+        sudo grub-mkstandalone \
+            --format=x86_64-efi \
+            --output=efi_staging/EFI/BOOT/BOOTX64.EFI \
+            --locales="" \
+            --fonts="" \
+            "boot/grub/grub.cfg=grub.cfg" && \
 
-        sudo umount efi && \
-        rm -rf efi
+        # Inject EFI binary into the FAT image using mtools (no loop mount).
+        sudo mmd  -i efiboot.img ::/EFI && \
+        sudo mmd  -i efiboot.img ::/EFI/BOOT && \
+        sudo mcopy -i efiboot.img efi_staging/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT/ && \
+        rm -rf efi_staging
     )
     judge "Create EFI boot image"
 

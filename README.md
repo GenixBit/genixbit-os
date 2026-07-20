@@ -72,9 +72,9 @@ Read:
 
 | Feature Area | Status | Notes |
 | --- | --- | --- |
-| Repository and build preparation | **Complete** | governance, licensing, CI, documentation and validation framework are present |
+| Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM test harness framework are present |
 | Baseline ISO compilation | **PASS** | first ISO generated on Ubuntu 26.04 amd64; filename, size and checksum recorded |
-| BIOS/UEFI boot-path validation | **Partial** | hybrid boot structures were recorded; complete live-desktop boot evidence is pending |
+| BIOS/UEFI boot-path validation | **Partial** | hybrid boot structures recorded; QEMU harness dry-run verified; complete live-desktop boot evidence pending |
 | Live session and installer | **Not tested** | direct interactive evidence is not recorded |
 | Installed system and APT validation | **Not tested** | post-install boot, login and `apt update` evidence is pending |
 | Reproducibility | **Not tested** | a second clean build and comparison have not been recorded |

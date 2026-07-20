@@ -38,6 +38,8 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 | SHA-256 independently matched | **PASS** | Digest recorded above |
 | Hybrid BIOS/UEFI structures included | **PASS** | OVMF/SeaBIOS and hybrid ISO structures recorded |
 | Repository changes contained no committed ISO or private key | **PASS** | Repository Quality workflow passed |
+| VM test host readiness check script | **PASS** | `tools/vm/setup-host.sh` implemented and verified |
+| VM QEMU harness dry-run (BIOS & UEFI) | **PASS** | `tools/vm/run-qemu.sh` dry-run preview executed and verified for BIOS and UEFI modes |
 | Complete ISO filesystem secret scan | **NOT TESTED** | No scan report is committed |
 | Second clean build performed | **NOT TESTED** | Only one completed build is recorded |
 | Reproducibility comparison performed | **NOT TESTED** | No second-build comparison exists |

@@ -17,6 +17,7 @@
 - [x] Record ISO filename and exact byte size.
 - [x] Create and independently verify the SHA-256 checksum.
 - [x] Record hybrid BIOS/UEFI boot structures.
+- [x] Add host setup readiness check (`tools/vm/setup-host.sh`) and verify QEMU harness dry-run (`tools/vm/run-qemu.sh`).
 
 ### Direct Runtime Validation Still Required
 
