@@ -94,6 +94,12 @@ find_ovmf_pair() {
         fi
     done
 
+    if [[ "$DRY_RUN" == true ]]; then
+        OVMF_CODE="/usr/share/OVMF/OVMF_CODE_4M.fd"
+        OVMF_VARS_TEMPLATE="/usr/share/OVMF/OVMF_VARS_4M.fd"
+        return 0
+    fi
+
     die 'No matching OVMF code and variables pair was found. Install the ovmf package or pass --ovmf-code and --ovmf-vars.'
 }
 
@@ -201,7 +207,9 @@ fi
 
 if [[ "$BOOT_INSTALLED" == false ]]; then
     [[ -n "$ISO_PATH" ]] || die '--iso is required unless --installed is used.'
-    [[ -f "$ISO_PATH" ]] || die "ISO file not found: $ISO_PATH"
+    if [[ "$DRY_RUN" == false ]]; then
+        [[ -f "$ISO_PATH" ]] || die "ISO file not found: $ISO_PATH"
+    fi
 else
     [[ -z "$ISO_PATH" ]] || die 'Do not pass --iso together with --installed.'
 fi
@@ -211,11 +219,15 @@ require_command qemu-system-x86_64
 if [[ "$BOOT_INSTALLED" == false && -n "$EXPECTED_SHA256" ]]; then
     require_command sha256sum
     [[ "$EXPECTED_SHA256" =~ ^[[:xdigit:]]{64}$ ]] || die '--sha256 must contain exactly 64 hexadecimal characters.'
-    actual_sha256=$(sha256sum "$ISO_PATH" | awk '{print $1}')
-    if [[ "${actual_sha256,,}" != "${EXPECTED_SHA256,,}" ]]; then
-        die "ISO checksum mismatch. Expected ${EXPECTED_SHA256}; received ${actual_sha256}."
+    if [[ "$DRY_RUN" == false ]]; then
+        actual_sha256=$(sha256sum "$ISO_PATH" | awk '{print $1}')
+        if [[ "${actual_sha256,,}" != "${EXPECTED_SHA256,,}" ]]; then
+            die "ISO checksum mismatch. Expected ${EXPECTED_SHA256}; received ${actual_sha256}."
+        fi
+        printf '[PASS] ISO SHA-256 matched: %s\n' "$actual_sha256"
+    else
+        printf '[INFO] ISO SHA-256 validation skipped in dry-run mode.\n'
     fi
-    printf '[PASS] ISO SHA-256 matched: %s\n' "$actual_sha256"
 fi
 
 mkdir_command=(mkdir -p "$STATE_DIR")
