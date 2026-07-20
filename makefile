@@ -1,4 +1,4 @@
-# Makefile —— AnduinOS build orchestrator
+# Makefile —— GenixBit OS build orchestrator
 SHELL         := /usr/bin/env bash
 .DEFAULT_GOAL := current
 
@@ -30,8 +30,8 @@ bootstrap:
 	  echo "Error: Do not run as root"; \
 	  exit 1; \
 	fi
-	@if ! lsb_release -i | grep -qE "(Ubuntu|Debian|Tuxedo|Anduin)"; then \
-	  echo "Error: Unsupported OS — only Ubuntu, Debian, Tuxedo or AnduinOS allowed"; \
+	@if ! lsb_release -i | grep -qE "(Ubuntu|Debian|Tuxedo|Anduin|GenixBit)"; then \
+	  echo "Error: Unsupported OS — only Ubuntu, Debian, Tuxedo, AnduinOS or GenixBit OS allowed"; \
 	  exit 1; \
 	fi
 	@host=$$(lsb_release -cs); \

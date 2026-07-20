@@ -1,5 +1,5 @@
 #!/bin/bash
-# menuconfig.sh — TUI for editing AnduinOS build configuration (args.sh)
+# menuconfig.sh — TUI for editing GenixBit OS build configuration (args.sh)
 set -euo pipefail
 
 DIALOG=${DIALOG:-whiptail}
@@ -132,7 +132,7 @@ edit_build() {
 # ---------------------------------------------------------------------------
 while true; do
     result=""
-    menubox "AnduinOS Build Configuration" "make menuconfig — edit args.sh" \
+    menubox "GenixBit OS Build Configuration" "make menuconfig — edit args.sh" \
         "os"        "OS Information" \
         "repos"     "Repositories" \
         "build"     "Build Options" \

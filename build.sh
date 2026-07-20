@@ -360,36 +360,35 @@ EOF
 
     DATE=`TZ="UTC" date +"%y%m%d%H%M"`
     cat << EOF > image/README.md
-# $TARGET_BUSINESS_NAME $TARGET_BUILD_VERSION
+# GenixBit OS $TARGET_BUILD_VERSION
 
-$TARGET_BUSINESS_NAME is a custom Ubuntu-based Linux distribution that offers a familiar and easy-to-use experience for anyone moving to Linux.
+GenixBit OS is an AI-first, developer-focused Ubuntu-based Linux distribution maintained by GenixBit Labs Private Limited. It is currently based on Ubuntu and AnduinOS 2.
 
 This image is built with the following configurations:
 
 - **Version**: $TARGET_BUILD_VERSION
 - **Date**: $DATE
 
-$TARGET_BUSINESS_NAME is distributed with GPLv3 license. You can find the license on [GPL-v3](https://github.com/aiursoftweb/anduinos-2/blob/master/LICENSE).
+GenixBit OS is distributed under the GNU General Public License v3 (GPLv3). Source code, licensing details, and upstream attribution are available in the project repository: https://github.com/GenixBit/genixbit-os
 
-## Please verify the checksum!!!
+## Verification
 
-To verify the integrity of the image, you can calculate the md5sum of the image and compare it with the value in the file \`md5sum.txt\`.
-
-To do this, run the following command in the terminal:
+To verify the integrity of the image, calculate the MD5 checksum of the media files and compare against \`md5sum.txt\`:
 
 \`\`\`bash
 md5sum -c md5sum.txt | grep -v 'OK'
 \`\`\`
 
-No output indicates that the image is correct.
+If no error lines are printed, the installation media is intact.
 
-## How to use
+## Booting
 
-Press F12 to enter the boot menu when you start your computer. Select the USB drive to boot from.
+Insert the installation media and boot your system. Select the USB drive from your system's boot selection menu (F12 or option key depending on your hardware).
 
-## More information
+## Source & Documentation
 
-For detailed instructions, please visit [$TARGET_BUSINESS_NAME Document](https://docs.anduinos.com/Install/System-Requirements.html).
+For repository source code, development updates, and upstream attribution details, please visit:
+https://github.com/GenixBit/genixbit-os
 EOF
 
     pushd image

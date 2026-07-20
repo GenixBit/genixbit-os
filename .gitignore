@@ -1,4 +1,35 @@
-new_building_os
-image
-dist
+# GenixBit OS Build Directories
+new_building_os/
+image/
+dist/
+
+# Generated ISO & Image Artifacts
 *.iso
+*.img
+*.torrent
+*.sha256
+*.log
+
+# OS Generated Files
+.DS_Store
+.AppleDouble
+.LSOverride
+*~
+.Trash-*
+
+# Editor & IDE Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment & Private Secrets
+.env
+.env.*
+!.env.example
+
+# Private Keys & Certificates (DO NOT IGNORE *.gpg as public archive keyrings are needed)
+*.key
+*.pem
+*.p12
+*.pfx

@@ -116,20 +116,21 @@ export APT_SOURCE="http://archive.ubuntu.com/ubuntu/"
 
 # This is the name of the target OS.
 # Must be lowercase without special characters and spaces
-export TARGET_NAME="anduinos"
+export TARGET_NAME="genixbitos"
 
 # This is the full display name of the target OS.
 # Business name. No special characters or spaces
-export TARGET_BUSINESS_NAME="AnduinOS"
+export TARGET_BUSINESS_NAME="GenixBitOS"
 
 # Version number. Must be in the format of x.y.z
-export TARGET_BUILD_VERSION="2.0.0"
+export TARGET_BUILD_VERSION="0.1.0"
 
 #===========================
 # Installer customization
 #===========================
 
 # Packages will be uninstalled during the installation process
+# Note: anduinos-installer-config and anduinos-bwrap-hack are temporary upstream installer dependencies.
 export TARGET_PACKAGE_REMOVE="
     ubiquity \
     casper \
@@ -142,16 +143,19 @@ export TARGET_PACKAGE_REMOVE="
 "
 
 #============================
-# AnduinOS APKG server configuration
+# Upstream APKG server configuration (Temporary Upstream Dependencies)
 #============================
+# Note: The following package repository settings reference upstream AnduinOS infrastructure.
+# They will be replaced by GenixBit package server infrastructure (packages.os.genixbit.com)
+# once the GenixBit package build & signing repository is fully provisioned.
 
-# AnduinOS APT config package name (can also be anduinos-apt-config-dev).
+# AnduinOS APT config package name (can also be anduinos-apt-config-dev). [TEMPORARY UPSTREAM DEPENDENCY]
 export APT_CONFIG_PACKAGE="anduinos-apt-config"
 
-# APKG server URL for AnduinOS-branded overlay packages (dev: apkg-dev.aiursoft.com).
+# APKG server URL for AnduinOS-branded overlay packages. [TEMPORARY UPSTREAM DEPENDENCY]
 export APKG_SERVER="https://packages.anduinos.com"
 
-# GPG certificate name on the APKG server (used to download and verify the repo).
-# The cert is fetched from: $APKG_SERVER/artifacts/certs/$APKG_CERT_NAME
+# GPG certificate name on the APKG server. [TEMPORARY UPSTREAM DEPENDENCY]
 export APKG_CERT_NAME="anduinos"
+
 
