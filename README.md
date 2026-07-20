@@ -1,68 +1,171 @@
-# AnduinOS 2
+# GenixBit OS
 
-[![GPL licensed](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/AiursoftWeb/AnduinOS-2/blob/master/LICENSE)
-[![Discussions](https://img.shields.io/badge/discussions-join-blue)](https://github.com/Anduin2017/AnduinOS/discussions)
-[![Join the AnduinOS Community on Revolt](https://img.shields.io/badge/Revolt-Join-fd6671?style=flat-square)](https://rvlt.gg/dPwPs8e6)
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fwww.anduinos.com%2F)](https://www.anduinos.com/)
-[![Man hours](https://manhours.aiursoft.com/r/github.com/aiursoftweb/anduinos-2.svg)](https://manhours.aiursoft.com/r/github.com/aiursoftweb/anduinos-2.html)
+> [!WARNING]
+> **Early Alpha Preview**: GenixBit OS is currently under active early-stage development (`0.1.0-alpha`). It is **not yet suitable for production environments, primary workstations, or critical systems**.
 
-<img align="right" width="100" height="100" src="./logo.svg">
+---
 
-AnduinOS is a custom Ubuntu-based Linux distribution that offers a familiar and easy-to-use experience for anyone moving to Linux.
+## Overview
 
-If you are looking for the source code of AnduinOS 1, please check the [AnduinOS 1 repository](https://github.com/anduin2017/anduinos).
+GenixBit OS is an AI-first, developer-focused Ubuntu-based Linux distribution being developed by **GenixBit Labs Private Limited**. It is currently based on AnduinOS 2 and is being extended with GenixBit branding, developer tooling, AI capabilities, productivity features, security controls, and a future GenixBit package ecosystem.
 
-[Download AnduinOS](https://www.anduinos.com/)
+---
 
-![Screenshot](./screenshot.png)
+## Technical Foundation & Upstream Relationship
 
-AnduinOS is funded by user donations. We are grateful for your support.
+GenixBit OS is currently built upon:
+* **Base OS**: Ubuntu Linux (`resolute` / 26.04 base)
+* **Build System & Layout**: Derived from [AnduinOS 2](https://github.com/AiursoftWeb/AnduinOS-2)
 
-<a href="https://ko-fi.com/anduinxue/goal?g=0" target="_blank" title="Support AnduinOS on Ko-fi">
-  <img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi3.png?v=3" border="0" alt="Support AnduinOS at ko-fi.com" />
-</a>
+We acknowledge and thank the maintainers of Ubuntu and AnduinOS 2 for providing the foundational build infrastructure upon which GenixBit OS is being developed. For complete attribution details, see [`UPSTREAM.md`](UPSTREAM.md).
 
-## How to build
+---
 
-It is suggested to use AnduinOS to build AnduinOS.
+## Project Goals
 
-To build the OS, run the following command:
+* **Developer First**: Out-of-the-box pre-configured environments for modern software engineering, containerization, systems programming, and cloud-native workflows.
+* **AI Native Integration**: Optional local and cloud-assisted AI helper tooling designed for developer productivity, shell automation, and contextual assistance.
+* **Security & Hardening**: Strict default security boundaries, clean non-telemetry base, and verifiable package distribution.
+* **Modern Desktop Experience**: Polished, performant, and clutter-free desktop UI optimized for multi-monitor developer setups.
 
-```bash
-make
+---
+
+## Feature Status
+
+| Feature Area | Status | Notes |
+| :--- | :---: | :--- |
+| Reproducible ISO Build System | **Available Now** | Based on upstream `debootstrap` + `chroot` mod architecture |
+| Basic OS Identity & Branding | **Work in Progress** | Core identity variables established; custom artwork pending |
+| GenixBit Package Infrastructure | **Planned** | `packages.os.genixbit.com` repository and signing pipeline |
+| AI Assistant Integration | **Planned** | Context-aware developer assistant & CLI integration |
+| Custom System Installer & Updater | **Planned** | Dedicated installation framework & update manager |
+
+---
+
+## Development Roadmap
+
+* **0.1.0-alpha**: Reproducible upstream-based build system setup and repository hygiene *(Current Phase)*
+* **0.2.0**: GenixBit OS desktop visual identity, themes, fonts, wallpapers, and branding assets
+* **0.3.0**: GenixBit package repository (`packages.os.genixbit.com`), GPG signing keyring, and `genixbit-os-apt-config`
+* **0.4.0**: Developer toolchains, pre-configured environments, and optional AI assistance components
+* **0.5.0**: Update manager, enhanced privacy controls, and security hardening defaults
+* **1.0.0**: First stable release candidate
+
+See [`ROADMAP.md`](ROADMAP.md) for detailed milestone tracking.
+
+---
+
+## Build Requirements
+
+Building GenixBit OS requires an **Ubuntu Linux host environment**:
+
+* **Host OS**: Ubuntu Linux matching the target release codename (currently `resolute` / 26.04)
+* **Host Architecture**: `amd64` (x86_64)
+* **Privileges**: User account with `sudo` access (do not run `make` directly as root)
+* **Disk Space**: At least 30 GB free disk space
+* **RAM**: 8 GB minimum (16 GB recommended)
+* **Required Host Tools**: `binutils`, `curl`, `debootstrap`, `gnupg`, `squashfs-tools`, `xorriso`, `grub-pc-bin`, `grub-efi-amd64`, `grub2-common`, `mtools`, `dosfstools`
+
+> [!NOTE]
+> Building directly on macOS or Windows hosts is not supported natively. Use an Ubuntu virtual machine or container environment matching the target version.
+
+---
+
+## How to Build
+
+1. **Bootstrap dependencies and validate build host**:
+   ```bash
+   make bootstrap
+   ```
+
+2. **Configure build options (optional TUI)**:
+   ```bash
+   make menuconfig
+   ```
+
+3. **Start the build process**:
+   ```bash
+   make
+   ```
+
+Upon completion, the generated bootable ISO image and SHA-256 checksum will be located in the `dist/` directory:
+```text
+dist/GenixBitOS-0.1.0-YYMMDDHHMM.iso
+dist/GenixBitOS-0.1.0-YYMMDDHHMM.sha256
 ```
 
-To edit the build parameters, modify the `./args.sh` file.
+---
 
-That's it. The built file will be an ISO file in the `./dist` directory.
+## Repository Structure
 
-Simply mount the built ISO file to an virtual machine, and you can start testing it.
+```text
+├── args.sh                   # Central build configuration and identity variables
+├── build.sh                  # Core ISO build pipeline (debootstrap, chroot execution, squashfs, ISO)
+├── makefile                  # Build orchestrator and environment validator
+├── menuconfig.sh             # Terminal UI (whiptail) for interactive configuration
+├── clean_all.sh              # Cleanup utility for build state and temporary directories
+├── shared.sh                 # Color output helpers and logging functions
+├── mods/                     # Modular chroot installation scripts
+│   ├── 00-check-host-mod     # Host environment verification
+│   ├── 01-install-swap-pkgs  # APT keyring & core package bootstrap
+│   ├── 02-hostname-lang      # Hostname and language pack installation
+│   ├── 05-live-kernel-apps   # Desktop metapackages & kernel installation
+│   ├── 46-casper-patch       # Live environment configuration
+│   ├── 78-ensure-no-junk     # Telemetry & unwanted package removal
+│   └── 85-cleanup-mod        # System image cleanup and shrinkage
+├── docs/                     # Technical documentation
+│   ├── ARCHITECTURE.md       # Architectural overview
+│   ├── BUILDING.md           # Step-by-step build guide
+│   ├── BRANDING.md           # Visual identity guidelines
+│   ├── UPSTREAM-SYNC.md      # Synchronization workflow with upstream
+│   └── PACKAGE-ROADMAP.md    # Package repository migration plan
+├── CHANGELOG.md              # Project history and release notes
+├── CONTRIBUTING.md           # Guidelines for contributing
+├── LICENSE                   # GNU General Public License v3.0 text
+├── OSS.md                    # Third-party open-source software inventory
+├── ROADMAP.md                # Development roadmap
+├── SECURITY.md               # Vulnerability reporting policy
+└── UPSTREAM.md               # Upstream project attribution & credits
+```
 
-## Document
+---
 
-[Read the document](https://docs.anduinos.com/)
+## Governance & Documentation
 
-## License
+* **Architecture**: See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+* **Building Guide**: See [`docs/BUILDING.md`](docs/BUILDING.md)
+* **Package Migration Roadmap**: See [`docs/PACKAGE-ROADMAP.md`](docs/PACKAGE-ROADMAP.md)
+* **Upstream Synchronization**: See [`docs/UPSTREAM-SYNC.md`](docs/UPSTREAM-SYNC.md)
+* **Security Policy**: See [`SECURITY.md`](SECURITY.md)
+* **Contribution Guidelines**: See [`CONTRIBUTING.md`](CONTRIBUTING.md)
+* **Code of Conduct**: See [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
 
-This project is licensed under the GNU GENERAL PUBLIC LICENSE - see the [LICENSE](LICENSE) file for details
+---
 
-The open-source software included in AnduinOS is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY.
+## Upstream Attribution & Licensing
 
-[List of open-source software included in AnduinOS](OSS.md)
+GenixBit OS is open-source software released under the **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)**.
 
-## Support
+* **Original Upstream Project**: [AnduinOS 2](https://github.com/AiursoftWeb/AnduinOS-2) (GPL-3.0)
+* **Upstream Ownership**: Copyright © AnduinXue & Aiursoft Web Development Team.
+* **GenixBit Modifications**: Copyright © GenixBit Labs Private Limited.
 
-For community support and discussion, please join our [AnduinOS Discussions](https://github.com/Anduin2017/AnduinOS/discussions).
+Full attribution details and licensing terms are available in [`UPSTREAM.md`](UPSTREAM.md) and [`LICENSE`](LICENSE). Third-party package licensing information is documented in [`OSS.md`](OSS.md).
 
-For bug reports and feature requests, please use the [Issues](https://github.com/Anduin2017/AnduinOS/issues) page.
+---
 
-<!-- Planned future work:
+## Security & Disclaimer
 
-* ARM support.
-* WSL support.
-* Docker container support.
-* Layer based OS. Including: WSL\Server\Pro\Lite\Home\Workstation
-* LiberOS.
-* Customized installer instead of ubiquity.
-* Customized apt source with our own override.
-* Customized kernel with our own override. -->
+**Disclaimer**: GenixBit OS is currently under active early-stage development (`0.1.0-alpha`). It is provided "AS IS" without warranty of any kind. Do not install or run early alpha builds on production hardware, mission-critical systems, or environments containing sensitive data.
+
+For security concerns, please refer to [`SECURITY.md`](SECURITY.md).
+
+---
+
+## Official Links
+
+* **Company**: [GenixBit Labs Private Limited](https://www.genixbit.com)
+* **Operating System**: [https://os.genixbit.com](https://os.genixbit.com)
+* **Documentation**: [https://docs.os.genixbit.com](https://docs.os.genixbit.com)
+* **Package Repository**: [https://packages.os.genixbit.com](https://packages.os.genixbit.com)
+* **Source Code**: [https://github.com/GenixBit/genixbit-os](https://github.com/GenixBit/genixbit-os)
