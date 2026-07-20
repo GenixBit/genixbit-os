@@ -21,9 +21,11 @@ Do not use only the historical ISO to approve the current `main` branch.
 
 ## Current Validation Target
 
+* **Current Validation Commit Target:** `0bce5b14115fa01b4dffa02a726d22c51c732a42`
+
 Before starting BIOS, UEFI, installer, or installed-system testing:
 
-1. check out the exact current `main` commit;
+1. check out the exact current `main` commit (`0bce5b14115fa01b4dffa02a726d22c51c732a42`);
 2. record its full commit SHA;
 3. perform a clean ISO build from that commit;
 4. record the new ISO filename, size, and SHA-256;
