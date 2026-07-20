@@ -1,26 +1,46 @@
 # GenixBit OS Development Roadmap
 
 > [!NOTE]
-> All milestones are provisional. A feature is complete only after implementation, documentation, testing, security review, and GenixBit maintainer approval.
+> All milestones are provisional. A feature is complete only after implementation, documentation, direct testing, security review and GenixBit maintainer approval. File presence, package manifests or configuration inspection must not be treated as proof of successful interactive runtime behavior.
 
-## Phase 1 — `0.1.x`: Baseline Build and Release Validation
+## Phase 1 — `0.1.x`: Baseline Build and Release Validation *(Current Gate)*
+
+### Repository and Build Preparation
 
 - [x] Preserve upstream history and GPL-3.0 licensing.
 - [x] Establish GenixBit identity variables and repository governance.
 - [x] Add repository-quality CI and baseline test documentation.
-- [x] Record that the macOS ARM host is unsuitable for the full ISO build.
+- [x] Confirm macOS ARM is unsuitable for the full ISO build.
 - [x] Provision an Ubuntu 26.04 `resolute` `amd64` build machine.
-- [x] Run `make bootstrap` and complete the first ISO build.
-- [x] Verify checksum and ISO metadata.
-- [x] Test UEFI boot.
-- [x] Test Legacy BIOS boot.
-- [x] Test live-session desktop.
-- [x] Complete a clean virtual-disk installation.
-- [x] Boot and validate the installed system.
-- [x] Verify `sudo apt update` and temporary upstream dependency resolution.
-- [x] Record all evidence in `docs/TESTING.md`.
+- [x] Run `make bootstrap` successfully.
+- [x] Complete the first ISO compilation.
+- [x] Record ISO filename and exact byte size.
+- [x] Create and independently verify the SHA-256 checksum.
+- [x] Record hybrid BIOS/UEFI boot structures.
+
+### Direct Runtime Validation Still Required
+
+- [ ] Boot the ISO through UEFI and record evidence that the live desktop was reached.
+- [ ] Boot the ISO through Legacy BIOS and record evidence that the live desktop was reached.
+- [ ] Confirm the GRUB menu displays correctly.
+- [ ] Validate keyboard, locale, display, networking, DNS, audio, shutdown and restart in the live session.
+- [ ] Launch the installer interactively.
+- [ ] Complete installation to a clean virtual disk.
+- [ ] Confirm partitioning and target-disk bootloader installation.
+- [ ] Remove the ISO and boot the installed system from the virtual disk.
+- [ ] Confirm account creation, login and desktop startup.
+- [ ] Run `sudo apt update` inside the installed system.
+- [ ] Check installed package health and critical boot logs.
+- [ ] Confirm user-facing GenixBit identity and record remaining upstream branding.
+- [ ] Perform a second clean build.
+- [ ] Compare the second ISO with the first and document expected/non-deterministic differences.
+- [ ] Store non-sensitive evidence summaries in `docs/TESTING.md`.
+
+Phase 1 is not complete until the direct runtime tests above are recorded. The current ISO compilation result is valid, but it is not yet a release-ready validation.
 
 ## Phase 2 — `0.2.x`: Complete GenixBit Identity
+
+Phase 2 design and package scaffolding may begin after the Phase 1 evidence correction, but branded release claims require a validated live and installed system.
 
 - [ ] Approve official GenixBit OS logo and visual system.
 - [ ] Create `genixbit-os-base-files`.
@@ -101,16 +121,19 @@ See [`docs/APP-STORE.md`](docs/APP-STORE.md).
 
 - [x] Add original product, documentation and package-status preview pages.
 - [x] Add containerized Caddy preview configuration.
-- [ ] Provision the new GenixBit-controlled web server and public IP.
-- [ ] Point `os.genixbit.com` to the server.
-- [ ] Point `docs.os.genixbit.com` to the server.
-- [ ] Point `packages.os.genixbit.com` to the server only when package security is ready.
-- [ ] Configure TLS, firewall, monitoring, backups and restricted deployment access.
+- [x] Provision a GenixBit-controlled web server.
+- [x] Deploy the product website preview.
+- [x] Deploy the documentation preview.
+- [x] Deploy the package-service status page.
+- [ ] Attach and verify a stable public endpoint such as an Elastic IP or approved load balancer.
+- [ ] Confirm SSH is restricted to approved administrators or Systems Manager.
+- [ ] Configure multi-region uptime and TLS-expiry monitoring.
+- [ ] Configure backup, log retention and tested DNS rollback.
 - [ ] Publish versioned documentation.
-- [ ] Publish release status without fake download links.
 - [ ] Add service health and incident procedures.
+- [ ] Keep the package domain status-only until signed APT infrastructure is approved.
 
-See [`docs/PLATFORM-SERVICES.md`](docs/PLATFORM-SERVICES.md) and [`deploy/README.md`](deploy/README.md).
+See [`docs/PLATFORM-SERVICES.md`](docs/PLATFORM-SERVICES.md), [`docs/DEPLOYMENT-STATUS.md`](docs/DEPLOYMENT-STATUS.md) and [`deploy/README.md`](deploy/README.md).
 
 ## Phase 9 — `0.9.x`: Security, Updates and Release Candidate
 
