@@ -24,77 +24,82 @@ This document records evidence for `0.1.0-alpha`. A status is `PASS` only when t
 | SHA-256 | `067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b` |
 | Recorded build duration | Approximately 48 minutes |
 
-This artifact is retained as historical proof that commit `2ed584c` compiled. It is not sufficient to validate current `main`, because later commits changed the ISO build pipeline, including EFI image creation.
+This artifact is retained as historical proof that commit `2ed584c` compiled. It is not sufficient to validate the next candidate because later commits changed the ISO build pipeline and added GenixBit identity-package scaffolding.
 
 Cloud resource identifiers, public build-host addresses, SSH access details, and administrator paths belong in a private GenixBit operations record and must not be committed here.
 
-## Current-Main Validation Target
+## Frozen Validation Candidate
+
+`main` is a moving development branch. The next validation build must use an immutable candidate branch created according to [`VALIDATION-CANDIDATE.md`](VALIDATION-CANDIDATE.md).
 
 | Field | Status | Requirement / Evidence |
 | --- | :---: | --- |
-| Exact current `main` commit recorded | **PASS** | `0bce5b14115fa01b4dffa02a726d22c51c732a42` recorded as validation starting commit |
-| Clean ISO built from that exact commit | **NOT TESTED** | Requires execution on Ubuntu 26.04 `resolute` `amd64` build host |
-| Current ISO filename, size, and SHA-256 recorded | **NOT TESTED** | Do not reuse historical `2ed584c` ISO values |
-| Current ISO BIOS/UEFI metadata inspected | **NOT TESTED** | Confirm boot structures of fresh build |
-| Current EFI fallback image verified | **NOT TESTED** | Confirm `EFI/BOOT/BOOTX64.EFI` in fresh artifact |
-| Current artifact used for every runtime test | **NOT TESTED** | Runtime BIOS, UEFI, installer & target-disk tests pending fresh build |
+| Candidate branch created | **NOT TESTED** | Create `validation/0.1.0-alpha-candidate` from the approved post-gate `main` commit |
+| Full candidate SHA recorded | **NOT TESTED** | Record the immutable 40-character SHA before building |
+| Candidate checkout clean | **NOT TESTED** | `verify-runtime.sh` must reject a dirty or mismatched checkout |
+| Clean ISO built from candidate | **NOT TESTED** | Build on Ubuntu 26.04 `resolute` `amd64` |
+| Candidate ISO filename, size, and SHA-256 recorded | **NOT TESTED** | Do not reuse historical artifact values |
+| Generated checksum independently matched | **NOT TESTED** | Calculated digest must match the generated checksum file |
+| BIOS/UEFI metadata inspected | **NOT TESTED** | Record the El Torito report for the candidate artifact |
+| EFI fallback image verified | **NOT TESTED** | Confirm `EFI/BOOT/BOOTX64.EFI` inside `/isolinux/efiboot.img` |
+| Candidate artifact used for every runtime test | **NOT TESTED** | BIOS, UEFI, installer, and installed-system tests must use one recorded artifact |
 
-See [`VM-VALIDATION.md`](VM-VALIDATION.md) for the required sequence.
+The candidate branch must not receive commits after validation starts. A required source fix retires that candidate and starts a new numbered candidate cycle.
 
-## Historical Build and Artifact Validation
+## Historical Build and Tooling Validation
 
 | Test | Status | Recorded evidence |
 | --- | :---: | --- |
-| Host codename and architecture matched the target | **PASS** | Ubuntu 26.04 `resolute`, `x86_64` recorded |
-| `make bootstrap` completed | **PASS** | Recorded in merged PR #8 |
-| `make` completed | **PASS** | Historical ISO artifact was produced |
-| ISO filename and byte size recorded | **PASS** | Historical values recorded above |
-| Checksum file created | **PASS** | Historical `.sha256` filename recorded |
-| SHA-256 independently matched | **PASS** | Historical digest recorded above |
-| Hybrid BIOS/UEFI structures included | **PASS** | Historical ISO structures recorded |
-| Repository changes contained no committed ISO or private key | **PASS** | Repository Quality workflow passed |
-| VM host readiness helper | **PASS** | `tools/vm/setup-host.sh` implemented and checked |
-| VM QEMU harness dry run | **PASS** | BIOS and UEFI command construction checked only |
-| Complete ISO filesystem secret scan | **NOT TESTED** | No scan report is recorded |
-| Second clean build performed | **NOT TESTED** | No same-commit second build is recorded |
-| Reproducibility comparison performed | **NOT TESTED** | No second-build comparison exists |
+| Historical host codename and architecture matched target | **PASS** | Ubuntu 26.04 `resolute`, `x86_64` recorded |
+| Historical `make bootstrap` completed | **PASS** | Recorded in merged PR #8 |
+| Historical `make` completed | **PASS** | Historical ISO artifact was produced |
+| Historical checksum independently matched | **PASS** | Historical digest recorded above |
+| Historical hybrid BIOS/UEFI structures included | **PASS** | Historical ISO structures recorded |
+| Repository changes contained no committed ISO or private key | **PASS** | Repository Quality workflows passed |
+| QEMU launcher exists | **PASS** | `tools/vm/run-qemu.sh` is present |
+| Validation host helper exists | **PASS** | `tools/vm/setup-host.sh` is present; runtime execution remains required |
+| Candidate build/preflight orchestrator exists | **PASS** | `tools/vm/verify-runtime.sh` enforces an expected SHA and records private preflight evidence |
+| Complete candidate ISO filesystem secret scan | **NOT TESTED** | Candidate artifact does not yet exist |
+| Second same-candidate clean build performed | **NOT TESTED** | No second candidate build is recorded |
+| Reproducibility comparison performed | **NOT TESTED** | No same-candidate comparison exists |
 
-A QEMU dry run is not boot evidence.
+A QEMU dry run is not boot evidence. Script presence and Bash syntax validation are not proof that the host or guest validation succeeded.
 
-## Current Boot and Live-Session Validation
+## Candidate Boot and Live-Session Validation
 
 | Test | Status | Missing evidence |
 | --- | :---: | --- |
-| Current-main UEFI boot path | **NOT TESTED** | A fresh current-main ISO must reach the live desktop through OVMF |
-| Current-main Legacy BIOS boot path | **NOT TESTED** | A fresh current-main ISO must reach the live desktop through SeaBIOS |
+| UEFI boot path | **NOT TESTED** | Candidate ISO must reach the live desktop through OVMF |
+| Legacy BIOS boot path | **NOT TESTED** | Candidate ISO must reach the live desktop through SeaBIOS |
 | GRUB menu displayed interactively | **NOT TESTED** | Direct display evidence required |
-| Kernel completed boot | **NOT TESTED** | Console or screenshot evidence required |
+| Kernel completed boot | **NOT TESTED** | Direct console or graphical evidence required |
 | Live desktop reached | **NOT TESTED** | Direct graphical evidence required |
 | Keyboard and locale worked | **NOT TESTED** | Direct interaction required |
 | Display and graphics worked | **NOT TESTED** | Direct interaction required |
 | Network and DNS worked | **NOT TESTED** | Live connectivity result required |
-| Audio worked | **NOT TESTED** | Playback/device result required |
+| Audio worked | **NOT TESTED** | Playback or documented hypervisor limitation required |
 | Shutdown and restart worked | **NOT TESTED** | Runtime result required |
-| User-facing identity visually confirmed | **NOT TESTED** | Record GenixBit and remaining upstream branding |
+| User-facing identity visually confirmed | **NOT TESTED** | Record GenixBit identity and remaining upstream branding |
 
 ## Installer Validation
 
 | Test | Status | Missing evidence |
 | --- | :---: | --- |
-| Installer packages and slideshow assets present | **PASS** | Recorded for the historical image only |
-| Separate clean virtual disks prepared | **NOT TESTED** | Prepare fresh BIOS and UEFI disks for the current artifact |
+| Candidate installer content inspected | **NOT TESTED** | Inspect the newly built candidate artifact |
+| Separate clean BIOS and UEFI virtual disks prepared | **NOT TESTED** | Candidate test disks must be created outside Git |
 | Installer launched interactively | **NOT TESTED** | Direct installer session required |
 | Language, keyboard, and timezone selection worked | **NOT TESTED** | Direct interaction required |
 | Partitioning completed | **NOT TESTED** | Completed target-disk operation required |
-| Installation completed | **NOT TESTED** | Completion log or screenshot summary required |
-| Bootloader installed to the target disk | **NOT TESTED** | Target-disk boot required |
+| Installation completed | **NOT TESTED** | Completion evidence required |
+| Bootloader installed to target disk | **NOT TESTED** | Target-disk boot required |
 | User account creation and login worked | **NOT TESTED** | Installed-system login required |
 
 ## Installed-System Validation
 
 | Test | Status | Missing evidence |
 | --- | :---: | --- |
-| Installed system booted from virtual disk | **NOT TESTED** | Post-install boot required |
+| Installed BIOS system booted from virtual disk | **NOT TESTED** | Post-install BIOS boot required |
+| Installed UEFI system booted from virtual disk | **NOT TESTED** | Post-install UEFI boot required |
 | Desktop session started | **NOT TESTED** | Direct graphical evidence required |
 | `sudo apt update` succeeded | **NOT TESTED** | Installed-system output required |
 | No broken installed packages | **NOT TESTED** | `apt-get check` and `dpkg --audit` required |
@@ -102,36 +107,38 @@ A QEMU dry run is not boot evidence.
 | Display and audio worked | **NOT TESTED** | Installed-system interaction required |
 | Shutdown and restart worked | **NOT TESTED** | Runtime result required |
 | Critical boot logs reviewed | **NOT TESTED** | `journalctl -p 3 -b` summary required |
+| GenixBit base-files package installed correctly | **NOT TESTED** | Package scaffolding exists, but candidate build/install evidence is required |
 
 ## Evidence Retained
 
 - Successful historical Ubuntu 26.04 `resolute` amd64 ISO compilation from commit `2ed584c`.
 - Historical ISO filename, exact byte size, and matching SHA-256.
 - Historical hybrid BIOS/UEFI structure record.
-- QEMU harness and host-readiness tooling.
-- Repository Quality workflow success for merged changes.
+- Repository validation, QEMU launcher, host-readiness helper, and candidate preflight tooling.
 
-Large artifacts, raw build logs, VM disks, screenshots containing private details, and cloud access information must remain outside Git. A private evidence bundle should retain the current validation ISO, checksum, relevant logs, screenshots, VM configuration, and test-operator notes.
+Large artifacts, raw build logs, VM disks, screenshots containing private details, and cloud access information must remain outside Git. A private evidence bundle should retain the candidate ISO, checksum, metadata reports, relevant logs, screenshots, VM configuration, and test-operator notes.
 
 ## Known Issues and Limitations
 
-- The historical ISO predates current `main` build-pipeline changes.
+- The historical ISO predates current build-pipeline and identity-package work.
 - Temporary AnduinOS package dependencies remain in the alpha build.
+- `genixbit-os-base-files` currently has scaffolding and templates; candidate build, package installation, upgrade, and rollback evidence is pending.
 - Complete user-facing GenixBit branding is not implemented.
-- No fresh current-main validation ISO is recorded.
-- No direct evidence is recorded for reaching the live desktop.
-- No direct evidence is recorded for completing installation or booting the installed system.
-- No second same-commit clean build has established reproducibility.
+- No frozen candidate ISO is recorded.
+- No direct evidence is recorded for reaching the candidate live desktop.
+- No direct evidence is recorded for completing candidate installation or booting the installed system.
+- No second same-candidate clean build has established reproducibility.
 - The alpha ISO must not be publicly released based on the current record.
 
 ## Final Decision
 
 - **Historical ISO compilation and checksum:** **PASS**
-- **Current-main clean validation build:** **NOT TESTED**
-- **Current-main live desktop:** **NOT TESTED**
-- **Current-main installer:** **NOT TESTED**
-- **Current-main installed system:** **NOT TESTED**
-- **Current-main reproducibility:** **NOT TESTED**
+- **Frozen candidate selection:** **NOT TESTED**
+- **Candidate clean build and preflight:** **NOT TESTED**
+- **Candidate live desktop:** **NOT TESTED**
+- **Candidate installer:** **NOT TESTED**
+- **Candidate installed system:** **NOT TESTED**
+- **Candidate reproducibility:** **NOT TESTED**
 - **Overall release-validation status:** **PARTIAL**
 
-**Decision:** GenixBit OS `0.1.0-alpha` has a valid historical compilation record. Because the build pipeline changed afterward, a fresh ISO must be built from the exact current `main` commit and used for all direct runtime and reproducibility tests before Phase 1 is complete or an ISO is published.
+**Decision:** GenixBit OS `0.1.0-alpha` has valid historical build evidence and improved validation tooling. A frozen candidate must now be created, built, booted, installed, checked, and reproduced before Phase 1 is complete or any ISO is published.
