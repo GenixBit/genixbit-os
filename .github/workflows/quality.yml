@@ -1,96 +1,116 @@
-name: Repository Quality & Integrity Checks
+name: Repository Quality
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 jobs:
   quality:
-    name: Repository & Script Quality Audit
+    name: Shell and repository validation
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
-      - name: Install dependencies
+      - name: Install ShellCheck
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck
+          sudo apt-get install --yes shellcheck
 
-      - name: Validate shell script syntax (bash -n)
+      - name: Validate Bash syntax
+        shell: bash
         run: |
-          echo "=== Running bash -n syntax checks ==="
-          tracked_scripts=$(git ls-files '*.sh')
-          for script in $tracked_scripts; do
+          set -euo pipefail
+          mapfile -d '' scripts < <(git ls-files -z '*.sh')
+          if ((${#scripts[@]} == 0)); then
+            echo 'No shell scripts found.'
+            exit 0
+          fi
+          for script in "${scripts[@]}"; do
             echo "Checking syntax: $script"
             bash -n "$script"
           done
 
-      - name: Run ShellCheck on shell scripts (non-blocking lint audit)
+      - name: Audit shell scripts with ShellCheck
+        shell: bash
         run: |
-          echo "=== Running ShellCheck analysis ==="
-          tracked_scripts=$(git ls-files '*.sh')
-          shellcheck --severity=warning $tracked_scripts || echo "ShellCheck reported warnings in upstream scripts (non-blocking)."
-
-      - name: Verify no forbidden tracked artifacts or private keys
-        run: |
-          echo "=== Verifying no forbidden tracked files ==="
-          FORBIDDEN=$(git ls-files '*.iso' '*.img' '*.key' '*.pem' '*.p12' '*.pfx' '.env' '.env.*' 'new_building_os/*' 'image/*' 'dist/*')
-          if [ -n "$FORBIDDEN" ]; then
-            echo "::error::Forbidden files are tracked in Git:"
-            echo "$FORBIDDEN"
-            exit 1
-          else
-            echo "No forbidden files tracked."
+          set -uo pipefail
+          mapfile -d '' scripts < <(git ls-files -z '*.sh')
+          if ((${#scripts[@]} == 0)); then
+            echo 'No shell scripts found.'
+            exit 0
+          fi
+          if ! shellcheck --severity=error "${scripts[@]}"; then
+            echo '::warning::ShellCheck found inherited error-level issues. Bash syntax remains blocking; ShellCheck remediation will be handled in a dedicated shell-hardening change.'
           fi
 
-      - name: Verify no local absolute paths in documentation
+      - name: Reject generated artifacts and private material
+        shell: bash
         run: |
-          echo "=== Checking for local absolute paths in documentation ==="
-          LOCAL_PATHS=$(git grep -Ei 'file:///Users/|/Users/manojnandanwar/' -- 'docs/' '*.md' || true)
-          if [ -n "$LOCAL_PATHS" ]; then
-            echo "::error::Local absolute paths found in documentation:"
-            echo "$LOCAL_PATHS"
+          set -euo pipefail
+          forbidden="$({
+            git ls-files | grep -E '(^|/)(new_building_os|image|dist)(/|$)' || true
+            git ls-files | grep -E '\.(iso|img|p12|pfx|pem|key)$' || true
+            git ls-files | grep -E '(^|/)\.env($|\.)' || true
+          } | sort -u)"
+          if [[ -n "$forbidden" ]]; then
+            echo 'Forbidden generated artifacts or private material are tracked:'
+            echo "$forbidden"
             exit 1
-          else
-            echo "No local absolute paths found in documentation."
           fi
 
-      - name: Confirm required legal and governance files exist
+      - name: Reject local filesystem links
+        shell: bash
         run: |
-          echo "=== Verifying legal & governance files ==="
+          set -euo pipefail
+          if git grep -nE \
+            'file:///Users/|/Users/manojnandanwar/' \
+            -- \
+            '*.md' '*.yml' '*.yaml' \
+            ':(exclude).github/workflows/quality.yml'; then
+            echo 'Local filesystem references must not be committed.'
+            exit 1
+          fi
+
+      - name: Verify required legal and attribution files
+        shell: bash
+        run: |
+          set -euo pipefail
           for file in LICENSE OSS.md UPSTREAM.md; do
-            if [ ! -f "$file" ]; then
-              echo "::error::Required file missing: $file"
+            test -s "$file" || {
+              echo "Required file is missing or empty: $file"
               exit 1
-            fi
-            echo "Found $file"
+            }
           done
 
-      - name: Confirm GenixBit OS identity variables in args.sh
+      - name: Verify GenixBit OS identity
+        shell: bash
         run: |
-          echo "=== Verifying target identity variables in args.sh ==="
-          source args.sh
+          set -euo pipefail
+          grep -Fx 'export TARGET_NAME="genixbitos"' args.sh
+          grep -Fx 'export TARGET_BUSINESS_NAME="GenixBitOS"' args.sh
+          grep -Fx 'export TARGET_BUILD_VERSION="0.1.0-alpha"' args.sh
 
-          if [ "$TARGET_NAME" != "genixbitos" ]; then
-            echo "::error::TARGET_NAME expected 'genixbitos', got '$TARGET_NAME'"
+      - name: Scan for obvious credential patterns
+        shell: bash
+        run: |
+          set -euo pipefail
+          patterns='AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY'
+          if git grep -nE "$patterns" -- . ':(exclude).github/workflows/quality.yml'; then
+            echo 'A possible credential or private key was found.'
             exit 1
           fi
 
-          if [ "$TARGET_BUSINESS_NAME" != "GenixBitOS" ]; then
-            echo "::error::TARGET_BUSINESS_NAME expected 'GenixBitOS', got '$TARGET_BUSINESS_NAME'"
-            exit 1
-          fi
-
-          if [ "$TARGET_BUILD_VERSION" != "0.1.0-alpha" ]; then
-            echo "::error::TARGET_BUILD_VERSION expected '0.1.0-alpha', got '$TARGET_BUILD_VERSION'"
-            exit 1
-          fi
-
-          echo "Identity variables verified successfully:"
-          echo "  TARGET_NAME=$TARGET_NAME"
-          echo "  TARGET_BUSINESS_NAME=$TARGET_BUSINESS_NAME"
-          echo "  TARGET_BUILD_VERSION=$TARGET_BUILD_VERSION"
+      - name: Confirm CI scope
+        run: echo 'Repository checks completed. Full ISO builds require a compatible Ubuntu 26.04 amd64 environment.'
