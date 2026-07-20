@@ -28,6 +28,8 @@ and this project follows Semantic Versioning for release identifiers.
 - Expanded the roadmap through branding, package signing, user profiles, AI runtimes, AI Center, Agents, Store, websites, security and stable release.
 - Changed the contribution policy to an early-alpha closed maintainer model while preserving external GPL rights, bug reports, security reports, feature suggestions and compatibility feedback.
 - Corrected baseline validation terminology so successful ISO compilation and checksum verification are not confused with live-desktop, installer, installed-system or reproducibility testing.
+- Clarified that the first ISO is historical build evidence and cannot validate the current source after later EFI and container-build changes.
+- Required a fresh ISO from the exact current `main` commit before BIOS, UEFI, installer, installed-system or reproducibility approval.
 - Restored standard interactive `sudo` support in `make bootstrap`; automated hosts may still use approved passwordless sudo.
 - Updated website and documentation service status to reflect the recorded public previews while keeping the package domain status-only and non-APT.
 - Removed public cloud resource identifiers and administrator-specific SSH details from deployment documentation.
@@ -56,11 +58,12 @@ and this project follows Semantic Versioning for release identifiers.
 
 ### Validation Limits
 
+- The first ISO was built from commit `2ed584c` and predates later build-pipeline changes.
 - Reaching the live desktop in UEFI and Legacy BIOS is not yet directly evidenced in the public testing record.
 - Interactive installer completion is not yet recorded.
 - Booting and validating an installed system is not yet recorded.
 - Installed-system `apt update`, hardware-function and critical-log review are not yet recorded.
-- A second clean build and reproducibility comparison are not yet recorded.
+- A second same-commit clean build and reproducibility comparison are not yet recorded.
 - The alpha ISO is not yet approved for public release or production use.
 
 ### Changed
