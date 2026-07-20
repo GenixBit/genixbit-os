@@ -1,49 +1,59 @@
 # Contributing to GenixBit OS
 
-Thank you for your interest in contributing to **GenixBit OS**! We welcome contributions from developers, Linux distribution engineers, designers, security researchers, and technical writers.
+GenixBit OS is developed and officially maintained by **GenixBit Labs Private Limited**.
 
----
+The source is public under GPL-3.0, but the official repository currently operates under a **closed maintainer model** while the operating system is in early alpha.
 
-## Getting Started
+## Who Can Merge Official Changes
 
-1. **Review Project Goals & Roadmap**: Read [`README.md`](README.md), [`UPSTREAM.md`](UPSTREAM.md), and [`ROADMAP.md`](ROADMAP.md) to understand current priorities.
-2. **Setup Development Environment**: Review [`docs/BUILDING.md`](docs/BUILDING.md) for host requirements and build instructions.
-3. **Check Open Issues**: Before starting new work, search open GitHub issues or create a feature request / bug report to discuss your proposal.
+Only authorized members of the GenixBit team may approve or merge changes into official branches, publish releases, modify package-signing infrastructure, or deploy official services.
 
----
+See [`GOVERNANCE.md`](GOVERNANCE.md) and [`.github/CODEOWNERS`](.github/CODEOWNERS).
 
-## Development Guidelines
+## External Users
 
-### 1. Code & Script Quality
-- Write clear, well-commented Bash scripts conforming to strict error handling (`set -euo pipefail`).
-- Validate shell script syntax before submitting (`bash -n script.sh`).
-- Use descriptive variable names and maintain existing modularity under `mods/`.
+External users are welcome to:
 
-### 2. Upstream Compliance & Licensing
-- All code contributions must be compatible with the **GNU General Public License v3.0 (GPL-3.0)**.
-- Do not remove existing upstream copyright notices, license headers, or legal attributions.
-- If introducing third-party components, ensure they are open-source and properly documented in [`OSS.md`](OSS.md).
+- report reproducible bugs;
+- propose features through GitHub issues;
+- provide hardware and compatibility test results;
+- submit security findings privately as described in [`SECURITY.md`](SECURITY.md);
+- inspect, fork, modify, and redistribute GPL-covered source code in compliance with GPL-3.0.
 
-### 3. Commit Guidelines
-- Use clear, descriptive commit messages adhering to conventional commit formatting:
-  - `feat:` New features or enhancements
-  - `fix:` Bug fixes
-  - `docs:` Documentation updates
-  - `build:` Build system or script modifications
-  - `chore:` Maintenance or refactoring
-- Keep pull requests focused on a single logical change.
+Unsolicited external code pull requests are not accepted during the early-alpha closed-maintainer period unless a GenixBit maintainer explicitly invites the work. Uninvited pull requests may be closed without review.
 
----
+## GenixBit Team Development Workflow
 
-## Pull Request Workflow
+1. Start from the latest `main` branch.
+2. Create a focused feature, fix, documentation, test, release, or infrastructure branch.
+3. Make small and reviewable commits.
+4. Run repository-quality checks and any component-specific tests.
+5. Open a pull request targeting `main`.
+6. Obtain GenixBit maintainer approval.
+7. Merge only after required checks pass.
+8. Prefer squash merge for a clean official history unless a release maintainer decides otherwise.
 
-1. Fork the repository and create a descriptive feature branch (`git checkout -b feat/my-feature`).
-2. Implement and test your changes on a compatible Ubuntu host environment.
-3. Ensure no temporary build artifacts, log files, secrets, or generated ISOs are committed.
-4. Submit a Pull Request targeting the `main` branch, completing the PR template checklist.
+## Development Requirements
 
----
+- Preserve GPL-3.0 licensing and upstream attribution.
+- Do not remove upstream copyright notices.
+- Do not rename temporary upstream package dependencies until verified GenixBit replacements exist.
+- Do not commit ISO images, generated build directories, credentials, tokens, private keys, signing keys, or production secrets.
+- Do not claim a feature, model, package service, website, or release is available before it has been verified.
+- Document all third-party packages, model licenses, and material dependencies.
+- Keep local and cloud AI features optional, transparent, and user controlled.
 
-## Security Vulnerabilities
+## Commit Prefixes
 
-Please do **NOT** open public issues for security vulnerabilities. Follow the reporting guidelines in [`SECURITY.md`](SECURITY.md).
+- `feat:` product or platform capability
+- `fix:` defect correction
+- `build:` ISO or package build change
+- `ci:` automation and repository checks
+- `docs:` documentation and governance
+- `test:` validation evidence
+- `infra:` website, server, DNS, deployment, or package infrastructure
+- `chore:` maintenance
+
+## Security
+
+Do not open a public issue containing exploit details, credentials, private keys, or sensitive system information. Follow [`SECURITY.md`](SECURITY.md).
