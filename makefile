@@ -41,7 +41,7 @@ bootstrap:
 	  echo "Build machine must run the same Ubuntu release as the target ISO."; \
 	  exit 1; \
 	fi
-	@sudo -v
+	@sudo -n true
 
 	@missing="" ; \
 	for pkg in $(DEPS); do \
@@ -52,7 +52,7 @@ bootstrap:
 	if [ -n "$$missing" ]; then \
 	  echo "Missing packages:$$missing"; \
 	  echo "Installing missing dependencies..."; \
-	  sudo apt-get update && sudo apt-get install -y$$missing; \
+	  sudo -n apt-get update && sudo -n apt-get install -y $$missing; \
 	else \
 	  echo "[MAKE] All required packages are already installed."; \
 	fi
