@@ -41,7 +41,7 @@ bootstrap:
 	  echo "Build machine must run the same Ubuntu release as the target ISO."; \
 	  exit 1; \
 	fi
-	@sudo -v
+	@sudo -n -v || sudo -v
 
 	@missing="" ; \
 	for pkg in $(DEPS); do \
