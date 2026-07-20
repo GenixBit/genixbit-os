@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="GenixBit OS is an AI-first Ubuntu-based Linux distribution for developers, application builders, server managers, creators, and AI learners.">
+  <title>GenixBit OS — Build with AI. Own your environment.</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: rgba(14, 28, 48, .78);
+      --panel-strong: #10243d;
+      --text: #f4f8ff;
+      --muted: #aab9ce;
+      --line: rgba(255,255,255,.11);
+      --cyan: #52d9ff;
+      --blue: #5b78ff;
+      --violet: #a86bff;
+      --green: #70e2a2;
+      --warning: #ffc869;
+      --shadow: 0 30px 80px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(82,217,255,.15), transparent 34rem),
+        radial-gradient(circle at 90% 10%, rgba(168,107,255,.16), transparent 30rem),
+        linear-gradient(180deg, #07111f 0%, #081624 48%, #050b13 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    a { color: inherit; text-decoration: none; }
+    .wrap { width: min(1180px, calc(100% - 36px)); margin: 0 auto; }
+    .nav {
+      position: sticky; top: 0; z-index: 20;
+      backdrop-filter: blur(18px);
+      background: rgba(7,17,31,.76);
+      border-bottom: 1px solid var(--line);
+    }
+    .nav-inner { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; letter-spacing: -.03em; }
+    .mark {
+      width: 38px; height: 38px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue) 55%, var(--violet));
+      box-shadow: 0 0 32px rgba(82,217,255,.28);
+      position: relative;
+    }
+    .mark:after { content: "G"; position: absolute; inset: 0; display: grid; place-items: center; color: #07111f; font-weight: 950; }
+    .nav-links { display: flex; align-items: center; gap: 22px; color: var(--muted); font-size: 14px; }
+    .button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 44px; padding: 0 18px; border-radius: 12px;
+      border: 1px solid var(--line); background: rgba(255,255,255,.04);
+      font-weight: 750;
+    }
+    .button.primary { background: linear-gradient(135deg, var(--cyan), var(--blue)); color: #06101c; border: 0; }
+    .button.disabled { color: #71839b; cursor: not-allowed; }
+    .hero { padding: 100px 0 72px; position: relative; overflow: hidden; }
+    .hero-grid { display: grid; grid-template-columns: 1.08fr .92fr; align-items: center; gap: 54px; }
+    .eyebrow { color: var(--cyan); text-transform: uppercase; letter-spacing: .14em; font-size: 13px; font-weight: 850; }
+    h1 { margin: 16px 0 22px; font-size: clamp(52px, 8vw, 92px); line-height: .94; letter-spacing: -.07em; }
+    .gradient { background: linear-gradient(90deg, var(--cyan), #a9c6ff 50%, var(--violet)); -webkit-background-clip: text; color: transparent; }
+    .lead { max-width: 700px; color: var(--muted); font-size: clamp(18px, 2vw, 23px); line-height: 1.55; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+    .status { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 14px; }
+    .pill { padding: 8px 11px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.035); }
+    .terminal {
+      border: 1px solid var(--line); border-radius: 22px; overflow: hidden;
+      background: linear-gradient(180deg, rgba(18,38,65,.95), rgba(6,14,25,.98));
+      box-shadow: var(--shadow);
+      transform: perspective(1200px) rotateY(-4deg) rotateX(2deg);
+    }
+    .terminal-bar { height: 46px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 16px; gap: 8px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #ff6c6c; }
+    .dot:nth-child(2) { background: #ffd36c; }
+    .dot:nth-child(3) { background: #6ee7a8; }
+    pre { margin: 0; padding: 26px; min-height: 390px; overflow: auto; font: 14px/1.8 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #dceaff; }
+    .cmd { color: var(--cyan); } .ok { color: var(--green); } .warn { color: var(--warning); }
+    section { padding: 82px 0; }
+    .section-title { max-width: 780px; margin-bottom: 36px; }
+    h2 { margin: 10px 0 14px; font-size: clamp(36px, 5vw, 58px); letter-spacing: -.055em; }
+    .section-title p { color: var(--muted); font-size: 18px; line-height: 1.6; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .card { padding: 26px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); box-shadow: 0 12px 40px rgba(0,0,0,.14); }
+    .card h3 { margin: 16px 0 9px; font-size: 22px; }
+    .card p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: linear-gradient(135deg, rgba(82,217,255,.2), rgba(168,107,255,.2)); font-size: 21px; }
+    .personas { grid-template-columns: repeat(4, 1fr); }
+    .models { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+    .model { display: flex; justify-content: space-between; gap: 18px; align-items: start; }
+    .tag { white-space: nowrap; padding: 6px 9px; border-radius: 999px; background: rgba(112,226,162,.1); color: var(--green); border: 1px solid rgba(112,226,162,.22); font-size: 12px; }
+    .architecture { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+    .layer { padding: 22px 14px; border-radius: 16px; text-align: center; border: 1px solid var(--line); background: rgba(255,255,255,.035); color: var(--muted); }
+    .layer strong { display: block; color: var(--text); margin-bottom: 8px; }
+    .cta { margin: 50px 0 90px; padding: 42px; border-radius: 26px; border: 1px solid rgba(82,217,255,.25); background: linear-gradient(135deg, rgba(82,217,255,.1), rgba(91,120,255,.1), rgba(168,107,255,.12)); display: flex; justify-content: space-between; align-items: center; gap: 32px; }
+    .cta h2 { margin: 0 0 10px; font-size: 38px; }
+    .cta p { margin: 0; color: var(--muted); }
+    footer { border-top: 1px solid var(--line); padding: 34px 0 46px; color: var(--muted); font-size: 14px; }
+    .footer-grid { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+    @media (max-width: 900px) {
+      .nav-links { display: none; }
+      .hero-grid { grid-template-columns: 1fr; }
+      .terminal { transform: none; }
+      .grid, .personas { grid-template-columns: repeat(2, 1fr); }
+      .architecture { grid-template-columns: 1fr; }
+      .cta { align-items: flex-start; flex-direction: column; }
+    }
+    @media (max-width: 620px) {
+      .grid, .personas, .models { grid-template-columns: 1fr; }
+      .hero { padding-top: 72px; }
+      section { padding: 64px 0; }
+      h1 { font-size: 54px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top"><span class="mark" aria-hidden="true"></span><span>GenixBit OS</span></a>
+      <div class="nav-links">
+        <a href="#why">Why GenixBit</a><a href="#people">For everyone</a><a href="#models">Local AI</a><a href="#platform">Platform</a>
+      </div>
+      <a class="button" href="https://github.com/GenixBit/genixbit-os">Source Code</a>
+    </div>
+  </nav>
+
+  <main id="top">
+    <header class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <div class="eyebrow">AI-first Linux by GenixBit</div>
+          <h1>Build with AI.<br><span class="gradient">Own your environment.</span></h1>
+          <p class="lead">GenixBit OS is an Ubuntu-based Linux distribution being built for developers, application creators, server managers, video professionals, AI learners, and teams that want local models, agents, modern tooling, and transparent control.</p>
+          <div class="hero-actions">
+            <span class="button primary disabled" aria-disabled="true">Download coming after validation</span>
+            <a class="button" href="https://github.com/GenixBit/genixbit-os">Explore the source</a>
+          </div>
+          <div class="status">
+            <span class="pill">0.1.0-alpha</span><span class="pill">Ubuntu 26.04 base</span><span class="pill">amd64 target</span><span class="pill">GPL-3.0</span>
+          </div>
+        </div>
+        <div class="terminal" aria-label="GenixBit OS terminal preview">
+          <div class="terminal-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <pre><span class="cmd">$ genixbit-ai doctor</span>
+<span class="ok">✓</span> CPU detected
+<span class="ok">✓</span> 32 GB system memory
+<span class="ok">✓</span> NVIDIA GPU available
+<span class="warn">!</span> AI Center not installed yet
+
+<span class="cmd">$ genixbit-models recommend --task code</span>
+Recommended profile: Developer
+• compact local coding model
+• optional reasoning model
+• loopback-only model API
+• no cloud key configured
+
+<span class="cmd">$ genixbit-agents list</span>
+Source: GenixBit/agency-agents
+Tools: Antigravity, Gemini CLI, Codex,
+       Cursor, OpenCode and more
+Status: planned OS integration
+
+<span class="cmd">$ cat /etc/os-release</span>
+NAME="GenixBit OS"
+VERSION="0.1.0-alpha"
+<span class="warn">Preview only — runtime branding package pending</span></pre>
+        </div>
+      </div>
+    </header>
+
+    <section id="why">
+      <div class="wrap">
+        <div class="section-title"><div class="eyebrow">Why GenixBit OS</div><h2>A Linux workstation designed around what people build next.</h2><p>AI is a platform capability, not a mandatory cloud service. GenixBit OS is planned to combine a dependable Linux base with optional local models, agent workflows, creator tools, server tooling, and first-class development environments.</p></div>
+        <div class="grid">
+          <article class="card"><div class="icon">◈</div><h3>Local-first AI</h3><p>Install compatible runtimes and model files only when you choose. Keep local services on loopback by default and understand every download.</p></article>
+          <article class="card"><div class="icon">⌘</div><h3>Developer ready</h3><p>Modern languages, containers, terminals, IDEs, APIs, agents, and repeatable project environments without hiding the underlying system.</p></article>
+          <article class="card"><div class="icon">⬡</div><h3>Transparent control</h3><p>No fake active backends, no hidden credentials, no silent model pulls, and no unverified performance claims.</p></article>
+          <article class="card"><div class="icon">∞</div><h3>Open ecosystem</h3><p>Ubuntu packages, Flatpak applications, GenixBit packages, official vendor channels, and a future curated GenixBit Store.</p></article>
+          <article class="card"><div class="icon">▣</div><h3>Server capable</h3><p>Run headless services, containers, internal AI endpoints, databases, automation, monitoring, and secure remote operations.</p></article>
+          <article class="card"><div class="icon">✦</div><h3>Creator workflows</h3><p>Video, audio, graphics, 3D, streaming, transcription, captioning, and AI-assisted asset workflows on suitable hardware.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="people">
+      <div class="wrap">
+        <div class="section-title"><div class="eyebrow">Made for real work</div><h2>One operating system. Multiple professional profiles.</h2></div>
+        <div class="grid personas">
+          <article class="card"><h3>Developers</h3><p>Code, test, containerize, evaluate models, install agent profiles, and ship applications.</p></article>
+          <article class="card"><h3>AI learners</h3><p>Start with hardware-aware model choices and guided projects instead of confusing setup steps.</p></article>
+          <article class="card"><h3>Server managers</h3><p>Operate services, local APIs, monitoring, backups, and controlled remote environments.</p></article>
+          <article class="card"><h3>Video creators</h3><p>Edit, transcode, stream, caption, transcribe, and organize creative assets.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="models">
+      <div class="wrap">
+        <div class="section-title"><div class="eyebrow">Model choice</div><h2>Install the model that fits the job and the machine.</h2><p>The planned GenixBit AI Center will classify models by source, terms, task, language, storage, RAM, VRAM, runtime, and verification status. Model weights will not be silently bundled into the ISO.</p></div>
+        <div class="models">
+          <article class="card model"><div><h3>Bharat AI</h3><p>GenixBit’s Indian-language model program. Architecture work is active; production checkpoints will be listed only after training and evaluation.</p></div><span class="tag">GenixBit</span></article>
+          <article class="card model"><div><h3>Gemma 3</h3><p>Google open-weight family for compact, multilingual, and multimodal development under Google’s model terms.</p></div><span class="tag">Optional</span></article>
+          <article class="card model"><div><h3>Qwen3</h3><p>Apache-2.0 open-weight family from Alibaba for coding, agents, general assistance, and multilingual applications.</p></div><span class="tag">Optional</span></article>
+          <article class="card model"><div><h3>DeepSeek-R1</h3><p>Reasoning models and distilled variants with upstream and base-model terms displayed before installation.</p></div><span class="tag">Optional</span></article>
+          <article class="card model"><div><h3>IBM Granite</h3><p>Compact Apache-2.0 models suitable for local and enterprise-oriented application experiments.</p></div><span class="tag">Optional</span></article>
+          <article class="card model"><div><h3>Your model</h3><p>Use supported GGUF, container, Ollama, or server runtimes when licensing and hardware requirements are satisfied.</p></div><span class="tag">User controlled</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="platform">
+      <div class="wrap">
+        <div class="section-title"><div class="eyebrow">Platform architecture</div><h2>From the Linux base to the applications you create.</h2></div>
+        <div class="architecture">
+          <div class="layer"><strong>GenixBit OS</strong>Linux, desktop, drivers, security</div>
+          <div class="layer"><strong>AI Runtimes</strong>Ollama, llama.cpp, containers</div>
+          <div class="layer"><strong>AI Center</strong>Models, hardware, services, privacy</div>
+          <div class="layer"><strong>GenixBit Agents</strong>Antigravity and developer tools</div>
+          <div class="layer"><strong>GenixBit Store</strong>Apps, tools, models, creator workflows</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap cta">
+      <div><h2>Early alpha. Built in public, released carefully.</h2><p>The website is a product preview. The ISO download remains disabled until Ubuntu amd64 build, boot, installer, and installed-system validation are complete.</p></div>
+      <a class="button primary" href="https://github.com/GenixBit/genixbit-os">Follow development</a>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap footer-grid">
+      <span>© GenixBit Labs Private Limited. GenixBit branding is reserved.</span>
+      <span>GPL-covered source retains upstream attribution and license notices.</span>
+    </div>
+  </footer>
+</body>
+</html>
