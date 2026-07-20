@@ -18,6 +18,7 @@ and this project follows Semantic Versioning for release identifiers.
 - `docs/PLATFORM-SERVICES.md` defining the website, documentation, package, download, catalog, DNS, and server topology.
 - Original GenixBit static previews under `website/os`, `website/docs`, and `website/packages`.
 - Containerized Caddy preview deployment under `deploy/`.
+- Created `docs/DEPLOYMENT-STATUS.md` documenting platform services deployment status, container security options, security header audit, and server provisioning prerequisites.
 
 ### Changed
 
