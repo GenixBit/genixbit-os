@@ -1,0 +1,100 @@
+name: Bug Report
+description: Create a report to help us improve GenixBit OS
+title: "[BUG]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report an issue in GenixBit OS!
+        Please fill out the form below with as much detail as possible.
+        **Do NOT include passwords, private keys, access tokens, API credentials, or sensitive personal data.**
+
+  - type: input
+    id: os_version
+    attributes:
+      label: GenixBit OS Version
+      description: e.g. 0.1.0-alpha
+      placeholder: 0.1.0-alpha
+    validations:
+      required: true
+
+  - type: input
+    id: ubuntu_base
+    attributes:
+      label: Ubuntu Base Version / Codename
+      description: e.g. Ubuntu 26.04 / resolute
+      placeholder: resolute (26.04)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment Mode
+      options:
+        - Live Session (Booted from USB / ISO)
+        - Installed System (On disk)
+        - Virtual Machine (QEMU / KVM / VirtualBox / VMware)
+        - Build Time / ISO Assembly
+    validations:
+      required: true
+
+  - type: input
+    id: architecture
+    attributes:
+      label: Architecture & Hardware
+      description: e.g. amd64 / Intel i7-12700K / QEMU KVM 8GB RAM
+      placeholder: amd64 / QEMU KVM
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction Steps
+      description: Describe step-by-step how to reproduce the bug.
+      placeholder: |
+        1. Boot the ISO image in QEMU
+        2. Launch terminal
+        3. Run command...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Result
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Result
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: upstream_repro
+    attributes:
+      label: Upstream Behavior
+      description: Does this problem also occur in upstream AnduinOS or stock Ubuntu?
+      options:
+        - Unknown / Not tested
+        - Occurs in GenixBit OS only
+        - Also occurs in upstream AnduinOS 2
+        - Also occurs in stock Ubuntu
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: System Logs or Terminal Output
+      description: Paste relevant logs, terminal error snippets, or stack traces here.
+      render: shell
+    validations:
+      required: false
