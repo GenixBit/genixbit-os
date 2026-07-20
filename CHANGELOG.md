@@ -5,7 +5,36 @@ All notable changes to the **GenixBit OS** project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows Semantic Versioning for release identifiers.
 
-## [Unreleased]
+## [Unreleased] — Candidate Validation Cycle Active
+
+### Added
+
+- Frozen validation candidate `validation/0.1.0-alpha-candidate` at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` created and verified.
+- Evidence branch `test/validate-0.1.0-alpha-candidate` opened from the frozen candidate SHA.
+- PR `test: validate GenixBit OS 0.1.0-alpha candidate` targeting `main` in progress.
+
+### Validation Cycle Status (2026-07-21)
+
+| Test | Status |
+| --- | :---: |
+| Candidate branch `validation/0.1.0-alpha-candidate` created | **PASS** |
+| Candidate SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` verified | **PASS** |
+| Candidate checkout clean | **PASS** |
+| Evidence branch `test/validate-0.1.0-alpha-candidate` created | **PASS** |
+| Host verification on Ubuntu 26.04 `resolute` amd64 | **NOT TESTED** |
+| ISO build from candidate SHA | **NOT TESTED** |
+| BIOS live-session (SeaBIOS → GRUB → live desktop) | **NOT TESTED** |
+| UEFI live-session (OVMF → BOOTX64.EFI → GRUB → live desktop) | **NOT TESTED** |
+| Installer validation (UEFI then BIOS) | **NOT TESTED** |
+| Installed-system boot and health | **NOT TESTED** |
+| APT and package-health checks | **NOT TESTED** |
+| `genixbit-os-base-files` package status | **NOT TESTED** |
+| Second clean build from same candidate SHA | **NOT TESTED** |
+| Reproducibility comparison (`diffoscope`) | **NOT TESTED** |
+
+All runtime tests await execution on an approved Ubuntu 26.04 `resolute` amd64 host with KVM.
+
+## [Unreleased] — Tooling and Candidate Process
 
 ### Added
 
@@ -24,7 +53,7 @@ and this project follows Semantic Versioning for release identifiers.
 - Expanded the roadmap through branding, package signing, user profiles, AI runtimes, AI Center, Agents, Store, websites, security and stable release.
 - Changed the contribution policy to an early-alpha closed maintainer model while preserving external GPL rights, bug reports, security reports, feature suggestions and compatibility feedback.
 - Corrected baseline terminology so historical ISO compilation is not confused with current release validation.
-- Replaced the moving “current main” target with a frozen candidate branch and exact-SHA requirement.
+- Replaced the moving "current main" target with a frozen candidate branch and exact-SHA requirement.
 - Hardened `verify-runtime.sh` to reject dirty or mismatched checkouts, verify generated checksums, record BIOS/UEFI metadata and confirm `EFI/BOOT/BOOTX64.EFI`.
 - Corrected `setup-host.sh` counters so `set -e` does not terminate the script on the first pass, warning or failure count.
 - Required Ubuntu 26.04 `resolute`, x86_64, approved sudo, explicit KVM handling and complete validation commands for the candidate host.

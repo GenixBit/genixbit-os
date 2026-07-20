@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!WARNING]
-> **Early Alpha (`0.1.0-alpha`)**: the first ISO compiled successfully from historical commit `2ed584c`, and its SHA-256 was verified. Later commits changed the build pipeline and added GenixBit identity-package scaffolding. A frozen validation candidate must now be built and tested before release. Do not use any alpha build on production, primary or sensitive systems.
+> **Early Alpha (`0.1.0-alpha`)**: the frozen validation candidate `validation/0.1.0-alpha-candidate` at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` has been verified and the evidence branch `test/validate-0.1.0-alpha-candidate` is open. All direct runtime tests (ISO build, BIOS/UEFI boot, installer, installed system, reproducibility) await execution on an approved Ubuntu 26.04 `resolute` amd64 host with KVM. Do not use any alpha build on production, primary or sensitive systems.
 
 ## Build with AI. Own your environment.
 
@@ -74,9 +74,10 @@ Read:
 | --- | --- | --- |
 | Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM tooling are present |
 | Historical ISO compilation | **PASS** | commit `2ed584c` generated the recorded ISO, size and checksum |
-| Frozen validation candidate | **Not selected** | create an immutable candidate branch from approved `main` after validation-gate fixes |
-| Candidate clean ISO build | **Not tested** | build from the exact frozen candidate SHA on Ubuntu 26.04 amd64 |
-| Candidate BIOS/UEFI runtime validation | **Not tested** | dry-run command construction is not boot evidence |
+| Frozen validation candidate branch | **PASS** | `validation/0.1.0-alpha-candidate` at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` verified and frozen |
+| Evidence branch | **PASS** | `test/validate-0.1.0-alpha-candidate` open; PR target `main` |
+| Candidate clean ISO build | **Not tested** | requires Ubuntu 26.04 `resolute` amd64 build host |
+| Candidate BIOS/UEFI runtime validation | **Not tested** | requires Linux host with KVM; dry-run command construction is not boot evidence |
 | Live session and installer | **Not tested** | direct interactive evidence is not recorded |
 | Installed system and APT validation | **Not tested** | post-install boot, login and `apt update` evidence is pending |
 | Reproducibility | **Not tested** | two clean builds from the same candidate SHA have not been compared |
