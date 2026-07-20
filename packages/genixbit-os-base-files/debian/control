@@ -1,0 +1,14 @@
+Source: genixbit-os-base-files
+Section: admin
+Priority: required
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-base-files
+Architecture: all
+Depends: ${misc:Depends}
+Description: Core system identity files for GenixBit OS
+ Provides /etc/os-release, /etc/lsb-release, /etc/issue, and /etc/issue.net
+ defining GenixBit OS distribution identity and official links.
