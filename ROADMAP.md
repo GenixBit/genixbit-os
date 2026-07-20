@@ -1,45 +1,136 @@
 # GenixBit OS Development Roadmap
 
 > [!NOTE]
-> All target dates, feature assignments, and release timelines listed in this document are **provisional** and subject to revision as development progresses.
+> All milestones are provisional. A feature is complete only after implementation, documentation, testing, security review, and GenixBit maintainer approval.
 
----
+## Phase 1 — `0.1.x`: Baseline Build and Release Validation
 
-## Release Milestones
+- [x] Preserve upstream history and GPL-3.0 licensing.
+- [x] Establish GenixBit identity variables and repository governance.
+- [x] Add repository-quality CI and baseline test documentation.
+- [x] Record that the macOS ARM host is unsuitable for the full ISO build.
+- [ ] Provision an Ubuntu 26.04 `resolute` `amd64` build machine.
+- [ ] Run `make bootstrap` and complete the first ISO build.
+- [ ] Verify checksum and ISO metadata.
+- [ ] Test UEFI boot.
+- [ ] Test Legacy BIOS boot.
+- [ ] Test live-session desktop.
+- [ ] Complete a clean virtual-disk installation.
+- [ ] Boot and validate the installed system.
+- [ ] Verify `sudo apt update` and temporary upstream dependency resolution.
+- [ ] Record all evidence in `docs/TESTING.md`.
 
-### 🟢 Phase 1: 0.1.0 – Reproducible Upstream-Based Build *(Current)*
-- [x] Establish Git repository structure with upstream history preservation
-- [x] Audit branding, technical dependencies, and third-party software licensing
-- [x] Update baseline identity variables (`args.sh`, ISO README generation)
-- [x] Add project governance files, developer documentation, and issue templates
-- [ ] Verify reproducible ISO image generation on target Ubuntu host
+## Phase 2 — `0.2.x`: Complete GenixBit Identity
 
-### 🔵 Phase 2: 0.2.0 – GenixBit Branding & Desktop Identity
-- [ ] Design official GenixBit OS logos, icons, Plymouth boot splash screen, and wallpapers
-- [ ] Package initial `genixbit-os-theme` and `genixbit-os-wallpapers` packages
-- [ ] Configure custom GNOME desktop layout, fonts, and dark mode defaults
-- [ ] Replace upstream visual branding assets across live session and installer environments
+- [ ] Approve official GenixBit OS logo and visual system.
+- [ ] Create `genixbit-os-base-files`.
+- [ ] Create `genixbit-os-theme`.
+- [ ] Create `genixbit-os-wallpapers`.
+- [ ] Create `genixbit-os-installer-config`.
+- [ ] Replace user-facing boot, live-session, installer, desktop and support branding.
+- [ ] Ensure `/etc/os-release`, issue files, URLs and settings identify GenixBit OS.
+- [ ] Audit remaining upstream terms as legal notices, technical dependencies or migration defects.
+- [ ] Produce genuine screenshots from a validated GenixBit build.
 
-### 🟡 Phase 3: 0.3.0 – GenixBit Package Repository & Signing System
-- [ ] Provision production APT repository infrastructure (`packages.os.genixbit.com`)
-- [ ] Generate and publish official GenixBit repository GPG signing keyring (`genixbit-os-archive-keyring`)
-- [ ] Build and release `genixbit-os-apt-config` and `genixbit-os-base-files` packages
-- [ ] Migrate build configuration (`args.sh`, `build.sh`, `mods/`) from upstream APKG server to GenixBit infrastructure
+See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md).
 
-### 🟣 Phase 4: 0.4.0 – Developer Tools & Optional AI Assistant
-- [ ] Pre-configure developer toolchains (Docker/Podman, Git, Rust, Python, Go, Node.js)
-- [ ] Integrate optional CLI developer assistant tooling
-- [ ] Implement AI assistant shell integration for command line help and workflow automation
-- [ ] Create developer quick-start environment profiles
+## Phase 3 — `0.3.x`: Signed Package and Update Infrastructure
 
-### 🟠 Phase 5: 0.5.0 – Update Manager, Privacy Controls & Hardening
-- [ ] Implement system update manager for smooth background package updates
-- [ ] Enforce telemetry-free system defaults and enhanced privacy settings
-- [ ] Apply system hardening policies (firewall defaults, sandboxing rules, secure kernel parameters)
-- [ ] Provide system diagnostics and health monitoring tools
+- [ ] Provision `packages.os.genixbit.com` staging infrastructure.
+- [ ] Define offline signing-key generation, backup and revocation procedures.
+- [ ] Publish only the public verification key.
+- [ ] Create `genixbit-os-archive-keyring`.
+- [ ] Create `genixbit-os-apt-config`.
+- [ ] Establish `alpha`, `testing` and `stable` channels.
+- [ ] Implement snapshots, package promotion, rollback and audit records.
+- [ ] Build, sign and test GenixBit replacement packages.
+- [ ] Migrate from `packages.anduinos.com` only after clean-install and upgrade validation.
+- [ ] Add update metadata and release manifests.
 
-### 🚀 Phase 6: 1.0.0 – First Stable Release
-- [ ] Finalize production-ready ISO build pipeline
-- [ ] Conduct comprehensive security, performance, and hardware compatibility testing
-- [ ] Publish official documentation on `docs.os.genixbit.com`
-- [ ] Launch GenixBit OS 1.0.0 General Availability
+## Phase 4 — `0.4.x`: Developer, Server and Creator Profiles
+
+- [ ] Developer profile: Git, containers, Python, Node.js, Go, Rust, Java and build tools.
+- [ ] Application-builder profile: IDEs, databases, API clients, testing and deployment templates.
+- [ ] Server-manager profile: headless services, monitoring, backups, firewall and container operations.
+- [ ] Creator profile: video, audio, image, 3D, streaming, transcription and codec tooling.
+- [ ] AI learner profile: guided setup and GenixBit Academy starter paths.
+- [ ] Hardware and GPU diagnostics.
+- [ ] Profile installation must remain optional and reversible.
+
+## Phase 5 — `0.5.x`: AI Runtime Foundation
+
+- [ ] Define runtime adapter interface.
+- [ ] Package optional Ollama integration.
+- [ ] Package optional llama.cpp-compatible integration.
+- [ ] Evaluate vLLM/container serving for suitable server hardware.
+- [ ] Detect RAM, VRAM, GPU, CPU architecture and free disk space.
+- [ ] Create signed model-catalog metadata.
+- [ ] Show model source, terms, size, checksum and hardware tier before download.
+- [ ] Bind local model APIs to loopback by default.
+- [ ] Add clean uninstall and model-data removal.
+
+See [`docs/AI-FIRST-PLATFORM.md`](docs/AI-FIRST-PLATFORM.md) and [`docs/AI-MODEL-CATALOG.md`](docs/AI-MODEL-CATALOG.md).
+
+## Phase 6 — `0.6.x`: GenixBit AI Center and Agents
+
+- [ ] Build `genixbit-os-ai-center`.
+- [ ] Browse and filter approved model metadata.
+- [ ] Install, start, stop, inspect and remove model runtimes.
+- [ ] Display local API endpoints and resource usage.
+- [ ] Add explicit privacy and cloud-provider controls.
+- [ ] Integrate `GenixBit/agency-agents` as an optional component.
+- [ ] Support Antigravity, Gemini CLI, Codex, Cursor, OpenCode and other validated tools.
+- [ ] Show file changes and require approval before modifying external tool configuration.
+- [ ] Never display an agent backend as active when it is not configured.
+
+## Phase 7 — `0.7.x`: GenixBit Store
+
+- [ ] Build the native GenixBit Store client.
+- [ ] Support signed GenixBit APT packages.
+- [ ] Display Ubuntu package sources accurately.
+- [ ] Integrate reviewed Flatpak/Flathub entries.
+- [ ] Add official vendor repository adapters with user confirmation.
+- [ ] Add AI runtime and model catalog integration.
+- [ ] Display publisher, license, permissions, architecture and update method.
+- [ ] Create a GenixBit-controlled publisher review workflow.
+- [ ] Add application security scanning and rollback procedures.
+
+See [`docs/APP-STORE.md`](docs/APP-STORE.md).
+
+## Phase 8 — `0.8.x`: Websites, Documentation and Operations
+
+- [x] Add original product, documentation and package-status preview pages.
+- [x] Add containerized Caddy preview configuration.
+- [ ] Provision the new GenixBit-controlled web server and public IP.
+- [ ] Point `os.genixbit.com` to the server.
+- [ ] Point `docs.os.genixbit.com` to the server.
+- [ ] Point `packages.os.genixbit.com` to the server only when package security is ready.
+- [ ] Configure TLS, firewall, monitoring, backups and restricted deployment access.
+- [ ] Publish versioned documentation.
+- [ ] Publish release status without fake download links.
+- [ ] Add service health and incident procedures.
+
+See [`docs/PLATFORM-SERVICES.md`](docs/PLATFORM-SERVICES.md) and [`deploy/README.md`](deploy/README.md).
+
+## Phase 9 — `0.9.x`: Security, Updates and Release Candidate
+
+- [ ] Security hardening baseline.
+- [ ] Update manager and rollback experience.
+- [ ] Package and catalog signature verification.
+- [ ] Privacy controls and transparent service settings.
+- [ ] Hardware compatibility matrix.
+- [ ] Upgrade testing between supported releases.
+- [ ] Disaster recovery and signing-key revocation exercises.
+- [ ] Documentation freeze and release audit.
+
+## Phase 10 — `1.0.0`: First Stable GenixBit OS Release
+
+- [ ] Production-ready ISO build and signed release artifacts.
+- [ ] Complete GenixBit user-facing branding.
+- [ ] Signed GenixBit package channels.
+- [ ] Stable update and rollback process.
+- [ ] Validated developer, server and creator profiles.
+- [ ] Optional AI runtime foundation.
+- [ ] Public product and documentation websites.
+- [ ] Security and support lifecycle published.
+- [ ] General availability approved by GenixBit Labs Private Limited.
