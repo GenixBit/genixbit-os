@@ -21,6 +21,7 @@ and this project follows Semantic Versioning for release identifiers.
 - `docs/DEPLOYMENT-STATUS.md` recording non-sensitive public preview deployment and follow-up hardening requirements.
 - `tools/vm/setup-host.sh` host readiness check script for x86_64 KVM test environments.
 - `tools/vm/run-qemu.sh` QEMU VM validation test harness for Legacy BIOS and UEFI boot modes.
+- Recorded `0bce5b14115fa01b4dffa02a726d22c51c732a42` as the validation starting commit in `docs/TESTING.md` and `docs/VM-VALIDATION.md`.
 
 ### Changed
 

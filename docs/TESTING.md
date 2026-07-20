@@ -30,14 +30,14 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 
 ## Current-Main Validation Target
 
-| Field | Status | Requirement |
+| Field | Status | Requirement / Evidence |
 | --- | :---: | --- |
-| Exact current `main` commit recorded | **NOT TESTED** | Record the full commit SHA used for the next validation build |
-| Clean ISO built from that exact commit | **NOT TESTED** | Build after the merged EFI and container-build changes |
-| Current ISO filename, size, and SHA-256 recorded | **NOT TESTED** | Do not reuse the historical checksum as the current target |
-| Current ISO BIOS/UEFI metadata inspected | **NOT TESTED** | Confirm the current generated boot structures |
-| Current EFI fallback image verified | **NOT TESTED** | Confirm `EFI/BOOT/BOOTX64.EFI` in the current artifact |
-| Current artifact used for every runtime test | **NOT TESTED** | BIOS, UEFI, installer, and installed-system tests must use one recorded artifact |
+| Exact current `main` commit recorded | **PASS** | `0bce5b14115fa01b4dffa02a726d22c51c732a42` recorded as validation starting commit |
+| Clean ISO built from that exact commit | **NOT TESTED** | Requires execution on Ubuntu 26.04 `resolute` `amd64` build host |
+| Current ISO filename, size, and SHA-256 recorded | **NOT TESTED** | Do not reuse historical `2ed584c` ISO values |
+| Current ISO BIOS/UEFI metadata inspected | **NOT TESTED** | Confirm boot structures of fresh build |
+| Current EFI fallback image verified | **NOT TESTED** | Confirm `EFI/BOOT/BOOTX64.EFI` in fresh artifact |
+| Current artifact used for every runtime test | **NOT TESTED** | Runtime BIOS, UEFI, installer & target-disk tests pending fresh build |
 
 See [`VM-VALIDATION.md`](VM-VALIDATION.md) for the required sequence.
 
