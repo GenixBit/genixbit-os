@@ -76,6 +76,7 @@ jobs:
           set -euo pipefail
           if grep -RInE 'file:///Users/|/Users/manojnandanwar/' . \
             --exclude-dir=.git \
+            --exclude='quality.yml' \
             --include='*.md' \
             --include='*.yml' \
             --include='*.yaml'; then
