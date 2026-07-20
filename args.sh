@@ -4,7 +4,7 @@
 #           PLEASE READ THIS BEFORE EDITING
 #=================================================
 # This file is used to set the environment variables for the build process.
-# Before building AnduinOS, you should edit this file to customize the build process.
+# Before building GenixBit OS, edit this file to customize the build process.
 # It is sourced by the build script and should not be executed directly.
 # You can edit this file to customize the build process.
 # However, you should not change the variable names or the structure of the file.
@@ -122,8 +122,8 @@ export TARGET_NAME="genixbitos"
 # Business name. No special characters or spaces
 export TARGET_BUSINESS_NAME="GenixBitOS"
 
-# Version number. Must be in the format of x.y.z
-export TARGET_BUILD_VERSION="0.1.0"
+# Semantic version string, for example 0.1.0 or 0.1.0-alpha.
+export TARGET_BUILD_VERSION="0.1.0-alpha"
 
 #===========================
 # Installer customization
@@ -157,5 +157,3 @@ export APKG_SERVER="https://packages.anduinos.com"
 
 # GPG certificate name on the APKG server. [TEMPORARY UPSTREAM DEPENDENCY]
 export APKG_CERT_NAME="anduinos"
-
-
