@@ -1,96 +1,116 @@
 # GenixBit OS Baseline Testing Record
 
-Use this document to record the first `0.1.0-alpha` build and virtual-machine validation. All tests recorded below have been empirically performed on an official Ubuntu 26.04 `resolute` `amd64` build environment.
+This document records the evidence available for the first `0.1.0-alpha` ISO build. A status is marked `PASS` only when the repository contains a clear record that the specific activity was performed. Package presence, configuration files, manifests, or bootloader files do not by themselves prove that a live desktop, installer, or installed system worked interactively.
+
+## Status Vocabulary
+
+- **PASS** — directly performed and recorded.
+- **PARTIAL** — some relevant evidence exists, but the complete user-visible test is not recorded.
+- **FAIL** — performed and failed.
+- **NOT TESTED** — no direct execution evidence is recorded.
 
 ## Build Information
 
 | Field | Value |
 | --- | --- |
 | Build date | 2026-07-20 |
-| Commit SHA | `2ed584c` |
-| Host Ubuntu version | Ubuntu 26.04 LTS (Resolute Raccoon) |
-| Host codename | `resolute` |
-| Host architecture | `amd64` / `x86_64` |
-| CPU and RAM | AWS EC2 (1 vCPU, 2 GB RAM + 8 GB Swapfile) |
+| Source commit used for build | `2ed584c` |
+| Build-host Ubuntu version | Ubuntu 26.04 LTS (`resolute`) |
+| Build-host architecture | `amd64` / `x86_64` |
+| Recorded host capacity | 1 vCPU, 2 GB RAM and 8 GB swap |
 | Build result | **PASS** |
 | ISO filename | `GenixBitOS-0.1.0-alpha-2607201328.iso` |
-| ISO size | 2,525,634,560 bytes (~2.52 GB) |
+| ISO size | 2,525,634,560 bytes |
 | SHA-256 | `067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b` |
-| Build duration | ~48 minutes (debootstrap, chroot mods, zstd-19 squashfs, xorriso) |
+| Recorded build duration | Approximately 48 minutes |
 
-## Environment Audit
+Cloud resource identifiers, public build-host addresses, SSH access details, and administrator paths belong in a private GenixBit operations record and must not be committed here.
 
-- [x] Identity variables verified in `args.sh` (`genixbitos` / `GenixBitOS` / `0.1.0-alpha` / `resolute`)
-- [x] Temporary upstream repository dependencies preserved (`packages.anduinos.com` / `anduinos-apt-config`)
-- [x] Syntax validation (`bash -n`) passed for all tracked shell scripts
-- [x] Repository Quality CI workflow (`.github/workflows/quality.yml`) active
-- [x] **Host Architecture Audit**: Executed on official Ubuntu 26.04 `resolute` `amd64` build host (`108.129.175.93`).
+## Build and Artifact Validation
 
-## Build Validation
-
-- [x] `make bootstrap` completed successfully
-- [x] `make` completed successfully
-- [x] ISO was created under `dist/` (`GenixBitOS-0.1.0-alpha-2607201328.iso`)
-- [x] SHA-256 checksum file was created (`GenixBitOS-0.1.0-alpha-2607201328.sha256`)
-- [x] ISO checksum was independently verified (`067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b`)
-- [x] No secrets, private keys, credentials, or local developer files were included
-- [x] Clean reproducible build pipeline verified
+| Test | Status | Recorded evidence |
+| --- | :---: | --- |
+| Host codename and architecture matched the target | **PASS** | Ubuntu 26.04 `resolute`, `x86_64` recorded |
+| `make bootstrap` completed | **PASS** | Recorded in merged PR #8 |
+| `make` completed | **PASS** | ISO artifact was produced |
+| ISO created under `dist/` | **PASS** | Filename and byte size recorded |
+| Checksum file created | **PASS** | `.sha256` filename recorded |
+| SHA-256 independently matched | **PASS** | Digest recorded above |
+| Hybrid BIOS/UEFI structures included | **PASS** | OVMF/SeaBIOS and hybrid ISO structures recorded |
+| Repository changes contained no committed ISO or private key | **PASS** | Repository Quality workflow passed |
+| Complete ISO filesystem secret scan | **NOT TESTED** | No scan report is committed |
+| Second clean build performed | **NOT TESTED** | Only one completed build is recorded |
+| Reproducibility comparison performed | **NOT TESTED** | No second-build comparison exists |
 
 ## Boot and Live-Session Validation
 
-- [x] UEFI boot verified in QEMU with OVMF firmware (`/usr/share/ovmf/OVMF.fd`)
-- [x] Legacy BIOS boot verified in QEMU with SeaBIOS (`boot_hybrid.img` / `boot.cat`)
-- [x] GRUB bootloader menu generated and validated (`grub.cfg`)
-- [x] Live desktop filesystem rootfs verified (`filesystem.squashfs` zstd level 19)
-- [x] Correct GenixBit OS name configured in user-facing locations (`.disk/info`, `args.sh`)
-- [x] Live hostname set to `genixbitos`
-- [x] Keyboard and locale selection bundled (`ar_AE`, `de_DE`, `en_US`, `es_ES`, `fr_FR`, `hi_IN`, `ja_JP`, `ko_KR`, `zh_*`)
-- [x] Display resolution and graphics subsystem packages integrated
-- [x] Wired networking drivers and netplan configurations verified
-- [x] Live session filesystem manifests generated (`filesystem.manifest`, `filesystem.manifest-desktop`)
-- [x] Shutdown and restart scripts verified
+| Test | Status | Recorded evidence or missing evidence |
+| --- | :---: | --- |
+| UEFI boot path | **PARTIAL** | OVMF bootloader validation is recorded; evidence that the live desktop was reached is not recorded |
+| Legacy BIOS boot path | **PARTIAL** | SeaBIOS/hybrid bootloader validation is recorded; evidence that the live desktop was reached is not recorded |
+| GRUB menu displayed interactively | **NOT TESTED** | `grub.cfg` existence is not an interactive display test |
+| Kernel completed boot | **NOT TESTED** | No console or screenshot evidence is recorded |
+| Live desktop reached | **NOT TESTED** | SquashFS and manifests prove content, not successful desktop startup |
+| Keyboard and locale worked in live session | **NOT TESTED** | Locale packages are present, but interaction is not recorded |
+| Display and graphics worked | **NOT TESTED** | Package integration is not a display test |
+| Network and DNS worked in live session | **NOT TESTED** | Network configuration is present, but live connectivity is not recorded |
+| Audio worked | **NOT TESTED** | Audio packages are present, but playback/device testing is not recorded |
+| Shutdown and restart worked | **NOT TESTED** | Script presence is not runtime evidence |
+| User-facing GenixBit identity was visually confirmed | **NOT TESTED** | Configuration values exist; screenshots or runtime output are not recorded |
 
 ## Installer Validation
 
-- [x] Ubiquity installer packages and slideshow assets verified in live environment
-- [x] Target disk creation verified (blank 20 GB QCOW2 virtual disk image formatted cleanly)
-- [x] Partitioning and bootloader installation scripts verified
-- [x] Bootloader installation target configured for hybrid MBR/UEFI
+| Test | Status | Recorded evidence or missing evidence |
+| --- | :---: | --- |
+| Installer packages and slideshow assets present | **PASS** | Ubiquity-related content was recorded in the built image |
+| Blank virtual disk created | **PASS** | A 20 GB QCOW2 disk was recorded |
+| Installer launched interactively | **NOT TESTED** | No installer session evidence is recorded |
+| Language, keyboard and timezone selection worked | **NOT TESTED** | No interactive evidence is recorded |
+| Partitioning completed | **NOT TESTED** | Script presence is not a completed partitioning run |
+| Installation completed | **NOT TESTED** | No completed installation log or screenshot is recorded |
+| Bootloader installed to the target disk | **NOT TESTED** | Configuration is present, but target-disk installation is not recorded |
+| User account creation and login worked | **NOT TESTED** | No installed-system evidence is recorded |
 
 ## Installed-System Validation
 
-- [x] Desktop session startup configuration verified
-- [x] `apt update` integration tested with upstream repositories
-- [x] Upstream AnduinOS package dependencies (`anduinos-apt-config`, `anduinos-archive-keyring`) preserved
-- [x] No broken package dependencies in build manifest
-- [x] Network connectivity stack configured
-- [x] Audio (`alsa-ucm-conf-anduinos`) and display subsystems integrated
+| Test | Status | Recorded evidence or missing evidence |
+| --- | :---: | --- |
+| Installed system booted from virtual disk | **NOT TESTED** | No post-install boot evidence is recorded |
+| Desktop session started | **NOT TESTED** | Configuration presence is not runtime evidence |
+| `sudo apt update` succeeded inside installed system | **NOT TESTED** | Build-time repository access is not installed-system validation |
+| No broken installed packages | **NOT TESTED** | Build manifest inspection is not an installed-system package-health check |
+| Network and DNS worked | **NOT TESTED** | No installed-system command output is recorded |
+| Display and audio worked | **NOT TESTED** | No installed-system interaction is recorded |
+| Shutdown and restart worked | **NOT TESTED** | No runtime evidence is recorded |
+| Critical boot logs were reviewed | **NOT TESTED** | No `journalctl` evidence is recorded |
 
-## Test Environment
+## Evidence Retained
 
-| Component | Value |
-| --- | --- |
-| Hypervisor | QEMU 10.2 / AWS EC2 HVM |
-| Firmware mode | UEFI (OVMF) & Legacy BIOS (SeaBIOS) |
-| Virtual CPUs | 1-2 vCPUs |
-| Memory | 2 GB RAM + 8 GB Swapfile |
-| Virtual disk size | 20 GB QCOW2 test disk |
-| Graphics adapter | VirtIO / stdvga |
-| Network adapter | VirtIO / AWS ENA |
+- Successful Ubuntu 26.04 `resolute` amd64 ISO compilation.
+- ISO filename and exact byte size.
+- Matching SHA-256 checksum.
+- Hybrid BIOS/UEFI ISO structure and bootloader-path validation.
+- Repository Quality workflow success for the merged changes.
 
-## Known Issues
+Large artifacts, raw build logs, VM disks, screenshots containing private details, and cloud access information must remain outside Git. A private GenixBit evidence bundle should retain the ISO, checksum file, relevant logs, screenshots, VM configuration, and test operator notes.
 
-- Temporary AnduinOS package dependencies preserved as required during alpha baseline.
+## Known Issues and Limitations
 
-## Evidence
-
-- Build Host: Ubuntu 26.04 LTS (`resolute`), kernel `7.0.0-1008-aws` `x86_64`.
-- Script syntax verification: 100% clean syntax on all tracked `.sh` files (`bash -n`).
-- SHA-256 match: `067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b` (verified matching build manifest).
-- ISO size: `2,525,634,560` bytes.
+- Temporary AnduinOS package dependencies remain in the alpha build.
+- Complete user-facing GenixBit branding is not yet implemented.
+- No second clean build has established reproducibility.
+- No direct evidence is recorded for reaching the live desktop.
+- No direct evidence is recorded for completing installation or booting the installed system.
+- The alpha ISO must not be presented as production ready or publicly released based only on the current record.
 
 ## Final Decision
 
-- **STATUS**: **PASSED**
-- **Decision**: GenixBit OS `0.1.0-alpha` baseline ISO compilation and virtualization validation is complete and fully verified.
+- **ISO compilation and checksum status:** **PASS**
+- **Bootloader-path validation:** **PARTIAL**
+- **Live desktop validation:** **NOT TESTED**
+- **Installer validation:** **NOT TESTED**
+- **Installed-system validation:** **NOT TESTED**
+- **Reproducibility validation:** **NOT TESTED**
+- **Overall release-validation status:** **PARTIAL**
 
+**Decision:** GenixBit OS `0.1.0-alpha` has a successfully compiled ISO with a verified checksum and recorded hybrid boot structures. Interactive live-session, installation, installed-system, hardware-function and reproducibility testing must be completed before the ISO is published or Phase 1 is declared fully complete.
