@@ -1,0 +1,17 @@
+# Official GenixBit OS ownership
+* @GenixBit
+
+# Release, security, infrastructure, and package-signing surfaces
+/.github/ @GenixBit
+/deploy/ @GenixBit
+/docs/ @GenixBit
+/website/ @GenixBit
+/args.sh @GenixBit
+/build.sh @GenixBit
+/makefile @GenixBit
+/mods/ @GenixBit
+/LICENSE @GenixBit
+/OSS.md @GenixBit
+/UPSTREAM.md @GenixBit
+/GOVERNANCE.md @GenixBit
+/SECURITY.md @GenixBit
