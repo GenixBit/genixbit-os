@@ -1,0 +1,30 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: genixbit-os-web
+    restart: unless-stopped
+    environment:
+      OS_DOMAIN: ${OS_DOMAIN:-os.genixbit.com}
+      DOCS_DOMAIN: ${DOCS_DOMAIN:-docs.os.genixbit.com}
+      PACKAGES_DOMAIN: ${PACKAGES_DOMAIN:-packages.os.genixbit.com}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../website/os:/srv/os:ro
+      - ../website/docs:/srv/docs:ro
+      - ../website/packages:/srv/packages:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+
+volumes:
+  caddy_data:
+  caddy_config:

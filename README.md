@@ -1,169 +1,191 @@
 # GenixBit OS
 
 > [!WARNING]
-> **Early Alpha Preview**: GenixBit OS is currently under active early-stage development (`0.1.0-alpha`). It is **not yet suitable for production environments, primary workstations, or critical systems**.
+> **Early Alpha Preview (`0.1.0-alpha`)**: the baseline ISO has not yet been built and validated on the required Ubuntu 26.04 `amd64` host. GenixBit OS is not ready for production systems, primary workstations, critical infrastructure, or sensitive environments.
 
----
+## Build with AI. Own your environment.
 
-## Overview
+**GenixBit OS** is an AI-first, developer-focused Ubuntu-based Linux distribution being developed by **GenixBit Labs Private Limited** for:
 
-GenixBit OS is an AI-first, developer-focused Ubuntu-based Linux distribution being developed by **GenixBit Labs Private Limited**. It is currently based on AnduinOS 2 and is being extended with GenixBit branding, developer tooling, AI capabilities, productivity features, security controls, and a future GenixBit package ecosystem.
+- developers and application builders;
+- AI learners and first-time model users;
+- server managers and DevOps teams;
+- video, audio, design, and content creators;
+- technical teams that want local models, agents, containers, and transparent system control.
 
----
+AI-first means optional, hardware-aware and license-aware access to local or self-hosted AI runtimes, open-weight models, GenixBit Agents, development tooling, creator workflows, and future GenixBit applications. It does not mean silently downloading models, forcing a cloud provider, or claiming capabilities that have not been implemented.
 
-## Technical Foundation & Upstream Relationship
+## Current Foundation
 
-GenixBit OS is currently built upon:
-* **Base OS**: Ubuntu Linux (`resolute` / 26.04 base)
-* **Build System & Layout**: Derived from [AnduinOS 2](https://github.com/AiursoftWeb/AnduinOS-2)
+GenixBit OS currently uses:
 
-We acknowledge and thank the maintainers of Ubuntu and AnduinOS 2 for providing the foundational build infrastructure upon which GenixBit OS is being developed. For complete attribution details, see [`UPSTREAM.md`](UPSTREAM.md).
+- **Base OS**: Ubuntu Linux `resolute` / 26.04;
+- **Target architecture**: `amd64` / x86_64;
+- **Build system and layout**: derived from AnduinOS 2;
+- **License**: GPL-3.0 for covered source;
+- **Current version**: `0.1.0-alpha`;
+- **Current release state**: baseline build validation pending.
 
----
+The source retains mandatory upstream attribution. See [`UPSTREAM.md`](UPSTREAM.md), [`LICENSE`](LICENSE), and [`OSS.md`](OSS.md).
 
-## Project Goals
+## AI-First Platform
 
-* **Developer First**: Out-of-the-box pre-configured environments for modern software engineering, containerization, systems programming, and cloud-native workflows.
-* **AI Native Integration**: Optional local and cloud-assisted AI helper tooling designed for developer productivity, shell automation, and contextual assistance.
-* **Security & Hardening**: Strict default security boundaries, clean non-telemetry base, and verifiable package distribution.
-* **Modern Desktop Experience**: Polished, performant, and clutter-free desktop UI optimized for multi-monitor developer setups.
+The planned platform includes:
 
----
+### GenixBit AI Center
+
+A hardware-aware manager for optional local runtimes, model discovery, installation, removal, service status, disk usage, API access, privacy settings, and license review.
+
+### GenixBit Agents
+
+Optional integration with [`GenixBit/agency-agents`](https://github.com/GenixBit/agency-agents), which supports Antigravity, Gemini CLI, Codex, Cursor, OpenCode, and other developer-agent tools.
+
+### Bharat AI
+
+Connection to [`GenixBit/IndicLLM-Bharat-V1`](https://github.com/GenixBit/IndicLLM-Bharat-V1) after training, evaluation, safety, licensing, packaging, and release requirements are met. The current Bharat repository is a development program, not a completed production model.
+
+### Curated Local Models
+
+The initial catalog plan covers families such as Gemma 3, Qwen3, DeepSeek-R1 distilled models, IBM Granite, and future verified GenixBit models. Model weights will not be bundled into the ISO by default.
+
+### GenixBit Store
+
+A future curated experience for applications, developer tools, AI runtimes, model integrations, server utilities, creator tools, Flatpak applications, and signed GenixBit packages.
+
+Read:
+
+- [`docs/AI-FIRST-PLATFORM.md`](docs/AI-FIRST-PLATFORM.md)
+- [`docs/AI-MODEL-CATALOG.md`](docs/AI-MODEL-CATALOG.md)
+- [`docs/APP-STORE.md`](docs/APP-STORE.md)
+
+## User Profiles
+
+| Profile | Planned Experience |
+| --- | --- |
+| Developer | languages, IDEs, terminals, containers, local AI APIs, agents, databases, testing and deployment tools |
+| AI learner | guided setup, compact model recommendations, starter applications, GenixBit Academy paths |
+| Server manager | headless services, containers, monitoring, backups, secure remote administration and AI serving |
+| Creator | video, audio, image, 3D, streaming, transcription, captioning and hardware-aware AI workflows |
+| AI workstation | larger local models, RAG, evaluation, multi-agent development and experimental fine-tuning workflows |
 
 ## Feature Status
 
 | Feature Area | Status | Notes |
-| :--- | :---: | :--- |
-| ISO Build Pipeline | **Validation Pending** | Upstream build system is present; the first GenixBit OS ISO build has not yet been verified |
-| Basic OS Identity & Branding | **Work in Progress** | Core identity variables established; custom artwork pending |
-| GenixBit Package Infrastructure | **Planned** | `packages.os.genixbit.com` repository and signing pipeline |
-| AI Assistant Integration | **Planned** | Context-aware developer assistant and CLI integration |
-| Custom System Installer & Updater | **Planned** | Dedicated installation framework and update manager |
+| --- | --- | --- |
+| Repository and build preparation | **Complete** | governance, licensing, CI, documentation and validation framework are present |
+| Baseline ISO build | **Blocked pending compatible host** | requires Ubuntu 26.04 `resolute` on `amd64`; macOS ARM is not supported for the full build |
+| Complete GenixBit runtime branding | **Planned** | requires GenixBit replacement packages; user-visible upstream branding may remain until migration |
+| Product website preview | **Available in source** | original static preview under `website/os/`; public deployment and DNS remain pending |
+| Documentation preview | **Available in source** | static preview under `website/docs/`; public deployment remains pending |
+| Package repository | **Not active** | signing, snapshots, promotion, rollback and replacement packages are required first |
+| GenixBit AI Center | **Planned** | runtime and model-management application |
+| GenixBit Agents integration | **Planned** | optional connection to `GenixBit/agency-agents` |
+| GenixBit Store | **Planned** | curated applications, packages, runtimes and model integrations |
+| Bharat AI production checkpoint | **Not available** | development work exists; production training and evaluation remain incomplete |
 
----
+## Branding Migration
+
+The official goal is for every user-facing boot, live-session, installer, desktop, settings, support, server and update surface to show **GenixBit OS**.
+
+Technical names such as `anduinos-apt-config`, `anduinos-archive-keyring`, installer packages and `packages.anduinos.com` remain temporary upstream dependencies. They must not be renamed until GenixBit’s signed replacements exist and pass clean-install, upgrade and rollback tests.
+
+See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md).
+
+## Official Service Plan
+
+| Service | URL | Status |
+| --- | --- | --- |
+| Operating system website | `https://os.genixbit.com` | DNS/deployment pending |
+| Documentation | `https://docs.os.genixbit.com` | DNS/deployment pending |
+| Package repository | `https://packages.os.genixbit.com` | infrastructure and signing pending |
+| Source code | `https://github.com/GenixBit/genixbit-os` | active |
+
+An original preview site and a containerized deployment stack are included under [`website/`](website/) and [`deploy/`](deploy/). The website is structurally inspired by good Linux product websites but does not copy AnduinOS content, artwork, reviews or proprietary web assets.
+
+See [`docs/PLATFORM-SERVICES.md`](docs/PLATFORM-SERVICES.md) and [`deploy/README.md`](deploy/README.md).
 
 ## Development Roadmap
 
-* **0.1.0-alpha**: Initial build-system setup, baseline identity, repository hygiene, and build-validation preparation *(Current Phase)*
-* **0.2.0**: GenixBit OS desktop visual identity, themes, fonts, wallpapers, and branding assets
-* **0.3.0**: GenixBit package repository (`packages.os.genixbit.com`), GPG signing keyring, and `genixbit-os-apt-config`
-* **0.4.0**: Developer toolchains, pre-configured environments, and optional AI assistance components
-* **0.5.0**: Update manager, enhanced privacy controls, and security hardening defaults
-* **1.0.0**: First stable release candidate
+1. **0.1.x — Baseline validation**: produce, boot, install and test the first ISO on Ubuntu 26.04 amd64.
+2. **0.2.x — GenixBit identity**: create owned branding packages, desktop identity, installer assets and system metadata.
+3. **0.3.x — Signed package infrastructure**: launch GenixBit APT packages, keyring, snapshots, promotion and rollback.
+4. **0.4.x — Developer and creator profiles**: toolchains, containers, server utilities and creator applications.
+5. **0.5.x — AI runtime foundation**: optional Ollama/llama.cpp integrations, catalog metadata and hardware detection.
+6. **0.6.x — AI Center and Agents**: model lifecycle management and GenixBit Agents integration.
+7. **0.7.x — GenixBit Store**: curated apps, packages, AI tools and model integrations.
+8. **1.0.0 — Stable release**: production-quality build, upgrades, security, documentation and support lifecycle.
 
-See [`ROADMAP.md`](ROADMAP.md) for detailed milestone tracking.
-
----
+See [`ROADMAP.md`](ROADMAP.md).
 
 ## Build Requirements
 
-Building GenixBit OS requires an **Ubuntu Linux host environment**:
+The current build requires:
 
-* **Host OS**: Ubuntu Linux matching the target release codename (currently `resolute` / 26.04)
-* **Host Architecture**: `amd64` (x86_64)
-* **Privileges**: User account with `sudo` access (do not run `make` directly as root)
-* **Disk Space**: At least 30 GB free disk space
-* **RAM**: 8 GB minimum (16 GB recommended)
-* **Required Host Tools**: `binutils`, `curl`, `debootstrap`, `gnupg`, `squashfs-tools`, `xorriso`, `grub-pc-bin`, `grub-efi-amd64`, `grub2-common`, `mtools`, `dosfstools`
+- Ubuntu Linux matching target codename `resolute`;
+- `amd64` / x86_64 host;
+- standard user with sudo access;
+- at least 30 GB free space;
+- at least 8 GB RAM, with 16 GB recommended;
+- build dependencies validated through `make bootstrap`.
 
-> [!NOTE]
-> Building directly on macOS or Windows hosts is not supported natively. Use an Ubuntu virtual machine or server matching the target version and architecture.
+Do not run the full build directly on macOS, Windows or ARM64.
 
----
+## Build
 
-## How to Build
+```bash
+make bootstrap
+make
+```
 
-1. **Bootstrap dependencies and validate build host**:
-   ```bash
-   make bootstrap
-   ```
-
-2. **Configure build options (optional TUI)**:
-   ```bash
-   make menuconfig
-   ```
-
-3. **Start the build process**:
-   ```bash
-   make
-   ```
-
-Upon completion, the generated bootable ISO image and SHA-256 checksum will be located in the `dist/` directory:
+Expected output after a successful build:
 
 ```text
 dist/GenixBitOS-0.1.0-alpha-YYMMDDHHMM.iso
 dist/GenixBitOS-0.1.0-alpha-YYMMDDHHMM.sha256
 ```
 
-Record build and virtual-machine test results in [`docs/TESTING.md`](docs/TESTING.md).
-
----
+Record actual results in [`docs/TESTING.md`](docs/TESTING.md). Do not publish or claim a successful ISO until UEFI, BIOS, live-session, installer, installed-system and APT tests pass.
 
 ## Repository Structure
 
 ```text
-├── args.sh                   # Central build configuration and identity variables
-├── build.sh                  # Core ISO build pipeline
-├── makefile                  # Build orchestrator and environment validator
-├── menuconfig.sh             # Terminal build configuration interface
-├── clean_all.sh              # Cleanup utility
-├── shared.sh                 # Shared logging helpers
-├── mods/                     # Modular chroot installation scripts
-├── docs/                     # Technical and testing documentation
-│   ├── ARCHITECTURE.md       # Architectural overview
-│   ├── BUILDING.md           # Step-by-step build guide
-│   ├── BRANDING.md           # Visual identity guidelines
-│   ├── TESTING.md            # Baseline ISO validation record
-│   ├── UPSTREAM-SYNC.md      # Synchronization workflow with upstream
-│   └── PACKAGE-ROADMAP.md    # Package repository migration plan
-├── CHANGELOG.md              # Project history and release notes
-├── CONTRIBUTING.md           # Contribution guidelines
-├── LICENSE                   # GNU General Public License v3.0
-├── OSS.md                    # Third-party open-source software inventory
-├── ROADMAP.md                # Development roadmap
-├── SECURITY.md               # Vulnerability reporting policy
-└── UPSTREAM.md               # Upstream attribution and credits
+├── args.sh                       # Build configuration and identity
+├── build.sh                      # ISO build pipeline
+├── makefile                      # Build orchestration and environment checks
+├── mods/                         # Ordered chroot customization modules
+├── docs/                         # Architecture, AI, branding, packages, testing and services
+├── website/                      # Original OS, docs and package-status previews
+├── deploy/                       # Containerized static preview deployment
+├── .github/CODEOWNERS            # GenixBit-controlled ownership
+├── GOVERNANCE.md                 # Official maintainer and release policy
+├── CONTRIBUTING.md               # Closed-maintainer alpha workflow
+├── ROADMAP.md                    # Product milestones
+├── SECURITY.md                   # Private vulnerability reporting
+├── UPSTREAM.md                   # Upstream attribution
+├── OSS.md                        # Third-party software inventory
+└── LICENSE                       # GPL-3.0
 ```
 
----
+## Governance
 
-## Governance & Documentation
+GenixBit OS uses a closed maintainer model during early alpha:
 
-* **Architecture**: See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-* **Building Guide**: See [`docs/BUILDING.md`](docs/BUILDING.md)
-* **Testing Record**: See [`docs/TESTING.md`](docs/TESTING.md)
-* **Package Migration Roadmap**: See [`docs/PACKAGE-ROADMAP.md`](docs/PACKAGE-ROADMAP.md)
-* **Upstream Synchronization**: See [`docs/UPSTREAM-SYNC.md`](docs/UPSTREAM-SYNC.md)
-* **Security Policy**: See [`SECURITY.md`](SECURITY.md)
-* **Contribution Guidelines**: See [`CONTRIBUTING.md`](CONTRIBUTING.md)
-* **Code of Conduct**: See [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- only authorized GenixBit team members may merge official changes or publish official releases;
+- external users may report bugs, suggest features, submit compatibility results and exercise GPL rights;
+- unsolicited external code pull requests are not accepted unless invited by a GenixBit maintainer.
 
----
+This governance policy does not remove GPL rights or upstream attribution obligations. See [`GOVERNANCE.md`](GOVERNANCE.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-## Upstream Attribution & Licensing
+## Security
 
-GenixBit OS is open-source software released under the **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)**.
+Early builds are not suitable for production or sensitive systems. Never commit credentials, tokens, model-provider keys, private signing keys, ISO images or generated build directories.
 
-* **Original Upstream Project**: [AnduinOS 2](https://github.com/AiursoftWeb/AnduinOS-2) (GPL-3.0)
-* **Upstream Ownership**: Copyright © AnduinXue & Aiursoft Web Development Team.
-* **GenixBit Modifications**: Copyright © GenixBit Labs Private Limited.
-
-Full attribution details and licensing terms are available in [`UPSTREAM.md`](UPSTREAM.md) and [`LICENSE`](LICENSE). Third-party package licensing information is documented in [`OSS.md`](OSS.md).
-
----
-
-## Security & Disclaimer
-
-**Disclaimer**: GenixBit OS is currently under active early-stage development (`0.1.0-alpha`). It is provided "AS IS" without warranty of any kind. Do not install or run early alpha builds on production hardware, mission-critical systems, or environments containing sensitive data.
-
-For security concerns, please refer to [`SECURITY.md`](SECURITY.md).
-
----
+See [`SECURITY.md`](SECURITY.md).
 
 ## Official Links
 
-* **Company**: [GenixBit Labs Private Limited](https://www.genixbit.com)
-* **Operating System**: [https://os.genixbit.com](https://os.genixbit.com)
-* **Documentation**: [https://docs.os.genixbit.com](https://docs.os.genixbit.com)
-* **Package Repository**: [https://packages.os.genixbit.com](https://packages.os.genixbit.com)
-* **Source Code**: [https://github.com/GenixBit/genixbit-os](https://github.com/GenixBit/genixbit-os)
+- **Company**: https://www.genixbit.com
+- **Operating System**: https://os.genixbit.com
+- **Documentation**: https://docs.os.genixbit.com
+- **Package Repository**: https://packages.os.genixbit.com
+- **Source Code**: https://github.com/GenixBit/genixbit-os

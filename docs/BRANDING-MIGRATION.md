@@ -1,0 +1,127 @@
+# GenixBit OS Branding Migration
+
+## Objective
+
+Every user-facing surface in an official GenixBit OS release should present **GenixBit OS** as the operating-system product name and **GenixBit Labs Private Limited** as the official maintainer.
+
+This must be completed without removing legally required upstream attribution or breaking temporary package dependencies inherited from AnduinOS 2.
+
+## Non-Negotiable Rules
+
+1. Do not perform a blind global replacement of `AnduinOS`, `anduinos`, `Aiursoft`, or upstream URLs.
+2. Preserve `LICENSE`, `UPSTREAM.md`, `OSS.md`, copyright notices, package licenses, and source attribution.
+3. Replace user-facing branding only through GenixBit-controlled files and packages.
+4. Keep temporary upstream package names and repository identifiers until verified GenixBit replacements exist.
+5. Never imply that inherited upstream code was originally authored solely by GenixBit.
+6. Official GenixBit logos and trademarks must not be copied from upstream artwork.
+
+## User-Facing Surfaces to Replace
+
+### Boot and Installation
+
+- ISO filename and volume label;
+- GRUB menu titles;
+- live-session name and hostname;
+- Plymouth boot splash;
+- installer launcher name and icon;
+- installer slideshow, welcome text, URLs, and artwork;
+- `.disk/info` and ISO-root documentation;
+- recovery and integrity-check screens.
+
+### Installed System Identity
+
+- `/etc/os-release`;
+- `/etc/lsb-release`;
+- `/etc/issue` and `/etc/issue.net`;
+- system hostname defaults;
+- support, privacy, documentation, bug-report, and home URLs;
+- About/System Information branding;
+- terminal welcome and MOTD where used;
+- default browser home page;
+- package-origin and update-channel labels.
+
+### Desktop Experience
+
+- application-menu logo;
+- GNOME shell theme and extensions;
+- wallpapers and lock screens;
+- icons, cursors, accent colors, and fonts;
+- default favorites and desktop shortcuts;
+- software-store launcher;
+- AI Center and GenixBit Store launchers;
+- help and documentation shortcuts.
+
+### Server and CLI Experience
+
+- login banner;
+- SSH issue text;
+- system diagnostics output;
+- update and repair command names;
+- package-source descriptions;
+- service documentation and support links.
+
+## Required GenixBit Packages
+
+The complete migration should be implemented with separately versioned packages:
+
+| Package | Purpose |
+| --- | --- |
+| `genixbit-os-base-files` | `/etc/os-release`, issue files, URLs, core identity |
+| `genixbit-os-apt-config` | signed GenixBit APT source configuration |
+| `genixbit-os-archive-keyring` | public verification keyring only |
+| `genixbit-os-desktop` | desktop metapackage and default application set |
+| `genixbit-os-theme` | GNOME, shell, GTK, icons, cursors, and appearance |
+| `genixbit-os-wallpapers` | official light/dark wallpapers and lock-screen assets |
+| `genixbit-os-installer-config` | installer identity, slideshow, links, and defaults |
+| `genixbit-os-appstore` | GenixBit Store desktop application |
+| `genixbit-os-ai-center` | local AI runtime and model manager |
+| `genixbit-os-agent-integration` | optional GenixBit Agents integration |
+| `genixbit-os-release` | version/channel metadata and release configuration |
+
+## Temporary Upstream Dependencies
+
+The following references may remain temporarily because they are technical dependencies rather than desired branding:
+
+- `packages.anduinos.com`;
+- `anduinos-apt-config`;
+- `anduinos-archive-keyring`;
+- `anduinos-installer-config`;
+- `anduinos-bwrap-hack`;
+- other upstream package names installed by the current build pipeline.
+
+These dependencies must be clearly documented and replaced only after the GenixBit package repository, signing key, replacement packages, rollback plan, and clean-install tests are ready.
+
+## Branding Audit Method
+
+For every reference, classify it as:
+
+1. **Legal attribution — keep**
+2. **Technical dependency — keep temporarily**
+3. **User-facing brand — replace through a GenixBit package**
+4. **Documentation/history — keep with context**
+5. **Unknown — manual review required**
+
+Recommended audit commands on a local clone:
+
+```bash
+git grep -nEi 'AnduinOS|anduinos|Aiursoft|anduin'
+```
+
+After building an ISO, inspect the mounted image and installed VM:
+
+```bash
+grep -RInE 'AnduinOS|anduinos|Aiursoft|anduin' /etc /usr/share 2>/dev/null
+```
+
+Do not treat search output as an automatic deletion list.
+
+## Release Acceptance Criteria
+
+A release may be described as fully GenixBit-branded only when:
+
+- the boot menu, live session, installer, installed system, desktop, settings, support links, and update channels show GenixBit OS;
+- no upstream logo or user-facing upstream product name remains unintentionally;
+- mandatory attribution remains available in source and legal documentation;
+- all replacement packages come from signed GenixBit infrastructure;
+- clean install, upgrade, removal, rollback, and offline boot tests pass;
+- screenshots are taken from an actual validated GenixBit OS build.
