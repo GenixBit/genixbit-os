@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!WARNING]
-> **Early Alpha (`0.1.0-alpha`)**: the first ISO compiled successfully from historical commit `2ed584c`, and its SHA-256 was verified. Later commits changed the build pipeline, including EFI image creation, so a fresh ISO from the exact current `main` commit must be built before interactive validation. Do not use any alpha build on production, primary or sensitive systems.
+> **Early Alpha (`0.1.0-alpha`)**: the first ISO compiled successfully from historical commit `2ed584c`, and its SHA-256 was verified. Later commits changed the build pipeline and added GenixBit identity-package scaffolding. A frozen validation candidate must now be built and tested before release. Do not use any alpha build on production, primary or sensitive systems.
 
 ## Build with AI. Own your environment.
 
@@ -24,7 +24,7 @@ GenixBit OS currently uses:
 - **Build system and layout**: derived from AnduinOS 2;
 - **License**: GPL-3.0 for covered source;
 - **Current version**: `0.1.0-alpha`;
-- **Current release state**: historical ISO compilation verified; fresh current-main build and interactive release validation pending.
+- **Current release state**: historical ISO compilation verified; frozen-candidate build and direct release validation pending.
 
 The source retains mandatory upstream attribution. See [`UPSTREAM.md`](UPSTREAM.md), [`LICENSE`](LICENSE) and [`OSS.md`](OSS.md).
 
@@ -72,14 +72,16 @@ Read:
 
 | Feature Area | Status | Notes |
 | --- | --- | --- |
-| Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM test harness framework are present |
+| Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM tooling are present |
 | Historical ISO compilation | **PASS** | commit `2ed584c` generated the recorded ISO, size and checksum |
-| Current-main clean ISO build | **Not tested** | later EFI and container-build changes require a fresh artifact from the exact current commit |
-| Current-main BIOS/UEFI runtime validation | **Not tested** | dry-run command construction is not boot evidence |
+| Frozen validation candidate | **Not selected** | create an immutable candidate branch from approved `main` after validation-gate fixes |
+| Candidate clean ISO build | **Not tested** | build from the exact frozen candidate SHA on Ubuntu 26.04 amd64 |
+| Candidate BIOS/UEFI runtime validation | **Not tested** | dry-run command construction is not boot evidence |
 | Live session and installer | **Not tested** | direct interactive evidence is not recorded |
 | Installed system and APT validation | **Not tested** | post-install boot, login and `apt update` evidence is pending |
-| Reproducibility | **Not tested** | two clean builds from the same validation commit have not been compared |
-| Complete GenixBit runtime branding | **Planned** | requires GenixBit replacement packages; user-visible upstream branding may remain during migration |
+| Reproducibility | **Not tested** | two clean builds from the same candidate SHA have not been compared |
+| `genixbit-os-base-files` | **Scaffolded** | identity templates and Debian package metadata exist; build/install/upgrade evidence is pending |
+| Complete GenixBit runtime branding | **Planned** | user-visible upstream branding may remain during migration |
 | Product website preview | **Active** | public preview recorded at `os.genixbit.com` |
 | Documentation preview | **Active** | public preview recorded at `docs.os.genixbit.com` |
 | Package repository | **Not active** | `packages.os.genixbit.com` is a status page only; signing and APT infrastructure remain pending |
@@ -88,7 +90,12 @@ Read:
 | GenixBit Store | **Planned** | curated applications, packages, runtimes and model integrations |
 | Bharat AI production checkpoint | **Not available** | development work exists; production training and evaluation remain incomplete |
 
-The detailed evidence classification is maintained in [`docs/TESTING.md`](docs/TESTING.md), and the required current-main sequence is in [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md).
+Evidence and procedures:
+
+- [`docs/TESTING.md`](docs/TESTING.md)
+- [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md)
+- [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md)
+- [`docs/BASE-FILES.md`](docs/BASE-FILES.md)
 
 ## Branding Migration
 
@@ -113,8 +120,8 @@ See [`docs/PLATFORM-SERVICES.md`](docs/PLATFORM-SERVICES.md), [`docs/DEPLOYMENT-
 
 ## Development Roadmap
 
-1. **0.1.x — Finish baseline validation**: build a fresh ISO from the exact current `main` commit, boot it to the live desktop in UEFI and BIOS, complete installation, boot the installed system, verify APT and compare a second clean same-commit build.
-2. **0.2.x — GenixBit identity**: create owned branding packages, desktop identity, installer assets and system metadata.
+1. **0.1.x — Finish baseline validation**: freeze a candidate SHA, build its ISO, boot it to the live desktop in UEFI and BIOS, complete installation, boot the installed system, verify APT and compare a second clean same-candidate build.
+2. **0.2.x — GenixBit identity**: build and integrate owned branding packages, desktop identity, installer assets and system metadata.
 3. **0.3.x — Signed package infrastructure**: launch GenixBit APT packages, keyring, snapshots, promotion and rollback.
 4. **0.4.x — Developer and creator profiles**: toolchains, containers, server utilities and creator applications.
 5. **0.5.x — AI runtime foundation**: optional Ollama/llama.cpp integrations, catalog metadata and hardware detection.
@@ -130,8 +137,8 @@ The current build requires:
 
 - Ubuntu Linux matching target codename `resolute`;
 - `amd64` / x86_64 host;
-- standard user with sudo access;
-- at least 30 GB free space;
+- approved standard user with passwordless sudo for the controlled build environment;
+- at least 30 GB free space for one build, with 100 GB recommended for full validation;
 - at least 8 GB RAM, with 16 GB recommended;
 - build dependencies validated through `make bootstrap`.
 
@@ -151,9 +158,13 @@ dist/GenixBitOS-0.1.0-alpha-YYMMDDHHMM.iso
 dist/GenixBitOS-0.1.0-alpha-YYMMDDHHMM.sha256
 ```
 
-Record the exact source commit, ISO filename, size and checksum. The current validation artifact must be built after all merged build-pipeline changes and must be used consistently for BIOS, UEFI, installer and installed-system tests.
+Release validation must use a frozen candidate branch and its exact SHA. Use:
 
-Do not publish the ISO until UEFI, BIOS, live-session, installer, installed-system, APT, reproducibility and release-review tests pass.
+```bash
+tools/vm/verify-runtime.sh --expected-commit <FULL_CANDIDATE_SHA>
+```
+
+The candidate artifact must be used consistently for BIOS, UEFI, installer and installed-system tests. Do not publish the ISO until UEFI, BIOS, live-session, installer, installed-system, APT, reproducibility and release-review gates pass.
 
 ## Repository Structure
 
@@ -162,7 +173,8 @@ Do not publish the ISO until UEFI, BIOS, live-session, installer, installed-syst
 ├── build.sh                      # ISO build pipeline
 ├── makefile                      # Build orchestration and environment checks
 ├── mods/                         # Ordered chroot customization modules
-├── tools/vm/                     # Host readiness and QEMU validation tooling
+├── packages/                     # GenixBit-owned package sources and scaffolding
+├── tools/vm/                     # Host readiness, candidate build and QEMU tooling
 ├── docs/                         # Architecture, AI, branding, packages, testing and services
 ├── website/                      # Original OS, docs and package-status previews
 ├── deploy/                       # Containerized static preview deployment
