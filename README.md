@@ -34,7 +34,7 @@ We acknowledge and thank the maintainers of Ubuntu and AnduinOS 2 for providing 
 
 | Feature Area | Status | Notes |
 | :--- | :---: | :--- |
-| Reproducible ISO Build System | **Available Now** | Based on upstream `debootstrap` + `chroot` mod architecture |
+| ISO Build Pipeline | **Validation Pending** | Upstream build system is present; first GenixBit OS ISO build has not yet been verified |
 | Basic OS Identity & Branding | **Work in Progress** | Core identity variables established; custom artwork pending |
 | GenixBit Package Infrastructure | **Planned** | `packages.os.genixbit.com` repository and signing pipeline |
 | AI Assistant Integration | **Planned** | Context-aware developer assistant & CLI integration |
@@ -44,7 +44,7 @@ We acknowledge and thank the maintainers of Ubuntu and AnduinOS 2 for providing 
 
 ## Development Roadmap
 
-* **0.1.0-alpha**: Reproducible upstream-based build system setup and repository hygiene *(Current Phase)*
+* **0.1.0-alpha**: Initial build system setup, baseline identity variables, repository hygiene, and build validation preparation *(Current Phase)*
 * **0.2.0**: GenixBit OS desktop visual identity, themes, fonts, wallpapers, and branding assets
 * **0.3.0**: GenixBit package repository (`packages.os.genixbit.com`), GPG signing keyring, and `genixbit-os-apt-config`
 * **0.4.0**: Developer toolchains, pre-configured environments, and optional AI assistance components

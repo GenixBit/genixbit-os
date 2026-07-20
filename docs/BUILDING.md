@@ -13,7 +13,7 @@ This guide details host environment requirements, dependency setup, configuratio
 * **Target Architecture**: `amd64` (x86_64)
 * **Required RAM**: Minimum 8 GB (16 GB recommended for faster squashfs compression)
 * **Required Storage**: 30 GB free space on a POSIX-compliant filesystem with Linux file permissions
-* **Privileges**: Standard user account with passwordless `sudo` privileges
+* **Privileges**: Standard user account with sudo privileges
 
 > [!WARNING]
 > **macOS & Windows Hosts**: Do NOT attempt to build GenixBit OS directly on macOS or Windows filesystems. macOS APFS and Windows NTFS do not support Linux device nodes, ext4 filesystem flags, or root chroot permissions. Use an Ubuntu `amd64` virtual machine or bare-metal host.

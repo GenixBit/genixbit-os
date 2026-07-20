@@ -1,0 +1,96 @@
+name: Repository Quality & Integrity Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality:
+    name: Repository & Script Quality Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Validate shell script syntax (bash -n)
+        run: |
+          echo "=== Running bash -n syntax checks ==="
+          tracked_scripts=$(git ls-files '*.sh')
+          for script in $tracked_scripts; do
+            echo "Checking syntax: $script"
+            bash -n "$script"
+          done
+
+      - name: Run ShellCheck on shell scripts (non-blocking lint audit)
+        run: |
+          echo "=== Running ShellCheck analysis ==="
+          tracked_scripts=$(git ls-files '*.sh')
+          shellcheck --severity=warning $tracked_scripts || echo "ShellCheck reported warnings in upstream scripts (non-blocking)."
+
+      - name: Verify no forbidden tracked artifacts or private keys
+        run: |
+          echo "=== Verifying no forbidden tracked files ==="
+          FORBIDDEN=$(git ls-files '*.iso' '*.img' '*.key' '*.pem' '*.p12' '*.pfx' '.env' '.env.*' 'new_building_os/*' 'image/*' 'dist/*')
+          if [ -n "$FORBIDDEN" ]; then
+            echo "::error::Forbidden files are tracked in Git:"
+            echo "$FORBIDDEN"
+            exit 1
+          else
+            echo "No forbidden files tracked."
+          fi
+
+      - name: Verify no local absolute paths in documentation
+        run: |
+          echo "=== Checking for local absolute paths in documentation ==="
+          LOCAL_PATHS=$(git grep -Ei 'file:///Users/|/Users/manojnandanwar/' -- 'docs/' '*.md' || true)
+          if [ -n "$LOCAL_PATHS" ]; then
+            echo "::error::Local absolute paths found in documentation:"
+            echo "$LOCAL_PATHS"
+            exit 1
+          else
+            echo "No local absolute paths found in documentation."
+          fi
+
+      - name: Confirm required legal and governance files exist
+        run: |
+          echo "=== Verifying legal & governance files ==="
+          for file in LICENSE OSS.md UPSTREAM.md; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Required file missing: $file"
+              exit 1
+            fi
+            echo "Found $file"
+          done
+
+      - name: Confirm GenixBit OS identity variables in args.sh
+        run: |
+          echo "=== Verifying target identity variables in args.sh ==="
+          source args.sh
+
+          if [ "$TARGET_NAME" != "genixbitos" ]; then
+            echo "::error::TARGET_NAME expected 'genixbitos', got '$TARGET_NAME'"
+            exit 1
+          fi
+
+          if [ "$TARGET_BUSINESS_NAME" != "GenixBitOS" ]; then
+            echo "::error::TARGET_BUSINESS_NAME expected 'GenixBitOS', got '$TARGET_BUSINESS_NAME'"
+            exit 1
+          fi
+
+          if [ "$TARGET_BUILD_VERSION" != "0.1.0-alpha" ]; then
+            echo "::error::TARGET_BUILD_VERSION expected '0.1.0-alpha', got '$TARGET_BUILD_VERSION'"
+            exit 1
+          fi
+
+          echo "Identity variables verified successfully:"
+          echo "  TARGET_NAME=$TARGET_NAME"
+          echo "  TARGET_BUSINESS_NAME=$TARGET_BUSINESS_NAME"
+          echo "  TARGET_BUILD_VERSION=$TARGET_BUILD_VERSION"
