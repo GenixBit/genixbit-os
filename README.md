@@ -34,17 +34,17 @@ We acknowledge and thank the maintainers of Ubuntu and AnduinOS 2 for providing 
 
 | Feature Area | Status | Notes |
 | :--- | :---: | :--- |
-| Reproducible ISO Build System | **Available Now** | Based on upstream `debootstrap` + `chroot` mod architecture |
+| ISO Build Pipeline | **Validation Pending** | Upstream build system is present; the first GenixBit OS ISO build has not yet been verified |
 | Basic OS Identity & Branding | **Work in Progress** | Core identity variables established; custom artwork pending |
 | GenixBit Package Infrastructure | **Planned** | `packages.os.genixbit.com` repository and signing pipeline |
-| AI Assistant Integration | **Planned** | Context-aware developer assistant & CLI integration |
-| Custom System Installer & Updater | **Planned** | Dedicated installation framework & update manager |
+| AI Assistant Integration | **Planned** | Context-aware developer assistant and CLI integration |
+| Custom System Installer & Updater | **Planned** | Dedicated installation framework and update manager |
 
 ---
 
 ## Development Roadmap
 
-* **0.1.0-alpha**: Reproducible upstream-based build system setup and repository hygiene *(Current Phase)*
+* **0.1.0-alpha**: Baseline upstream-based build validation and repository hygiene *(Current Phase)*
 * **0.2.0**: GenixBit OS desktop visual identity, themes, fonts, wallpapers, and branding assets
 * **0.3.0**: GenixBit package repository (`packages.os.genixbit.com`), GPG signing keyring, and `genixbit-os-apt-config`
 * **0.4.0**: Developer toolchains, pre-configured environments, and optional AI assistance components
@@ -67,7 +67,7 @@ Building GenixBit OS requires an **Ubuntu Linux host environment**:
 * **Required Host Tools**: `binutils`, `curl`, `debootstrap`, `gnupg`, `squashfs-tools`, `xorriso`, `grub-pc-bin`, `grub-efi-amd64`, `grub2-common`, `mtools`, `dosfstools`
 
 > [!NOTE]
-> Building directly on macOS or Windows hosts is not supported natively. Use an Ubuntu virtual machine or container environment matching the target version.
+> Building directly on macOS or Windows hosts is not supported natively. Use an Ubuntu virtual machine or server matching the target version and architecture.
 
 ---
 
@@ -90,9 +90,11 @@ Building GenixBit OS requires an **Ubuntu Linux host environment**:
 
 Upon completion, the generated bootable ISO image and SHA-256 checksum will be located in the `dist/` directory:
 ```text
-dist/GenixBitOS-0.1.0-YYMMDDHHMM.iso
-dist/GenixBitOS-0.1.0-YYMMDDHHMM.sha256
+dist/GenixBitOS-0.1.0-alpha-YYMMDDHHMM.iso
+dist/GenixBitOS-0.1.0-alpha-YYMMDDHHMM.sha256
 ```
+
+Record build and virtual-machine test results in [`docs/TESTING.md`](docs/TESTING.md).
 
 ---
 
@@ -106,17 +108,11 @@ dist/GenixBitOS-0.1.0-YYMMDDHHMM.sha256
 ├── clean_all.sh              # Cleanup utility for build state and temporary directories
 ├── shared.sh                 # Color output helpers and logging functions
 ├── mods/                     # Modular chroot installation scripts
-│   ├── 00-check-host-mod     # Host environment verification
-│   ├── 01-install-swap-pkgs  # APT keyring & core package bootstrap
-│   ├── 02-hostname-lang      # Hostname and language pack installation
-│   ├── 05-live-kernel-apps   # Desktop metapackages & kernel installation
-│   ├── 46-casper-patch       # Live environment configuration
-│   ├── 78-ensure-no-junk     # Telemetry & unwanted package removal
-│   └── 85-cleanup-mod        # System image cleanup and shrinkage
-├── docs/                     # Technical documentation
+├── docs/                     # Technical and testing documentation
 │   ├── ARCHITECTURE.md       # Architectural overview
 │   ├── BUILDING.md           # Step-by-step build guide
 │   ├── BRANDING.md           # Visual identity guidelines
+│   ├── TESTING.md            # Baseline ISO validation record
 │   ├── UPSTREAM-SYNC.md      # Synchronization workflow with upstream
 │   └── PACKAGE-ROADMAP.md    # Package repository migration plan
 ├── CHANGELOG.md              # Project history and release notes
@@ -125,7 +121,7 @@ dist/GenixBitOS-0.1.0-YYMMDDHHMM.sha256
 ├── OSS.md                    # Third-party open-source software inventory
 ├── ROADMAP.md                # Development roadmap
 ├── SECURITY.md               # Vulnerability reporting policy
-└── UPSTREAM.md               # Upstream project attribution & credits
+└── UPSTREAM.md               # Upstream project attribution and credits
 ```
 
 ---
@@ -134,6 +130,7 @@ dist/GenixBitOS-0.1.0-YYMMDDHHMM.sha256
 
 * **Architecture**: See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 * **Building Guide**: See [`docs/BUILDING.md`](docs/BUILDING.md)
+* **Testing Record**: See [`docs/TESTING.md`](docs/TESTING.md)
 * **Package Migration Roadmap**: See [`docs/PACKAGE-ROADMAP.md`](docs/PACKAGE-ROADMAP.md)
 * **Upstream Synchronization**: See [`docs/UPSTREAM-SYNC.md`](docs/UPSTREAM-SYNC.md)
 * **Security Policy**: See [`SECURITY.md`](SECURITY.md)
