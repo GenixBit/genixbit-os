@@ -401,16 +401,19 @@ EOF
         cd isolinux && \
         dd if=/dev/zero of=efiboot.img bs=1M count=10 && \
         sudo mkfs.vfat efiboot.img && \
-        mkdir efi && \
-        sudo mount efiboot.img efi
+        mkdir -p efi && \
+        LOOP_DEV=$(sudo losetup -f --show efiboot.img) && \
+        sudo mount "$LOOP_DEV" efi
 
         if ! sudo grub-install --target=x86_64-efi --efi-directory=efi --boot-directory=boot --uefi-secure-boot --removable --no-nvram; then
-            sudo umount efi
+            sudo umount efi || true
+            sudo losetup -d "$LOOP_DEV" 2>/dev/null || true
             print_error "grub-install failed!"
             exit 1
         fi
 
         sudo umount efi && \
+        sudo losetup -d "$LOOP_DEV" 2>/dev/null || true && \
         rm -rf efi
     )
     judge "Create EFI boot image"
