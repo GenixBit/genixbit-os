@@ -14,54 +14,59 @@
 - [x] Provision an Ubuntu 26.04 `resolute` `amd64` build machine.
 - [x] Run `make bootstrap` successfully for the historical build.
 - [x] Complete the first historical ISO compilation from commit `2ed584c`.
-- [x] Record the historical ISO filename and exact byte size.
-- [x] Create and independently verify the historical SHA-256 checksum.
+- [x] Record the historical ISO filename, size and SHA-256.
 - [x] Record historical hybrid BIOS/UEFI boot structures.
-- [x] Add host setup readiness check (`tools/vm/setup-host.sh`).
-- [x] Add the QEMU BIOS/UEFI harness (`tools/vm/run-qemu.sh`).
-- [x] Verify QEMU command construction in dry-run mode.
+- [x] Add QEMU, host-readiness and candidate-preflight tooling.
+- [x] Correct the host-readiness counter behavior under `set -e`.
+- [x] Require a clean checkout and exact expected SHA in `verify-runtime.sh`.
+- [x] Define the frozen candidate process in `docs/VALIDATION-CANDIDATE.md`.
 
-The first ISO remains valid historical build evidence. It is not the current validation target because later commits changed the build pipeline, including EFI image creation.
+The first ISO remains valid historical evidence. It is not the next release candidate because later commits changed the build pipeline and added GenixBit identity-package scaffolding.
 
-### Current-Main Build Gate
+### Frozen Candidate Build Gate
 
-- [ ] Record the exact current `main` commit selected for release validation.
-- [ ] Perform a clean ISO build from that exact commit on Ubuntu 26.04 `resolute` amd64.
-- [ ] Record the current ISO filename, exact size and SHA-256.
+- [ ] Create `validation/0.1.0-alpha-candidate` from the approved post-gate `main` commit.
+- [ ] Record its full 40-character SHA.
+- [ ] Keep the candidate branch immutable during validation.
+- [ ] Run `tools/vm/verify-runtime.sh --expected-commit <SHA>` on Ubuntu 26.04 `resolute` amd64.
+- [ ] Perform a clean ISO build from the candidate SHA.
+- [ ] Record the candidate ISO filename, exact size and SHA-256.
 - [ ] Verify the generated checksum independently.
-- [ ] Inspect current BIOS and UEFI boot metadata.
-- [ ] Verify the current EFI fallback path contains `EFI/BOOT/BOOTX64.EFI`.
-- [ ] Retain the current artifact in private GenixBit evidence storage.
-- [ ] Use that one recorded current artifact for all direct runtime tests.
+- [ ] Inspect BIOS and UEFI boot metadata.
+- [ ] Verify `/isolinux/efiboot.img` contains `EFI/BOOT/BOOTX64.EFI`.
+- [ ] Retain the candidate artifact and private reports outside Git.
+- [ ] Use that one candidate artifact for every direct runtime test.
 
 ### Direct Runtime Validation Still Required
 
-- [ ] Boot the current-main ISO through UEFI and record evidence that the live desktop was reached.
-- [ ] Boot the current-main ISO through Legacy BIOS and record evidence that the live desktop was reached.
+- [ ] Boot the candidate ISO through UEFI and reach the live desktop.
+- [ ] Boot the candidate ISO through Legacy BIOS and reach the live desktop.
 - [ ] Confirm the GRUB menu displays correctly.
-- [ ] Validate keyboard, locale, display, networking, DNS, audio, shutdown and restart in the live session.
+- [ ] Validate keyboard, locale, display, networking, DNS, audio, shutdown and restart.
 - [ ] Launch the installer interactively.
 - [ ] Complete installation to clean UEFI and BIOS virtual disks.
 - [ ] Confirm partitioning and target-disk bootloader installation.
-- [ ] Remove the ISO and boot the installed system from each virtual disk.
+- [ ] Boot each installed system without the ISO.
 - [ ] Confirm account creation, login and desktop startup.
 - [ ] Run `sudo apt update` inside the installed system.
 - [ ] Check installed package health and critical boot logs.
-- [ ] Confirm user-facing GenixBit identity and record remaining upstream branding.
-- [ ] Perform a second clean build from the same validation commit in a separate checkout.
-- [ ] Compare the second ISO with the first current-main ISO and document expected or nondeterministic differences.
-- [ ] Store non-sensitive evidence summaries in `docs/TESTING.md`.
+- [ ] Confirm GenixBit identity and record remaining upstream branding.
+- [ ] Confirm `genixbit-os-base-files` behavior when included in the candidate.
+- [ ] Perform a second clean build from the same candidate SHA in a separate checkout.
+- [ ] Compare both candidate ISOs and document expected or nondeterministic differences.
+- [ ] Store non-sensitive summaries in `docs/TESTING.md`.
 
-Phase 1 is not complete until a fresh current-main artifact and the direct runtime tests above are recorded. The historical compilation result is valid, but it is not release-ready validation for the current source tree.
+Phase 1 is not complete until the frozen candidate and all release-gate tests above are recorded.
 
-See [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md) and [`docs/TESTING.md`](docs/TESTING.md).
+See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md) and [`docs/TESTING.md`](docs/TESTING.md).
 
 ## Phase 2 — `0.2.x`: Complete GenixBit Identity
 
-Phase 2 design and package scaffolding may begin after the Phase 1 evidence correction, but branded release claims require a validated live and installed system.
-
-- [ ] Approve official GenixBit OS logo and visual system.
-- [ ] Create `genixbit-os-base-files`.
+- [ ] Approve the official GenixBit OS logo and visual system.
+- [x] Create `genixbit-os-base-files` source scaffolding and identity templates.
+- [ ] Build the `genixbit-os-base-files` Debian package successfully.
+- [ ] Integrate the package into the ISO build pipeline.
+- [ ] Test clean installation, ownership, upgrade and rollback behavior.
 - [ ] Create `genixbit-os-theme`.
 - [ ] Create `genixbit-os-wallpapers`.
 - [ ] Create `genixbit-os-installer-config`.
@@ -70,7 +75,7 @@ Phase 2 design and package scaffolding may begin after the Phase 1 evidence corr
 - [ ] Audit remaining upstream terms as legal notices, technical dependencies or migration defects.
 - [ ] Produce genuine screenshots from a validated GenixBit build.
 
-See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md).
+See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md) and [`docs/BASE-FILES.md`](docs/BASE-FILES.md).
 
 ## Phase 3 — `0.3.x`: Signed Package and Update Infrastructure
 
@@ -103,7 +108,7 @@ See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md).
 - [ ] Evaluate vLLM/container serving for suitable server hardware.
 - [ ] Detect RAM, VRAM, GPU, CPU architecture and free disk space.
 - [ ] Create signed model-catalog metadata.
-- [ ] Show model source, terms, checksum, size and hardware tier before download.
+- [ ] Show model source, terms, size, checksum and hardware tier before download.
 - [ ] Bind local model APIs to loopback by default.
 - [ ] Add clean uninstall and model-data removal.
 
@@ -126,7 +131,7 @@ See [`docs/AI-FIRST-PLATFORM.md`](docs/AI-FIRST-PLATFORM.md) and [`docs/AI-MODEL
 - [ ] Build the native GenixBit Store client.
 - [ ] Support signed GenixBit APT packages.
 - [ ] Display Ubuntu package sources accurately.
-- [ ] Integrate reviewed Flatpak and Flathub entries.
+- [ ] Integrate reviewed Flatpak/Flathub entries.
 - [ ] Add official vendor repository adapters with user confirmation.
 - [ ] Add AI runtime and model catalog integration.
 - [ ] Display publisher, license, permissions, architecture and update method.
@@ -140,9 +145,7 @@ See [`docs/APP-STORE.md`](docs/APP-STORE.md).
 - [x] Add original product, documentation and package-status preview pages.
 - [x] Add containerized Caddy preview configuration.
 - [x] Provision a GenixBit-controlled web server.
-- [x] Deploy the product website preview.
-- [x] Deploy the documentation preview.
-- [x] Deploy the package-service status page.
+- [x] Deploy the product website, documentation and package-status previews.
 - [ ] Attach and verify a stable public endpoint such as an Elastic IP or approved load balancer.
 - [ ] Confirm SSH is restricted to approved administrators or Systems Manager.
 - [ ] Configure multi-region uptime and TLS-expiry monitoring.
