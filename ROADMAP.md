@@ -1,43 +1,60 @@
 # GenixBit OS Development Roadmap
 
 > [!NOTE]
-> All milestones are provisional. A feature is complete only after implementation, documentation, direct testing, security review and GenixBit maintainer approval. File presence, package manifests or configuration inspection must not be treated as proof of successful interactive runtime behavior.
+> All milestones are provisional. A feature is complete only after implementation, documentation, direct testing, security review and GenixBit maintainer approval. File presence, package manifests, dry runs or configuration inspection must not be treated as proof of successful interactive runtime behavior.
 
 ## Phase 1 — `0.1.x`: Baseline Build and Release Validation *(Current Gate)*
 
-### Repository and Build Preparation
+### Repository and Historical Build Preparation
 
 - [x] Preserve upstream history and GPL-3.0 licensing.
 - [x] Establish GenixBit identity variables and repository governance.
 - [x] Add repository-quality CI and baseline test documentation.
 - [x] Confirm macOS ARM is unsuitable for the full ISO build.
 - [x] Provision an Ubuntu 26.04 `resolute` `amd64` build machine.
-- [x] Run `make bootstrap` successfully.
-- [x] Complete the first ISO compilation.
-- [x] Record ISO filename and exact byte size.
-- [x] Create and independently verify the SHA-256 checksum.
-- [x] Record hybrid BIOS/UEFI boot structures.
-- [x] Add host setup readiness check (`tools/vm/setup-host.sh`) and verify QEMU harness dry-run (`tools/vm/run-qemu.sh`).
+- [x] Run `make bootstrap` successfully for the historical build.
+- [x] Complete the first historical ISO compilation from commit `2ed584c`.
+- [x] Record the historical ISO filename and exact byte size.
+- [x] Create and independently verify the historical SHA-256 checksum.
+- [x] Record historical hybrid BIOS/UEFI boot structures.
+- [x] Add host setup readiness check (`tools/vm/setup-host.sh`).
+- [x] Add the QEMU BIOS/UEFI harness (`tools/vm/run-qemu.sh`).
+- [x] Verify QEMU command construction in dry-run mode.
+
+The first ISO remains valid historical build evidence. It is not the current validation target because later commits changed the build pipeline, including EFI image creation.
+
+### Current-Main Build Gate
+
+- [ ] Record the exact current `main` commit selected for release validation.
+- [ ] Perform a clean ISO build from that exact commit on Ubuntu 26.04 `resolute` amd64.
+- [ ] Record the current ISO filename, exact size and SHA-256.
+- [ ] Verify the generated checksum independently.
+- [ ] Inspect current BIOS and UEFI boot metadata.
+- [ ] Verify the current EFI fallback path contains `EFI/BOOT/BOOTX64.EFI`.
+- [ ] Retain the current artifact in private GenixBit evidence storage.
+- [ ] Use that one recorded current artifact for all direct runtime tests.
 
 ### Direct Runtime Validation Still Required
 
-- [ ] Boot the ISO through UEFI and record evidence that the live desktop was reached.
-- [ ] Boot the ISO through Legacy BIOS and record evidence that the live desktop was reached.
+- [ ] Boot the current-main ISO through UEFI and record evidence that the live desktop was reached.
+- [ ] Boot the current-main ISO through Legacy BIOS and record evidence that the live desktop was reached.
 - [ ] Confirm the GRUB menu displays correctly.
 - [ ] Validate keyboard, locale, display, networking, DNS, audio, shutdown and restart in the live session.
 - [ ] Launch the installer interactively.
-- [ ] Complete installation to a clean virtual disk.
+- [ ] Complete installation to clean UEFI and BIOS virtual disks.
 - [ ] Confirm partitioning and target-disk bootloader installation.
-- [ ] Remove the ISO and boot the installed system from the virtual disk.
+- [ ] Remove the ISO and boot the installed system from each virtual disk.
 - [ ] Confirm account creation, login and desktop startup.
 - [ ] Run `sudo apt update` inside the installed system.
 - [ ] Check installed package health and critical boot logs.
 - [ ] Confirm user-facing GenixBit identity and record remaining upstream branding.
-- [ ] Perform a second clean build.
-- [ ] Compare the second ISO with the first and document expected/non-deterministic differences.
+- [ ] Perform a second clean build from the same validation commit in a separate checkout.
+- [ ] Compare the second ISO with the first current-main ISO and document expected or nondeterministic differences.
 - [ ] Store non-sensitive evidence summaries in `docs/TESTING.md`.
 
-Phase 1 is not complete until the direct runtime tests above are recorded. The current ISO compilation result is valid, but it is not yet a release-ready validation.
+Phase 1 is not complete until a fresh current-main artifact and the direct runtime tests above are recorded. The historical compilation result is valid, but it is not release-ready validation for the current source tree.
+
+See [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md) and [`docs/TESTING.md`](docs/TESTING.md).
 
 ## Phase 2 — `0.2.x`: Complete GenixBit Identity
 
@@ -86,7 +103,7 @@ See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md).
 - [ ] Evaluate vLLM/container serving for suitable server hardware.
 - [ ] Detect RAM, VRAM, GPU, CPU architecture and free disk space.
 - [ ] Create signed model-catalog metadata.
-- [ ] Show model source, terms, size, checksum and hardware tier before download.
+- [ ] Show model source, terms, checksum, size and hardware tier before download.
 - [ ] Bind local model APIs to loopback by default.
 - [ ] Add clean uninstall and model-data removal.
 
@@ -109,7 +126,7 @@ See [`docs/AI-FIRST-PLATFORM.md`](docs/AI-FIRST-PLATFORM.md) and [`docs/AI-MODEL
 - [ ] Build the native GenixBit Store client.
 - [ ] Support signed GenixBit APT packages.
 - [ ] Display Ubuntu package sources accurately.
-- [ ] Integrate reviewed Flatpak/Flathub entries.
+- [ ] Integrate reviewed Flatpak and Flathub entries.
 - [ ] Add official vendor repository adapters with user confirmation.
 - [ ] Add AI runtime and model catalog integration.
 - [ ] Display publisher, license, permissions, architecture and update method.

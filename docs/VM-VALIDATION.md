@@ -1,87 +1,177 @@
 # GenixBit OS Interactive VM Validation
 
-This runbook completes the runtime tests that remain open after the first successful `0.1.0-alpha` ISO compilation.
+This runbook completes the runtime tests that remain open for `0.1.0-alpha`.
 
-## Current Verified Artifact
+## Historical Baseline Artifact
 
-The repository records this first build:
+The repository retains the first successful build as historical evidence:
 
 | Field | Value |
 | --- | --- |
+| Source commit | `2ed584c` |
 | ISO | `GenixBitOS-0.1.0-alpha-2607201328.iso` |
 | Size | 2,525,634,560 bytes |
 | SHA-256 | `067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b` |
 | Compilation | `PASS` |
-| Interactive live desktop | `NOT TESTED` |
-| Installer completion | `NOT TESTED` |
-| Installed-system boot | `NOT TESTED` |
-| Reproducibility | `NOT TESTED` |
+| Interactive runtime validation | `NOT TESTED` |
 
-The ISO, VM disks, screenshots, raw logs and cloud access information must remain in private GenixBit evidence storage and must not be committed to Git.
+This artifact proves that the earlier source revision compiled. It is **not the current validation target** because later commits changed the ISO build pipeline, including EFI image creation in `build.sh`.
 
-## Test Harness
+Do not use only the historical ISO to approve the current `main` branch.
 
-[`tools/vm/run-qemu.sh`](../tools/vm/run-qemu.sh) creates or reuses a private QCOW2 disk and launches the ISO in either Legacy BIOS or UEFI mode.
+## Current Validation Target
 
-The script:
+Before starting BIOS, UEFI, installer, or installed-system testing:
 
-- verifies an optional SHA-256 digest before boot;
-- stores default VM state outside the repository;
-- refuses to place a VM disk inside the Git working tree;
-- detects KVM and enables it only when available;
-- finds a matching OVMF code and variables pair for UEFI;
-- keeps a separate writable OVMF variable store per UEFI disk;
-- supports graphical local execution, loopback-only VNC and console-only diagnostics;
-- supports booting the installed disk without reattaching the ISO;
-- prints the exact QEMU command for the evidence record.
+1. check out the exact current `main` commit;
+2. record its full commit SHA;
+3. perform a clean ISO build from that commit;
+4. record the new ISO filename, size, and SHA-256;
+5. use that exact new artifact for every runtime test;
+6. perform the reproducibility build from the same source commit in a separate clean checkout.
+
+The ISO, VM disks, screenshots, raw logs, and cloud access information must remain in private GenixBit evidence storage and must not be committed to Git.
+
+## Required Git Workflow
+
+Use a new branch because the earlier interactive-validation branch has already been merged:
+
+```text
+Branch: test/validate-current-main-0.1.0-alpha
+PR: test: validate current GenixBit OS 0.1.0-alpha runtime
+Squash commit: test: validate current GenixBit OS 0.1.0-alpha runtime
+```
+
+Start from the latest `main`:
+
+```bash
+git switch main
+git pull origin main
+git switch -c test/validate-current-main-0.1.0-alpha
+
+VALIDATION_COMMIT=$(git rev-parse HEAD)
+printf 'Validation commit: %s\n' "$VALIDATION_COMMIT"
+```
+
+Do not change branches or source commits between the clean build and runtime tests.
 
 ## Host Requirements
 
-Install the required virtualization tools on an approved x86_64 Linux workstation or server:
+Use an approved x86_64 Linux host with:
+
+- Ubuntu 26.04 `resolute` for the ISO build;
+- x86_64 architecture;
+- 4 CPU threads or more;
+- 16 GB host RAM recommended;
+- at least 100 GB free disk space for two clean builds and VM disks;
+- KVM access where available;
+- a graphical desktop, secure remote desktop, or loopback-only VNC tunnel.
+
+Install the test tools:
 
 ```bash
 sudo apt update
-sudo apt install -y qemu-system-x86 qemu-utils ovmf
+sudo apt install -y \
+  qemu-system-x86 \
+  qemu-utils \
+  ovmf \
+  curl \
+  diffoscope \
+  xorriso \
+  squashfs-tools
 ```
 
-Recommended capacity:
-
-- x86_64 host;
-- 4 CPU threads or more;
-- 8 GB guest memory;
-- 40 GB disk per firmware mode;
-- KVM access where available;
-- a graphical desktop, secure remote desktop or loopback-only VNC tunnel.
-
-A standard cloud VM may not expose nested KVM. Software emulation can test functionality but will be slower.
-
-## Prepare the Artifact
-
-Store the ISO outside the repository, for example:
-
-```text
-/srv/genixbit-private/GenixBitOS-0.1.0-alpha-2607201328.iso
-```
-
-Verify it before every test session:
+Run the readiness helper:
 
 ```bash
-sha256sum /srv/genixbit-private/GenixBitOS-0.1.0-alpha-2607201328.iso
+tools/vm/setup-host.sh --skip-install
 ```
 
-Expected digest:
+A standard cloud VM may not expose nested KVM. Software emulation can be used, but it will be slower and the actual acceleration method must be recorded.
+
+## Build the Current Validation Artifact
+
+Confirm the host and source:
+
+```bash
+uname -m
+lsb_release -a
+git status --short
+git rev-parse HEAD
+```
+
+Build cleanly:
+
+```bash
+make clean
+make bootstrap
+make
+```
+
+Locate the new artifact:
+
+```bash
+CURRENT_ISO=$(find dist -maxdepth 1 -type f -name 'GenixBitOS-0.1.0-alpha-*.iso' -printf '%T@ %p\n' \
+  | sort -n \
+  | tail -n 1 \
+  | cut -d' ' -f2-)
+
+[[ -n "$CURRENT_ISO" ]] || { echo 'No current ISO found.' >&2; exit 1; }
+CURRENT_ISO=$(realpath "$CURRENT_ISO")
+CURRENT_SHA256=$(sha256sum "$CURRENT_ISO" | awk '{print $1}')
+CURRENT_SIZE=$(stat -c '%s' "$CURRENT_ISO")
+
+printf 'Commit: %s\nISO: %s\nSize: %s\nSHA-256: %s\n' \
+  "$VALIDATION_COMMIT" "$CURRENT_ISO" "$CURRENT_SIZE" "$CURRENT_SHA256"
+```
+
+Compare the calculated checksum with the generated `.sha256` file.
+
+Inspect the current ISO:
+
+```bash
+file "$CURRENT_ISO"
+isoinfo -d -i "$CURRENT_ISO"
+xorriso -indev "$CURRENT_ISO" -report_el_torito as_mkisofs
+```
+
+Confirm that the new EFI image contains the expected fallback path:
 
 ```text
-067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b
+EFI/BOOT/BOOTX64.EFI
 ```
 
-## Preview Commands Without Starting QEMU
+Move or copy the artifact to approved private storage before deleting the build host. Do not commit it.
+
+## QEMU Test Harness
+
+[`tools/vm/run-qemu.sh`](../tools/vm/run-qemu.sh) creates or reuses private QCOW2 disks and launches the ISO in Legacy BIOS or UEFI mode.
+
+It:
+
+- verifies the provided ISO SHA-256 before boot;
+- stores default VM state outside the repository;
+- refuses to put VM disks inside the Git working tree;
+- detects KVM and enables it only when available;
+- finds matching OVMF code and variables files;
+- keeps a writable OVMF variable store per UEFI disk;
+- supports graphical execution, loopback-only VNC, and installed-disk boot;
+- prints the exact QEMU command for the evidence record.
+
+Export the current artifact values:
+
+```bash
+export GENIXBIT_ISO="$CURRENT_ISO"
+export GENIXBIT_SHA256="$CURRENT_SHA256"
+```
+
+Preview both commands:
 
 ```bash
 tools/vm/run-qemu.sh \
   --mode bios \
-  --iso /srv/genixbit-private/GenixBitOS-0.1.0-alpha-2607201328.iso \
-  --sha256 067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b \
+  --iso "$GENIXBIT_ISO" \
+  --sha256 "$GENIXBIT_SHA256" \
   --create-disk \
   --dry-run
 ```
@@ -89,11 +179,13 @@ tools/vm/run-qemu.sh \
 ```bash
 tools/vm/run-qemu.sh \
   --mode uefi \
-  --iso /srv/genixbit-private/GenixBitOS-0.1.0-alpha-2607201328.iso \
-  --sha256 067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b \
+  --iso "$GENIXBIT_ISO" \
+  --sha256 "$GENIXBIT_SHA256" \
   --create-disk \
   --dry-run
 ```
+
+A dry run validates command construction only. It is not boot, desktop, installer, or installed-system evidence.
 
 ## Legacy BIOS Test
 
@@ -102,12 +194,12 @@ Start a new BIOS VM:
 ```bash
 tools/vm/run-qemu.sh \
   --mode bios \
-  --iso /srv/genixbit-private/GenixBitOS-0.1.0-alpha-2607201328.iso \
-  --sha256 067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b \
+  --iso "$GENIXBIT_ISO" \
+  --sha256 "$GENIXBIT_SHA256" \
   --create-disk
 ```
 
-Default disk location:
+Default disk:
 
 ```text
 ~/.local/state/genixbit-os-vm/genixbit-bios.qcow2
@@ -116,12 +208,12 @@ Default disk location:
 Directly observe and record:
 
 1. SeaBIOS starts.
-2. The ISO is detected.
+2. The current ISO is detected.
 3. GRUB appears on screen.
 4. The selected entry loads the kernel.
 5. The live desktop appears.
 6. Keyboard and mouse work.
-7. Terminal, Files and Settings open.
+7. Terminal, Files, and Settings open.
 8. Display resolution works.
 9. Networking and DNS work.
 10. Audio is tested or recorded as unavailable in the hypervisor.
@@ -134,12 +226,12 @@ Start a separate UEFI VM:
 ```bash
 tools/vm/run-qemu.sh \
   --mode uefi \
-  --iso /srv/genixbit-private/GenixBitOS-0.1.0-alpha-2607201328.iso \
-  --sha256 067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b \
+  --iso "$GENIXBIT_ISO" \
+  --sha256 "$GENIXBIT_SHA256" \
   --create-disk
 ```
 
-Default disk location:
+Default disk:
 
 ```text
 ~/.local/state/genixbit-os-vm/genixbit-uefi.qcow2
@@ -148,12 +240,12 @@ Default disk location:
 Directly observe and record:
 
 1. OVMF starts.
-2. The ISO is detected.
+2. The current ISO is detected.
 3. GRUB appears on screen.
 4. The selected entry loads the kernel.
 5. The live desktop appears.
-6. No firmware, Secure Boot or bootloader error blocks startup.
-7. The same live-session functionality checklist used for BIOS passes.
+6. No firmware or bootloader error blocks startup.
+7. The live-session functionality checklist used for BIOS passes.
 
 ## Secure Remote VNC
 
@@ -162,13 +254,13 @@ For a headless test host, bind QEMU VNC to loopback only:
 ```bash
 tools/vm/run-qemu.sh \
   --mode uefi \
-  --iso /srv/genixbit-private/GenixBitOS-0.1.0-alpha-2607201328.iso \
-  --sha256 067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b \
+  --iso "$GENIXBIT_ISO" \
+  --sha256 "$GENIXBIT_SHA256" \
   --create-disk \
   --vnc 127.0.0.1:1
 ```
 
-Create an SSH tunnel from the administrator workstation:
+Tunnel it from the administrator workstation:
 
 ```bash
 ssh -L 5901:127.0.0.1:5901 approved-user@approved-test-host
@@ -176,11 +268,28 @@ ssh -L 5901:127.0.0.1:5901 approved-user@approved-test-host
 
 Connect the VNC client to `127.0.0.1:5901`.
 
-Never bind an unauthenticated QEMU VNC display to a public interface.
+Never bind unauthenticated QEMU VNC to a public interface.
+
+## Live-Session Evidence
+
+Inside each live session, collect non-sensitive summaries from:
+
+```bash
+hostnamectl
+cat /etc/os-release
+cat /etc/lsb-release 2>/dev/null || true
+uname -a
+ip address
+resolvectl status
+systemctl --failed
+curl -I https://os.genixbit.com
+```
+
+Record the visible product name, remaining upstream branding, networking, DNS, display, audio, failed services, shutdown, and restart results.
 
 ## Installer Test
 
-Use the UEFI VM first, then repeat the essential installation and disk-boot checks in BIOS mode.
+Use UEFI first, then repeat the essential installation and target-disk boot checks in BIOS mode.
 
 Test interactively:
 
@@ -191,14 +300,14 @@ Test interactively:
 - automatic partitioning of the blank QCOW2 disk;
 - file copy and package configuration;
 - removal of live-only packages;
-- bootloader installation;
+- target-disk bootloader installation;
 - successful installer completion.
 
-A package or script existing in the ISO is not proof that the installer completed.
+The presence of installer packages or scripts is not proof that installation completed.
 
-## Boot the Installed Disk
+## Boot the Installed Disks
 
-After installation, shut down the VM and restart without the ISO.
+After installation, shut down and restart without the ISO.
 
 UEFI:
 
@@ -218,17 +327,9 @@ tools/vm/run-qemu.sh \
   --disk ~/.local/state/genixbit-os-vm/genixbit-bios.qcow2
 ```
 
-Confirm:
+Confirm the disk boots, the login screen appears, the test account logs in, the desktop starts, core desktop applications work, networking and DNS work, and shutdown/restart work.
 
-- the virtual disk boots;
-- the login screen appears;
-- the test account can log in;
-- the desktop starts;
-- terminal, Files and Settings work;
-- networking and DNS work;
-- shutdown and restart work.
-
-Inside the installed system, collect non-sensitive results from:
+Inside the installed system, collect non-sensitive summaries from:
 
 ```bash
 hostnamectl
@@ -244,24 +345,13 @@ apt-mark showhold
 journalctl -p 3 -b
 ```
 
-Keep raw logs private. Commit only a factual summary to [`docs/TESTING.md`](TESTING.md).
-
-## Evidence Classification
-
-Use these statuses exactly:
-
-- `PASS` — the action was directly performed and the outcome was recorded.
-- `PARTIAL` — some relevant execution evidence exists, but the complete test is missing.
-- `FAIL` — the action was performed and failed.
-- `NOT TESTED` — direct execution evidence is absent.
-
-Screenshots should show the relevant UI and timestamp while excluding personal data, credentials, IP addresses, cloud identifiers and private hostnames.
+Keep raw logs private. Commit only factual summaries to [`docs/TESTING.md`](TESTING.md).
 
 ## Reproducibility Gate
 
-A second clean build is a separate requirement.
+Perform the second build from the **same validation commit** in a separate clean checkout and clean build directory.
 
-Record the second build’s:
+Record:
 
 - source commit;
 - host release and architecture;
@@ -271,28 +361,30 @@ Record the second build’s:
 - package indexes used;
 - comparison method and results.
 
-A different checksum does not automatically mean failure. Review timestamps, ISO metadata, package updates, generated identifiers, file ordering and SquashFS differences with tools such as `diffoscope` and `xorriso`.
+Compare with `diffoscope`, `xorriso`, and SquashFS inspection. A different checksum does not automatically mean failure; classify timestamps, ISO metadata, package changes, generated identifiers, file ordering, compression differences, and unexpected content changes.
 
 Do not mark reproducibility `PASS` until the comparison criteria and resulting differences are documented.
 
-## Git Workflow
+## Evidence Classification
 
-Use:
+Use only:
+
+- `PASS` — directly performed and recorded;
+- `PARTIAL` — relevant execution evidence exists, but the complete test is missing;
+- `FAIL` — performed and failed;
+- `NOT TESTED` — direct execution evidence is absent.
+
+Screenshots should show the relevant interface and timestamp while excluding personal data, credentials, IP addresses, cloud identifiers, and private hostnames.
+
+## Suggested Commits
 
 ```text
-Branch: test/interactive-vm-validation-0.1.0-alpha
-PR: test: complete interactive GenixBit OS 0.1.0-alpha validation
-Squash commit: test: complete interactive GenixBit OS 0.1.0-alpha validation
-```
-
-Suggested evidence commits:
-
-```text
-test: record interactive UEFI and BIOS validation
+build: produce current-main GenixBit OS validation artifact
+test: record current-main UEFI and BIOS validation
 test: record GenixBit OS installer validation
 test: record installed-system validation
 test: record second clean build comparison
-docs: complete GenixBit OS 0.1.0-alpha validation
+docs: complete current-main GenixBit OS validation
 ```
 
-Do not commit the ISO, checksum artifact, QCOW2 disks, raw logs, screenshots containing private details or cloud credentials.
+Do not commit the ISO, checksum artifact, QCOW2 disks, raw logs, screenshots containing private details, or cloud credentials.
