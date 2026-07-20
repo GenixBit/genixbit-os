@@ -1,64 +1,93 @@
-# GenixBit OS Baseline ISO Build Validation Log
+# GenixBit OS Baseline Testing Record
 
-This document serves as the standardized QA test matrix and validation log template for testing baseline **GenixBit OS** ISO builds.
+Use this document to record the first `0.1.0-alpha` build and virtual-machine validation. Do not mark a test as passed until it has been performed and evidence has been recorded.
 
----
+## Build Information
 
-## 1. Build Metadata
+| Field | Value |
+| --- | --- |
+| Build date | Not recorded |
+| Commit SHA | Not recorded |
+| Host Ubuntu version | Not recorded |
+| Host codename | Not recorded |
+| Host architecture | Not recorded |
+| CPU and RAM | Not recorded |
+| Build result | Not tested |
+| ISO filename | Not recorded |
+| ISO size | Not recorded |
+| SHA-256 | Not recorded |
+| Build duration | Not recorded |
 
-- **Build Date**: `Not tested`
-- **Commit SHA**: `Not tested`
-- **Host Ubuntu Version & Codename**: `Ubuntu 26.04 LTS (resolute)`
-- **Host Architecture**: `amd64`
-- **Build Orchestrator Command**: `make bootstrap && make`
-- **Build Result**: `[ ] Pending First Human Validation`
+## Build Validation
 
----
+- [ ] `make bootstrap` completed successfully
+- [ ] `make` completed successfully
+- [ ] ISO was created under `dist/`
+- [ ] SHA-256 checksum file was created
+- [ ] ISO checksum was independently verified
+- [ ] No secrets, private keys, credentials, or local developer files were included
+- [ ] A second clean build was completed for reproducibility comparison
+- [ ] Repeated-build differences were reviewed and documented
 
-## 2. Image Verification
+## Boot and Live-Session Validation
 
-- **ISO Filename**: `GenixBitOS-0.1.0-alpha-YYMMDDHHMM.iso`
-- **ISO File Size**: `Not tested`
-- **SHA-256 Checksum**: `Not tested`
-- **Media Integrity Verification (`md5sum.txt`)**: `[ ] Not tested`
+- [ ] UEFI boot
+- [ ] Legacy BIOS boot
+- [ ] GRUB menu displayed correctly
+- [ ] Live session reached the desktop
+- [ ] Correct GenixBit OS name appeared in user-facing locations
+- [ ] Live hostname was correct
+- [ ] Keyboard and locale selection worked
+- [ ] Display resolution and graphics worked
+- [ ] Wired networking worked
+- [ ] Wireless networking worked or was recorded as unavailable in the test VM
+- [ ] Audio worked or was recorded as unavailable in the test VM
+- [ ] Shutdown worked
+- [ ] Restart worked
 
----
+## Installer Validation
 
-## 3. Environment & Boot Testing
+- [ ] Installer launched successfully
+- [ ] Installation completed on a blank virtual disk
+- [ ] Partitioning completed successfully
+- [ ] Bootloader installed successfully
+- [ ] System rebooted into the installed OS
+- [ ] User account creation worked
+- [ ] Login worked after installation
 
-| Test Case | Target Environment | Status | Notes |
-| :--- | :--- | :---: | :--- |
-| **UEFI Boot Test** | QEMU / KVM (OVMF UEFI) | [ ] Not tested | Verify GRUB boot menu and kernel boot parameter loading |
-| **Legacy BIOS Boot Test** | QEMU / KVM (SeaBIOS) | [ ] Not tested | Verify legacy BIOS boot loader and isolinux fallback |
-| **Live-Session Desktop** | QEMU / Bare Metal | [ ] Not tested | Verify GNOME Shell desktop, display manager, and live user initialization |
-| **Installer Launch** | Ubiquity / Live Environment | [ ] Not tested | Launch installer from live desktop icon / terminal |
-| **Disk Installation** | QEMU / KVM 30GB Virtual Disk | [ ] Not tested | Complete clean partition formatting and target disk extraction |
-| **Installed-System Reboot** | Installed Target System | [ ] Not tested | Reboot installed OS, verify bootloader removal of live casper medium |
+## Installed-System Validation
 
----
+- [ ] Desktop session started successfully
+- [ ] `apt update` completed successfully
+- [ ] Upstream AnduinOS package dependencies resolved successfully
+- [ ] No broken packages were reported
+- [ ] Network connectivity worked
+- [ ] Audio and display worked
+- [ ] Shutdown and restart worked
+- [ ] System logs were reviewed for critical boot errors
 
-## 4. Hardware & Subsystem Validation
+## Test Environment
 
-| Subsystem | Test Description | Status | Notes |
-| :--- | :--- | :---: | :--- |
-| **Networking** | NetworkManager interface up, DHCP acquisition, `ping 1.1.1.1` | [ ] Not tested | |
-| **Audio** | PipeWire / ALSA audio output device recognition | [ ] Not tested | |
-| **Display & Graphics** | Wayland compositor rendering, resolution switching, multi-monitor | [ ] Not tested | |
-| **APT Update** | `sudo apt update` against configured repositories | [ ] Not tested | |
-| **Package Validation** | Dependency resolution of installed base packages | [ ] Not tested | |
+| Component | Value |
+| --- | --- |
+| Hypervisor | Not recorded |
+| Firmware mode | Not recorded |
+| Virtual CPUs | Not recorded |
+| Memory | Not recorded |
+| Virtual disk size | Not recorded |
+| Graphics adapter | Not recorded |
+| Network adapter | Not recorded |
 
----
+## Known Issues
 
-## 5. Known Issues & Observations
+No test results have been recorded yet.
 
-*(Record any build warnings, kernel trace logs, missing drivers, or unexpected behavior observed during validation)*
+## Evidence
 
-- None recorded yet (Validation Pending).
+Add links or references to non-sensitive logs, screenshots, checksum output, and test notes. Do not commit credentials, private system data, complete machine identifiers, or private keys.
 
----
+## Final Decision
 
-## 6. Final Assessment
+**Status:** Not tested
 
-- **Overall Result**: `[ ] PASS` / `[ ] FAIL` / `[x] VALIDATION PENDING`
-- **Evaluator**: `Pending Human Validation on Ubuntu 26.04 amd64 Host`
-- **Date**: `Pending`
+**Decision:** The `0.1.0-alpha` build must not be released until the required build, boot, installer, and installed-system checks above are completed and reviewed.
