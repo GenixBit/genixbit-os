@@ -1,6 +1,6 @@
 # GenixBit OS Platform Services Deployment Status
 
-This document records the deployment readiness, local stack validation, security header audit, and production provisioning status for **GenixBit OS** public preview web services.
+This document records the public deployment verification, DNS routing, Let's Encrypt TLS certificates, security header audit, and production status for **GenixBit OS** public preview web services.
 
 ---
 
@@ -9,120 +9,99 @@ This document records the deployment readiness, local stack validation, security
 | Field | Value |
 | --- | --- |
 | **Deployment Date** | 2026-07-20 |
-| **Source Commit** | `33768d2f820e6b699f28ab8d6d22d8d20c5f5adf` |
+| **Source Commit** | `6ab071b` |
 | **Deployment Branch** | `infra/deploy-public-preview` |
-| **Target Server OS** | Ubuntu 26.04 LTS (`resolute`) / Ubuntu 24.04 LTS (`noble`) |
-| **Target Server Architecture** | `amd64` (x86_64) |
-| **Container Engine** | Docker Engine 27+ & Docker Compose v2 |
-| **Reverse Proxy / TLS** | Caddy 2 (`caddy:2-alpine`) with Automatic HTTPS (ACME / Let's Encrypt) |
-| **Deployment Status** | **Local Preview Validated** (Awaiting Public Server IP & DNS Provisioning) |
+| **Target Server** | AWS EC2 `genius.genixbit.com` (`3.233.87.187`) |
+| **Server OS** | Ubuntu 24.04.4 LTS (`noble` x86_64) |
+| **DNS Engine** | AWS Route53 (`genixbit.com` Hosted Zone `Z06099042DFAZB06TIXX4`) |
+| **Reverse Proxy & SSL** | Nginx 1.24 + Certbot (Let's Encrypt TLS v1.2/v1.3) |
+| **Web Container Engine** | Docker Engine 27+ & Docker Compose v2 (`caddy:2-alpine` on `127.0.0.1:8081`) |
+| **Public Service Status** | **PUBLIC PREVIEW ACTIVE** (Verified HTTPS across all 3 domains) |
 
 ---
 
-## 2. Target Domain & Service Architecture
+## 2. Public Domain & Service Verification
 
-| Domain | Service | Service Type | Deployment State |
-| --- | --- | --- | --- |
-| `https://os.genixbit.com` | Product Website | Static Web Preview | Ready for Deployment |
-| `https://docs.os.genixbit.com` | Platform Documentation | Static Documentation Landing Page | Ready for Deployment |
-| `https://packages.os.genixbit.com` | Package Infrastructure Status | Read-only Status Page (Non-APT) | Ready for Deployment |
+| Domain | Service | Status | HTTP/TLS Test | Security Headers |
+| --- | --- | :---: | :---: | :---: |
+| `https://os.genixbit.com` | Product Website | **ACTIVE** | `HTTP/2 200 OK` | Verified (HSTS, CSP, X-Frame, Nosniff) |
+| `https://docs.os.genixbit.com` | Platform Documentation | **ACTIVE** | `HTTP/2 200 OK` | Verified (HSTS, CSP, X-Frame, Nosniff) |
+| `https://packages.os.genixbit.com` | Package Repository Status | **ACTIVE** *(Status-Only; Non-APT)* | `HTTP/2 200 OK` | Verified (HSTS, CSP, X-Frame, Nosniff) |
 
 > [!IMPORTANT]
-> **Package Domain Scope**: `https://packages.os.genixbit.com` is explicitly configured as a static status page informing visitors that production APT repository infrastructure is pending. It does NOT expose an active APT index, unverified source lists, or private signing keys.
+> **Package Domain Protection**: `https://packages.os.genixbit.com` is configured strictly as a static status page informing visitors that production APT repository infrastructure is pending. It does NOT expose an active APT index, unverified source lists, or private signing keys.
 
 ---
 
-## 3. Container & Stack Validation (`deploy/`)
+## 3. Container Security & Isolation (`deploy/`)
 
-- **Docker Compose Spec**: `deploy/compose.yaml` validated with `docker compose config`.
-- **Image**: `caddy:2-alpine`
+- **Docker Container**: `genixbit-os-web` running `caddy:2-alpine` listening on `127.0.0.1:8081`.
 - **Security Options**:
   - `read_only: true` (Root filesystem mounted read-only)
   - `security_opt: ["no-new-privileges:true"]`
   - `tmpfs: ["/tmp", "/run"]`
-  - Website content volume mounts: Read-only (`:ro`)
-  - Docker socket (`/var/run/docker.sock`) is **NOT** mounted.
-- **Port Bindings**: `80:80`, `443:443` (TCP), `443:443` (UDP / HTTP/3 QUIC).
+  - Website mounts set to read-only (`:ro`)
+  - Docker socket (`/var/run/docker.sock`) is **NOT** mounted into container.
 
 ---
 
-## 4. Security Headers & TLS Configuration (`deploy/Caddyfile`)
+## 4. Reverse Proxy & Security Header Audit
 
-Caddy is pre-configured with industry-standard security hardening headers across all three domains:
+Nginx proxies external HTTPS requests to the read-only Caddy container stack on `127.0.0.1:8081`. Caddy enforces the following security headers:
 
-```caddy
-Strict-Transport-Security "max-age=31536000; includeSubDomains"
-X-Content-Type-Options "nosniff"
-X-Frame-Options "DENY"
-Referrer-Policy "strict-origin-when-cross-origin"
-Permissions-Policy "camera=(), microphone=(), geolocation=()"
-Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
--Server
+```http
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 ```
 
-- **HSTS Enabled**: 1-year duration (`max-age=31536000`).
-- **Server Header Strip**: `-Server` header removes version disclosure.
-- **Protocols**: HTTP/1.1, HTTP/2, HTTP/3 (QUIC) enabled.
+- **HSTS**: Enforced for 1 year (`max-age=31536000`).
+- **HTTP -> HTTPS Redirect**: Configured (`HTTP 301 Moved Permanently`).
+- **TLS Certificate Renewal**: Certbot automated systemd timer active on `genius.genixbit.com`.
 
 ---
 
-## 5. Missing Production Inputs for Remote Provisioning
-
-To complete public DNS pointing and automated Let's Encrypt TLS issuance, the following runtime configuration inputs must be provided by the GenixBit infrastructure administrator:
-
-1. `NEW_SERVER_IPV4`: Public IPv4 address of the hardened production web server.
-2. `SSH_USER`: Non-root deployment user with `sudo` access.
-3. `SSH_PRIVATE_KEY_PATH` / SSH agent access: Authorized SSH key.
-4. `DNS_PROVIDER_ACCESS`: Cloudflare / DNS provider credentials to configure `A` records for `os`, `docs`, and `packages` subdomains.
-
----
-
-## 6. Remote Server Deployment Commands
-
-Once `NEW_SERVER_IPV4` and SSH access are available, execute the following deployment sequence on the remote server:
+## 5. Deployment Verification Evidence
 
 ```bash
-# 1. Connect to remote production server
-ssh ${SSH_USER}@${NEW_SERVER_IPV4}
+# DNS Verification
+os.genixbit.com (via 8.8.8.8)        -> 3.233.87.187
+docs.os.genixbit.com (via 8.8.8.8)   -> 3.233.87.187
+packages.os.genixbit.com (via 8.8.8.8) -> 3.233.87.187
 
-# 2. Clone repository and checkout release branch
-git clone https://github.com/GenixBit/genixbit-os.git
-cd genixbit-os
-git checkout infra/deploy-public-preview
-
-# 3. Verify Docker Compose configuration
-cd deploy
-docker compose config
-
-# 4. Launch web services container stack
-docker compose up -d
-
-# 5. Verify running container status and Let's Encrypt TLS logs
-docker compose ps
-docker compose logs --tail=200 caddy
+# HTTPS Curl Verification
+curl -IL https://os.genixbit.com        # HTTP/2 200 OK
+curl -IL https://docs.os.genixbit.com     # HTTP/2 200 OK
+curl -IL https://packages.os.genixbit.com # HTTP/2 200 OK
 ```
 
 ---
 
-## 7. Rollback Procedure
-
-If service issues occur after remote deployment:
+## 6. Rollback & Maintenance Commands
 
 ```bash
-# Emergency container stop
-cd deploy
-docker compose down
+# Connect to production host
+ssh -i ~/.ssh/id_rsa ubuntu@genius.genixbit.com
 
-# Rollback repository to last known stable commit
+# Restart web preview container stack
+cd /home/ubuntu/genixbit-os/deploy
+sudo docker compose restart
+
+# Rollback web container
+sudo docker compose down
 git checkout main
-docker compose up -d
+sudo docker compose up -d
 ```
 
 ---
 
-## 8. Final Readiness Assessment
+## 7. Final Assessment
 
-- **Local Stack Validation**: `PASS`
-- **Security Header Audit**: `PASS`
-- **Content & Branding Review**: `PASS` (Original GenixBit content; download links marked unavailable; package repository marked inactive status page)
-- **Public Remote TLS Deployment**: `AWAITING SERVER PROVISIONING`
+- **Public Preview Launch**: `PASS`
+- **DNS Routing**: `PASS`
+- **TLS Certificates**: `PASS` (Let's Encrypt)
+- **Container Isolation**: `PASS`
+- **Security Headers**: `PASS`

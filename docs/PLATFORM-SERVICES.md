@@ -4,9 +4,9 @@
 
 | Service | Intended Domain | Purpose | Current Repository Status |
 | --- | --- | --- | --- |
-| Product website | `https://os.genixbit.com` | product information, editions, downloads, system requirements, release status | deployment pending |
-| Documentation | `https://docs.os.genixbit.com` | installation, development, AI, server, creator, troubleshooting, release, and security documentation | deployment pending |
-| Package repository | `https://packages.os.genixbit.com` | signed GenixBit APT packages and repository metadata | infrastructure pending; do not advertise as active |
+| Product website | `https://os.genixbit.com` | product information, editions, downloads, system requirements, release status | public preview active |
+| Documentation | `https://docs.os.genixbit.com` | installation, development, AI, server, creator, troubleshooting, release, and security documentation | public preview active |
+| Package repository | `https://packages.os.genixbit.com` | signed GenixBit APT packages and repository metadata | public preview active (status page only; APT infrastructure pending) |
 | Source code | `https://github.com/GenixBit/genixbit-os` | GPL-covered OS builder source, governance, roadmap, and validation records | active |
 | Company | `https://www.genixbit.com` | GenixBit Labs Private Limited corporate website | external company service |
 
