@@ -11,45 +11,55 @@ and this project follows Semantic Versioning for release identifiers.
 
 - `GOVERNANCE.md` defining the GenixBit-controlled official maintainer and release model.
 - `.github/CODEOWNERS` assigning official repository ownership to `@GenixBit`.
-- `docs/AI-FIRST-PLATFORM.md` defining the AI-first platform, user profiles, runtime layers, GenixBit Agents integration, and trust principles.
+- `docs/AI-FIRST-PLATFORM.md` defining the AI-first platform, user profiles, runtime layers, GenixBit Agents integration and trust principles.
 - `docs/AI-MODEL-CATALOG.md` defining hardware-aware and license-aware model catalog requirements.
 - `docs/BRANDING-MIGRATION.md` defining safe migration from temporary upstream packages to complete GenixBit user-facing identity.
 - `docs/APP-STORE.md` defining the future GenixBit Store architecture and trust levels.
-- `docs/PLATFORM-SERVICES.md` defining the website, documentation, package, download, catalog, DNS, and server topology.
-- Original GenixBit static previews under `website/os`, `website/docs`, and `website/packages`.
+- `docs/PLATFORM-SERVICES.md` defining the website, documentation, package, download, catalog, DNS and server topology.
+- Original GenixBit static previews under `website/os`, `website/docs` and `website/packages`.
 - Containerized Caddy preview deployment under `deploy/`.
-- Created `docs/DEPLOYMENT-STATUS.md` documenting platform services deployment status, container security options, security header audit, and server provisioning prerequisites.
+- `docs/DEPLOYMENT-STATUS.md` recording non-sensitive public preview deployment and follow-up hardening requirements.
 
 ### Changed
 
-- Repositioned the README around developers, AI learners, server managers, creators, local AI, GenixBit Agents, Bharat AI, and the future GenixBit Store.
-- Expanded the roadmap from baseline ISO validation through branding, package signing, user profiles, AI runtimes, AI Center, Agents, Store, websites, security, and stable release.
-- Changed the contribution policy to an early-alpha closed maintainer model while preserving external GPL rights, bug reports, security reports, feature suggestions, and compatibility feedback.
-- Clarified that the planned service domains and signed package repository are not yet live.
-- Clarified that model downloads remain optional and that open weights, open source, and free access are different licensing concepts.
+- Repositioned the README around developers, AI learners, server managers, creators, local AI, GenixBit Agents, Bharat AI and the future GenixBit Store.
+- Expanded the roadmap through branding, package signing, user profiles, AI runtimes, AI Center, Agents, Store, websites, security and stable release.
+- Changed the contribution policy to an early-alpha closed maintainer model while preserving external GPL rights, bug reports, security reports, feature suggestions and compatibility feedback.
+- Corrected baseline validation terminology so successful ISO compilation and checksum verification are not confused with live-desktop, installer, installed-system or reproducibility testing.
+- Restored standard interactive `sudo` support in `make bootstrap`; automated hosts may still use approved passwordless sudo.
+- Updated website and documentation service status to reflect the recorded public previews while keeping the package domain status-only and non-APT.
+- Removed public cloud resource identifiers and administrator-specific SSH details from deployment documentation.
+- Clarified that model downloads remain optional and that open weights, open source and free access are different licensing concepts.
 
 ### Preserved
 
 - GPL-3.0 licensing and mandatory upstream attribution.
 - Temporary AnduinOS package names and repository dependencies required by the current build pipeline.
-- The rule that no ISO or production feature may be claimed before validation.
+- The rule that no ISO or production feature may be claimed before direct validation.
 
 ## [0.1.0-alpha] - 2026-07-20
 
 ### Added
 
-- Baseline ISO compilation and virtualization validation completed on an official Ubuntu 26.04 `resolute` `amd64` build host.
-- ISO image `GenixBitOS-0.1.0-alpha-2607201328.iso` (2,525,634,560 bytes) generated with `zstd-19` SquashFS compression and hybrid BIOS/UEFI bootloader configuration.
-- SHA-256 checksum artifact `GenixBitOS-0.1.0-alpha-2607201328.sha256` (`067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b`) independently verified.
-- QEMU UEFI (`OVMF`) and Legacy BIOS (`SeaBIOS`) boot validation passed.
-- Baseline build execution records and evidence documented in `docs/TESTING.md`.
-
+- First ISO compilation completed on an Ubuntu 26.04 `resolute` `amd64` build host.
+- ISO image `GenixBitOS-0.1.0-alpha-2607201328.iso` generated with a recorded size of 2,525,634,560 bytes.
+- SHA-256 checksum artifact `GenixBitOS-0.1.0-alpha-2607201328.sha256` independently matched digest `067e38239a9a9c8bda2a085a03ae9c885719e3e92ac58f3a89ff6918e2e65f3b`.
+- Hybrid BIOS/UEFI boot structures and QEMU bootloader paths recorded.
+- Baseline build evidence documented in `docs/TESTING.md`.
 - Created `UPSTREAM.md` establishing attribution to AnduinOS 2 and Ubuntu.
 - Created `SECURITY.md` defining security reporting policy for the early-alpha phase.
-- Created initial governance, contribution, roadmap, build, branding, package, architecture, upstream-sync, and testing documentation.
+- Created initial governance, contribution, roadmap, build, branding, package, architecture, upstream-sync and testing documentation.
 - Created GitHub issue and pull-request templates.
-- Added repository-quality checks for shell syntax, generated artifacts, private material, local paths, identity values, required legal files, and obvious credential patterns.
-- Recorded that the available macOS ARM environment is unsuitable for the full Ubuntu 26.04 amd64 ISO build.
+- Added repository-quality checks for shell syntax, generated artifacts, private material, local paths, identity values, required legal files and obvious credential patterns.
+
+### Validation Limits
+
+- Reaching the live desktop in UEFI and Legacy BIOS is not yet directly evidenced in the public testing record.
+- Interactive installer completion is not yet recorded.
+- Booting and validating an installed system is not yet recorded.
+- Installed-system `apt update`, hardware-function and critical-log review are not yet recorded.
+- A second clean build and reproducibility comparison are not yet recorded.
+- The alpha ISO is not yet approved for public release or production use.
 
 ### Changed
 
@@ -59,7 +69,7 @@ and this project follows Semantic Versioning for release identifiers.
   - `TARGET_BUILD_VERSION="0.1.0-alpha"`
 - Updated generated ISO documentation to reflect GenixBit OS identity and its Ubuntu / AnduinOS 2 foundation.
 - Updated `makefile` and `menuconfig.sh` for GenixBit OS identity while preserving host compatibility.
-- Rewrote the root README with an early-alpha warning, feature status, roadmap, build instructions, testing status, and official service plan.
+- Rewrote the root README with early-alpha status, feature status, roadmap, build instructions, testing status and official services.
 - Annotated temporary upstream package dependencies.
 
 ### Preserved
