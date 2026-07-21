@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!NOTE]
-> **Early Alpha (`0.1.0-alpha`)**: the frozen candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b056af97b095f190e29b1be4247ca8f01c90` has successfully completed overall release validation. The build output is 100% byte-for-byte reproducible, boots cleanly via BIOS/UEFI, installs successfully, and has verified custom package and APT health.
+> **Early Alpha (`0.1.0-alpha`)**: the frozen candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` has successfully completed overall release validation. The build output is 100% byte-for-byte reproducible, boots cleanly via BIOS/UEFI, installs successfully, and has verified APT health.
 
 ## Build with AI. Own your environment.
 
@@ -24,7 +24,7 @@ GenixBit OS currently uses:
 - **Build system and layout**: derived from AnduinOS 2;
 - **License**: GPL-3.0 for covered source;
 - **Current version**: `0.1.0-alpha`;
-- **Current release state**: historical ISO compilation verified; frozen-candidate build and direct release validation pending.
+- **Current release state**: 0.1.0-alpha baseline candidate validation completed; complete GenixBit identity-package and runtime-branding integration remains pending for 0.2.x.
 
 The source retains mandatory upstream attribution. See [`UPSTREAM.md`](UPSTREAM.md), [`LICENSE`](LICENSE) and [`OSS.md`](OSS.md).
 
@@ -74,15 +74,15 @@ Read:
 | --- | --- | --- |
 | Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM tooling are present |
 | Historical ISO compilation | **PASS** | commit `2ed584c` generated the recorded ISO, size and checksum |
-| Frozen validation candidate branch | **PASS** | `validation/0.1.0-alpha-candidate-2` at SHA `4888b056af97b095f190e29b1be4247ca8f01c90` is fully validated |
+| Frozen validation candidate branch | **PASS** | `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` is fully validated |
 | First candidate host attempt | **FAIL** | macOS `arm64` was correctly rejected; PR #17 records the blocker but is not successful validation |
 | Candidate clean ISO build | **PASS** | Build A successfully compiled on GCE Ubuntu 26.04 `resolute` amd64 |
 | Candidate BIOS/UEFI runtime validation | **PASS** | Verified boot and execution via run-qemu.sh |
 | Live session and installer | **PASS** | Interactive live sessions and Calamares installer execution validated |
-| Installed system and APT validation | **PASS** | Clean boot from target disk and verified apt update & package health |
+| Installed system and APT validation | **PASS** | Clean boot from target disk and verified apt update & system package health |
 | Reproducibility | **PASS** | Diffoscope verified Build A and Build B ISOs are 100% bit-for-bit identical |
 | Release-evidence CI gate | **Active** | validation PRs must set every required machine-readable release gate to `PASS` |
-| `genixbit-os-base-files` | **Scaffolded** | identity templates and Debian package metadata exist; build/install/upgrade evidence is pending |
+| `genixbit-os-base-files` | **PARTIAL / SCAFFOLDED** | identity templates and Debian package metadata exist; build/install/upgrade evidence is pending |
 | Complete GenixBit runtime branding | **Planned** | user-visible upstream branding may remain during migration |
 | Product website preview | **Active** | public preview recorded at `os.genixbit.com` |
 | Documentation preview | **Active** | public preview recorded at `docs.os.genixbit.com` |

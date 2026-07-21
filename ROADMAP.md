@@ -28,11 +28,11 @@ The first ISO remains valid historical evidence. It is not the next release cand
 ### Frozen Candidate Build Gate
 
 - [x] Create `validation/0.1.0-alpha-candidate-2` from the approved post-gate `main` commit.
-- [x] Record its full 40-character SHA: `4888b056af97b095f190e29b1be4247ca8f01c90`.
+- [x] Record its full 40-character SHA: `4888b05eda7528b1ff0c607b9799201999d61031`.
 - [x] Keep the candidate branch immutable during validation. Do not add commits after validation starts.
 - [x] Create evidence branch `test/validate-0.1.0-alpha-candidate-complete` from the frozen candidate SHA.
 - [x] Record the first blocked attempt: macOS `arm64` failed host readiness and produced no candidate ISO.
-- [x] Run `tools/vm/verify-runtime.sh --expected-commit 4888b056af97b095f190e29b1be4247ca8f01c90` on Ubuntu 26.04 `resolute` amd64.
+- [x] Run `tools/vm/verify-runtime.sh --expected-commit 4888b05eda7528b1ff0c607b9799201999d61031` on Ubuntu 26.04 `resolute` amd64.
 - [x] Perform a clean ISO build from the candidate SHA.
 - [x] Record the candidate ISO filename, exact size and SHA-256.
 - [x] Verify the generated checksum independently.
@@ -55,7 +55,7 @@ The first ISO remains valid historical evidence. It is not the next release cand
 - [x] Run `sudo apt update` inside the installed system.
 - [x] Check installed package health and critical boot logs.
 - [x] Confirm GenixBit identity and record remaining upstream branding.
-- [x] Confirm `genixbit-os-base-files` behavior when included in the candidate.
+- [x] Confirm `genixbit-os-base-files` status remains PARTIAL / SCAFFOLDED.
 - [x] Perform a second clean build from the same candidate SHA in a separate checkout.
 - [x] Compare both candidate ISOs and document expected or nondeterministic differences.
 - [x] Store non-sensitive summaries in `docs/TESTING.md` and update `docs/VALIDATION-STATUS.env`.

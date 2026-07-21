@@ -9,7 +9,7 @@ and this project follows Semantic Versioning for release identifiers.
 
 ### Added
 
-- Frozen validation candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b056af97b095f190e29b1be4247ca8f01c90` created, built, and verified.
+- Frozen validation candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` created, built, and verified.
 - Machine-readable validation status in `docs/VALIDATION-STATUS.env`.
 - Release-evidence validator at `tools/validation/check-release-evidence.sh`.
 - Repository Quality enforcement requiring all candidate release gates to be `PASS` for `test/validate-*` pull requests.
@@ -20,7 +20,7 @@ and this project follows Semantic Versioning for release identifiers.
 | Test | Status |
 | --- | :---: |
 | Candidate branch `validation/0.1.0-alpha-candidate-2` created | **PASS** |
-| Candidate SHA `4888b056af97b095f190e29b1be4247ca8f01c90` verified | **PASS** |
+| Candidate SHA `4888b05eda7528b1ff0c607b9799201999d61031` verified | **PASS** |
 | Candidate checkout clean | **PASS** |
 | First host attempt | **FAIL** — macOS `arm64` was correctly rejected; it was not a supported validation host |
 | PR #17 blocked-attempt evidence record | **PASS** — merged as documentation of the blocker only, not successful candidate validation |
@@ -30,7 +30,7 @@ and this project follows Semantic Versioning for release identifiers.
 | Installer validation (UEFI then BIOS) | **PASS** |
 | Installed-system boot and health | **PASS** |
 | APT and package-health checks | **PASS** |
-| `genixbit-os-base-files` package status | **PASS** |
+| `genixbit-os-base-files` package status | **PARTIAL / SCAFFOLDED** |
 | Second clean build from same candidate SHA | **PASS** |
 | Reproducibility comparison (`diffoscope`) | **PASS** — Build A and Build B are 100% bit-for-bit identical |
 
