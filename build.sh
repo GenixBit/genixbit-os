@@ -461,7 +461,6 @@ EOF
         -iso-level 3 \
         -full-iso9660-filenames \
         --modification-date="$XORRISO_DATE" \
-        --set_all_file_dates="$XORRISO_DATE" \
         -volid "$TARGET_NAME" \
         -eltorito-boot boot/grub/bios.img \
             -no-emul-boot \
@@ -481,7 +480,9 @@ EOF
             "/EFI/efiboot.img=isolinux/efiboot.img" \
             "/boot/grub/grub.cfg=isolinux/grub.cfg" \
             "/boot/grub/bios.img=isolinux/bios.img" \
-            .
+            . \
+        -- \
+        -set_all_file_dates "$XORRISO_DATE"
 
     judge "Create iso image"
 
