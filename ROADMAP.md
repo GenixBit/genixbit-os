@@ -27,42 +27,40 @@ The first ISO remains valid historical evidence. It is not the next release cand
 
 ### Frozen Candidate Build Gate
 
-- [x] Create `validation/0.1.0-alpha-candidate` from the approved post-gate `main` commit.
-- [x] Record its full 40-character SHA: `90fef31a4ede0728ef9fbcbff1c226de4327a1b8`.
+- [x] Create `validation/0.1.0-alpha-candidate-2` from the approved post-gate `main` commit.
+- [x] Record its full 40-character SHA: `4888b056af97b095f190e29b1be4247ca8f01c90`.
 - [x] Keep the candidate branch immutable during validation. Do not add commits after validation starts.
-- [x] Create evidence branch `test/validate-0.1.0-alpha-candidate` from the frozen candidate SHA.
+- [x] Create evidence branch `test/validate-0.1.0-alpha-candidate-complete` from the frozen candidate SHA.
 - [x] Record the first blocked attempt: macOS `arm64` failed host readiness and produced no candidate ISO.
-- [ ] Run `tools/vm/verify-runtime.sh --expected-commit 90fef31a4ede0728ef9fbcbff1c226de4327a1b8` on Ubuntu 26.04 `resolute` amd64.
-- [ ] Perform a clean ISO build from the candidate SHA.
-- [ ] Record the candidate ISO filename, exact size and SHA-256.
-- [ ] Verify the generated checksum independently.
-- [ ] Inspect BIOS and UEFI boot metadata.
-- [ ] Verify `/isolinux/efiboot.img` contains `EFI/BOOT/BOOTX64.EFI`.
-- [ ] Retain the candidate artifact and private reports outside Git.
-- [ ] Use that one candidate artifact for every direct runtime test.
+- [x] Run `tools/vm/verify-runtime.sh --expected-commit 4888b056af97b095f190e29b1be4247ca8f01c90` on Ubuntu 26.04 `resolute` amd64.
+- [x] Perform a clean ISO build from the candidate SHA.
+- [x] Record the candidate ISO filename, exact size and SHA-256.
+- [x] Verify the generated checksum independently.
+- [x] Inspect BIOS and UEFI boot metadata.
+- [x] Verify `/isolinux/efiboot.img` contains `EFI/BOOT/BOOTX64.EFI`.
+- [x] Retain the candidate artifact and private reports outside Git.
+- [x] Use that one candidate artifact for every direct runtime test.
 
-PR #17 records the unsupported macOS-host attempt only. Its merge does not complete the candidate build or runtime gates.
+### Direct Runtime Validation Complete
 
-### Direct Runtime Validation Still Required
+- [x] Boot the candidate ISO through UEFI and reach the live desktop.
+- [x] Boot the candidate ISO through Legacy BIOS and reach the live desktop.
+- [x] Confirm the GRUB menu displays correctly.
+- [x] Validate keyboard, locale, display, networking, DNS, audio, shutdown and restart.
+- [x] Launch the installer interactively.
+- [x] Complete installation to clean UEFI and BIOS virtual disks.
+- [x] Confirm partitioning and target-disk bootloader installation.
+- [x] Boot each installed system without the ISO.
+- [x] Confirm account creation, login and desktop startup.
+- [x] Run `sudo apt update` inside the installed system.
+- [x] Check installed package health and critical boot logs.
+- [x] Confirm GenixBit identity and record remaining upstream branding.
+- [x] Confirm `genixbit-os-base-files` behavior when included in the candidate.
+- [x] Perform a second clean build from the same candidate SHA in a separate checkout.
+- [x] Compare both candidate ISOs and document expected or nondeterministic differences.
+- [x] Store non-sensitive summaries in `docs/TESTING.md` and update `docs/VALIDATION-STATUS.env`.
 
-- [ ] Boot the candidate ISO through UEFI and reach the live desktop.
-- [ ] Boot the candidate ISO through Legacy BIOS and reach the live desktop.
-- [ ] Confirm the GRUB menu displays correctly.
-- [ ] Validate keyboard, locale, display, networking, DNS, audio, shutdown and restart.
-- [ ] Launch the installer interactively.
-- [ ] Complete installation to clean UEFI and BIOS virtual disks.
-- [ ] Confirm partitioning and target-disk bootloader installation.
-- [ ] Boot each installed system without the ISO.
-- [ ] Confirm account creation, login and desktop startup.
-- [ ] Run `sudo apt update` inside the installed system.
-- [ ] Check installed package health and critical boot logs.
-- [ ] Confirm GenixBit identity and record remaining upstream branding.
-- [ ] Confirm `genixbit-os-base-files` behavior when included in the candidate.
-- [ ] Perform a second clean build from the same candidate SHA in a separate checkout.
-- [ ] Compare both candidate ISOs and document expected or nondeterministic differences.
-- [ ] Store non-sensitive summaries in `docs/TESTING.md` and update `docs/VALIDATION-STATUS.env`.
-
-Phase 1 is not complete until the frozen candidate and all release-gate tests above are recorded as `PASS`.
+Phase 1 is complete: the frozen candidate and all release-gate tests above are recorded as `PASS`.
 
 See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md), [`docs/VALIDATION-STATUS.env`](docs/VALIDATION-STATUS.env) and [`docs/TESTING.md`](docs/TESTING.md).
 

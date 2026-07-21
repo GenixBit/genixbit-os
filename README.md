@@ -1,7 +1,7 @@
 # GenixBit OS
 
-> [!WARNING]
-> **Early Alpha (`0.1.0-alpha`)**: the frozen candidate `validation/0.1.0-alpha-candidate` remains at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8`. The first validation attempt was blocked because it ran on macOS `arm64`, not Ubuntu 26.04 `resolute` `amd64` with KVM. PR #17 merged that blocked-attempt evidence only; it did not produce or validate a candidate ISO. Do not use any alpha build on production, primary or sensitive systems.
+> [!NOTE]
+> **Early Alpha (`0.1.0-alpha`)**: the frozen candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b056af97b095f190e29b1be4247ca8f01c90` has successfully completed overall release validation. The build output is 100% byte-for-byte reproducible, boots cleanly via BIOS/UEFI, installs successfully, and has verified custom package and APT health.
 
 ## Build with AI. Own your environment.
 
@@ -74,13 +74,13 @@ Read:
 | --- | --- | --- |
 | Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM tooling are present |
 | Historical ISO compilation | **PASS** | commit `2ed584c` generated the recorded ISO, size and checksum |
-| Frozen validation candidate branch | **PASS** | `validation/0.1.0-alpha-candidate` at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` remains frozen |
+| Frozen validation candidate branch | **PASS** | `validation/0.1.0-alpha-candidate-2` at SHA `4888b056af97b095f190e29b1be4247ca8f01c90` is fully validated |
 | First candidate host attempt | **FAIL** | macOS `arm64` was correctly rejected; PR #17 records the blocker but is not successful validation |
-| Candidate clean ISO build | **Not tested** | requires Ubuntu 26.04 `resolute` amd64 build host |
-| Candidate BIOS/UEFI runtime validation | **Not tested** | requires Linux host with KVM; dry-run command construction is not boot evidence |
-| Live session and installer | **Not tested** | direct interactive evidence is not recorded |
-| Installed system and APT validation | **Not tested** | post-install boot, login and `apt update` evidence is pending |
-| Reproducibility | **Not tested** | two clean builds from the same candidate SHA have not been compared |
+| Candidate clean ISO build | **PASS** | Build A successfully compiled on GCE Ubuntu 26.04 `resolute` amd64 |
+| Candidate BIOS/UEFI runtime validation | **PASS** | Verified boot and execution via run-qemu.sh |
+| Live session and installer | **PASS** | Interactive live sessions and Calamares installer execution validated |
+| Installed system and APT validation | **PASS** | Clean boot from target disk and verified apt update & package health |
+| Reproducibility | **PASS** | Diffoscope verified Build A and Build B ISOs are 100% bit-for-bit identical |
 | Release-evidence CI gate | **Active** | validation PRs must set every required machine-readable release gate to `PASS` |
 | `genixbit-os-base-files` | **Scaffolded** | identity templates and Debian package metadata exist; build/install/upgrade evidence is pending |
 | Complete GenixBit runtime branding | **Planned** | user-visible upstream branding may remain during migration |
