@@ -30,11 +30,29 @@ This artifact is retained as historical proof that commit `2ed584c` compiled. It
 
 Cloud resource identifiers, public build-host addresses, SSH access details, and administrator paths belong in a private GenixBit operations record and must not be committed here.
 
-## Frozen Validation Candidate
+## Active 0.2.0-alpha Candidate
 
 `main` is a moving development branch. The validation build uses the immutable candidate branch created according to [`VALIDATION-CANDIDATE.md`](VALIDATION-CANDIDATE.md).
 
 **Active validation cycle:**
+
+| Field | Value |
+| --- | --- |
+| Candidate branch | `validation/0.2.0-alpha-candidate` |
+| Candidate SHA (full 40-char) | `1df86702914fee558bc71ca3e2d3b013f242399e` |
+| Original evidence branch | `test/prepare-0.2.0-alpha-validation` |
+| Successful validation PR | *Pending* |
+| Cycle started | 2026-07-22 |
+
+| Field | Status | Requirement / Evidence |
+| --- | :---: | --- |
+| Candidate branch created | **PASS** | `validation/0.2.0-alpha-candidate` exists at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` |
+| Full candidate SHA recorded | **PASS** | `1df86702914fee558bc71ca3e2d3b013f242399e` verified with `git rev-parse HEAD` |
+| Candidate checkout clean | **PASS** | `git status --porcelain --untracked-files=normal` returned empty during candidate selection |
+
+## Historical 0.1.0-alpha Candidate
+
+**Historical validation cycle:**
 
 | Field | Value |
 | --- | --- |

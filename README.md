@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!NOTE]
-> **Early Alpha (`0.1.0-alpha`)**: the frozen candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` has successfully completed overall release validation. The build output is 100% byte-for-byte reproducible, boots cleanly via BIOS/UEFI, installs successfully, and has verified APT health.
+> **Early Alpha (`0.2.0-alpha`)**: the frozen candidate `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` is currently undergoing release validation. The historical `0.1.0-alpha` candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` has successfully completed overall release validation.
 
 ## Build with AI. Own your environment.
 
@@ -23,8 +23,8 @@ GenixBit OS currently uses:
 - **Target architecture**: `amd64` / x86_64;
 - **Build system and layout**: derived from AnduinOS 2;
 - **License**: GPL-3.0 for covered source;
-- **Current version**: `0.1.0-alpha`;
-- **Current release state**: 0.1.0-alpha baseline candidate validation completed; complete GenixBit identity-package and runtime-branding integration remains pending for 0.2.x.
+- **Current version**: `0.2.0-alpha`;
+- **Current release state**: 0.2.0-alpha candidate validation preparation; complete GenixBit identity-package and runtime-branding integration is active.
 
 The source retains mandatory upstream attribution. See [`UPSTREAM.md`](UPSTREAM.md), [`LICENSE`](LICENSE) and [`OSS.md`](OSS.md).
 
