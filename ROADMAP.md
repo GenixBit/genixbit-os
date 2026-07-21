@@ -25,10 +25,11 @@ The first ISO remains valid historical evidence. It is not the next release cand
 
 ### Frozen Candidate Build Gate
 
-- [ ] Create `validation/0.1.0-alpha-candidate` from the approved post-gate `main` commit.
-- [ ] Record its full 40-character SHA.
-- [ ] Keep the candidate branch immutable during validation.
-- [ ] Run `tools/vm/verify-runtime.sh --expected-commit <SHA>` on Ubuntu 26.04 `resolute` amd64.
+- [x] Create `validation/0.1.0-alpha-candidate` from the approved post-gate `main` commit.
+- [x] Record its full 40-character SHA: `90fef31a4ede0728ef9fbcbff1c226de4327a1b8`.
+- [x] Keep the candidate branch immutable during validation. Do not add commits after validation starts.
+- [x] Create evidence branch `test/validate-0.1.0-alpha-candidate` from the frozen candidate SHA.
+- [ ] Run `tools/vm/verify-runtime.sh --expected-commit 90fef31a4ede0728ef9fbcbff1c226de4327a1b8` on Ubuntu 26.04 `resolute` amd64.
 - [ ] Perform a clean ISO build from the candidate SHA.
 - [ ] Record the candidate ISO filename, exact size and SHA-256.
 - [ ] Verify the generated checksum independently.
