@@ -331,7 +331,7 @@ EOF
     print_ok "Compressing rootfs as squashfs on /casper/filesystem.squashfs..."
     sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH mksquashfs new_building_os image/casper/filesystem.squashfs \
         -noappend -no-duplicates -no-recovery \
-        -repro-time $SOURCE_DATE_EPOCH \
+        -inode-time $SOURCE_DATE_EPOCH \
         -wildcards -b 1M \
         -comp zstd -Xcompression-level 19 \
         -e "var/cache/apt/archives/*" \
