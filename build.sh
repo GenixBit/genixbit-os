@@ -159,14 +159,14 @@ function umount_folders() {
     judge "Clean up chroot /root/mods"
 
     print_ok "Unmounting /proc /sys /dev/pts within chroot..."
-    sudo chroot new_building_os umount /dev/pts || sudo chroot new_building_os umount -lf /dev/pts
-    sudo chroot new_building_os umount /sys || sudo chroot new_building_os umount -lf /sys
-    sudo chroot new_building_os umount /proc || sudo chroot new_building_os umount -lf /proc
+    sudo chroot new_building_os umount /dev/pts || sudo chroot new_building_os umount -lf /dev/pts || true
+    sudo chroot new_building_os umount /sys || sudo chroot new_building_os umount -lf /sys || true
+    sudo chroot new_building_os umount /proc || sudo chroot new_building_os umount -lf /proc || true
     judge "Unmount /proc /sys /dev/pts"
 
     print_ok "Unmounting /dev /run outside of chroot..."
-    sudo umount new_building_os/dev || sudo umount -lf new_building_os/dev
-    sudo umount new_building_os/run || sudo umount -lf new_building_os/run
+    sudo umount new_building_os/dev || sudo umount -lf new_building_os/dev || true
+    sudo umount new_building_os/run || sudo umount -lf new_building_os/run || true
     judge "Unmount /dev /run"
 }
 
