@@ -94,6 +94,11 @@ See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VA
 - Installer branding: NOT_TESTED
 - Installed-system branding: NOT_TESTED
 
+**Active Validation Candidate:**
+- Candidate branch: `validation/0.2.0-alpha-candidate`
+- Candidate SHA: `1df86702914fee558bc71ca3e2d3b013f242399e`
+- Preparation tracking branch: `test/prepare-0.2.0-alpha-validation`
+
 See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md) and [`docs/BASE-FILES.md`](docs/BASE-FILES.md).
 
 ## Phase 3 — `0.3.x`: Signed Package and Update Infrastructure
