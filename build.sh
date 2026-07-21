@@ -333,7 +333,6 @@ EOF
         -noappend -no-duplicates -no-recovery \
         -wildcards -b 1M \
         -comp zstd -Xcompression-level 19 \
-        -repro-time "$SOURCE_DATE_EPOCH" \
         -e "var/cache/apt/archives/*" \
         -e "tmp/*" \
         -e "tmp/.*" \
