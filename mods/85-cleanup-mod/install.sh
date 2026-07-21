@@ -41,6 +41,7 @@ judge "Remove timezone files"
 print_ok "Cleaning up non-deterministic caches..."
 rm -f /var/cache/ldconfig/aux-cache || true
 find /var/cache/man -type f -delete 2>/dev/null || true
+rm -rf /var/lib/flatpak/repo/tmp/* || true
 judge "Clean up non-deterministic caches"
 
 # Clean bash history and temp files
