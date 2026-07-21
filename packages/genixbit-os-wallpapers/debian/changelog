@@ -1,3 +1,10 @@
+genixbit-os-wallpapers (0.2.0-alpha-1) resolute; urgency=medium
+
+  * Update to version 0.2.0-alpha.
+  * Integrate premium 3D reference artwork wallpapers.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 22 Jul 2026 02:20:00 +0530
+
 genixbit-os-wallpapers (0.1.0-alpha-1) resolute; urgency=medium
 
   * Initial release of official GenixBit OS wallpapers.

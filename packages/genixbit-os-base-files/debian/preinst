@@ -1,0 +1,18 @@
+#!/bin/sh
+# preinst maintainer script for genixbit-os-base-files
+set -e
+
+if [ "$1" = "install" ] || [ "$1" = "upgrade" ]; then
+    # Divert modern and legacy OS release / issue files
+    dpkg-divert --package genixbit-os-base-files --add --rename \
+        --divert /usr/lib/os-release.ubuntu /usr/lib/os-release
+    dpkg-divert --package genixbit-os-base-files --add --rename \
+        --divert /etc/lsb-release.ubuntu /etc/lsb-release
+    dpkg-divert --package genixbit-os-base-files --add --rename \
+        --divert /etc/issue.ubuntu /etc/issue
+    dpkg-divert --package genixbit-os-base-files --add --rename \
+        --divert /etc/issue.net.ubuntu /etc/issue.net
+fi
+
+#DEBHELPER#
+exit 0

@@ -1,0 +1,27 @@
+#!/bin/sh
+# postinst maintainer script for genixbit-os-base-files
+set -e
+
+if [ "$1" = "configure" ]; then
+    # Create custom branding files in /etc dynamically to avoid conffile prompts
+    # and automatic deletion during package purge.
+    
+    cat <<'EOF' > /etc/lsb-release
+DISTRIB_ID=GenixBitOS
+DISTRIB_RELEASE=0.2.0-alpha
+DISTRIB_CODENAME=resolute
+DISTRIB_DESCRIPTION="GenixBit OS 0.2.0-alpha"
+EOF
+
+    cat <<'EOF' > /etc/issue
+GenixBit OS 0.2.0-alpha \n \l
+
+EOF
+
+    cat <<'EOF' > /etc/issue.net
+GenixBit OS 0.2.0-alpha
+EOF
+fi
+
+#DEBHELPER#
+exit 0

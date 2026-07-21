@@ -125,3 +125,22 @@ A release may be described as fully GenixBit-branded only when:
 - all replacement packages come from signed GenixBit infrastructure;
 - clean install, upgrade, removal, rollback, and offline boot tests pass;
 - screenshots are taken from an actual validated GenixBit OS build.
+
+## Hardening Cycle 0.2.0-alpha (Completed July 2026)
+
+The branding package integration was fully hardened for the `0.2.0-alpha` release cycle with the following implementations:
+
+1. **Asset Generation & Preserving Geometry**:
+   - Dynamic asset creation via PIL (`tools/validation/generate-branding-assets.py`) to process the official GenixBit GB monogram and horizontal lockup.
+   - All vector outputs (`.svg` files) embed the high-resolution PNG/JPG files via base64 data URIs to guarantee 100% exact design geometry with zero manual tracing distortion.
+   - Wallpaper renders scaled and cropped to `1920x1080`, `2560x1440`, and `3840x2160` without distortion.
+2. **Safe dpkg-divert Implementation**:
+   - Avoided blind overwriting of the essential `/etc/os-release`, `/usr/lib/os-release`, `/etc/lsb-release`, `/etc/issue`, and `/etc/issue.net` files.
+   - Registered diversions using `dpkg-divert --add --rename` in the `preinst` maintainer script of `genixbit-os-base-files`.
+   - Restored original files using `dpkg-divert --remove --rename` in the `postrm` script during removal and purge.
+   - Dynamically generated `/etc/` overlay files in the `postinst` script to completely bypass any conffile prompts or conflicts and prevent accidental file deletion during purge operations.
+3. **Disposable Container-Based Lifecycle Testing**:
+   - Created a validation pipeline (`tools/validation/test-packages.sh` and `test-branding-packages-disposable.sh`) executed inside a disposable `ubuntu:26.04` Docker container.
+   - Verified clean installs, package upgrades, rollback (downgrades), remove, and purge lifecycles.
+   - Successfully validated that the original Ubuntu identity files are completely restored upon package purge, and the OS release file is never left missing.
+

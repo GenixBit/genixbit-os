@@ -3,18 +3,7 @@ set -e                  # exit on error
 set -o pipefail         # exit on pipeline error
 set -u                  # treat unset variable as error
 
-print_ok "Building and installing custom GenixBit branding packages..."
-
-# Install build dependencies
-apt-get install -y debhelper dpkg-dev --no-install-recommends
-judge "Install package build tools"
-
-PACKAGES_DIR="/root/packages"
-BUILD_TEMP=$(mktemp -d)
-cleanup() {
-    rm -rf "$BUILD_TEMP"
-}
-trap cleanup EXIT
+print_ok "Installing pre-compiled GenixBit branding packages..."
 
 packages=(
     "genixbit-os-base-files"
@@ -23,32 +12,26 @@ packages=(
     "genixbit-os-installer-config"
 )
 
-# Make rules executable
-for pkg in "${packages[@]}"; do
-    chmod +x "$PACKAGES_DIR/$pkg/debian/rules"
-done
+DEBS_DIR="/root/debs"
 
-# Build packages
 for pkg in "${packages[@]}"; do
-    print_ok "Building package: $pkg..."
-    cp -r "$PACKAGES_DIR/$pkg" "$BUILD_TEMP/"
-    (
-        cd "$BUILD_TEMP/$pkg"
-        dpkg-buildpackage -us -uc -b
-    )
-    judge "Build package $pkg"
-done
-
-# Install built packages
-for pkg in "${packages[@]}"; do
-    deb_file=$(find "$BUILD_TEMP" -maxdepth 1 -name "${pkg}_*.deb" | head -n 1)
+    deb_file=$(find "$DEBS_DIR" -maxdepth 1 -name "${pkg}_*.deb" | head -n 1)
+    if [[ -z "$deb_file" ]]; then
+        print_error "Could not find built deb for $pkg"
+        exit 1
+    fi
     print_ok "Installing package: $pkg ($deb_file)..."
-    dpkg -i "$deb_file"
+    dpkg -i --force-confnew "$deb_file"
     judge "Install package $pkg"
 done
 
-# Clean up build tools to keep the ISO small
-print_ok "Cleaning up package build tools..."
-apt-get purge -y debhelper dpkg-dev
-apt-get autoremove -y --purge
-judge "Clean up package build tools"
+# Perform sanity audit checks inside the target system
+print_ok "Verifying package manager states..."
+dpkg --audit
+judge "Verify dpkg audit"
+
+apt-get check
+judge "Verify apt check"
+
+print_ok "GenixBit branding packages installed successfully."
+

@@ -1,9 +1,9 @@
 NAME="GenixBit OS"
-VERSION="0.1.0-alpha"
+VERSION="0.2.0-alpha"
 ID=genixbitos
 ID_LIKE="ubuntu debian"
-PRETTY_NAME="GenixBit OS 0.1.0-alpha"
-VERSION_ID="0.1.0-alpha"
+PRETTY_NAME="GenixBit OS 0.2.0-alpha"
+VERSION_ID="0.2.0-alpha"
 HOME_URL="https://os.genixbit.com/"
 SUPPORT_URL="https://docs.os.genixbit.com/"
 BUG_REPORT_URL="https://github.com/GenixBit/genixbit-os/issues"

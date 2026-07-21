@@ -65,8 +65,9 @@ function mount_folders() {
     sudo cp $SCRIPT_DIR/args.sh   new_building_os/root/mods/args.sh
     sudo cp $SCRIPT_DIR/shared.sh new_building_os/root/mods/shared.sh
 
-    print_ok "Copying packages to chroot /root/packages..."
-    sudo cp -r $SCRIPT_DIR/packages new_building_os/root/packages
+    print_ok "Copying pre-compiled branding packages to chroot /root/debs..."
+    sudo mkdir -p new_building_os/root/debs
+    sudo cp $SCRIPT_DIR/packages/build-debs/*.deb new_building_os/root/debs/
 }
 
 function setup_apt() {
@@ -161,9 +162,9 @@ function umount_folders() {
     sudo rm -rf new_building_os/root/mods
     judge "Clean up chroot /root/mods"
 
-    print_ok "Cleaning packages from chroot /root/packages..."
-    sudo rm -rf new_building_os/root/packages
-    judge "Clean up chroot /root/packages"
+    print_ok "Cleaning packages from chroot /root/debs..."
+    sudo rm -rf new_building_os/root/debs
+    judge "Clean up chroot /root/debs"
 
     print_ok "Unmounting /proc /sys /dev/pts within chroot..."
     sudo chroot new_building_os umount /dev/pts || sudo chroot new_building_os umount -lf /dev/pts || true
@@ -522,6 +523,8 @@ function umount_on_exit() {
 cd $SCRIPT_DIR
 bind_signal
 clean
+print_ok "Building branding packages..."
+bash tools/validation/build-branding-packages.sh
 download_base_system
 mount_folders
 setup_apt
