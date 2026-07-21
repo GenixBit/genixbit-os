@@ -331,6 +331,7 @@ EOF
     print_ok "Compressing rootfs as squashfs on /casper/filesystem.squashfs..."
     sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH mksquashfs new_building_os image/casper/filesystem.squashfs \
         -noappend -no-duplicates -no-recovery \
+        -repro-time $SOURCE_DATE_EPOCH \
         -wildcards -b 1M \
         -comp zstd -Xcompression-level 19 \
         -e "var/cache/apt/archives/*" \
@@ -348,7 +349,7 @@ EOF
     fi
     
     print_ok "Generating filesystem.size on /casper/filesystem.size..."
-    printf $(sudo du -sx --block-size=1 new_building_os | cut -f1) > image/casper/filesystem.size
+    sudo find new_building_os -type f -printf "%s\n" 2>/dev/null | awk '{s+=$1} END {printf "%s", s}' > image/casper/filesystem.size
     judge "Generate filesystem.size"
 
     print_ok "Generating README.diskdefines..."
