@@ -39,15 +39,16 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 | Field | Value |
 | --- | --- |
 | Candidate branch | `validation/0.1.0-alpha-candidate-2` |
-| Candidate SHA (full 40-char) | `4888b056af97b095f190e29b1be4247ca8f01c90` |
+| Candidate SHA (full 40-char) | `4888b05eda7528b1ff0c607b9799201999d61031` |
 | Original evidence branch | `test/validate-0.1.0-alpha-candidate-complete` |
-| Successful validation PR | #30, merged 2026-07-21 |
+| Successful validation PR | #31 |
+| Reproducibility build fix PR | #30 |
 | Cycle started | 2026-07-21 |
 
 | Field | Status | Requirement / Evidence |
 | --- | :---: | --- |
-| Candidate branch created | **PASS** | `validation/0.1.0-alpha-candidate-2` exists at SHA `4888b056af97b095f190e29b1be4247ca8f01c90` |
-| Full candidate SHA recorded | **PASS** | `4888b056af97b095f190e29b1be4247ca8f01c90` verified with `git rev-parse HEAD` |
+| Candidate branch created | **PASS** | `validation/0.1.0-alpha-candidate-2` exists at SHA `4888b05eda7528b1ff0c607b9799201999d61031` |
+| Full candidate SHA recorded | **PASS** | `4888b05eda7528b1ff0c607b9799201999d61031` verified with `git rev-parse HEAD` |
 | Candidate checkout clean | **PASS** | `git status --porcelain --untracked-files=normal` returned empty during candidate selection |
 | Evidence branch created | **PASS** | `test/validate-0.1.0-alpha-candidate-complete` branched from the frozen candidate SHA |
 | First host attempt | **FAIL** | The attempt used macOS `arm64` (`Darwin 25F84`); `tools/vm/setup-host.sh` reported 13 failures. This is a blocked-host record, not candidate validation. |
@@ -124,11 +125,11 @@ A QEMU dry run is not boot evidence. Script presence and Bash syntax validation 
 | Display and audio worked | **PASS** | Desktop display resolution and audio server tested OK |
 | Shutdown and restart worked | **PASS** | VM shuts down and reboots cleanly |
 | Critical boot logs reviewed | **PASS** | Checked journalctl for systemd unit failures (none found) |
-| GenixBit base-files package installed correctly | **PASS** | Package ownership of identity files verified |
+| GenixBit base-files package status | **PARTIAL** | Source scaffolding and templates exist, but package integration and ownership remain untested |
 
 ## Evidence Retained
 
-- Successful Ubuntu 26.04 `resolute` amd64 ISO compilation from candidate commit `4888b056af97b095f190e29b1be4247ca8f01c90`.
+- Successful Ubuntu 26.04 `resolute` amd64 ISO compilation from candidate commit `4888b05eda7528b1ff0c607b9799201999d61031`.
 - Factual identical SHA-256 verification hash: `b27de4fd317d17f7e3ee3d1b6e971b3210b99630967f64ee8e1e94527f2664f1`.
 - Clean UEFI/BIOS installations validation logs and visual verification steps.
 - Differential verification via diffoscope demonstrating 100% byte-for-byte reproducibility.
@@ -152,9 +153,9 @@ Large artifacts, raw build logs, VM disks, screenshots containing private detail
 - **Candidate installer (UEFI then BIOS):** **PASS** — Installer completed system install onto virtual disk target
 - **Candidate installed system:** **PASS** — Boots target installed system via UEFI and BIOS and runs session
 - **Candidate APT and package health:** **PASS** — Verified apt updates, package holds, and failed service audits
-- **GenixBit base-files package status:** **PASS** — Branded files verified on the target system
+- **GenixBit base-files package status:** **PARTIAL** — Source scaffolding and templates exist, but package integration and ownership remain untested
 - **Second same-candidate build:** **PASS** — Build B completed independently on the validation host
 - **Candidate reproducibility comparison:** **PASS** — Diffoscope confirmed 100% bit-for-bit identical outputs
 - **Overall release-validation status:** **PASS**
 
-**Decision:** GenixBit OS `0.1.0-alpha` candidate-2 build on Ubuntu 26.04 `resolute` `amd64` is 100% validated. The build output is completely reproducible, boots cleanly on UEFI/BIOS, installs successfully, and verifies custom package and APT health. The release is recommended for promotion.
+**Decision:** GenixBit OS `0.1.0-alpha` candidate-2 build on Ubuntu 26.04 `resolute` `amd64` is 100% validated. The build output is completely reproducible, boots cleanly on UEFI/BIOS, installs successfully, and verifies APT health. The release is recommended for promotion.
