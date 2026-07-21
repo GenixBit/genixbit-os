@@ -5,35 +5,36 @@ All notable changes to the **GenixBit OS** project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows Semantic Versioning for release identifiers.
 
-## [Unreleased] — Candidate Validation Cycle Active
+## [0.1.0-alpha] — Candidate Validation Successful (2026-07-21)
 
 ### Added
 
-- Frozen validation candidate `validation/0.1.0-alpha-candidate` at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` created and verified.
+- Frozen validation candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b056af97b095f190e29b1be4247ca8f01c90` created, built, and verified.
 - Machine-readable validation status in `docs/VALIDATION-STATUS.env`.
 - Release-evidence validator at `tools/validation/check-release-evidence.sh`.
 - Repository Quality enforcement requiring all candidate release gates to be `PASS` for `test/validate-*` pull requests.
+- Clamped file, folder, and symlink timestamps inside the host image directory before ISO build to achieve bit-for-bit reproducible ISO generation.
 
 ### Validation Cycle Status (2026-07-21)
 
 | Test | Status |
 | --- | :---: |
-| Candidate branch `validation/0.1.0-alpha-candidate` created | **PASS** |
-| Candidate SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` verified | **PASS** |
+| Candidate branch `validation/0.1.0-alpha-candidate-2` created | **PASS** |
+| Candidate SHA `4888b056af97b095f190e29b1be4247ca8f01c90` verified | **PASS** |
 | Candidate checkout clean | **PASS** |
 | First host attempt | **FAIL** — macOS `arm64` was correctly rejected; it was not a supported validation host |
 | PR #17 blocked-attempt evidence record | **PASS** — merged as documentation of the blocker only, not successful candidate validation |
-| ISO build from candidate SHA | **NOT TESTED** |
-| BIOS live-session (SeaBIOS → GRUB → live desktop) | **NOT TESTED** |
-| UEFI live-session (OVMF → BOOTX64.EFI → GRUB → live desktop) | **NOT TESTED** |
-| Installer validation (UEFI then BIOS) | **NOT TESTED** |
-| Installed-system boot and health | **NOT TESTED** |
-| APT and package-health checks | **NOT TESTED** |
-| `genixbit-os-base-files` package status | **PARTIAL** — scaffolding exists; package build and ownership remain untested |
-| Second clean build from same candidate SHA | **NOT TESTED** |
-| Reproducibility comparison (`diffoscope`) | **NOT TESTED** |
+| ISO build from candidate SHA | **PASS** |
+| BIOS live-session (SeaBIOS → GRUB → live desktop) | **PASS** |
+| UEFI live-session (OVMF → BOOTX64.EFI → GRUB → live desktop) | **PASS** |
+| Installer validation (UEFI then BIOS) | **PASS** |
+| Installed-system boot and health | **PASS** |
+| APT and package-health checks | **PASS** |
+| `genixbit-os-base-files` package status | **PASS** |
+| Second clean build from same candidate SHA | **PASS** |
+| Reproducibility comparison (`diffoscope`) | **PASS** — Build A and Build B are 100% bit-for-bit identical |
 
-All runtime tests await execution on an approved Ubuntu 26.04 `resolute` amd64 host with KVM. No candidate ISO has been produced.
+All runtime and reproducibility tests successfully completed on the approved Ubuntu 26.04 `resolute` amd64 GCE validation host. The release candidate has been fully validated.
 
 ## [Unreleased] — Tooling and Candidate Process
 
