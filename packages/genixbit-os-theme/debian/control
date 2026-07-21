@@ -1,0 +1,13 @@
+Source: genixbit-os-theme
+Section: gnome
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-theme
+Architecture: all
+Depends: ${misc:Depends}
+Description: Official theme and visual identity assets for GenixBit OS
+ Provides logo marks, wordmarks, system icons, and Plymouth boot splash.
