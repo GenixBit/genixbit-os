@@ -47,6 +47,7 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 | Full candidate SHA recorded | **PASS** | `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` verified with `git rev-parse HEAD` |
 | Candidate checkout clean | **PASS** | `git status --porcelain --untracked-files=normal` returned empty |
 | Evidence branch created | **PASS** | `test/validate-0.1.0-alpha-candidate` branched from frozen candidate SHA |
+| Validation host verification | **FAIL** | Current host is macOS `arm64` (`Darwin 25F84`); `tools/vm/setup-host.sh` reported 13 failures (architecture `arm64`, missing `/etc/os-release`, missing KVM `/dev/kvm`, missing build tools `xorriso`, `diffoscope`, `unsquashfs`, `ovmf`). Target host requires Ubuntu 26.04 `resolute` `x86_64` with KVM and ≥100 GB free disk. |
 | Clean ISO built from candidate | **NOT TESTED** | Requires Ubuntu 26.04 `resolute` `amd64` build host |
 | Candidate ISO filename, size, and SHA-256 recorded | **NOT TESTED** | Do not reuse historical artifact values |
 | Generated checksum independently matched | **NOT TESTED** | Calculated digest must match the generated checksum file |
@@ -144,13 +145,14 @@ Large artifacts, raw build logs, VM disks, screenshots containing private detail
 
 - **Historical ISO compilation and checksum:** **PASS**
 - **Frozen candidate branch and SHA verification:** **PASS**
+- **Validation host verification:** **FAIL** — current host is macOS `arm64`; `tools/vm/setup-host.sh` reported 13 failures. Requires Ubuntu 26.04 `resolute` `x86_64` with KVM and ≥100 GB free disk.
 - **Candidate clean build and preflight:** **NOT TESTED** — awaiting Ubuntu 26.04 `resolute` amd64 build host
 - **Candidate live desktop (BIOS):** **NOT TESTED** — awaiting build host with KVM
 - **Candidate live desktop (UEFI):** **NOT TESTED** — awaiting build host with KVM
 - **Candidate installer (UEFI then BIOS):** **NOT TESTED** — awaiting build host with KVM
 - **Candidate installed system:** **NOT TESTED** — awaiting post-install boot
 - **Candidate APT and package health:** **NOT TESTED** — awaiting installed system
-- **GenixBit base-files package status:** **NOT TESTED** — awaiting installed system
+- **GenixBit base-files package status:** **PARTIAL** — source scaffolding and templates exist in `packages/genixbit-os-base-files/`, but package was not built as a `.deb` or integrated into ISO pipeline; package ownership `NOT TESTED`
 - **Second same-candidate build:** **NOT TESTED** — awaiting build host
 - **Candidate reproducibility comparison:** **NOT TESTED** — awaiting both builds
 - **Overall release-validation status:** **PARTIAL**

@@ -21,14 +21,14 @@ and this project follows Semantic Versioning for release identifiers.
 | Candidate SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` verified | **PASS** |
 | Candidate checkout clean | **PASS** |
 | Evidence branch `test/validate-0.1.0-alpha-candidate` created | **PASS** |
-| Host verification on Ubuntu 26.04 `resolute` amd64 | **NOT TESTED** |
+| Host verification (`tools/vm/setup-host.sh`) | **FAIL** — current host is macOS `arm64`; 13 readiness checks failed. Requires Ubuntu 26.04 `resolute` `x86_64` with KVM and ≥100 GB free disk. |
 | ISO build from candidate SHA | **NOT TESTED** |
 | BIOS live-session (SeaBIOS → GRUB → live desktop) | **NOT TESTED** |
 | UEFI live-session (OVMF → BOOTX64.EFI → GRUB → live desktop) | **NOT TESTED** |
 | Installer validation (UEFI then BIOS) | **NOT TESTED** |
 | Installed-system boot and health | **NOT TESTED** |
 | APT and package-health checks | **NOT TESTED** |
-| `genixbit-os-base-files` package status | **NOT TESTED** |
+| `genixbit-os-base-files` package status | **PARTIAL** — scaffolding in `packages/genixbit-os-base-files/`, package build & ownership NOT TESTED |
 | Second clean build from same candidate SHA | **NOT TESTED** |
 | Reproducibility comparison (`diffoscope`) | **NOT TESTED** |
 
