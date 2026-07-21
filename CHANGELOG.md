@@ -10,8 +10,9 @@ and this project follows Semantic Versioning for release identifiers.
 ### Added
 
 - Frozen validation candidate `validation/0.1.0-alpha-candidate` at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` created and verified.
-- Evidence branch `test/validate-0.1.0-alpha-candidate` opened from the frozen candidate SHA.
-- PR `test: validate GenixBit OS 0.1.0-alpha candidate` targeting `main` in progress.
+- Machine-readable validation status in `docs/VALIDATION-STATUS.env`.
+- Release-evidence validator at `tools/validation/check-release-evidence.sh`.
+- Repository Quality enforcement requiring all candidate release gates to be `PASS` for `test/validate-*` pull requests.
 
 ### Validation Cycle Status (2026-07-21)
 
@@ -20,19 +21,19 @@ and this project follows Semantic Versioning for release identifiers.
 | Candidate branch `validation/0.1.0-alpha-candidate` created | **PASS** |
 | Candidate SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` verified | **PASS** |
 | Candidate checkout clean | **PASS** |
-| Evidence branch `test/validate-0.1.0-alpha-candidate` created | **PASS** |
-| Host verification (`tools/vm/setup-host.sh`) | **FAIL** — current host is macOS `arm64`; 13 readiness checks failed. Requires Ubuntu 26.04 `resolute` `x86_64` with KVM and ≥100 GB free disk. |
+| First host attempt | **FAIL** — macOS `arm64` was correctly rejected; it was not a supported validation host |
+| PR #17 blocked-attempt evidence record | **PASS** — merged as documentation of the blocker only, not successful candidate validation |
 | ISO build from candidate SHA | **NOT TESTED** |
 | BIOS live-session (SeaBIOS → GRUB → live desktop) | **NOT TESTED** |
 | UEFI live-session (OVMF → BOOTX64.EFI → GRUB → live desktop) | **NOT TESTED** |
 | Installer validation (UEFI then BIOS) | **NOT TESTED** |
 | Installed-system boot and health | **NOT TESTED** |
 | APT and package-health checks | **NOT TESTED** |
-| `genixbit-os-base-files` package status | **PARTIAL** — scaffolding in `packages/genixbit-os-base-files/`, package build & ownership NOT TESTED |
+| `genixbit-os-base-files` package status | **PARTIAL** — scaffolding exists; package build and ownership remain untested |
 | Second clean build from same candidate SHA | **NOT TESTED** |
 | Reproducibility comparison (`diffoscope`) | **NOT TESTED** |
 
-All runtime tests await execution on an approved Ubuntu 26.04 `resolute` amd64 host with KVM.
+All runtime tests await execution on an approved Ubuntu 26.04 `resolute` amd64 host with KVM. No candidate ISO has been produced.
 
 ## [Unreleased] — Tooling and Candidate Process
 
@@ -57,6 +58,7 @@ All runtime tests await execution on an approved Ubuntu 26.04 `resolute` amd64 h
 - Hardened `verify-runtime.sh` to reject dirty or mismatched checkouts, verify generated checksums, record BIOS/UEFI metadata and confirm `EFI/BOOT/BOOTX64.EFI`.
 - Corrected `setup-host.sh` counters so `set -e` does not terminate the script on the first pass, warning or failure count.
 - Required Ubuntu 26.04 `resolute`, x86_64, approved sudo, explicit KVM handling and complete validation commands for the candidate host.
+- Corrected the merged PR #17 wording so it is treated as a blocked unsupported-host attempt, not completed candidate validation.
 - Updated website and documentation service status while keeping the package domain status-only and non-APT.
 - Removed public cloud resource identifiers and administrator-specific SSH details from deployment documentation.
 - Clarified that model downloads remain optional and that open weights, open source and free access are different licensing concepts.
