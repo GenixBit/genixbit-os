@@ -88,6 +88,9 @@ EOF
 # Test 1: existing matching candidate (PASS)
 git_pass_fixture="$TMP_DIR/git_pass.env"
 write_git_fixture "$git_pass_fixture" "validation/0.1.0-alpha-candidate-2" "$ACTUAL_CANDIDATE_SHA"
+echo "=== Debug: $git_pass_fixture ===" >&2
+cat "$git_pass_fixture" >&2
+echo "==============================" >&2
 "$BASH" "$CHECKER" --verify-git-candidate --status-file "$git_pass_fixture"
 printf '[PASS] Git-reference validation: existing matching candidate passed.\n'
 
