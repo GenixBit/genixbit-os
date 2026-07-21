@@ -5,6 +5,30 @@ All notable changes to the **GenixBit OS** project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows Semantic Versioning for release identifiers.
 
+## [0.2.0-alpha-candidate] — Branding Foundation Verified
+
+### Added
+- Created `tools/validation/check-transparent-branding.py` to validate RGBA and canvas corner/border transparency on all production assets.
+- Implemented robust `dpkg-divert` mechanisms in the maintainer scripts of `genixbit-os-base-files` to safely override upstream configuration files.
+- Configured isolated `ubuntu:26.04` docker-based package lifecycle test framework.
+- Created `.github/workflows/branding-packages.yml` to automatically validate transparency rules and package installs in CI.
+
+### Branding Foundation Validation Status
+
+- Branding package source: PASS
+- Transparent asset generation: PASS
+- Package build: PASS
+- Install: PASS
+- Upgrade: PASS
+- Rollback: PASS
+- Purge: PASS
+- Identity restoration: PASS
+- ISO integration: NOT_TESTED
+- BIOS branding: NOT_TESTED
+- UEFI branding: NOT_TESTED
+- Installer branding: NOT_TESTED
+- Installed-system branding: NOT_TESTED
+
 ## [0.1.0-alpha] — Candidate Validation Successful (2026-07-21)
 
 ### Added
