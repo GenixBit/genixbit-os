@@ -8,6 +8,9 @@ set -o pipefail         # exit on pipeline error
 set -u                  # treat unset variable as error
 export SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
+# Define SOURCE_DATE_EPOCH if not already defined (fall back to latest git commit time or current time)
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct 2>/dev/null || date +%s)}"
+
 source $SCRIPT_DIR/shared.sh
 source $SCRIPT_DIR/args.sh
 
@@ -140,7 +143,7 @@ function run_chroot() {
     print_warn "============================================"
     print_warn "   The following will run in chroot ENV!"
     print_warn "============================================"
-    sudo chroot new_building_os /usr/bin/env DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-readline} /root/mods/install_all_mods.sh -
+    sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH chroot new_building_os /usr/bin/env DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-readline} SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH /root/mods/install_all_mods.sh -
     print_warn "============================================"
     print_warn "   chroot ENV execution completed!"
     print_warn "============================================"
@@ -326,10 +329,11 @@ EOF
     judge "Generate manifest for filesystem-desktop"
 
     print_ok "Compressing rootfs as squashfs on /casper/filesystem.squashfs..."
-    sudo mksquashfs new_building_os image/casper/filesystem.squashfs \
+    sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH mksquashfs new_building_os image/casper/filesystem.squashfs \
         -noappend -no-duplicates -no-recovery \
         -wildcards -b 1M \
         -comp zstd -Xcompression-level 19 \
+        -repro-time "$SOURCE_DATE_EPOCH" \
         -e "var/cache/apt/archives/*" \
         -e "tmp/*" \
         -e "tmp/.*" \
@@ -362,7 +366,7 @@ EOF
 EOF
     judge "Generate README.diskdefines"
 
-    DATE=`TZ="UTC" date +"%y%m%d%H%M"`
+    DATE=$(date -u -d "@$SOURCE_DATE_EPOCH" +"%y%m%d%H%M" 2>/dev/null || date -u -r "$SOURCE_DATE_EPOCH" +"%y%m%d%H%M")
     cat << EOF > image/README.md
 # GenixBit OS $TARGET_BUILD_VERSION
 
@@ -400,19 +404,22 @@ EOF
     (
         cd isolinux && \
         dd if=/dev/zero of=efiboot.img bs=1M count=10 && \
-        sudo mkfs.vfat efiboot.img && \
+        sudo mkfs.vfat --invariant -i 2e24ec82 efiboot.img && \
 
         # Build self-contained EFI binary with grub-mkstandalone.
         # grub-install cannot determine the canonical path of the overlay
         # filesystem used by Docker, so we bypass it entirely and use
         # grub-mkstandalone to produce a relocatable BOOTX64.EFI directly.
         mkdir -p efi_staging/EFI/BOOT && \
-        sudo grub-mkstandalone \
+        sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH grub-mkstandalone \
             --format=x86_64-efi \
             --output=efi_staging/EFI/BOOT/BOOTX64.EFI \
             --locales="" \
             --fonts="" \
             "boot/grub/grub.cfg=grub.cfg" && \
+
+        # Clamp modification time of the generated EFI executable to achieve reproducibility
+        touch -d "@$SOURCE_DATE_EPOCH" efi_staging/EFI/BOOT/BOOTX64.EFI && \
 
         # Inject EFI binary into the FAT image using mtools (no loop mount).
         sudo mmd  -i efiboot.img ::/EFI && \
@@ -438,7 +445,8 @@ EOF
     judge "Create hybrid boot image"
 
     print_ok "Creating .disk/info..."
-    echo "$TARGET_BUSINESS_NAME $TARGET_BUILD_VERSION $TARGET_UBUNTU_VERSION - Release amd64 ($(date +%Y%m%d))" | sudo tee .disk/info
+    DISK_DATE=$(date -u -d "@$SOURCE_DATE_EPOCH" +%Y%m%d 2>/dev/null || date -u -r "$SOURCE_DATE_EPOCH" +%Y%m%d)
+    echo "$TARGET_BUSINESS_NAME $TARGET_BUILD_VERSION $TARGET_UBUNTU_VERSION - Release amd64 ($DISK_DATE)" | sudo tee .disk/info
     judge "Create .disk/info"
 
     print_ok "Creating md5sum.txt..."
@@ -446,7 +454,7 @@ EOF
     judge "Create md5sum.txt"
 
     print_ok "Creating iso image on $SCRIPT_DIR/$TARGET_NAME.iso..."
-    sudo xorriso \
+    sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH xorriso \
         -as mkisofs \
         -r -J \
         -iso-level 3 \

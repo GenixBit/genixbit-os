@@ -38,11 +38,19 @@ rm -f /etc/localtime /etc/timezone || true
 judge "Remove timezone files"
 
 # Clean bash history and temp files
-print_ok "Removing bash history and temporary files..."
+print_ok "Removing bash history, temporary files, and build logs..."
 find /tmp -mindepth 1 -delete 2>/dev/null || true
 rm -f ~/.bash_history 2>/dev/null || true
+rm -f /root/.wget-hsts || true
+rm -f /etc/ssl/certs/ssl-cert-snakeoil.pem || true
+rm -f /etc/ssl/private/ssl-cert-snakeoil.key || true
+find /etc/ssl/certs -type l 2>/dev/null | while read -r symlink; do
+    if [ ! -e "$symlink" ] || [[ "$(readlink "$symlink")" == *"ssl-cert-snakeoil"* ]]; then
+        rm -f "$symlink"
+    fi
+done
 export HISTSIZE=0
-judge "Remove bash history and temporary files"
+judge "Remove bash history, temporary files, and build logs"
 
 # Remove usr-is-merged folders
 print_ok "Removing usr-is-merged folders..."
