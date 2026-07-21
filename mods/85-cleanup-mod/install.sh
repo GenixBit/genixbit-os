@@ -37,6 +37,12 @@ print_ok "Removing timezone files..."
 rm -f /etc/localtime /etc/timezone || true
 judge "Remove timezone files"
 
+# Clean up non-deterministic caches (ldconfig aux-cache, mandb index.db)
+print_ok "Cleaning up non-deterministic caches..."
+rm -f /var/cache/ldconfig/aux-cache || true
+find /var/cache/man -type f -delete 2>/dev/null || true
+judge "Clean up non-deterministic caches"
+
 # Clean bash history and temp files
 print_ok "Removing bash history, temporary files, and build logs..."
 find /tmp -mindepth 1 -delete 2>/dev/null || true
