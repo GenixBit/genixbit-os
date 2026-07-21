@@ -454,11 +454,14 @@ EOF
     judge "Create md5sum.txt"
 
     print_ok "Creating iso image on $SCRIPT_DIR/$TARGET_NAME.iso..."
+    XORRISO_DATE=$(date -u -d "@$SOURCE_DATE_EPOCH" +"%Y%m%d%H%M%S00" 2>/dev/null || date -u -r "$SOURCE_DATE_EPOCH" +"%Y%m%d%H%M%S00")
     sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH xorriso \
         -as mkisofs \
         -r -J \
         -iso-level 3 \
         -full-iso9660-filenames \
+        --modification-date="$XORRISO_DATE" \
+        --set_all_file_dates="$XORRISO_DATE" \
         -volid "$TARGET_NAME" \
         -eltorito-boot boot/grub/bios.img \
             -no-emul-boot \
@@ -478,7 +481,7 @@ EOF
             "/EFI/efiboot.img=isolinux/efiboot.img" \
             "/boot/grub/grub.cfg=isolinux/grub.cfg" \
             "/boot/grub/bios.img=isolinux/bios.img" \
-            "."
+            .
 
     judge "Create iso image"
 
