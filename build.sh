@@ -64,6 +64,9 @@ function mount_folders() {
     sudo cp -r $SCRIPT_DIR/mods new_building_os/root/mods
     sudo cp $SCRIPT_DIR/args.sh   new_building_os/root/mods/args.sh
     sudo cp $SCRIPT_DIR/shared.sh new_building_os/root/mods/shared.sh
+
+    print_ok "Copying packages to chroot /root/packages..."
+    sudo cp -r $SCRIPT_DIR/packages new_building_os/root/packages
 }
 
 function setup_apt() {
@@ -157,6 +160,10 @@ function umount_folders() {
     print_ok "Cleaning mods from chroot /root/mods..."
     sudo rm -rf new_building_os/root/mods
     judge "Clean up chroot /root/mods"
+
+    print_ok "Cleaning packages from chroot /root/packages..."
+    sudo rm -rf new_building_os/root/packages
+    judge "Clean up chroot /root/packages"
 
     print_ok "Unmounting /proc /sys /dev/pts within chroot..."
     sudo chroot new_building_os umount /dev/pts || sudo chroot new_building_os umount -lf /dev/pts || true

@@ -1,0 +1,6 @@
+genixbit-os-theme (0.1.0-alpha-1) resolute; urgency=medium
+
+  * Initial release of official GenixBit OS theme and brand assets.
+  * Added genixbit-mark.svg and genixbit-wordmark.svg visual assets.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Tue, 21 Jul 2026 01:40:00 +0530

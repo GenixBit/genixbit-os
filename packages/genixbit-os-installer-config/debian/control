@@ -1,0 +1,13 @@
+Source: genixbit-os-installer-config
+Section: admin
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-installer-config
+Architecture: all
+Depends: ${misc:Depends}
+Description: Calamares installer configuration for GenixBit OS
+ Provides product branding, slide animations, and custom wizard configuration.

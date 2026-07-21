@@ -9,6 +9,8 @@ Homepage: https://os.genixbit.com
 Package: genixbit-os-base-files
 Architecture: all
 Depends: ${misc:Depends}
+Replaces: base-files
 Description: Core system identity files for GenixBit OS
  Provides /etc/os-release, /etc/lsb-release, /etc/issue, and /etc/issue.net
  defining GenixBit OS distribution identity and official links.
+

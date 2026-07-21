@@ -1,0 +1,13 @@
+Source: genixbit-os-wallpapers
+Section: x11
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-wallpapers
+Architecture: all
+Depends: ${misc:Depends}
+Description: Official desktop wallpaper assets for GenixBit OS
+ Provides light and dark high-resolution SVG wallpaper assets for the GNOME desktop.
