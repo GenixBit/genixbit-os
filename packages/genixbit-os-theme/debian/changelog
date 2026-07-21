@@ -1,3 +1,10 @@
+genixbit-os-theme (0.2.0-alpha-1) resolute; urgency=medium
+
+  * Update to version 0.2.0-alpha.
+  * Integrate official GB monogram and GenixBit wordmark.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 22 Jul 2026 02:20:00 +0530
+
 genixbit-os-theme (0.1.0-alpha-1) resolute; urgency=medium
 
   * Initial release of official GenixBit OS theme and brand assets.

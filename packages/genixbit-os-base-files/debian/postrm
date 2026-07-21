@@ -1,0 +1,36 @@
+#!/bin/sh
+# postrm maintainer script for genixbit-os-base-files
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    # 1. Remove non-conffile diversion
+    if [ -e /usr/lib/os-release.ubuntu ] || [ -L /usr/lib/os-release.ubuntu ]; then
+        rm -f /usr/lib/os-release
+        dpkg-divert --package genixbit-os-base-files --remove --rename \
+            --divert /usr/lib/os-release.ubuntu /usr/lib/os-release
+    fi
+
+    # 2. For conffiles under /etc, remove our overlay file first so dpkg-divert
+    # can rename the original Ubuntu version back without collision.
+    # We only do this if the diverted file exists, preventing deletion of the restored file on subsequent purge calls.
+    if [ -e /etc/lsb-release.ubuntu ] || [ -L /etc/lsb-release.ubuntu ]; then
+        rm -f /etc/lsb-release
+        dpkg-divert --package genixbit-os-base-files --remove --rename \
+            --divert /etc/lsb-release.ubuntu /etc/lsb-release
+    fi
+
+    if [ -e /etc/issue.ubuntu ] || [ -L /etc/issue.ubuntu ]; then
+        rm -f /etc/issue
+        dpkg-divert --package genixbit-os-base-files --remove --rename \
+            --divert /etc/issue.ubuntu /etc/issue
+    fi
+
+    if [ -e /etc/issue.net.ubuntu ] || [ -L /etc/issue.net.ubuntu ]; then
+        rm -f /etc/issue.net
+        dpkg-divert --package genixbit-os-base-files --remove --rename \
+            --divert /etc/issue.net.ubuntu /etc/issue.net
+    fi
+fi
+
+#DEBHELPER#
+exit 0

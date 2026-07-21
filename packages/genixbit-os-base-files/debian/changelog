@@ -1,3 +1,10 @@
+genixbit-os-base-files (0.2.0-alpha-1) resolute; urgency=medium
+
+  * Update to version 0.2.0-alpha.
+  * Implement safe dpkg-divert strategy for identity files.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 22 Jul 2026 02:20:00 +0530
+
 genixbit-os-base-files (0.1.0-alpha-1) resolute; urgency=medium
 
   * Initial release of GenixBit OS base system identity files.
