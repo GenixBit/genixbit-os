@@ -79,7 +79,19 @@ The private validation manifest must record:
 - reproducibility comparison;
 - cleanup status.
 
-Large artifacts, VM disks, raw logs, screenshots with private data, credentials, cloud identifiers, and private host details must remain outside Git.
+The public machine-readable summary is [`VALIDATION-STATUS.env`](VALIDATION-STATUS.env). Update it only from factual evidence. Keep ISO files, VM disks, raw logs, screenshots with private data, credentials, cloud identifiers, and private host details outside Git.
+
+## Pull-Request Merge Gate
+
+Candidate-validation pull requests use a branch beginning with `test/validate-` and a title beginning with `test: validate `.
+
+Repository Quality runs:
+
+```bash
+bash tools/validation/check-release-evidence.sh --require-complete
+```
+
+For such a pull request to pass, every required release-gate field in `docs/VALIDATION-STATUS.env` must be `PASS`, including the overall release status. A blocked host attempt, a documentation-only update, a dry run, or an incomplete runtime cycle must use a non-validation title such as `test: record blocked candidate validation attempt` and must not be presented as completed validation.
 
 ## Status Rules
 
@@ -89,4 +101,4 @@ Large artifacts, VM disks, raw logs, screenshots with private data, credentials,
 - A completed installer and successful target-disk boot are required for installer `PASS`.
 - Installed-system commands must be executed inside the installed system.
 - A second clean build and documented comparison are required before reproducibility can be classified.
-- The ISO must not be published while the release-validation status remains `PARTIAL`, `FAIL`, or `NOT TESTED` for a release gate.
+- The ISO must not be published while the release-validation status remains `PARTIAL`, `FAIL`, or `NOT_TESTED` for a release gate.
