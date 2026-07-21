@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!WARNING]
-> **Early Alpha (`0.1.0-alpha`)**: the frozen validation candidate `validation/0.1.0-alpha-candidate` at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` has been verified and the evidence branch `test/validate-0.1.0-alpha-candidate` is open. All direct runtime tests (ISO build, BIOS/UEFI boot, installer, installed system, reproducibility) await execution on an approved Ubuntu 26.04 `resolute` amd64 host with KVM. Do not use any alpha build on production, primary or sensitive systems.
+> **Early Alpha (`0.1.0-alpha`)**: the frozen candidate `validation/0.1.0-alpha-candidate` remains at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8`. The first validation attempt was blocked because it ran on macOS `arm64`, not Ubuntu 26.04 `resolute` `amd64` with KVM. PR #17 merged that blocked-attempt evidence only; it did not produce or validate a candidate ISO. Do not use any alpha build on production, primary or sensitive systems.
 
 ## Build with AI. Own your environment.
 
@@ -74,13 +74,14 @@ Read:
 | --- | --- | --- |
 | Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM tooling are present |
 | Historical ISO compilation | **PASS** | commit `2ed584c` generated the recorded ISO, size and checksum |
-| Frozen validation candidate branch | **PASS** | `validation/0.1.0-alpha-candidate` at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` verified and frozen |
-| Evidence branch | **PASS** | `test/validate-0.1.0-alpha-candidate` open; PR target `main` |
+| Frozen validation candidate branch | **PASS** | `validation/0.1.0-alpha-candidate` at SHA `90fef31a4ede0728ef9fbcbff1c226de4327a1b8` remains frozen |
+| First candidate host attempt | **FAIL** | macOS `arm64` was correctly rejected; PR #17 records the blocker but is not successful validation |
 | Candidate clean ISO build | **Not tested** | requires Ubuntu 26.04 `resolute` amd64 build host |
 | Candidate BIOS/UEFI runtime validation | **Not tested** | requires Linux host with KVM; dry-run command construction is not boot evidence |
 | Live session and installer | **Not tested** | direct interactive evidence is not recorded |
 | Installed system and APT validation | **Not tested** | post-install boot, login and `apt update` evidence is pending |
 | Reproducibility | **Not tested** | two clean builds from the same candidate SHA have not been compared |
+| Release-evidence CI gate | **Active** | validation PRs must set every required machine-readable release gate to `PASS` |
 | `genixbit-os-base-files` | **Scaffolded** | identity templates and Debian package metadata exist; build/install/upgrade evidence is pending |
 | Complete GenixBit runtime branding | **Planned** | user-visible upstream branding may remain during migration |
 | Product website preview | **Active** | public preview recorded at `os.genixbit.com` |
@@ -94,6 +95,7 @@ Read:
 Evidence and procedures:
 
 - [`docs/TESTING.md`](docs/TESTING.md)
+- [`docs/VALIDATION-STATUS.env`](docs/VALIDATION-STATUS.env)
 - [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md)
 - [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md)
 - [`docs/BASE-FILES.md`](docs/BASE-FILES.md)
@@ -176,6 +178,7 @@ The candidate artifact must be used consistently for BIOS, UEFI, installer and i
 ├── mods/                         # Ordered chroot customization modules
 ├── packages/                     # GenixBit-owned package sources and scaffolding
 ├── tools/vm/                     # Host readiness, candidate build and QEMU tooling
+├── tools/validation/             # Machine-readable release-evidence checks
 ├── docs/                         # Architecture, AI, branding, packages, testing and services
 ├── website/                      # Original OS, docs and package-status previews
 ├── deploy/                       # Containerized static preview deployment

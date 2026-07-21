@@ -112,5 +112,21 @@ jobs:
             exit 1
           fi
 
+      - name: Validate release evidence status schema
+        shell: bash
+        run: bash tools/validation/check-release-evidence.sh
+
+      - name: Test release evidence gate behavior
+        shell: bash
+        run: bash tools/validation/test-release-evidence.sh
+
+      - name: Enforce completed candidate validation
+        if: >-
+          github.event_name == 'pull_request' &&
+          (startsWith(github.head_ref, 'test/validate-') ||
+           startsWith(github.event.pull_request.title, 'test: validate '))
+        shell: bash
+        run: bash tools/validation/check-release-evidence.sh --require-complete
+
       - name: Confirm CI scope
         run: echo 'Repository checks completed. Full ISO builds require a compatible Ubuntu 26.04 amd64 environment.'
