@@ -58,9 +58,14 @@ done
 [[ -f "$STATUS_FILE" ]] || fail "Status file not found: $STATUS_FILE"
 
 declare -A values=()
-while IFS='=' read -r key value; do
-    [[ -n "$key" ]] || continue
-    [[ "$key" == \#* ]] && continue
+while read -r line; do
+    [[ -n "$line" ]] || continue
+    [[ "$line" == \#* ]] && continue
+    if [[ "$line" != *=* ]]; then
+        fail "Invalid line in $STATUS_FILE (missing '='): $line"
+    fi
+    key="${line%%=*}"
+    value="${line#*=}"
     [[ "$key" =~ ^[A-Z][A-Z0-9_]*$ ]] || fail "Invalid key in $STATUS_FILE: $key"
     [[ -n "$value" ]] || fail "Empty value for $key in $STATUS_FILE"
     [[ -z ${values[$key]+x} ]] || fail "Duplicate key in $STATUS_FILE: $key"
