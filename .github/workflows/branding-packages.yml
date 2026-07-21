@@ -1,0 +1,67 @@
+name: Branding Package Validation
+
+on:
+  push:
+    paths:
+      - 'packages/**'
+      - 'tools/validation/build-branding-packages.sh'
+      - 'tools/validation/test-branding-packages-disposable.sh'
+      - 'tools/validation/test-packages.sh'
+      - 'tools/validation/generate-branding-assets.py'
+      - 'branding/source/**'
+      - 'build.sh'
+      - 'mods/06-install-genixbit-branding-mod/**'
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'tools/validation/build-branding-packages.sh'
+      - 'tools/validation/test-branding-packages-disposable.sh'
+      - 'tools/validation/test-packages.sh'
+      - 'tools/validation/generate-branding-assets.py'
+      - 'branding/source/**'
+      - 'build.sh'
+      - 'mods/06-install-genixbit-branding-mod/**'
+
+jobs:
+  validate:
+    name: Branding Packages Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install Pillow
+
+      - name: Generate production assets
+        run: python3 tools/validation/generate-branding-assets.py
+
+      - name: Run transparent-background validation
+        run: python3 tools/validation/check-transparent-branding.py
+
+      - name: Run disposable Ubuntu 26.04 package lifecycle test
+        run: |
+          mkdir -p /tmp
+          bash tools/validation/test-packages.sh 2>&1 | tee /tmp/validation.log
+
+      - name: Verify no generated .deb files are tracked in Git
+        run: |
+          if git ls-files | grep '\.deb$'; then
+            echo "FAIL: Tracked .deb files detected in repository index!"
+            exit 1
+          fi
+          echo "PASS: No generated .deb files are tracked in Git."
+
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: branding-validation-logs
+          path: /tmp/validation.log
