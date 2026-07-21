@@ -33,3 +33,11 @@ dist/
 *.pem
 *.p12
 *.pfx
+
+# Packages and Debian Build Outputs
+packages/build-debs/
+*.deb
+*.build
+*.buildinfo
+*.changes
+
