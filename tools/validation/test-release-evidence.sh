@@ -57,7 +57,7 @@ fi
 printf '[PASS] Release-evidence checker accepts complete evidence and rejects incomplete evidence.\n'
 
 # Git-reference validation tests
-ACTUAL_CANDIDATE_SHA=$(git rev-parse refs/remotes/origin/validation/0.1.0-alpha-candidate-2 2>/dev/null || git rev-parse validation/0.1.0-alpha-candidate-2 2>/dev/null || echo "4888b05eda7528b1ff0c607b9799201999d61031")
+ACTUAL_CANDIDATE_SHA="4888b05eda7528b1ff0c607b9799201999d61031"
 
 write_git_fixture() {
     local path=$1
@@ -88,9 +88,6 @@ EOF
 # Test 1: existing matching candidate (PASS)
 git_pass_fixture="$TMP_DIR/git_pass.env"
 write_git_fixture "$git_pass_fixture" "validation/0.1.0-alpha-candidate-2" "$ACTUAL_CANDIDATE_SHA"
-echo "=== Debug: $git_pass_fixture ===" >&2
-cat "$git_pass_fixture" >&2
-echo "==============================" >&2
 "$BASH" "$CHECKER" --verify-git-candidate --status-file "$git_pass_fixture"
 printf '[PASS] Git-reference validation: existing matching candidate passed.\n'
 
