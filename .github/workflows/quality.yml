@@ -116,6 +116,10 @@ jobs:
         shell: bash
         run: bash tools/validation/check-release-evidence.sh
 
+      - name: Test release evidence gate behavior
+        shell: bash
+        run: bash tools/validation/test-release-evidence.sh
+
       - name: Enforce completed candidate validation
         if: >-
           github.event_name == 'pull_request' &&
