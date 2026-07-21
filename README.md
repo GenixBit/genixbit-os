@@ -82,8 +82,8 @@ Read:
 | Installed system and APT validation | **PASS** | Clean boot from target disk and verified apt update & system package health |
 | Reproducibility | **PASS** | Diffoscope verified Build A and Build B ISOs are 100% bit-for-bit identical |
 | Release-evidence CI gate | **Active** | validation PRs must set every required machine-readable release gate to `PASS` |
-| `genixbit-os-base-files` | **PARTIAL / SCAFFOLDED** | identity templates and Debian package metadata exist; build/install/upgrade evidence is pending |
-| Complete GenixBit runtime branding | **Planned** | user-visible upstream branding may remain during migration |
+| `genixbit-os-base-files` | **PASS** | identity templates and Debian package metadata exist; build/install/upgrade evidence verified |
+| Complete GenixBit runtime branding | **PARTIAL** | user-visible upstream branding may remain during migration; branding packages are validated |
 | Product website preview | **Active** | public preview recorded at `os.genixbit.com` |
 | Documentation preview | **Active** | public preview recorded at `docs.os.genixbit.com` |
 | Package repository | **Not active** | `packages.os.genixbit.com` is a status page only; signing and APT infrastructure remain pending |
@@ -91,6 +91,22 @@ Read:
 | GenixBit Agents integration | **Planned** | optional connection to `GenixBit/agency-agents` |
 | GenixBit Store | **Planned** | curated applications, packages, runtimes and model integrations |
 | Bharat AI production checkpoint | **Not available** | development work exists; production training and evaluation remain incomplete |
+
+### GenixBit Branding Foundation Status
+
+- Branding package source: PASS
+- Transparent asset generation: PASS
+- Package build: PASS
+- Install: PASS
+- Upgrade: PASS
+- Rollback: PASS
+- Purge: PASS
+- Identity restoration: PASS
+- ISO integration: NOT_TESTED
+- BIOS branding: NOT_TESTED
+- UEFI branding: NOT_TESTED
+- Installer branding: NOT_TESTED
+- Installed-system branding: NOT_TESTED
 
 Evidence and procedures:
 

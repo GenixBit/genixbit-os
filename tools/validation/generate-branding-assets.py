@@ -91,6 +91,34 @@ def make_square(img, pad_color=(0, 0, 0, 0)):
         result.paste(img, (((height - width) // 2), 0))
         return result
 
+def add_transparent_padding(img, padding_ratio=0.05):
+    # Adds a percentage of transparent padding to all four sides of the image
+    width, height = img.size
+    pad_w = int(width * padding_ratio)
+    pad_h = int(height * padding_ratio)
+    if pad_w == 0: pad_w = 1
+    if pad_h == 0: pad_h = 1
+    
+    new_w = width + 2 * pad_w
+    new_h = height + 2 * pad_h
+    
+    padded_img = Image.new("RGBA", (new_w, new_h), (0, 0, 0, 0))
+    padded_img.paste(img, (pad_w, pad_h))
+    return padded_img
+
+def zero_borders(img):
+    # Forces all border pixels of an image to be completely transparent
+    w, h = img.size
+    rgba = img.convert("RGBA")
+    pixels = list(rgba.getdata())
+    for y in range(h):
+        for x in range(w):
+            if x == 0 or x == w - 1 or y == 0 or y == h - 1:
+                idx = y * w + x
+                pixels[idx] = (pixels[idx][0], pixels[idx][1], pixels[idx][2], 0)
+    rgba.putdata(pixels)
+    return rgba
+
 def image_to_base64_png(img):
     buffered = BytesIO()
     img.save(buffered, format="PNG")
@@ -125,19 +153,23 @@ def main():
     # Process Monogram (Mark)
     # Background transparent
     square_trans = remove_background(img_square)
-    # Monogram is in upper two-thirds (Y: 0.0 to 0.7)
     monogram = get_bbox_crop(square_trans, 0.0, 0.7)
+    monogram = add_transparent_padding(monogram, 0.05)
     # Pad to square
     monogram_square = make_square(monogram)
+    monogram_square = zero_borders(monogram_square)
     
     # Generate PNG icon sizes
     sizes = [16, 32, 48, 64, 128, 256, 512]
     for s in sizes:
         icon_resized = monogram_square.resize((s, s), Image.Resampling.LANCZOS)
+        icon_resized = zero_borders(icon_resized)
         icon_resized.save(f"packages/genixbit-os-theme/usr/share/icons/hicolor/{s}x{s}/apps/genixbit-mark.png", "PNG")
         
     # Also save a standard pixmaps size
-    monogram_square.resize((256, 256), Image.Resampling.LANCZOS).save("packages/genixbit-os-theme/usr/share/pixmaps/genixbit-mark.png", "PNG")
+    pixmap_resized = monogram_square.resize((256, 256), Image.Resampling.LANCZOS)
+    pixmap_resized = zero_borders(pixmap_resized)
+    pixmap_resized.save("packages/genixbit-os-theme/usr/share/pixmaps/genixbit-mark.png", "PNG")
     
     # Create dark-themed and light-themed monogram variants
     monogram_dark = monogram_square # default `#0083A8` is dark
@@ -152,43 +184,26 @@ def main():
     # Also copy logo to installer config branding
     save_svg_embedded(monogram_square, "packages/genixbit-os-installer-config/usr/share/genixbit-os-installer-config/branding/genixbit-logo.svg")
     
-    # Process Wordmark
-    # Wordmark is in lower portion of square (Y: 0.7 to 1.0)
     wordmark = get_bbox_crop(square_trans, 0.7, 1.0)
+    wordmark = add_transparent_padding(wordmark, 0.05)
+    wordmark = zero_borders(wordmark)
     # Save wordmark SVG
     w_width, w_height = wordmark.size
     save_svg_embedded(wordmark, "packages/genixbit-os-theme/usr/share/genixbit/branding/genixbit-wordmark.svg", w_width, w_height)
     # Also copy to installer config
     save_svg_embedded(wordmark, "packages/genixbit-os-installer-config/usr/share/genixbit-os-installer-config/branding/genixbit-wordmark.svg", w_width, w_height)
     
-    # Process Horizontal Lockup
     horiz_trans = remove_background(img_horiz)
     lockup = get_bbox_crop(horiz_trans)
+    lockup = add_transparent_padding(lockup, 0.05)
+    lockup = zero_borders(lockup)
     l_width, l_height = lockup.size
     
     # Create variants of lockup (standard, light, dark)
     # For standard and dark, keep original
     lockup_dark = lockup
-    # For light (on dark background), make the monogram and wordmark text white, but keep tagline blue
-    # The wordmark and monogram are dark teal `#0083A8`, tagline is `#00A3D1`
-    # Let's map pixels based on colors: if a pixel is teal `#0083A8` (R < 50, G < 150, B < 180), make it white.
-    rgba_lockup = lockup.convert("RGBA")
-    l_data = rgba_lockup.getdata()
-    l_light_data = []
-    for item in l_data:
-        if item[3] > 0:
-            # Check if it is the dark teal text/monogram or drop shadow
-            if item[0] < 80 and item[1] < 150 and item[2] < 180:
-                l_light_data.append((255, 255, 255, item[3]))
-            # If it's a drop shadow of the text, make it transparent or light white glow
-            elif item[0] < 150 and item[1] < 150 and item[2] < 150:
-                l_light_data.append((255, 255, 255, int(item[3] * 0.3)))
-            else:
-                l_light_data.append(item) # keep tagline blue
-        else:
-            l_light_data.append(item)
-    lockup_light = Image.new("RGBA", lockup.size)
-    lockup_light.putdata(l_light_data)
+    # For light (on dark background), make the whole lockup white
+    lockup_light = make_monochrome(lockup, (255, 255, 255))
     
     save_svg_embedded(lockup, "packages/genixbit-os-theme/usr/share/genixbit/branding/genixbit-lockup.svg", l_width, l_height)
     save_svg_embedded(lockup_dark, "packages/genixbit-os-theme/usr/share/genixbit/branding/genixbit-lockup-dark.svg", l_width, l_height)
