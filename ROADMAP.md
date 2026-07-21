@@ -11,7 +11,7 @@
 - [x] Establish GenixBit identity variables and repository governance.
 - [x] Add repository-quality CI and baseline test documentation.
 - [x] Confirm macOS ARM is unsuitable for the full ISO build.
-- [x] Provision an Ubuntu 26.04 `resolute` `amd64` build machine.
+- [x] Provision an Ubuntu 26.04 `resolute` `amd64` build machine for the historical build.
 - [x] Run `make bootstrap` successfully for the historical build.
 - [x] Complete the first historical ISO compilation from commit `2ed584c`.
 - [x] Record the historical ISO filename, size and SHA-256.
@@ -20,6 +20,8 @@
 - [x] Correct the host-readiness counter behavior under `set -e`.
 - [x] Require a clean checkout and exact expected SHA in `verify-runtime.sh`.
 - [x] Define the frozen candidate process in `docs/VALIDATION-CANDIDATE.md`.
+- [x] Add `docs/VALIDATION-STATUS.env` as the machine-readable release record.
+- [x] Enforce completed evidence for `test/validate-*` pull requests in Repository Quality CI.
 
 The first ISO remains valid historical evidence. It is not the next release candidate because later commits changed the build pipeline and added GenixBit identity-package scaffolding.
 
@@ -29,6 +31,7 @@ The first ISO remains valid historical evidence. It is not the next release cand
 - [x] Record its full 40-character SHA: `90fef31a4ede0728ef9fbcbff1c226de4327a1b8`.
 - [x] Keep the candidate branch immutable during validation. Do not add commits after validation starts.
 - [x] Create evidence branch `test/validate-0.1.0-alpha-candidate` from the frozen candidate SHA.
+- [x] Record the first blocked attempt: macOS `arm64` failed host readiness and produced no candidate ISO.
 - [ ] Run `tools/vm/verify-runtime.sh --expected-commit 90fef31a4ede0728ef9fbcbff1c226de4327a1b8` on Ubuntu 26.04 `resolute` amd64.
 - [ ] Perform a clean ISO build from the candidate SHA.
 - [ ] Record the candidate ISO filename, exact size and SHA-256.
@@ -37,6 +40,8 @@ The first ISO remains valid historical evidence. It is not the next release cand
 - [ ] Verify `/isolinux/efiboot.img` contains `EFI/BOOT/BOOTX64.EFI`.
 - [ ] Retain the candidate artifact and private reports outside Git.
 - [ ] Use that one candidate artifact for every direct runtime test.
+
+PR #17 records the unsupported macOS-host attempt only. Its merge does not complete the candidate build or runtime gates.
 
 ### Direct Runtime Validation Still Required
 
@@ -55,11 +60,11 @@ The first ISO remains valid historical evidence. It is not the next release cand
 - [ ] Confirm `genixbit-os-base-files` behavior when included in the candidate.
 - [ ] Perform a second clean build from the same candidate SHA in a separate checkout.
 - [ ] Compare both candidate ISOs and document expected or nondeterministic differences.
-- [ ] Store non-sensitive summaries in `docs/TESTING.md`.
+- [ ] Store non-sensitive summaries in `docs/TESTING.md` and update `docs/VALIDATION-STATUS.env`.
 
-Phase 1 is not complete until the frozen candidate and all release-gate tests above are recorded.
+Phase 1 is not complete until the frozen candidate and all release-gate tests above are recorded as `PASS`.
 
-See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md) and [`docs/TESTING.md`](docs/TESTING.md).
+See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md), [`docs/VALIDATION-STATUS.env`](docs/VALIDATION-STATUS.env) and [`docs/TESTING.md`](docs/TESTING.md).
 
 ## Phase 2 — `0.2.x`: Complete GenixBit Identity
 
@@ -99,83 +104,3 @@ See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md) and [`docs/BASE-F
 - [ ] Creator profile: video, audio, image, 3D, streaming, transcription and codec tooling.
 - [ ] AI learner profile: guided setup and GenixBit Academy starter paths.
 - [ ] Hardware and GPU diagnostics.
-- [ ] Profile installation must remain optional and reversible.
-
-## Phase 5 — `0.5.x`: AI Runtime Foundation
-
-- [ ] Define runtime adapter interface.
-- [ ] Package optional Ollama integration.
-- [ ] Package optional llama.cpp-compatible integration.
-- [ ] Evaluate vLLM/container serving for suitable server hardware.
-- [ ] Detect RAM, VRAM, GPU, CPU architecture and free disk space.
-- [ ] Create signed model-catalog metadata.
-- [ ] Show model source, terms, size, checksum and hardware tier before download.
-- [ ] Bind local model APIs to loopback by default.
-- [ ] Add clean uninstall and model-data removal.
-
-See [`docs/AI-FIRST-PLATFORM.md`](docs/AI-FIRST-PLATFORM.md) and [`docs/AI-MODEL-CATALOG.md`](docs/AI-MODEL-CATALOG.md).
-
-## Phase 6 — `0.6.x`: GenixBit AI Center and Agents
-
-- [ ] Build `genixbit-os-ai-center`.
-- [ ] Browse and filter approved model metadata.
-- [ ] Install, start, stop, inspect and remove model runtimes.
-- [ ] Display local API endpoints and resource usage.
-- [ ] Add explicit privacy and cloud-provider controls.
-- [ ] Integrate `GenixBit/agency-agents` as an optional component.
-- [ ] Support Antigravity, Gemini CLI, Codex, Cursor, OpenCode and other validated tools.
-- [ ] Show file changes and require approval before modifying external tool configuration.
-- [ ] Never display an agent backend as active when it is not configured.
-
-## Phase 7 — `0.7.x`: GenixBit Store
-
-- [ ] Build the native GenixBit Store client.
-- [ ] Support signed GenixBit APT packages.
-- [ ] Display Ubuntu package sources accurately.
-- [ ] Integrate reviewed Flatpak/Flathub entries.
-- [ ] Add official vendor repository adapters with user confirmation.
-- [ ] Add AI runtime and model catalog integration.
-- [ ] Display publisher, license, permissions, architecture and update method.
-- [ ] Create a GenixBit-controlled publisher review workflow.
-- [ ] Add application security scanning and rollback procedures.
-
-See [`docs/APP-STORE.md`](docs/APP-STORE.md).
-
-## Phase 8 — `0.8.x`: Websites, Documentation and Operations
-
-- [x] Add original product, documentation and package-status preview pages.
-- [x] Add containerized Caddy preview configuration.
-- [x] Provision a GenixBit-controlled web server.
-- [x] Deploy the product website, documentation and package-status previews.
-- [ ] Attach and verify a stable public endpoint such as an Elastic IP or approved load balancer.
-- [ ] Confirm SSH is restricted to approved administrators or Systems Manager.
-- [ ] Configure multi-region uptime and TLS-expiry monitoring.
-- [ ] Configure backup, log retention and tested DNS rollback.
-- [ ] Publish versioned documentation.
-- [ ] Add service health and incident procedures.
-- [ ] Keep the package domain status-only until signed APT infrastructure is approved.
-
-See [`docs/PLATFORM-SERVICES.md`](docs/PLATFORM-SERVICES.md), [`docs/DEPLOYMENT-STATUS.md`](docs/DEPLOYMENT-STATUS.md) and [`deploy/README.md`](deploy/README.md).
-
-## Phase 9 — `0.9.x`: Security, Updates and Release Candidate
-
-- [ ] Security hardening baseline.
-- [ ] Update manager and rollback experience.
-- [ ] Package and catalog signature verification.
-- [ ] Privacy controls and transparent service settings.
-- [ ] Hardware compatibility matrix.
-- [ ] Upgrade testing between supported releases.
-- [ ] Disaster recovery and signing-key revocation exercises.
-- [ ] Documentation freeze and release audit.
-
-## Phase 10 — `1.0.0`: First Stable GenixBit OS Release
-
-- [ ] Production-ready ISO build and signed release artifacts.
-- [ ] Complete GenixBit user-facing branding.
-- [ ] Signed GenixBit package channels.
-- [ ] Stable update and rollback process.
-- [ ] Validated developer, server and creator profiles.
-- [ ] Optional AI runtime foundation.
-- [ ] Public product and documentation websites.
-- [ ] Security and support lifecycle published.
-- [ ] General availability approved by GenixBit Labs Private Limited.
