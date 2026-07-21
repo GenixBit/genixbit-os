@@ -418,13 +418,13 @@ EOF
             "boot/grub/grub.cfg=grub.cfg" && \
 
         # Clamp modification time of the generated EFI executable to achieve reproducibility
-        touch -d "@$SOURCE_DATE_EPOCH" efi_staging/EFI/BOOT/BOOTX64.EFI && \
+        sudo touch -d "@$SOURCE_DATE_EPOCH" efi_staging/EFI/BOOT/BOOTX64.EFI && \
 
         # Inject EFI binary into the FAT image using mtools (no loop mount).
         sudo mmd  -i efiboot.img ::/EFI && \
         sudo mmd  -i efiboot.img ::/EFI/BOOT && \
         sudo mcopy -i efiboot.img efi_staging/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT/ && \
-        rm -rf efi_staging
+        sudo rm -rf efi_staging
     )
     judge "Create EFI boot image"
 
