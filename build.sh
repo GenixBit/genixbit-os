@@ -421,9 +421,9 @@ EOF
         sudo touch -d "@$SOURCE_DATE_EPOCH" efi_staging/EFI/BOOT/BOOTX64.EFI && \
 
         # Inject EFI binary into the FAT image using mtools (no loop mount).
-        sudo mmd  -i efiboot.img ::/EFI && \
-        sudo mmd  -i efiboot.img ::/EFI/BOOT && \
-        sudo mcopy -i efiboot.img efi_staging/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT/ && \
+        sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH mmd  -i efiboot.img ::/EFI && \
+        sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH mmd  -i efiboot.img ::/EFI/BOOT && \
+        sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH mcopy -i efiboot.img efi_staging/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT/ && \
         sudo rm -rf efi_staging
     )
     judge "Create EFI boot image"
