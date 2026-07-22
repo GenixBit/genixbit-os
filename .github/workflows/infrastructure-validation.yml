@@ -68,6 +68,14 @@ jobs:
         run: |
           bash tests/infrastructure/test-infrastructure-security-rules.sh
 
+      - name: Verify plan manifest JSON schema validity
+        run: |
+          jq . infra/package-staging/schemas/plan-manifest.schema.json
+
+      - name: Run staging operations behavioral test suite
+        run: |
+          bash tests/infrastructure/test-staging-operations.sh
+
       - name: Verify absence of tracked state, plans, tfvars or credentials
         run: |
           if git ls-files | grep -E '(\.tfstate|\.tfplan|terraform\.tfvars|backend\.hcl|crash\.log)$'; then
