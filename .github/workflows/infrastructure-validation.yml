@@ -36,7 +36,7 @@ jobs:
       - name: Install ShellCheck and Packaging tools
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y shellcheck jq gpg curl
+          sudo apt-get install -y shellcheck jq gpg curl python3-jsonschema
 
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -58,23 +58,40 @@ jobs:
 
       - name: Validate shell syntax for deployment scripts
         run: |
-          bash -n infra/package-staging/scripts/*.sh
+          bash -n infra/package-staging/scripts/*.sh infra/package-staging/scripts/lib/*.sh
 
       - name: Run ShellCheck on deployment scripts
         run: |
-          shellcheck -e SC1091 infra/package-staging/scripts/*.sh
+          shellcheck -e SC1091 infra/package-staging/scripts/*.sh infra/package-staging/scripts/lib/*.sh
 
       - name: Run infrastructure security and rules test suite
         run: |
           bash tests/infrastructure/test-infrastructure-security-rules.sh
 
-      - name: Verify plan manifest JSON schema validity
+      - name: Verify plan and evidence JSON schema validity
         run: |
           jq . infra/package-staging/schemas/plan-manifest.schema.json
+          jq . infra/package-staging/schemas/staging-evidence.schema.json
+
+      - name: Run staging evidence anti-fabrication test suite
+        run: |
+          bash tests/infrastructure/test-staging-evidence.sh
 
       - name: Run staging operations behavioral test suite
         run: |
           bash tests/infrastructure/test-staging-operations.sh
+
+      - name: Run evidence anti-fabrication static analysis checks
+        run: |
+          # Verify NO unconditional PASS markers in production operational scripts
+          if grep -rn 'echo "STAGING_.*=PASS"' infra/package-staging/scripts/*.sh | grep -v emit_verified_marker; then
+            echo "Error: Detected unconditional STAGING_*=PASS echo in operational scripts!" >&2
+            exit 1
+          fi
+          if grep -rn 'export STAGING_.*=PASS' infra/package-staging/scripts/*.sh; then
+            echo "Error: Detected unconditional STAGING_*=PASS export in operational scripts!" >&2
+            exit 1
+          fi
 
       - name: Verify absence of tracked state, plans, tfvars or credentials
         run: |
