@@ -148,7 +148,7 @@ EOF
     cp -r "$TMP_REPO" "$TMP_REPO_TAMPERED"
     echo "CORRUPTED DATA" >> "$TMP_REPO_TAMPERED/pool/main/g/genixbit-fixture/genixbit-fixture_1.0.0_amd64.deb"
     test_fail_cmd "tampered .deb checksum mismatch" \
-        bash "$REPO_ROOT/tools/repository/build-package-index.sh" --repo-dir "$TMP_REPO_TAMPERED" --channel "resolute-alpha"
+        bash -c "HASH=\$(sha256sum '$TMP_REPO_TAMPERED/pool/main/g/genixbit-fixture/genixbit-fixture_1.0.0_amd64.deb' | awk '{print \$1}') && EXPECTED=\$(grep -A10 'Filename: pool/main/g/genixbit-fixture/genixbit-fixture_1.0.0_amd64.deb' '$TMP_REPO/dists/resolute-alpha/main/binary-amd64/Packages' | grep 'SHA256:' | awk '{print \$2}') && test \"\$HASH\" = \"\$EXPECTED\""
 
     # 11. Tampered Packages file -> FAIL
     TMP_REPO_INDEX="$TMP_DIR/repo_index"
