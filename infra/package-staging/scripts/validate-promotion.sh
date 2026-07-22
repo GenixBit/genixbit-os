@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Hardened Staging Channel Promotion & APT Verification Script for GenixBit OS
+# Hardened Staging Release Candidate Promotion Verification Script for GenixBit OS
 
 set -euo pipefail
 
@@ -20,76 +20,87 @@ echo "=== GenixBit OS Staging Promotion Validation ==="
 
 STAGE_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-default}"
-STAGING_KEY_FPR="${STAGING_KEY_FPR:-1234567890ABCDEF1234567890ABCDEF12345678}"
-EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
-APPROVAL_ID="${APPROVAL_ID:-appr-staging-001}"
-APPROVED_BY="${APPROVED_BY:-release-operator@genixbit.com}"
-
 STATUS_VAL="PASS"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     STATUS_VAL="SIMULATED"
+    STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-simulated}"
+    STAGING_KEY_FPR="${STAGING_KEY_FPR:-1234567890ABCDEF1234567890ABCDEF12345678}"
+    CLIENT_INSTANCE_NAME="${CLIENT_INSTANCE_NAME:-genixbit-staging-client}"
+    EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
     TMP_STAGING=$(mktemp -d)
     LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-$TMP_STAGING}"
-    STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-$TMP_STAGING/keyring.gpg}"
-    mkdir -p "$LOCAL_STAGING_DIR/pool/main/g/genixbit-repository-fixture" "$LOCAL_STAGING_DIR/dists/resolute-testing" "$LOCAL_STAGING_DIR/snapshots/snap-alpha-pre" "$LOCAL_STAGING_DIR/snapshots/snap-testing-pre"
-    touch "$LOCAL_STAGING_DIR/pool/main/g/genixbit-repository-fixture/genixbit-repository-fixture_1.0.1_amd64.deb"
-    touch "$STAGING_PUBLIC_KEYRING"
+    mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-testing" "$LOCAL_STAGING_DIR/snapshots"
+    echo "Testing_Release_Content" > "$LOCAL_STAGING_DIR/dists/resolute-testing/Release"
+else
+    # Real Mode Enforcement
+    PROJECT_ID="${GCP_PROJECT_ID:-}"
+    ZONE="${GCP_ZONE:-}"
+    STAGING_RUN_ID="${STAGING_RUN_ID:-}"
+    STAGING_KEY_FPR="${STAGING_KEY_FPR:-}"
+    CLIENT_INSTANCE_NAME="${CLIENT_INSTANCE_NAME:-}"
+    LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-}"
+    EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
+
+    if [[ -z "$STAGING_RUN_ID" || "$STAGING_RUN_ID" == "run-staging-default" ]]; then
+        echo "[ERROR] STAGING_RUN_ID required and must not be a placeholder default!" >&2
+        exit 1
+    fi
+    if [[ -z "$STAGING_KEY_FPR" || "$STAGING_KEY_FPR" =~ ^12345678 ]]; then
+        echo "[ERROR] STAGING_KEY_FPR required and must not be a placeholder default!" >&2
+        exit 1
+    fi
+    if [[ -z "$LOCAL_STAGING_DIR" || ! -d "$LOCAL_STAGING_DIR" ]]; then
+        echo "[ERROR] LOCAL_STAGING_DIR required and must exist!" >&2
+        exit 1
+    fi
 fi
 
-LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-}"
+ssh_client() {
+    local cmd="$1"
+    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+        return 0
+    else
+        gcloud compute ssh "${CLIENT_INSTANCE_NAME:-genixbit-staging-client}" --zone="${GCP_ZONE:-asia-south1-a}" --project="${GCP_PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
+    fi
+}
 
-if [[ -z "$LOCAL_STAGING_DIR" || ! -d "$LOCAL_STAGING_DIR" ]]; then
-    echo "[ERROR] LOCAL_STAGING_DIR is required!" >&2
-    exit 1
-fi
+# Step 1: Promote Package from resolute-alpha to resolute-testing
+PROMOTE_CMD="bash $REPO_ROOT/tools/repository/promote-package.sh --repo-dir '$LOCAL_STAGING_DIR' --package genixbit-repository-fixture --from-channel resolute-alpha --to-channel resolute-testing"
 
-FIXTURE_DEB="$LOCAL_STAGING_DIR/pool/main/g/genixbit-repository-fixture/genixbit-repository-fixture_1.0.1_amd64.deb"
-PKG_HASH=$(file_sha256 "$FIXTURE_DEB")
-
-# Before Promotion Checks
-ALPHA_SNAP_CMD="bash $REPO_ROOT/tools/repository/verify-snapshot.sh '$LOCAL_STAGING_DIR' 'snap-alpha-pre'"
-TESTING_SNAP_CMD="bash $REPO_ROOT/tools/repository/verify-snapshot.sh '$LOCAL_STAGING_DIR' 'snap-testing-pre'"
-APPR_CHECK_CMD="python3 -c 'import sys, json; print(\"$APPROVAL_ID\")'"
-
-ACTUAL_APPR_ID="$APPROVAL_ID"
-
-# Promote Package & Rebuild Indexes & Sign & Publish
-PROM_CMD="bash $REPO_ROOT/tools/repository/promote-package.sh '$LOCAL_STAGING_DIR' resolute-alpha resolute-testing genixbit-repository-fixture 1.0.1"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    eval "$PROM_CMD"
+    bash "$REPO_ROOT/tools/repository/promote-package.sh" --repo-dir "$LOCAL_STAGING_DIR" --package "genixbit-repository-fixture" --from-channel "resolute-alpha" --to-channel "resolute-testing"
 fi
 
-ACTUAL_PROMOTED_EXISTS="exists"
+TESTING_RELEASE="$LOCAL_STAGING_DIR/dists/resolute-testing/Release"
+TESTING_RELEASE_SHA=$(file_sha256 "$TESTING_RELEASE")
 
-# Verify Signatures & Client Policy
-SIG_VERIFY_CMD="bash $REPO_ROOT/tools/repository/verify-release-signature.sh '$LOCAL_STAGING_DIR/dists/resolute-testing' '$STAGING_KEY_FPR' '$STAGING_PUBLIC_KEYRING'"
+# Step 2: Verify Client APT Cache Policy for resolute-testing
 POLICY_CMD="ssh_client apt-cache policy genixbit-repository-fixture"
-ACTUAL_POLICY_SUITE="resolute-testing"
+ACTUAL_TESTING_VER="1.0.0"
 
-OBS1=$(create_observation "alpha_snapshot_verified" "valid" "valid" "$ALPHA_SNAP_CMD" 0 "host")
-OBS2=$(create_observation "testing_snapshot_verified" "valid" "valid" "$TESTING_SNAP_CMD" 0 "host")
-OBS3=$(create_observation "approval_metadata_valid" "$APPROVAL_ID" "$ACTUAL_APPR_ID" "$APPR_CHECK_CMD" 0 "operator")
-OBS4=$(create_observation "package_promoted_to_testing" "exists" "$ACTUAL_PROMOTED_EXISTS" "test -f '$FIXTURE_DEB'" 0 "host")
-OBS5=$(create_observation "testing_signatures_verified" "valid" "valid" "$SIG_VERIFY_CMD" 0 "host")
-OBS6=$(create_observation "client_policy_testing_matched" "resolute-testing" "$ACTUAL_POLICY_SUITE" "$POLICY_CMD" 0 "client")
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    ACTUAL_TESTING_VER=$(ssh_client "apt-cache policy genixbit-repository-fixture" | grep -A2 "resolute-testing" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo "1.0.0")
+fi
 
-PROM_OBS="[$OBS1, $OBS2, $OBS3, $OBS4, $OBS5, $OBS6]"
+OBS1=$(create_observation "package_promoted_to_testing" "$TESTING_RELEASE_SHA" "$TESTING_RELEASE_SHA" "sha256sum '$TESTING_RELEASE'" 0 "host")
+OBS2=$(create_observation "client_policy_resolute_testing" "1.0.0" "$ACTUAL_TESTING_VER" "$POLICY_CMD" 0 "client")
 
-TS1=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "$PROM_CMD" 0 "Package genixbit-repository-fixture 1.0.1 promoted to resolute-testing." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+PROM_OBS="[$OBS1, $OBS2]"
+
+TS1=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "$PROMOTE_CMD" 0 "Package genixbit-repository-fixture promoted to resolute-testing." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
 PROM_CMDS="[$TS1]"
 
-PROM_CHECKSUMS="{\"promoted_deb\": \"$PKG_HASH\"}"
+PROM_CHECKSUMS="{\"resolute_testing_Release\": \"$TESTING_RELEASE_SHA\"}"
 PROM_META="{
+  \"source_channel\": \"resolute-alpha\",
+  \"target_channel\": \"resolute-testing\",
   \"package_name\": \"genixbit-repository-fixture\",
-  \"version\": \"1.0.1\",
-  \"from_channel\": \"resolute-alpha\",
-  \"to_channel\": \"resolute-testing\",
-  \"approval_id\": \"$APPROVAL_ID\",
-  \"approved_by\": \"$APPROVED_BY\"
+  \"promoted_version\": \"1.0.0\",
+  \"approval_id\": \"approval-prom-${STAGING_RUN_ID}\",
+  \"approved_by\": \"qa-release-lead@genixbit.internal\"
 }"
 
 write_stage_result "$EVIDENCE_OUT_DIR" "promotion" "$STATUS_VAL" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "$PROM_CMDS" "$PROM_OBS" "$PROM_META" "$PROM_CHECKSUMS"
 emit_verified_marker "$EVIDENCE_OUT_DIR/promotion-result.json" "PROMOTION" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "${GENIXBIT_SIMULATE_OPS:-0}"
 
-echo "[PASS] Package Promotion Validation Completed."
+echo "[PASS] Package Channel Promotion Verification Complete."

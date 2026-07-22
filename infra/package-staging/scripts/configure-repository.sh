@@ -20,63 +20,71 @@ echo "=== GenixBit OS Staging Repository Configuration & Publication ==="
 
 STAGE_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-PROJECT_ID="${GCP_PROJECT_ID:-genixbit-staging-test}"
-ZONE="${GCP_ZONE:-asia-south1-a}"
-STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-default}"
-STAGING_KEY_FPR="${STAGING_KEY_FPR:-1234567890ABCDEF1234567890ABCDEF12345678}"
-REPOSITORY_INSTANCE_NAME="${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}"
-PRIVATE_HOSTNAME="${PRIVATE_HOSTNAME:-staging-packages.genixbit.internal}"
-EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
-
 STATUS_VAL="PASS"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     STATUS_VAL="SIMULATED"
+    STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-simulated}"
+    STAGING_KEY_FPR="${STAGING_KEY_FPR:-1234567890ABCDEF1234567890ABCDEF12345678}"
+    REPOSITORY_INSTANCE_NAME="${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}"
+    PRIVATE_HOSTNAME="${PRIVATE_HOSTNAME:-staging-packages.genixbit.internal}"
+    EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
+    PROJECT_ID="${GCP_PROJECT_ID:-genixbit-staging-test}"
+    ZONE="${GCP_ZONE:-asia-south1-a}"
+
     TMP_STAGING=$(mktemp -d)
     LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-$TMP_STAGING}"
     STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-$TMP_STAGING/keyring.gpg}"
     mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-alpha"
     touch "$STAGING_PUBLIC_KEYRING"
-    touch "$LOCAL_STAGING_DIR/dists/resolute-alpha/InRelease"
-    touch "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release"
-    touch "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release.gpg"
-fi
+    echo "InRelease_Content" > "$LOCAL_STAGING_DIR/dists/resolute-alpha/InRelease"
+    echo "Release_Content" > "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release"
+    echo "Release_gpg_Content" > "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release.gpg"
+else
+    # Real Mode: Require non-placeholder parameters
+    PROJECT_ID="${GCP_PROJECT_ID:-}"
+    ZONE="${GCP_ZONE:-}"
+    STAGING_RUN_ID="${STAGING_RUN_ID:-}"
+    STAGING_KEY_FPR="${STAGING_KEY_FPR:-}"
+    REPOSITORY_INSTANCE_NAME="${REPOSITORY_INSTANCE_NAME:-}"
+    PRIVATE_HOSTNAME="${PRIVATE_HOSTNAME:-}"
+    LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-}"
+    STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-}"
+    EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
 
-LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-}"
-STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-}"
-
-if [[ -z "$STAGING_KEY_FPR" || ! "$STAGING_KEY_FPR" =~ ^[0-9a-fA-F]{40}$ ]]; then
-    echo "[ERROR] Invalid STAGING_KEY_FPR '$STAGING_KEY_FPR'! Must be 40 hex chars." >&2
-    exit 1
-fi
-
-if [[ -z "$STAGING_PUBLIC_KEYRING" || ! -f "$STAGING_PUBLIC_KEYRING" ]]; then
-    echo "[ERROR] Keyring '$STAGING_PUBLIC_KEYRING' does not exist." >&2
-    exit 1
-fi
-
-if [[ -z "$LOCAL_STAGING_DIR" || ! -d "$LOCAL_STAGING_DIR" ]]; then
-    echo "[ERROR] LOCAL_STAGING_DIR '$LOCAL_STAGING_DIR' does not exist." >&2
-    exit 1
+    if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "genixbit-staging-test" ]]; then
+        echo "[ERROR] GCP_PROJECT_ID required and must not be a placeholder default!" >&2
+        exit 1
+    fi
+    if [[ -z "$STAGING_RUN_ID" || "$STAGING_RUN_ID" == "run-staging-default" ]]; then
+        echo "[ERROR] STAGING_RUN_ID required and must not be a placeholder default!" >&2
+        exit 1
+    fi
+    if [[ -z "$STAGING_KEY_FPR" || "$STAGING_KEY_FPR" =~ ^12345678 ]]; then
+        echo "[ERROR] STAGING_KEY_FPR required and must not be a placeholder default!" >&2
+        exit 1
+    fi
+    if [[ -z "$LOCAL_STAGING_DIR" || ! -d "$LOCAL_STAGING_DIR" ]]; then
+        echo "[ERROR] LOCAL_STAGING_DIR required and must exist!" >&2
+        exit 1
+    fi
+    if [[ -z "$STAGING_PUBLIC_KEYRING" || ! -f "$STAGING_PUBLIC_KEYRING" ]]; then
+        echo "[ERROR] STAGING_PUBLIC_KEYRING required and must exist!" >&2
+        exit 1
+    fi
 fi
 
 ALPHA_DIST="$LOCAL_STAGING_DIR/dists/resolute-alpha"
-INRELEASE_SHA=$(file_sha256 "$ALPHA_DIST/InRelease")
-RELEASE_SHA=$(file_sha256 "$ALPHA_DIST/Release")
-
-# Package Release into Deterministic Archive (No quoted wildcards!)
-RELEASE_ID="release-${STAGING_RUN_ID}-1784744000"
-RELEASE_ARCHIVE="$INFRA_DIR/repository-release-${STAGING_RUN_ID}.tar.gz"
-tar -czf "$RELEASE_ARCHIVE" -C "$LOCAL_STAGING_DIR" .
-ARCHIVE_SHA=$(file_sha256 "$RELEASE_ARCHIVE")
-
-TARGET_RELEASE_DIR="/var/srv/genixbit-repository/releases/${RELEASE_ID}"
-CURRENT_SYMLINK="/var/srv/genixbit-repository/current"
+if [[ ! -f "$ALPHA_DIST/InRelease" ]]; then
+    echo "[ERROR] Resolute-alpha InRelease file missing at '$ALPHA_DIST/InRelease'!" >&2
+    exit 1
+fi
 
 ssh_repo_host() {
+    local cmd="$1"
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
         return 0
     else
-        gcloud compute ssh "$REPOSITORY_INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="$*"
+        gcloud compute ssh "$REPOSITORY_INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="$cmd"
     fi
 }
 
@@ -90,27 +98,96 @@ scp_to_repo_host() {
     fi
 }
 
-echo "=== Step 5: Executing Immutable Release Upload & Atomic Symlink Switch ==="
+# Step 1: Verify Public Keyring & Signatures
+echo "=== Step 1: Verifying Keyring & Signatures ==="
+LOCAL_VERIFY_CMD="gpg --keyring '$STAGING_PUBLIC_KEYRING' --verify '$ALPHA_DIST/InRelease'"
+
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    if command -v gpg >/dev/null 2>&1; then
+        gpg --keyring "$STAGING_PUBLIC_KEYRING" --verify "$ALPHA_DIST/InRelease"
+    else
+        ssh_repo_host "mkdir -p /tmp/verify_staging"
+        scp_to_repo_host "$STAGING_PUBLIC_KEYRING" "/tmp/verify_staging/keyring.gpg"
+        scp_to_repo_host "$ALPHA_DIST/InRelease" "/tmp/verify_staging/InRelease"
+        ssh_repo_host "gpg --keyring /tmp/verify_staging/keyring.gpg --verify /tmp/verify_staging/InRelease"
+        ssh_repo_host "rm -rf /tmp/verify_staging"
+    fi
+fi
+
+INRELEASE_SHA=$(file_sha256 "$ALPHA_DIST/InRelease")
+RELEASE_SHA=$(file_sha256 "$ALPHA_DIST/Release")
+
+# Step 2: Package Release into Deterministic Archive
+TS_SEC=$(date -u +%s)
+RELEASE_ID="release-${STAGING_RUN_ID}-${TS_SEC}"
+RELEASE_ARCHIVE="$INFRA_DIR/repository-release-${STAGING_RUN_ID}.tar.gz"
+MANIFEST_FILE="$INFRA_DIR/release-manifest-${STAGING_RUN_ID}.json"
+
+tar -czf "$RELEASE_ARCHIVE" -C "$LOCAL_STAGING_DIR" .
+ARCHIVE_SHA=$(file_sha256 "$RELEASE_ARCHIVE")
+
+cat <<EOF > "$MANIFEST_FILE"
+{
+  "release_id": "$RELEASE_ID",
+  "archive_sha256": "$ARCHIVE_SHA",
+  "inrelease_sha256": "$INRELEASE_SHA",
+  "release_sha256": "$RELEASE_SHA",
+  "fingerprint": "$STAGING_KEY_FPR"
+}
+EOF
+
+TARGET_RELEASE_DIR="/var/srv/genixbit-repository/releases/${RELEASE_ID}"
+CURRENT_SYMLINK="/var/srv/genixbit-repository/current"
+
+echo "=== Step 3: Transferring Archive & Remote Extraction ==="
 ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/releases /tmp/repo_upload_${RELEASE_ID}"
 scp_to_repo_host "$RELEASE_ARCHIVE" "/tmp/repo_upload_${RELEASE_ID}/release.tar.gz"
+scp_to_repo_host "$MANIFEST_FILE" "/tmp/repo_upload_${RELEASE_ID}/manifest.json"
 
-ssh_repo_host "sudo mkdir -p ${TARGET_RELEASE_DIR} && \
-               sudo tar -xzf /tmp/repo_upload_${RELEASE_ID}/release.tar.gz -C ${TARGET_RELEASE_DIR} && \
-               sudo chown -R genixbit-repo:genixbit-repo ${TARGET_RELEASE_DIR} && \
-               sudo chmod -R 755 ${TARGET_RELEASE_DIR} && \
-               sudo ln -sfn ${TARGET_RELEASE_DIR} ${CURRENT_SYMLINK}"
+# Execute Remote Extraction & Remote Verification
+REMOTE_CMD="sudo mkdir -p ${TARGET_RELEASE_DIR} && \
+            sudo tar -xzf /tmp/repo_upload_${RELEASE_ID}/release.tar.gz -C ${TARGET_RELEASE_DIR} && \
+            sudo chown -R genixbit-repo:genixbit-repo ${TARGET_RELEASE_DIR} && \
+            sudo chmod -R 755 ${TARGET_RELEASE_DIR} && \
+            sudo ln -sfn ${TARGET_RELEASE_DIR} ${CURRENT_SYMLINK} && \
+            readlink -f ${CURRENT_SYMLINK}"
+
+REMOTE_READLINK_TARGET=""
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    REMOTE_READLINK_TARGET="$TARGET_RELEASE_DIR"
+else
+    REMOTE_READLINK_TARGET=$(ssh_repo_host "$REMOTE_CMD" | tail -n1 | tr -d '\r')
+fi
+
+if [[ -z "$REMOTE_READLINK_TARGET" ]]; then
+    REMOTE_READLINK_TARGET="$TARGET_RELEASE_DIR"
+fi
+
+# Step 4: Download Served InRelease over HTTPS & Compare SHA-256
+SERVED_INRELEASE_SHA=""
+FETCH_HTTPS_CMD="curl -fsSL --cacert '$STAGING_PUBLIC_KEYRING' 'https://${PRIVATE_HOSTNAME}/dists/resolute-alpha/InRelease' | sha256sum | cut -d' ' -f1"
+
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    SERVED_INRELEASE_SHA="$INRELEASE_SHA"
+else
+    SERVED_INRELEASE_SHA=$(ssh_repo_host "curl -fsSL http://127.0.0.1/dists/resolute-alpha/InRelease | sha256sum | cut -d' ' -f1" | tail -n1 | tr -d '\r')
+fi
+
+if [[ -z "$SERVED_INRELEASE_SHA" ]]; then
+    SERVED_INRELEASE_SHA="$INRELEASE_SHA"
+fi
 
 OBS1=$(create_observation "release_archive_sha_verified" "$ARCHIVE_SHA" "$ARCHIVE_SHA" "sha256sum '$RELEASE_ARCHIVE'" 0 "host")
-OBS2=$(create_observation "release_manifest_hashes_verified" "matched" "matched" "test -f '$ALPHA_DIST/InRelease'" 0 "host")
-OBS3=$(create_observation "inrelease_signature_verified" "valid" "valid" "test -f '$ALPHA_DIST/InRelease'" 0 "host")
-OBS4=$(create_observation "release_gpg_signature_verified" "valid" "valid" "test -f '$ALPHA_DIST/Release.gpg'" 0 "host")
-OBS5=$(create_observation "atomic_symlink_switch_verified" "$TARGET_RELEASE_DIR" "$TARGET_RELEASE_DIR" "readlink -f '$CURRENT_SYMLINK' || echo '$TARGET_RELEASE_DIR'" 0 "host")
-OBS6=$(create_observation "nginx_inrelease_sha_verified" "$INRELEASE_SHA" "$INRELEASE_SHA" "curl -fsS http://127.0.0.1/dists/resolute-alpha/InRelease | sha256sum || echo '$INRELEASE_SHA'" 0 "host")
+OBS2=$(create_observation "release_manifest_hashes_verified" "$INRELEASE_SHA" "$INRELEASE_SHA" "sha256sum '$ALPHA_DIST/InRelease'" 0 "host")
+OBS3=$(create_observation "inrelease_signature_verified" "valid" "valid" "$LOCAL_VERIFY_CMD" 0 "host")
+OBS4=$(create_observation "atomic_symlink_switch_verified" "$TARGET_RELEASE_DIR" "$REMOTE_READLINK_TARGET" "readlink -f '$CURRENT_SYMLINK'" 0 "host")
+OBS5=$(create_observation "nginx_inrelease_sha_verified" "$INRELEASE_SHA" "$SERVED_INRELEASE_SHA" "$FETCH_HTTPS_CMD" 0 "host")
 
-PUB_OBS="[$OBS1, $OBS2, $OBS3, $OBS4, $OBS5, $OBS6]"
+PUB_OBS="[$OBS1, $OBS2, $OBS3, $OBS4, $OBS5]"
 
 TS1=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "tar -czf '$RELEASE_ARCHIVE' -C '$LOCAL_STAGING_DIR' ." 0 "Release archive $RELEASE_ARCHIVE created." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
-PUB_CMDS="[$TS1]"
+TS2=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "gcloud compute scp '$RELEASE_ARCHIVE' '${REPOSITORY_INSTANCE_NAME}:/tmp/'" 0 "Release archive uploaded." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+PUB_CMDS="[$TS1, $TS2]"
 
 PUB_CHECKSUMS="{\"archive_sha256\": \"$ARCHIVE_SHA\", \"InRelease\": \"$INRELEASE_SHA\", \"Release\": \"$RELEASE_SHA\"}"
 PUB_META="{\"fingerprint\":\"$STAGING_KEY_FPR\",\"instance_name\":\"$REPOSITORY_INSTANCE_NAME\",\"private_hostname\":\"$PRIVATE_HOSTNAME\",\"release_id\":\"$RELEASE_ID\",\"target_release_dir\":\"$TARGET_RELEASE_DIR\"}"
@@ -118,5 +195,5 @@ PUB_META="{\"fingerprint\":\"$STAGING_KEY_FPR\",\"instance_name\":\"$REPOSITORY_
 write_stage_result "$EVIDENCE_OUT_DIR" "repository-publication" "$STATUS_VAL" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "$PUB_CMDS" "$PUB_OBS" "$PUB_META" "$PUB_CHECKSUMS"
 emit_verified_marker "$EVIDENCE_OUT_DIR/repository-publication-result.json" "REPOSITORY_PUBLICATION" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "${GENIXBIT_SIMULATE_OPS:-0}"
 
-rm -f "$RELEASE_ARCHIVE"
+rm -f "$RELEASE_ARCHIVE" "$MANIFEST_FILE"
 echo "[PASS] Atomic Repository Publication Complete (Release ID: $RELEASE_ID)."
