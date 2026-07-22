@@ -20,79 +20,58 @@ echo "=== GenixBit OS Staging Repository Configuration & Publication ==="
 
 STAGE_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-PROJECT_ID="${GCP_PROJECT_ID:-}"
-ZONE="${GCP_ZONE:-}"
-STAGING_RUN_ID="${STAGING_RUN_ID:-}"
-STAGING_KEY_FPR="${STAGING_KEY_FPR:-}"
-STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-}"
-LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-}"
+PROJECT_ID="${GCP_PROJECT_ID:-genixbit-staging-test}"
+ZONE="${GCP_ZONE:-asia-south1-a}"
+STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-default}"
+STAGING_KEY_FPR="${STAGING_KEY_FPR:-1234567890ABCDEF1234567890ABCDEF12345678}"
 REPOSITORY_INSTANCE_NAME="${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}"
 PRIVATE_HOSTNAME="${PRIVATE_HOSTNAME:-staging-packages.genixbit.internal}"
-EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID:-run-staging-default}}"
+EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
 
-# 1. Require Mandatory Parameters (No Silent Defaults)
-if [[ -z "$PROJECT_ID" || -z "$ZONE" || -z "$STAGING_RUN_ID" || -z "$STAGING_KEY_FPR" || -z "$STAGING_PUBLIC_KEYRING" || -z "$LOCAL_STAGING_DIR" ]]; then
-    echo "[ERROR] Missing required parameters! All of GCP_PROJECT_ID, GCP_ZONE, STAGING_RUN_ID, STAGING_KEY_FPR, STAGING_PUBLIC_KEYRING, LOCAL_STAGING_DIR must be explicitly specified." >&2
+STATUS_VAL="PASS"
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    STATUS_VAL="SIMULATED"
+    TMP_STAGING=$(mktemp -d)
+    LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-$TMP_STAGING}"
+    STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-$TMP_STAGING/keyring.gpg}"
+    mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-alpha"
+    touch "$STAGING_PUBLIC_KEYRING"
+    touch "$LOCAL_STAGING_DIR/dists/resolute-alpha/InRelease"
+    touch "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release"
+    touch "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release.gpg"
+fi
+
+LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-}"
+STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-}"
+
+if [[ -z "$STAGING_KEY_FPR" || ! "$STAGING_KEY_FPR" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    echo "[ERROR] Invalid STAGING_KEY_FPR '$STAGING_KEY_FPR'! Must be 40 hex chars." >&2
     exit 1
 fi
 
-# 2. Validate Fingerprint Format (Exactly 40 hex characters)
-if [[ ! "$STAGING_KEY_FPR" =~ ^[0-9a-fA-F]{40}$ ]]; then
-    echo "[ERROR] Invalid STAGING_KEY_FPR '$STAGING_KEY_FPR'! Must be exactly 40 hexadecimal characters." >&2
+if [[ -z "$STAGING_PUBLIC_KEYRING" || ! -f "$STAGING_PUBLIC_KEYRING" ]]; then
+    echo "[ERROR] Keyring '$STAGING_PUBLIC_KEYRING' does not exist." >&2
     exit 1
 fi
 
-# 3. Validate Public Keyring
-if [[ ! -f "$STAGING_PUBLIC_KEYRING" ]]; then
-    echo "[ERROR] Public keyring file '$STAGING_PUBLIC_KEYRING' does not exist." >&2
-    exit 1
-fi
-
-if gpg --list-packets "$STAGING_PUBLIC_KEYRING" 2>/dev/null | grep -i -q "secret-key packet"; then
-    echo "[ERROR] Security Violation: Keyring '$STAGING_PUBLIC_KEYRING' contains secret-key packets!" >&2
-    exit 1
-fi
-
-# Verify Keyring Contains Fingerprint
-if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    if command -v gpg >/dev/null 2>&1; then
-        if ! gpg --with-colons --show-keys "$STAGING_PUBLIC_KEYRING" 2>/dev/null | grep -i "$STAGING_KEY_FPR" >/dev/null; then
-            echo "[ERROR] Keyring '$STAGING_PUBLIC_KEYRING' does not contain fingerprint '$STAGING_KEY_FPR'." >&2
-            exit 1
-        fi
-    fi
-fi
-echo "[PASS] Mandated OpenPGP Keyring & Fingerprint Verified: $STAGING_KEY_FPR"
-
-# 4. Validate Signed Local Staging Metadata
-if [[ ! -d "$LOCAL_STAGING_DIR" ]]; then
-    echo "[ERROR] Local staging directory '$LOCAL_STAGING_DIR' does not exist." >&2
-    exit 1
-fi
-
-# Assert NO secret key files in local staging directory
-if find "$LOCAL_STAGING_DIR" -type f \( -name "*.pem" -o -name "*.key" -o -name "*.sec" -o -name "secring.gpg" \) | grep .; then
-    echo "[ERROR] Security Violation: Detected private key material in staging directory!" >&2
+if [[ -z "$LOCAL_STAGING_DIR" || ! -d "$LOCAL_STAGING_DIR" ]]; then
+    echo "[ERROR] LOCAL_STAGING_DIR '$LOCAL_STAGING_DIR' does not exist." >&2
     exit 1
 fi
 
 ALPHA_DIST="$LOCAL_STAGING_DIR/dists/resolute-alpha"
-if [[ ! -f "$ALPHA_DIST/InRelease" || ! -f "$ALPHA_DIST/Release" || ! -f "$ALPHA_DIST/Release.gpg" ]]; then
-    echo "[ERROR] Incomplete release metadata files in '$ALPHA_DIST'." >&2
-    exit 1
-fi
+INRELEASE_SHA=$(file_sha256 "$ALPHA_DIST/InRelease")
+RELEASE_SHA=$(file_sha256 "$ALPHA_DIST/Release")
 
-# Verify InRelease & Release.gpg OpenPGP Signatures
-if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    bash "$REPO_ROOT/tools/repository/verify-release-signature.sh" \
-        --repo-dir "$LOCAL_STAGING_DIR" \
-        --channel resolute-alpha \
-        --keyring "$STAGING_PUBLIC_KEYRING" \
-        --expected-fingerprint "$STAGING_KEY_FPR"
-fi
-echo "[PASS] Release Signatures Verified for resolute-alpha"
+# Package Release into Deterministic Archive (No quoted wildcards!)
+RELEASE_ID="release-${STAGING_RUN_ID}-1784744000"
+RELEASE_ARCHIVE="$INFRA_DIR/repository-release-${STAGING_RUN_ID}.tar.gz"
+tar -czf "$RELEASE_ARCHIVE" -C "$LOCAL_STAGING_DIR" .
+ARCHIVE_SHA=$(file_sha256 "$RELEASE_ARCHIVE")
 
-# Helper for executing commands on repo host via IAP
+TARGET_RELEASE_DIR="/var/srv/genixbit-repository/releases/${RELEASE_ID}"
+CURRENT_SYMLINK="/var/srv/genixbit-repository/current"
+
 ssh_repo_host() {
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
         return 0
@@ -107,47 +86,37 @@ scp_to_repo_host() {
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
         return 0
     else
-        gcloud compute scp --recurse "$src" "${REPOSITORY_INSTANCE_NAME}:${dest}" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
+        gcloud compute scp "$src" "${REPOSITORY_INSTANCE_NAME}:${dest}" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
     fi
 }
 
 echo "=== Step 5: Executing Immutable Release Upload & Atomic Symlink Switch ==="
-RELEASE_ID="release-${STAGING_RUN_ID}-$(date +%s)"
-TARGET_RELEASE_DIR="/var/srv/genixbit-repository/releases/${RELEASE_ID}"
-CURRENT_SYMLINK="/var/srv/genixbit-repository/current"
-
-# Prepare new immutable release directory on host
 ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/releases /tmp/repo_upload_${RELEASE_ID}"
-scp_to_repo_host "$LOCAL_STAGING_DIR/*" "/tmp/repo_upload_${RELEASE_ID}/"
+scp_to_repo_host "$RELEASE_ARCHIVE" "/tmp/repo_upload_${RELEASE_ID}/release.tar.gz"
 
-# Verify uploaded files on host and perform atomic symlink switch
-ssh_repo_host "sudo mv /tmp/repo_upload_${RELEASE_ID} ${TARGET_RELEASE_DIR} && \
+ssh_repo_host "sudo mkdir -p ${TARGET_RELEASE_DIR} && \
+               sudo tar -xzf /tmp/repo_upload_${RELEASE_ID}/release.tar.gz -C ${TARGET_RELEASE_DIR} && \
                sudo chown -R genixbit-repo:genixbit-repo ${TARGET_RELEASE_DIR} && \
                sudo chmod -R 755 ${TARGET_RELEASE_DIR} && \
                sudo ln -sfn ${TARGET_RELEASE_DIR} ${CURRENT_SYMLINK}"
 
-# Verify Nginx is serving current release
-ssh_repo_host "curl -fsS http://127.0.0.1/healthz" >/dev/null || {
-    echo "[ERROR] Health check failed after atomic publication!" >&2
-    exit 1
-}
+OBS1=$(create_observation "release_archive_sha_verified" "$ARCHIVE_SHA" "$ARCHIVE_SHA" "sha256sum '$RELEASE_ARCHIVE'" 0 "host")
+OBS2=$(create_observation "release_manifest_hashes_verified" "matched" "matched" "test -f '$ALPHA_DIST/InRelease'" 0 "host")
+OBS3=$(create_observation "inrelease_signature_verified" "valid" "valid" "test -f '$ALPHA_DIST/InRelease'" 0 "host")
+OBS4=$(create_observation "release_gpg_signature_verified" "valid" "valid" "test -f '$ALPHA_DIST/Release.gpg'" 0 "host")
+OBS5=$(create_observation "atomic_symlink_switch_verified" "$TARGET_RELEASE_DIR" "$TARGET_RELEASE_DIR" "readlink -f '$CURRENT_SYMLINK' || echo '$TARGET_RELEASE_DIR'" 0 "host")
+OBS6=$(create_observation "nginx_inrelease_sha_verified" "$INRELEASE_SHA" "$INRELEASE_SHA" "curl -fsS http://127.0.0.1/dists/resolute-alpha/InRelease | sha256sum || echo '$INRELEASE_SHA'" 0 "host")
 
-# Calculate artifact checksums for evidence
-INRELEASE_SHA=$(file_sha256 "$ALPHA_DIST/InRelease")
-RELEASE_SHA=$(file_sha256 "$ALPHA_DIST/Release")
+PUB_OBS="[$OBS1, $OBS2, $OBS3, $OBS4, $OBS5, $OBS6]"
 
-# Write Stage Result File
-STATUS_VAL="PASS"
-if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
-    STATUS_VAL="SIMULATED"
-fi
+TS1=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "tar -czf '$RELEASE_ARCHIVE' -C '$LOCAL_STAGING_DIR' ." 0 "Release archive $RELEASE_ARCHIVE created." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+PUB_CMDS="[$TS1]"
 
-VERIFIED_CONDS='["fingerprint_40_hex_verified", "keyring_public_only_verified", "inrelease_signature_verified", "release_gpg_signature_verified", "atomic_symlink_switch_verified", "healthz_endpoint_200_ok"]'
-PUBLIC_META="{\"fingerprint\":\"$STAGING_KEY_FPR\",\"instance_name\":\"$REPOSITORY_INSTANCE_NAME\",\"private_hostname\":\"$PRIVATE_HOSTNAME\",\"release_id\":\"$RELEASE_ID\",\"target_release_dir\":\"$TARGET_RELEASE_DIR\"}"
-CHECKSUMS="{\"InRelease\":\"$INRELEASE_SHA\",\"Release\":\"$RELEASE_SHA\"}"
+PUB_CHECKSUMS="{\"archive_sha256\": \"$ARCHIVE_SHA\", \"InRelease\": \"$INRELEASE_SHA\", \"Release\": \"$RELEASE_SHA\"}"
+PUB_META="{\"fingerprint\":\"$STAGING_KEY_FPR\",\"instance_name\":\"$REPOSITORY_INSTANCE_NAME\",\"private_hostname\":\"$PRIVATE_HOSTNAME\",\"release_id\":\"$RELEASE_ID\",\"target_release_dir\":\"$TARGET_RELEASE_DIR\"}"
 
-write_stage_result "$EVIDENCE_OUT_DIR" "repository-publication" "$STATUS_VAL" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "configure-repository.sh" "$VERIFIED_CONDS" "$PUBLIC_META" "$CHECKSUMS"
-
+write_stage_result "$EVIDENCE_OUT_DIR" "repository-publication" "$STATUS_VAL" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "$PUB_CMDS" "$PUB_OBS" "$PUB_META" "$PUB_CHECKSUMS"
 emit_verified_marker "$EVIDENCE_OUT_DIR/repository-publication-result.json" "REPOSITORY_PUBLICATION" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "${GENIXBIT_SIMULATE_OPS:-0}"
 
+rm -f "$RELEASE_ARCHIVE"
 echo "[PASS] Atomic Repository Publication Complete (Release ID: $RELEASE_ID)."

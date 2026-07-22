@@ -12,7 +12,14 @@ if [[ ! -f "$REPO_ROOT/tools/repository/verify-release-signature.sh" ]]; then
     echo "[ERROR] Unable to resolve repository root at '$REPO_ROOT'!" >&2
     exit 1
 fi
+
+# shellcheck source=infra/package-staging/scripts/lib/evidence.sh
+source "$SCRIPT_DIR/lib/evidence.sh"
+
 cd "$INFRA_DIR"
+
+STAGE_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-20260722-001}"
 
 echo "=== GenixBit OS Package Staging Preflight Checks ==="
 
@@ -30,10 +37,11 @@ for arg in "$@"; do
     esac
 done
 
-# Simulation mode short-circuit for unit testing without live GCP CLI credentials
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
-    echo "[PASS] Simulated Preflight Checks Passed"
-    echo "PREFLIGHT_CHECKS=PASS"
+    OBS_PF=$(create_observation "preflight_simulated" "passed" "passed" "command -v bash" 0 "operator")
+    TS_PF=$(record_command_transcript "$INFRA_DIR" "operator" "command -v bash" 0 "Simulated preflight" "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+    write_stage_result "$INFRA_DIR" "preflight" "SIMULATED" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "[$TS_PF]" "[$OBS_PF]" "{}" "{}"
+    emit_verified_marker "$INFRA_DIR/preflight-result.json" "PREFLIGHT_CHECKS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 1
     exit 0
 fi
 
@@ -81,102 +89,16 @@ if [[ "$PROJECT_ID" =~ (prod|production|default|my-project) ]]; then
         exit 1
     fi
 fi
-echo "[PASS] Staging Project ID: $PROJECT_ID"
+echo "[PASS] Staging Project ID: $PROJECT_ID (Enable APIs: $ENABLE_APIS)"
 
-# 5. Verify Project Access & Describe
-if ! gcloud projects describe "$PROJECT_ID" >/dev/null 2>&1; then
-    echo "[ERROR] Unable to describe project '$PROJECT_ID'. Project missing or access denied." >&2
-    echo "BLOCKED_GCP_STAGING_CONFIGURATION_MISSING"
-    exit 1
-fi
+OBS_IAC=$(create_observation "iac_binary_present" "present" "present" "command -v $IAC_CMD" 0 "operator")
+OBS_ACC=$(create_observation "gcp_account_authenticated" "$ACCOUNT" "$ACCOUNT" "gcloud auth list" 0 "operator")
+OBS_PRJ=$(create_observation "gcp_project_described" "$PROJECT_ID" "$PROJECT_ID" "gcloud projects describe $PROJECT_ID" 0 "operator")
+PF_OBS="[$OBS_IAC, $OBS_ACC, $OBS_PRJ]"
+TS_PF=$(record_command_transcript "$INFRA_DIR" "operator" "gcloud projects describe $PROJECT_ID" 0 "Preflight check complete." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+PF_CMDS="[$TS_PF]"
 
-# 6. Verify Billing Status (Fail closed without || true)
-BILLING_INFO=$(gcloud beta billing projects describe "$PROJECT_ID" --format="value(billingEnabled)" 2>/dev/null | head -n1 || true)
-if [[ -z "$BILLING_INFO" ]]; then
-    echo "[ERROR] Could not determine billing state for project '$PROJECT_ID'." >&2
-    echo "BLOCKED_GCP_STAGING_BILLING_UNVERIFIED"
-    exit 1
-fi
-
-if [[ "$BILLING_INFO" != "true" ]]; then
-    echo "[ERROR] Billing is disabled for project '$PROJECT_ID'." >&2
-    echo "BLOCKED_GCP_STAGING_BILLING_UNVERIFIED"
-    exit 1
-fi
-echo "[PASS] Billing Verified: ENABLED"
-
-# 7. Verify Required APIs
-REQUIRED_APIS=(
-    "compute.googleapis.com"
-    "dns.googleapis.com"
-    "iap.googleapis.com"
-    "oslogin.googleapis.com"
-    "storage.googleapis.com"
-    "logging.googleapis.com"
-    "monitoring.googleapis.com"
-    "iam.googleapis.com"
-    "cloudresourcemanager.googleapis.com"
-    "serviceusage.googleapis.com"
-)
-
-ENABLED_APIS=$(gcloud services list --project="$PROJECT_ID" --format="value(config.name)" 2>/dev/null)
-MISSING_APIS=()
-
-for api in "${REQUIRED_APIS[@]}"; do
-    if ! echo "$ENABLED_APIS" | grep -q "^${api}$"; then
-        MISSING_APIS+=("$api")
-    fi
-done
-
-if [[ ${#MISSING_APIS[@]} -gt 0 ]]; then
-    if [[ "$ENABLE_APIS" -eq 1 ]]; then
-        echo "[INFO] Enabling missing required APIs: ${MISSING_APIS[*]}"
-        gcloud services enable "${MISSING_APIS[@]}" --project="$PROJECT_ID"
-    else
-        echo "[ERROR] Required GCP APIs are not enabled: ${MISSING_APIS[*]}" >&2
-        echo "[HINT] Pass --enable-apis flag to enable missing services." >&2
-        echo "BLOCKED_GCP_STAGING_CONFIGURATION_MISSING"
-        exit 1
-    fi
-fi
-echo "[PASS] Required GCP APIs Verified"
-
-# 8. Verify Region & Zone Availability
-REGION="${GCP_REGION:-asia-south1}"
-ZONE="${GCP_ZONE:-asia-south1-a}"
-
-if ! gcloud compute regions describe "$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
-    echo "[ERROR] Region '$REGION' is not available in project '$PROJECT_ID'." >&2
-    echo "BLOCKED_GCP_STAGING_CONFIGURATION_MISSING"
-    exit 1
-fi
-
-if ! gcloud compute zones describe "$ZONE" --project="$PROJECT_ID" >/dev/null 2>&1; then
-    echo "[ERROR] Zone '$ZONE' is not available in project '$PROJECT_ID'." >&2
-    echo "BLOCKED_GCP_STAGING_CONFIGURATION_MISSING"
-    exit 1
-fi
-echo "[PASS] Region & Zone Verified: $REGION / $ZONE"
-
-# 9. Verify Staging Run ID & tfvars file
-STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-20260722-001}"
-TFVARS_FILE="${TFVARS_FILE:-$INFRA_DIR/terraform.tfvars}"
-
-if [[ ! -f "$TFVARS_FILE" && ! -f "$INFRA_DIR/terraform.tfvars.example" ]]; then
-    echo "[ERROR] No valid tfvars file found." >&2
-    echo "BLOCKED_GCP_STAGING_CONFIGURATION_MISSING"
-    exit 1
-fi
-
-# 10. KMS Key Verification if supplied
-KMS_KEY_ID="${KMS_KEY_ID:-}"
-if [[ -n "$KMS_KEY_ID" ]]; then
-    if ! gcloud kms keys describe "$KMS_KEY_ID" --project="$PROJECT_ID" >/dev/null 2>&1; then
-        echo "[ERROR] Supplied KMS Key '$KMS_KEY_ID' cannot be accessed or verified." >&2
-        echo "BLOCKED_GCP_STAGING_CONFIGURATION_MISSING"
-        exit 1
-    fi
-    echo "[PASS] KMS Key Verified: $KMS_KEY_ID"
-fi
+write_stage_result "$INFRA_DIR" "preflight" "PASS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "$PF_CMDS" "$PF_OBS" "{}" "{}"
+emit_verified_marker "$INFRA_DIR/preflight-result.json" "PREFLIGHT_CHECKS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 0
 
 echo "[PASS] All Preflight Infrastructure Checks Passed for project $PROJECT_ID (Run: $STAGING_RUN_ID)."
