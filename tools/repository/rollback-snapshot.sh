@@ -96,7 +96,7 @@ echo "[INFO] Creating pre-rollback origin snapshot for $CHANNEL..."
 CHANNEL_DIR="$ABS_REPO/dists/$CHANNEL"
 
 # Rule 4: Revert channel dists directory from snapshot
-rm -rf "$CHANNEL_DIR"/*
+rm -rf "${CHANNEL_DIR:?}"/*
 cp -r "$SNAP_PATH"/* "$CHANNEL_DIR/" 2>/dev/null || true
 rm -f "$CHANNEL_DIR/snapshot-manifest.json"
 

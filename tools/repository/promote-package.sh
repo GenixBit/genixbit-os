@@ -147,6 +147,7 @@ cat <<EOF > "$PROMO_RECORD"
   "to_channel": "$TO_CHAN",
   "promoter": "$PROMOTER",
   "reviewer": "$REVIEWER",
+  "previous_snapshot": "${PREV_SNAP:-none}",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 EOF

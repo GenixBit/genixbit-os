@@ -19,6 +19,7 @@
     "to_channel": { "type": "string" },
     "promoter": { "type": "string" },
     "reviewer": { "type": "string" },
+    "previous_snapshot": { "type": "string" },
     "timestamp": { "type": "string" },
     "validation_pr": { "type": "string" }
   }
