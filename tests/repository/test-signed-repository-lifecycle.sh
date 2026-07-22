@@ -34,7 +34,7 @@ EOF
 
     FPR=$(gpg --list-secret-keys --with-colons "test-only@genixbit.com" | grep fpr | head -n1 | cut -d':' -f10)
     PUB_KEYRING="$TMP_DIR/genixbit-os-archive-keyring.pgp"
-    gpg --armor --export "$FPR" > "$PUB_KEYRING"
+    gpg --export "$FPR" > "$PUB_KEYRING"
     echo "[PASS] Generated ephemeral GPG key: $FPR"
 else
     echo "[INFO] GPG not installed on host; skipping GPG key generation in local test mode."

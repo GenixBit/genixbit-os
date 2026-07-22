@@ -78,6 +78,23 @@ if command -v gpg >/dev/null 2>&1; then
     fi
 fi
 
+# De-armor ASCII-armored keyring if needed for gpgv compatibility
+TEMP_KEYRING=""
+cleanup_temp_keyring() {
+    if [[ -n "$TEMP_KEYRING" && -f "$TEMP_KEYRING" ]]; then
+        rm -f "$TEMP_KEYRING"
+    fi
+}
+trap cleanup_temp_keyring EXIT
+
+if grep -q "BEGIN PGP PUBLIC KEY BLOCK" "$KEYRING" 2>/dev/null; then
+    if command -v gpg >/dev/null 2>&1; then
+        TEMP_KEYRING=$(mktemp)
+        gpg --dearmor < "$KEYRING" > "$TEMP_KEYRING"
+        KEYRING="$TEMP_KEYRING"
+    fi
+fi
+
 # Requirement 4: Missing release file -> FAIL
 if [[ -z "$RELEASE_FILE" || ! -f "$RELEASE_FILE" ]]; then
     echo "Error: Release file missing or not specified: $RELEASE_FILE" >&2
