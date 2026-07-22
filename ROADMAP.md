@@ -129,7 +129,9 @@ See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md) and [`docs/BASE-F
 - Pinned Ubuntu 26.04 validation: PASS
 - Fail-closed Docker validation: PASS
 - CI evidence markers: PASS
-- Staging infrastructure code: PASS
+- Staging infrastructure code initial scaffold: PASS
+- Staging infrastructure deployability hardening: PASS
+- Infrastructure Validation CI: PASS
 - Staging infrastructure deployed: NOT_DEPLOYED (BLOCKED_GCP_STAGING_CONFIGURATION_MISSING)
 - Staging HTTPS: NOT_TESTED
 - Staging signing identity: NOT_CREATED
