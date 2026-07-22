@@ -109,16 +109,26 @@ See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md) and [`docs/BASE-F
 
 ## Phase 3 — `0.3.x`: Signed Package and Update Infrastructure
 
-- [ ] Provision `packages.os.genixbit.com` staging infrastructure.
-- [ ] Define offline signing-key generation, backup and revocation procedures.
-- [ ] Publish only the public verification key.
-- [ ] Create `genixbit-os-archive-keyring`.
-- [ ] Create `genixbit-os-apt-config`.
-- [ ] Establish `alpha`, `testing` and `stable` channels.
-- [ ] Implement snapshots, package promotion, rollback and audit records.
-- [ ] Build, sign and test GenixBit replacement packages.
+- [x] Define offline signing-key generation, security roles, backup, recovery and revocation procedures.
+- [x] Create `genixbit-os-archive-keyring` package scaffolding.
+- [x] Create `genixbit-os-apt-config` package scaffolding.
+- [x] Establish `alpha`, `testing` and `stable` channel architecture and promotion models.
+- [x] Create staging package repository tooling and schema validators.
+- [x] Add package infrastructure CI validation workflow (`.github/workflows/package-infrastructure.yml`).
+- [ ] Deploy production `packages.os.genixbit.com` repository infrastructure.
+- [ ] Perform offline production signing key ceremony.
 - [ ] Migrate from `packages.anduinos.com` only after clean-install and upgrade validation.
-- [ ] Add update metadata and release manifests.
+
+### Phase 3 Package Infrastructure Status
+- Architecture documentation: PASS
+- Signing policy: PASS
+- Keyring scaffolding: PASS
+- APT-config scaffolding: PASS
+- Staging tooling: PASS
+- Fixture repository validation: PASS
+- Production signing key: NOT_CREATED
+- Production repository: NOT_DEPLOYED
+- Dependency migration: NOT_STARTED
 
 ## Phase 4 — `0.4.x`: Developer, Server and Creator Profiles
 
