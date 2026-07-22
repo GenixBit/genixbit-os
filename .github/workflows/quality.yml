@@ -136,6 +136,14 @@ jobs:
         shell: bash
         run: bash tools/validation/test-release-manifest.sh
 
+      - name: Validate upstream branding audit
+        shell: bash
+        run: bash tools/validation/check-upstream-branding-audit.sh
+
+      - name: Test upstream branding audit check behavior
+        shell: bash
+        run: bash tools/validation/test-upstream-branding-audit.sh
+
       - name: Enforce completed candidate validation
         if: >-
           github.event_name == 'pull_request' &&
