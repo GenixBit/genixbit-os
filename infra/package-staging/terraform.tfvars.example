@@ -3,8 +3,15 @@
 
 project_id              = "genixbit-staging-project"
 region                  = "asia-south1"
+zone                    = "asia-south1-a"
 prefix                  = "genixbit-staging"
 subnet_cidr             = "10.100.0.0/24"
-machine_type            = "e2-medium"
+private_dns_name        = "staging-packages.genixbit.internal."
+machine_type_repo       = "e2-medium"
+machine_type_client     = "e2-medium"
+enable_nat              = true
+force_destroy_evidence  = false
 evidence_retention_days = 30
 kms_key_id              = ""
+staging_run_id          = "run-staging-20260722-001"
+resource_expiry_date    = "2026-08-22"
