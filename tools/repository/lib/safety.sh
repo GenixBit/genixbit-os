@@ -28,6 +28,7 @@ validate_repository_path() {
     fi
 
     # Normalize multiple leading slashes
+    # shellcheck disable=SC2001
     abs_path=$(echo "$abs_path" | sed 's#^//*#/#')
 
     # 3. Reject root, home, and system directories
