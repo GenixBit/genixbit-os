@@ -100,7 +100,7 @@ jobs:
           set -euo pipefail
           grep -Fx 'export TARGET_NAME="genixbitos"' args.sh
           grep -Fx 'export TARGET_BUSINESS_NAME="GenixBitOS"' args.sh
-          grep -Fx 'export TARGET_BUILD_VERSION="0.1.0-alpha"' args.sh
+          grep -Fx 'export TARGET_BUILD_VERSION="0.2.0-alpha"' args.sh
 
       - name: Scan for obvious credential patterns
         shell: bash
@@ -120,6 +120,14 @@ jobs:
         shell: bash
         run: bash tools/validation/test-release-evidence.sh
 
+      - name: Validate release version consistency
+        shell: bash
+        run: bash tools/validation/check-release-version-consistency.sh
+
+      - name: Test release version consistency check behavior
+        shell: bash
+        run: bash tools/validation/test-release-version-consistency.sh
+
       - name: Enforce completed candidate validation
         if: >-
           github.event_name == 'pull_request' &&
@@ -128,6 +136,13 @@ jobs:
         run: |
           bash tools/validation/check-release-evidence.sh --require-complete
           bash tools/validation/check-release-evidence.sh --verify-git-candidate
+          # Run version consistency checker, including --iso if an ISO is present
+          ISO_FILE=$(find dist -name "*.iso" 2>/dev/null | head -n 1 || true)
+          if [[ -n "$ISO_FILE" && -f "$ISO_FILE" ]]; then
+            bash tools/validation/check-release-version-consistency.sh --iso "$ISO_FILE"
+          else
+            bash tools/validation/check-release-version-consistency.sh
+          fi
 
       - name: Confirm CI scope
         run: echo 'Repository checks completed. Full ISO builds require a compatible Ubuntu 26.04 amd64 environment.'

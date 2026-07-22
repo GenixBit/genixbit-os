@@ -123,7 +123,7 @@ export TARGET_NAME="genixbitos"
 export TARGET_BUSINESS_NAME="GenixBitOS"
 
 # Version number. Supports semantic versions and prerelease identifiers (e.g., 0.1.0-alpha, 0.1.0, 0.2.0-beta1).
-export TARGET_BUILD_VERSION="0.1.0-alpha"
+export TARGET_BUILD_VERSION="0.2.0-alpha"
 
 #===========================
 # Installer customization
