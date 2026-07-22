@@ -212,10 +212,10 @@ EOF
     # 18. Tampered snapshot manifest -> FAIL
     SNAP_OUT=$(bash "$REPO_ROOT/tools/repository/create-snapshot.sh" --repo-dir "$TMP_REPO" --channel "resolute-alpha")
     SNAP_ID=$(echo "$SNAP_OUT" | grep "Snapshot ID:" | awk '{print $NF}')
-    SNAP_MANIFEST="$TMP_REPO/dists/resolute-alpha/snapshots/$SNAP_ID/snapshot-manifest.json"
+    SNAP_MANIFEST="$TMP_REPO/snapshots/resolute-alpha/$SNAP_ID/snapshot-manifest.json"
     echo "CORRUPTED MANIFEST" > "$SNAP_MANIFEST"
     test_fail_cmd "tampered snapshot manifest verification" \
-        bash "$REPO_ROOT/tools/repository/verify-snapshot.sh" --repo-dir "$TMP_REPO" --snapshot-id "$SNAP_ID"
+        bash "$REPO_ROOT/tools/repository/verify-snapshot.sh" --repo-dir "$TMP_REPO" --channel "resolute-alpha" --snapshot-id "$SNAP_ID"
 fi
 
 printf 'TAMPERED_METADATA_REJECTED=PASS\n'
