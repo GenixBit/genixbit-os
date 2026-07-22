@@ -5,14 +5,17 @@ All notable changes to the **GenixBit OS** project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows Semantic Versioning for release identifiers.
 
-## [Unreleased] — Phase 3 Signed Package & Update Infrastructure Bootstrap (2026-07-22)
+## [Unreleased] — Phase 3 Signed Package & Update Infrastructure Hardening (2026-07-22)
 
-- Defined offline GPG signing key management, backup, recovery, revocation, promotion, and rollback policies (`docs/PACKAGE-*.md`).
-- Scaffolded `genixbit-os-archive-keyring` and `genixbit-os-apt-config` Debian package structures under `packages/`.
-- Established `resolute-alpha`, `resolute-testing`, and `resolute-stable` APT repository channel layout standards (`docs/PACKAGE-REPOSITORY-LAYOUT.md`).
-- Created staging repository management scripts (`tools/repository/init-staging-repository.sh`, `build-package-index.sh`, `validate-repository-layout.sh`, `verify-release-signature.sh`, `promote-package.sh`, `rollback-snapshot.sh`, `create-release-manifest.sh`).
-- Defined JSON schemas for package manifests, promotion records, and rollback records (`docs/schemas/`).
-- Added Package Infrastructure CI workflow `.github/workflows/package-infrastructure.yml`.
+- Removed invalid placeholder keyring text file from `genixbit-os-archive-keyring`; updated `debian/rules` to require `GENIXBIT_PUBLIC_KEYRING` public key argument.
+- Made `genixbit-os-apt-config` safe by default (`Enabled: no`, `resolute-alpha` single stanza); created `tools/repository/set-channel.sh` channel manager.
+- Hardened OpenPGP signing policy (`docs/PACKAGE-SIGNING-POLICY.md` & `APT-SIGNING-KEY-MANAGEMENT.md`) requiring passphrase protection, RSA 4096 profile, and dual maintainer authorization.
+- Rewrote `tools/repository/build-package-index.sh` to parse `.deb` metadata, compute SHA-256/SHA-512, write Gzip/XZ Packages, generate Release files, and create `by-hash/` symlinks.
+- Rewrote `tools/repository/verify-release-signature.sh` to fail closed on missing/invalid keyrings, missing files, or bad signatures.
+- Created `tools/repository/lib/safety.sh` shared path safety library to reject dangerous path operations (`/`, `$HOME`, `/root`, path traversal).
+- Implemented real package promotion (`promote-package.sh`), channel snapshot creation/verification (`create-snapshot.sh`, `list-snapshots.sh`, `verify-snapshot.sh`), and rollback (`rollback-snapshot.sh`).
+- Added end-to-end repository test suites (`tests/repository/test-path-safety.sh`, `test-negative-security.sh`, `test-signed-repository-lifecycle.sh`).
+- Updated Package Infrastructure CI workflow (`.github/workflows/package-infrastructure.yml`) to enforce path safety, negative security cases, and signed lifecycle validation.
 
 ## [0.2.0-alpha-candidate-2] — Candidate Validation Successful (2026-07-22)
 
