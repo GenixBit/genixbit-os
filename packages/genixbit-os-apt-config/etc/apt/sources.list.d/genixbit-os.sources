@@ -1,5 +1,7 @@
 Types: deb
 URIs: https://packages.os.genixbit.com/
-Suites: resolute-stable resolute-testing
+Suites: resolute-alpha
 Components: main
-Signed-By: /usr/share/keyrings/genixbit-os-archive-keyring.gpg
+Architectures: amd64
+Signed-By: /usr/share/keyrings/genixbit-os-archive-keyring.pgp
+Enabled: no

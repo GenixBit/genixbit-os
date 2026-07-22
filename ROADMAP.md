@@ -121,14 +121,19 @@ See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md) and [`docs/BASE-F
 
 ### Phase 3 Package Infrastructure Status
 - Architecture documentation: PASS
-- Signing policy: PASS
-- Keyring scaffolding: PASS
-- APT-config scaffolding: PASS
-- Staging tooling: PASS
-- Fixture repository validation: PASS
+- Signing policy hardened: PASS
+- Keyring package with production public key: NOT_AVAILABLE
+- APT-config package fixture: PASS
+- Real fixture index generation: PASS
+- Ephemeral signature verification: PASS
+- Disposable client apt update: PASS
+- Install and upgrade: PASS
+- Promotion fixture: PASS
+- Snapshot fixture: PASS
+- Rollback fixture: PASS
 - Production signing key: NOT_CREATED
 - Production repository: NOT_DEPLOYED
-- Dependency migration: NOT_STARTED
+- AnduinOS dependency migration: NOT_STARTED
 
 ## Phase 4 — `0.4.x`: Developer, Server and Creator Profiles
 

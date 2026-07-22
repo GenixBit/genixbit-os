@@ -1,3 +1,26 @@
 #!/usr/bin/make -f
+
+GENIXBIT_PUBLIC_KEYRING ?=
+
 %:
 	dh $@
+
+override_dh_auto_build:
+	@if [ -z "$(GENIXBIT_PUBLIC_KEYRING)" ] || [ ! -f "$(GENIXBIT_PUBLIC_KEYRING)" ]; then \
+		echo "Error: GENIXBIT_PUBLIC_KEYRING is required and must point to a valid OpenPGP public key file." >&2; \
+		exit 1; \
+	fi
+	@if gpg --list-packets "$(GENIXBIT_PUBLIC_KEYRING)" 2>&1 | grep -E -q "secret_key_packet|secret_subkey_packet"; then \
+		echo "Error: GENIXBIT_PUBLIC_KEYRING contains secret key packets!" >&2; \
+		exit 1; \
+	fi
+	@if ! gpg --show-keys "$(GENIXBIT_PUBLIC_KEYRING)" >/dev/null 2>&1 && ! gpg --with-colons --show-keys "$(GENIXBIT_PUBLIC_KEYRING)" >/dev/null 2>&1; then \
+		echo "Error: GENIXBIT_PUBLIC_KEYRING is not a valid OpenPGP public key!" >&2; \
+		exit 1; \
+	fi
+	mkdir -p usr/share/keyrings
+	cp "$(GENIXBIT_PUBLIC_KEYRING)" usr/share/keyrings/genixbit-os-archive-keyring.pgp
+
+override_dh_auto_clean:
+	rm -rf usr/share/keyrings
+	dh_auto_clean
