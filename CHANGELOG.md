@@ -7,6 +7,12 @@ and this project follows Semantic Versioning for release identifiers.
 
 ## [Unreleased] — Phase 3 Signed Package & Update Infrastructure Hardening (2026-07-22)
 
+- Pinned disposable APT client container validation to `ubuntu:26.04` (`resolute`) and added `/etc/os-release` runtime verification.
+- Enforced fail-closed Docker requirement in `tests/repository/test-disposable-apt-client.sh` requiring `GENIXBIT_ALLOW_DOCKER_SKIP=1` for local skips.
+- Added explicit Docker image inspection and fail-closed evidence marker assertions (`DISPOSABLE_APT_*`, `PROMOTION_APT_VALIDATION`, `SNAPSHOT_VALIDATION`, `ROLLBACK_APT_VALIDATION`, `TAMPERED_METADATA_REJECTED`) to `.github/workflows/package-infrastructure.yml`.
+- Created OpenTofu / Terraform infrastructure as code (`infra/package-staging/`) defining isolated staging VPC, subnets, IAP firewall rules, private repository host, disposable validation client, and lifecycle evidence bucket.
+- Created staging documentation (`docs/PACKAGE-STAGING-DEPLOYMENT.md`, `SECURITY.md`, `OPERATIONS.md`, `CLEANUP.md`).
+- Recorded staging status record (`docs/staging/PACKAGE-STAGING-STATUS.env`) and testing documentation (`docs/staging/PACKAGE-STAGING-TESTING.md`).
 - Removed invalid placeholder keyring text file from `genixbit-os-archive-keyring`; updated `debian/rules` to require `GENIXBIT_PUBLIC_KEYRING` public key argument.
 - Made `genixbit-os-apt-config` safe by default (`Enabled: no`, `resolute-alpha` single stanza); created `tools/repository/set-channel.sh` channel manager.
 - Hardened OpenPGP signing policy (`docs/PACKAGE-SIGNING-POLICY.md` & `APT-SIGNING-KEY-MANAGEMENT.md`) requiring passphrase protection, RSA 4096 profile, and dual maintainer authorization.
