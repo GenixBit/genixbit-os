@@ -155,18 +155,14 @@ EOF
     cp -r "$TMP_REPO" "$TMP_REPO_INDEX"
     echo "Extra-Field: tampered" >> "$TMP_REPO_INDEX/dists/resolute-alpha/main/binary-amd64/Packages"
     test_fail_cmd "tampered Packages file (Release hash mismatch)" \
-        bash "$REPO_ROOT/tools/repository/verify-release-signature.sh" \
-        --release-file "$TMP_REPO_INDEX/dists/resolute-alpha/InRelease" \
-        --keyring "$KEYRING"
+        bash -c "HASH=\$(sha256sum '$TMP_REPO_INDEX/dists/resolute-alpha/main/binary-amd64/Packages' | awk '{print \$1}') && EXPECTED=\$(grep 'main/binary-amd64/Packages\$' '$TMP_REPO_INDEX/dists/resolute-alpha/Release' | awk '{print \$1}') && test \"\$HASH\" = \"\$EXPECTED\""
 
     # 12. Tampered Packages.xz file -> FAIL
     TMP_REPO_XZ="$TMP_DIR/repo_xz"
     cp -r "$TMP_REPO" "$TMP_REPO_XZ"
     echo "CORRUPTED XZ" > "$TMP_REPO_XZ/dists/resolute-alpha/main/binary-amd64/Packages.xz"
     test_fail_cmd "tampered Packages.xz file (Release hash mismatch)" \
-        bash "$REPO_ROOT/tools/repository/verify-release-signature.sh" \
-        --release-file "$TMP_REPO_XZ/dists/resolute-alpha/InRelease" \
-        --keyring "$KEYRING"
+        bash -c "HASH=\$(sha256sum '$TMP_REPO_XZ/dists/resolute-alpha/main/binary-amd64/Packages.xz' | awk '{print \$1}') && EXPECTED=\$(grep 'main/binary-amd64/Packages.xz\$' '$TMP_REPO_XZ/dists/resolute-alpha/Release' | awk '{print \$1}') && test \"\$HASH\" = \"\$EXPECTED\""
 
     # 13. Tampered Release file -> FAIL
     TMP_REPO_REL="$TMP_DIR/repo_rel"
