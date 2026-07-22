@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GenixBitRollbackRecord",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "channel",
+    "target_snapshot",
+    "operator",
+    "reason",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "channel": { "type": "string" },
+    "target_snapshot": { "type": "string" },
+    "operator": { "type": "string" },
+    "reason": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}
