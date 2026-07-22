@@ -19,9 +19,6 @@ source "$SCRIPT_DIR/lib/evidence.sh"
 cd "$INFRA_DIR"
 
 STAGE_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-20260722-001}"
-
-echo "=== GenixBit OS Package Staging Preflight Checks ==="
 
 ENABLE_APIS=0
 ALLOW_PROD_OVERRIDE=0
@@ -38,12 +35,31 @@ for arg in "$@"; do
 done
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-simulated}"
     OBS_PF=$(create_observation "preflight_simulated" "passed" "passed" "command -v bash" 0 "operator")
     TS_PF=$(record_command_transcript "$INFRA_DIR" "operator" "command -v bash" 0 "Simulated preflight" "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
     write_stage_result "$INFRA_DIR" "preflight" "SIMULATED" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "[$TS_PF]" "[$OBS_PF]" "{}" "{}"
     emit_verified_marker "$INFRA_DIR/preflight-result.json" "PREFLIGHT_CHECKS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 1
     exit 0
 fi
+
+# Real-mode enforcement: No placeholder defaults allowed
+PROJECT_ID="${GCP_PROJECT_ID:-${1:-}}"
+STAGING_RUN_ID="${STAGING_RUN_ID:-}"
+
+if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "genixbit-staging-test" || "$PROJECT_ID" == --* ]]; then
+    echo "[ERROR] Real-mode preflight requires an explicit, non-placeholder GCP_PROJECT_ID!" >&2
+    echo "BLOCKED_GCP_STAGING_CONFIGURATION_MISSING"
+    exit 1
+fi
+
+if [[ -z "$STAGING_RUN_ID" || "$STAGING_RUN_ID" == "run-staging-default" ]]; then
+    echo "[ERROR] Real-mode preflight requires an explicit, non-placeholder STAGING_RUN_ID!" >&2
+    echo "BLOCKED_GCP_STAGING_CONFIGURATION_MISSING"
+    exit 1
+fi
+
+echo "=== GenixBit OS Package Staging Preflight Checks ==="
 
 # 1. Verify gcloud CLI
 if ! command -v gcloud >/dev/null 2>&1; then
@@ -73,14 +89,6 @@ if [[ -z "$ACCOUNT" ]]; then
     exit 1
 fi
 echo "[PASS] Authenticated Account: $ACCOUNT"
-
-# 4. Verify Project ID
-PROJECT_ID="${GCP_PROJECT_ID:-${1:-}}"
-if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == --* ]]; then
-    echo "[ERROR] No GCP Project ID specified. Set GCP_PROJECT_ID or pass as argument." >&2
-    echo "BLOCKED_GCP_STAGING_CONFIGURATION_MISSING"
-    exit 1
-fi
 
 if [[ "$PROJECT_ID" =~ (prod|production|default|my-project) ]]; then
     if [[ "$ALLOW_PROD_OVERRIDE" -ne 1 || -z "${GENIXBIT_DUAL_APPROVAL_TOKEN:-}" ]]; then

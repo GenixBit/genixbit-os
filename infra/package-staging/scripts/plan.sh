@@ -18,8 +18,6 @@ cd "$INFRA_DIR"
 STAGE_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 ALLOW_LOCAL_STATE=0
-PROJECT_ID="${GCP_PROJECT_ID:-${1:-genixbit-staging-test}}"
-STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-20260722-001}"
 
 for arg in "$@"; do
     case "$arg" in
@@ -33,6 +31,7 @@ done
 source "$SCRIPT_DIR/lib/evidence.sh"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-simulated}"
     OBS_PLN=$(create_observation "plan_simulated" "generated" "generated" "command -v bash" 0 "operator")
     TS_PLN=$(record_command_transcript "$INFRA_DIR" "operator" "command -v bash" 0 "Simulated plan" "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
     write_stage_result "$INFRA_DIR" "plan" "SIMULATED" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "[$TS_PLN]" "[$OBS_PLN]" "{}" "{}"
@@ -40,8 +39,17 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     exit 0
 fi
 
-if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == --* ]]; then
-    echo "[ERROR] GCP Project ID is required. Pass as first argument or set GCP_PROJECT_ID." >&2
+# Real-mode enforcement: No placeholder defaults
+PROJECT_ID="${GCP_PROJECT_ID:-${1:-}}"
+STAGING_RUN_ID="${STAGING_RUN_ID:-}"
+
+if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "genixbit-staging-test" || "$PROJECT_ID" == --* ]]; then
+    echo "[ERROR] Real-mode plan generation requires an explicit, non-placeholder GCP_PROJECT_ID!" >&2
+    exit 1
+fi
+
+if [[ -z "$STAGING_RUN_ID" || "$STAGING_RUN_ID" == "run-staging-default" ]]; then
+    echo "[ERROR] Real-mode plan generation requires an explicit, non-placeholder STAGING_RUN_ID!" >&2
     exit 1
 fi
 
@@ -50,7 +58,8 @@ ZONE="${GCP_ZONE:-asia-south1-a}"
 TFVARS_FILE="${TFVARS_FILE:-$INFRA_DIR/terraform.tfvars}"
 
 if [[ ! -f "$TFVARS_FILE" ]]; then
-    TFVARS_FILE="$INFRA_DIR/terraform.tfvars.example"
+    echo "[ERROR] tfvars file '$TFVARS_FILE' missing for real plan generation!" >&2
+    exit 1
 fi
 
 # 1. Run Preflight Check
@@ -113,13 +122,11 @@ NO_PROD_DNS="PASS"
 
 if grep -q '"access_config"' "$PLAN_JSON_FILE"; then
     echo "[ERROR] Security Violation: Detected active public IP access_config in plan JSON!" >&2
-    NO_PUBLIC_IPS="FAIL"
     exit 1
 fi
 
 if grep -q "packages.os.genixbit.com" "$PLAN_JSON_FILE"; then
     echo "[ERROR] Security Violation: Detected public production DNS packages.os.genixbit.com in plan JSON!" >&2
-    NO_PROD_DNS="FAIL"
     exit 1
 fi
 
@@ -128,12 +135,8 @@ ADD_COUNT=$(jq '[.resource_changes[]? | select(.change.actions[] == "create")] |
 CHANGE_COUNT=$(jq '[.resource_changes[]? | select(.change.actions[] == "update")] | length' "$PLAN_JSON_FILE" 2>/dev/null || echo "0")
 DESTROY_COUNT=$(jq '[.resource_changes[]? | select(.change.actions[] == "delete")] | length' "$PLAN_JSON_FILE" 2>/dev/null || echo "0")
 
-ADD_COUNT="${ADD_COUNT:-0}"
-CHANGE_COUNT="${CHANGE_COUNT:-0}"
-DESTROY_COUNT="${DESTROY_COUNT:-0}"
-
 # 8. Record Provenance Metadata & Checksums
-SOURCE_COMMIT=$(cd "$REPO_ROOT" && git rev-parse HEAD 2>/dev/null || echo "0000000000000000000000000000000000000000")
+SOURCE_COMMIT=$(cd "$REPO_ROOT" && git rev-parse HEAD 2>/dev/null)
 CLEAN_TREE="true"
 if ! (cd "$REPO_ROOT" && git diff --quiet 2>/dev/null); then
     CLEAN_TREE="false"
@@ -145,7 +148,6 @@ LOCK_HASH=$(if [[ -f "$INFRA_DIR/.terraform.lock.hcl" ]]; then file_sha256 "$INF
 PLAN_HASH=$(file_sha256 "$PLAN_FILE")
 PLAN_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# 9. Construct Plan Manifest File
 cat << EOF > "$MANIFEST_FILE"
 {
   "schema_version": "1.0.0",
@@ -171,13 +173,10 @@ cat << EOF > "$MANIFEST_FILE"
 }
 EOF
 
-# 10. Validate Plan Manifest against JSON Schema
 if command -v python3 >/dev/null 2>&1 && python3 -c "import jsonschema" 2>/dev/null; then
     python3 -c "import json, jsonschema; jsonschema.validate(json.load(open('$MANIFEST_FILE')), json.load(open('$INFRA_DIR/schemas/plan-manifest.schema.json')))"
     echo "[PASS] Plan manifest validated against schema."
 fi
-echo "[PASS] Generated plan file: $PLAN_FILE (SHA: $PLAN_HASH)"
-echo "[PASS] Generated plan manifest: $MANIFEST_FILE"
 
 OBS_PLN1=$(create_observation "plan_file_generated" "$PLAN_HASH" "$PLAN_HASH" "sha256sum '$PLAN_FILE'" 0 "operator")
 OBS_PLN2=$(create_observation "plan_manifest_schema_validated" "valid" "valid" "test -f '$MANIFEST_FILE'" 0 "operator")

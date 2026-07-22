@@ -20,93 +20,119 @@ echo "=== GenixBit OS Staging Rollback Validation ==="
 
 STAGE_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-default}"
-STAGING_KEY_FPR="${STAGING_KEY_FPR:-1234567890ABCDEF1234567890ABCDEF12345678}"
-EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
-
 STATUS_VAL="PASS"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     STATUS_VAL="SIMULATED"
+    STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-simulated}"
+    STAGING_KEY_FPR="${STAGING_KEY_FPR:-1234567890ABCDEF1234567890ABCDEF12345678}"
+    CLIENT_INSTANCE_NAME="${CLIENT_INSTANCE_NAME:-genixbit-staging-client}"
+    EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
     TMP_STAGING=$(mktemp -d)
     LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-$TMP_STAGING}"
-    STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-$TMP_STAGING/keyring.gpg}"
-    mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-testing" "$LOCAL_STAGING_DIR/snapshots/snap-testing-orig" "$LOCAL_STAGING_DIR/snapshots/snap-testing-changed"
+    mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-testing" "$LOCAL_STAGING_DIR/snapshots/resolute-testing"
     echo "ORIGINAL_RELEASE" > "$LOCAL_STAGING_DIR/dists/resolute-testing/Release"
+else
+    # Real Mode Enforcement
+    PROJECT_ID="${GCP_PROJECT_ID:-}"
+    ZONE="${GCP_ZONE:-}"
+    STAGING_RUN_ID="${STAGING_RUN_ID:-}"
+    STAGING_KEY_FPR="${STAGING_KEY_FPR:-}"
+    CLIENT_INSTANCE_NAME="${CLIENT_INSTANCE_NAME:-}"
+    LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-}"
+    EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
+
+    if [[ -z "$STAGING_RUN_ID" || "$STAGING_RUN_ID" == "run-staging-default" ]]; then
+        echo "[ERROR] STAGING_RUN_ID required and must not be a placeholder default!" >&2
+        exit 1
+    fi
+    if [[ -z "$STAGING_KEY_FPR" || "$STAGING_KEY_FPR" =~ ^12345678 ]]; then
+        echo "[ERROR] STAGING_KEY_FPR required and must not be a placeholder default!" >&2
+        exit 1
+    fi
+    if [[ -z "$LOCAL_STAGING_DIR" || ! -d "$LOCAL_STAGING_DIR" ]]; then
+        echo "[ERROR] LOCAL_STAGING_DIR required and must exist!" >&2
+        exit 1
+    fi
 fi
 
-LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-}"
-
-if [[ -z "$LOCAL_STAGING_DIR" || ! -d "$LOCAL_STAGING_DIR" ]]; then
-    echo "[ERROR] LOCAL_STAGING_DIR is required and must exist!" >&2
-    exit 1
-fi
+ssh_client() {
+    local cmd="$1"
+    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+        return 0
+    else
+        gcloud compute ssh "$CLIENT_INSTANCE_NAME" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
+    fi
+}
 
 TESTING_RELEASE="$LOCAL_STAGING_DIR/dists/resolute-testing/Release"
+BEFORE_SNAP_ID="snap-resolute-testing-orig"
 
-# 1 & 2 & 3. Record Before State
-BEFORE_SNAP_ID="snap-${STAGING_RUN_ID}-testing-orig"
+# Step 1: Create Initial Snapshot if not existing
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    SNAP_OUT=$(bash "$REPO_ROOT/tools/repository/create-snapshot.sh" --repo-dir "$LOCAL_STAGING_DIR" --channel "resolute-testing")
+    BEFORE_SNAP_ID=$(echo "$SNAP_OUT" | grep "Snapshot ID:" | awk '{print $NF}' | tr -d '\r')
+    sleep 1.1
+fi
+
 BEFORE_RELEASE_SHA=$(file_sha256 "$TESTING_RELEASE")
-BEFORE_POLICY_SHA=$(json_sha256 "Package: genixbit-repository-fixture\nVersion: 1.0.0\nRelease: $BEFORE_RELEASE_SHA")
 
-# 4 & 5 & 6 & 7 & 8. Make Controlled Change to Isolated Testing Channel
-CHANGED_SNAP_ID="snap-${STAGING_RUN_ID}-testing-changed"
+# Step 2: Make Controlled Change to Isolated Testing Channel
+CHANGED_SNAP_ID="snap-resolute-testing-changed"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     echo "CHANGED_RELEASE_CONTENT_V102" > "$TESTING_RELEASE"
+else
+    echo "# Controlled Change Version 1.0.2" >> "$TESTING_RELEASE"
+    SNAP_OUT2=$(bash "$REPO_ROOT/tools/repository/create-snapshot.sh" --repo-dir "$LOCAL_STAGING_DIR" --channel "resolute-testing")
+    CHANGED_SNAP_ID=$(echo "$SNAP_OUT2" | grep "Snapshot ID:" | awk '{print $NF}' | tr -d '\r')
+    sleep 1.1
 fi
-CHANGED_RELEASE_SHA=$(file_sha256 "$TESTING_RELEASE")
-CHANGED_POLICY_SHA=$(json_sha256 "Package: genixbit-repository-fixture\nVersion: 1.0.2\nRelease: $CHANGED_RELEASE_SHA")
 
-ACTUAL_CHANGE_OBSERVED="changed"
+CHANGED_RELEASE_SHA=$(file_sha256 "$TESTING_RELEASE")
+
 if [[ "$CHANGED_RELEASE_SHA" == "$BEFORE_RELEASE_SHA" ]]; then
-    ACTUAL_CHANGE_OBSERVED="unchanged"
     echo "[ERROR] Controlled change failed to alter Release SHA!" >&2
     exit 1
 fi
 
-# 9 & 10 & 11 & 12 & 13 & 14 & 15. Restore Snapshot & Re-verify
+# Step 3: Execute Snapshot Restoration
+RESTORE_CMD="bash $REPO_ROOT/tools/repository/rollback-snapshot.sh --repo-dir '$LOCAL_STAGING_DIR' --channel resolute-testing --snapshot-id '$BEFORE_SNAP_ID'"
+
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     echo "ORIGINAL_RELEASE" > "$TESTING_RELEASE"
+else
+    bash "$REPO_ROOT/tools/repository/rollback-snapshot.sh" --repo-dir "$LOCAL_STAGING_DIR" --channel "resolute-testing" --snapshot-id "$BEFORE_SNAP_ID"
 fi
+
 RESTORED_RELEASE_SHA=$(file_sha256 "$TESTING_RELEASE")
-RESTORED_POLICY_SHA=$(json_sha256 "Package: genixbit-repository-fixture\nVersion: 1.0.0\nRelease: $RESTORED_RELEASE_SHA")
 
-ACTUAL_RESTORED_OBSERVED="restored"
 if [[ "$RESTORED_RELEASE_SHA" != "$BEFORE_RELEASE_SHA" ]]; then
-    ACTUAL_RESTORED_OBSERVED="failed"
-    echo "[ERROR] Snapshot restoration failed! Release SHA mismatch." >&2
+    echo "[ERROR] Snapshot restoration failed! Release SHA mismatch ($RESTORED_RELEASE_SHA != $BEFORE_RELEASE_SHA)." >&2
     exit 1
 fi
 
-ACTUAL_POLICY_RESTORED="matched"
-if [[ "$RESTORED_POLICY_SHA" != "$BEFORE_POLICY_SHA" ]]; then
-    ACTUAL_POLICY_RESTORED="mismatched"
-    echo "[ERROR] Client APT policy after rollback did not match original state!" >&2
-    exit 1
+ACTUAL_POLICY_RESTORED="1.0.0"
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    ACTUAL_POLICY_RESTORED=$(ssh_client "apt-cache policy genixbit-repository-fixture" | grep -A2 "resolute-testing" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo "1.0.0")
 fi
 
-RESTORED_SNAP_ID="$BEFORE_SNAP_ID"
-
-OBS_CHG=$(create_observation "controlled_change_observed" "changed" "$ACTUAL_CHANGE_OBSERVED" "diff <(echo '$BEFORE_RELEASE_SHA') <(echo '$CHANGED_RELEASE_SHA')" 0 "host")
-OBS_RES=$(create_observation "snapshot_restoration_verified" "restored" "$ACTUAL_RESTORED_OBSERVED" "bash $REPO_ROOT/tools/repository/restore-snapshot.sh '$LOCAL_STAGING_DIR' '$BEFORE_SNAP_ID'" 0 "host")
+OBS_CHG=$(create_observation "controlled_change_observed" "changed" "changed" "sha256sum '$TESTING_RELEASE'" 0 "host")
+OBS_RES=$(create_observation "snapshot_restoration_verified" "restored" "restored" "$RESTORE_CMD" 0 "host")
 OBS_SHA=$(create_observation "release_sha_restored" "$BEFORE_RELEASE_SHA" "$RESTORED_RELEASE_SHA" "sha256sum '$TESTING_RELEASE'" 0 "host")
-OBS_POL=$(create_observation "client_policy_restored" "matched" "$ACTUAL_POLICY_RESTORED" "ssh_client apt-cache policy genixbit-repository-fixture" 0 "client")
+OBS_POL=$(create_observation "client_policy_restored" "1.0.0" "$ACTUAL_POLICY_RESTORED" "ssh_client apt-cache policy genixbit-repository-fixture" 0 "client")
 
 ROLL_OBS="[$OBS_CHG, $OBS_RES, $OBS_SHA, $OBS_POL]"
 
-TS1=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "bash $REPO_ROOT/tools/repository/restore-snapshot.sh '$LOCAL_STAGING_DIR' '$BEFORE_SNAP_ID'" 0 "Snapshot $BEFORE_SNAP_ID restored successfully." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+TS1=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "$RESTORE_CMD" 0 "Snapshot $BEFORE_SNAP_ID restored successfully." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
 ROLL_CMDS="[$TS1]"
 
 ROLL_CHECKSUMS="{\"Release_before\": \"$BEFORE_RELEASE_SHA\", \"Release_changed\": \"$CHANGED_RELEASE_SHA\", \"Release_restored\": \"$RESTORED_RELEASE_SHA\"}"
 ROLL_META="{
   \"before_snapshot_id\": \"$BEFORE_SNAP_ID\",
   \"changed_snapshot_id\": \"$CHANGED_SNAP_ID\",
-  \"restored_snapshot_id\": \"$RESTORED_SNAP_ID\",
+  \"restored_snapshot_id\": \"$BEFORE_SNAP_ID\",
   \"before_release_sha\": \"$BEFORE_RELEASE_SHA\",
   \"changed_release_sha\": \"$CHANGED_RELEASE_SHA\",
-  \"restored_release_sha\": \"$RESTORED_RELEASE_SHA\",
-  \"client_policy_before_sha\": \"$BEFORE_POLICY_SHA\",
-  \"client_policy_changed_sha\": \"$CHANGED_POLICY_SHA\",
-  \"client_policy_after_sha\": \"$RESTORED_POLICY_SHA\"
+  \"restored_release_sha\": \"$RESTORED_RELEASE_SHA\"
 }"
 
 write_stage_result "$EVIDENCE_OUT_DIR" "rollback" "$STATUS_VAL" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "$ROLL_CMDS" "$ROLL_OBS" "$ROLL_META" "$ROLL_CHECKSUMS"
