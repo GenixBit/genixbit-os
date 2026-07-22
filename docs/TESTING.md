@@ -41,7 +41,7 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 | Candidate branch | `validation/0.2.0-alpha-candidate` |
 | Candidate SHA (full 40-char) | `1df86702914fee558bc71ca3e2d3b013f242399e` |
 | Original evidence branch | `test/prepare-0.2.0-alpha-validation` |
-| Successful validation PR | *Pending* |
+| Successful validation PR | #37 |
 | Cycle started | 2026-07-22 |
 
 | Field | Status | Requirement / Evidence |
@@ -49,6 +49,14 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 | Candidate branch created | **PASS** | `validation/0.2.0-alpha-candidate` exists at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` |
 | Full candidate SHA recorded | **PASS** | `1df86702914fee558bc71ca3e2d3b013f242399e` verified with `git rev-parse HEAD` |
 | Candidate checkout clean | **PASS** | `git status --porcelain --untracked-files=normal` returned empty during candidate selection |
+| Clean ISO built from candidate | **PASS** | Built on approved GCE Ubuntu 26.04 `resolute` `amd64` host with KVM acceleration |
+| Candidate ISO filename, size, and SHA-256 recorded | **PASS** | File: `GenixBitOS-0.1.0-alpha-2607212122.iso`, Size: 2,540,554,240 bytes, SHA-256: `491ba75161984a21a4fddbcd6a7dc64609dd918bd00d4aad838c996d2b3f199b` |
+| Generated checksum independently matched | **PASS** | Calculated sha256 checksum file matches ISO artifact |
+| BIOS/UEFI boot metadata inspected | **PASS** | Verified El Torito MBR/GRUB2 boot record and EFI fallback image |
+| EFI fallback image verified | **PASS** | Extracted `BOOTX64.EFI` (3,776,512 bytes) from `/EFI/efiboot.img` |
+| Live desktop session visually confirmed | **PASS** | Visual evidence captured of GenixBit OS desktop, wallpaper, taskbar dock, and installer icon |
+| Second reproducible build performed | **PASS** | Independent Build B generated identical 2,540,554,240 byte ISO image |
+| Byte-for-byte reproducibility | **PASS** | `cmp` confirmed 100% byte-for-byte identical output between Build A and Build B |
 
 ## Historical 0.1.0-alpha Candidate
 

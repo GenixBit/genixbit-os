@@ -114,6 +114,7 @@ fi
 tools/vm/setup-host.sh "${HOST_ARGS[@]}" || die 'Host readiness check failed.'
 
 info 'Building a clean validation ISO...'
+umask 022
 make clean
 make bootstrap
 make
@@ -130,7 +131,7 @@ SHA256_DIGEST=$(sha256sum "$ISO_PATH" | awk '{print $1}')
 CHECKSUM_FILE="${ISO_PATH%.iso}.sha256"
 
 if [[ -f "$CHECKSUM_FILE" ]]; then
-    RECORDED_DIGEST=$(awk 'NF {print $1; exit}' "$CHECKSUM_FILE")
+    RECORDED_DIGEST=$(awk 'NF {if ($1 ~ /^SHA256:/) print $NF; else print $1; exit}' "$CHECKSUM_FILE")
     [[ "${RECORDED_DIGEST,,}" == "${SHA256_DIGEST,,}" ]] \
         || die "Generated checksum mismatch. File records $RECORDED_DIGEST; calculated $SHA256_DIGEST."
     pass 'Generated checksum file matches the ISO.'
@@ -150,8 +151,8 @@ cleanup() {
 trap cleanup EXIT
 
 EFI_IMAGE="$TMP_DIR/efiboot.img"
-if xorriso -osirrox on -indev "$ISO_PATH" -extract /isolinux/efiboot.img "$EFI_IMAGE" \
-    >"$STATE_DIR/efi-extract-${SHORT_COMMIT}.txt" 2>&1; then
+if xorriso -osirrox on -indev "$ISO_PATH" -extract /EFI/efiboot.img "$EFI_IMAGE" >"$STATE_DIR/efi-extract-${SHORT_COMMIT}.txt" 2>&1 \
+    || xorriso -osirrox on -indev "$ISO_PATH" -extract /isolinux/efiboot.img "$EFI_IMAGE" >"$STATE_DIR/efi-extract-${SHORT_COMMIT}.txt" 2>&1; then
     if mdir -i "$EFI_IMAGE" ::/EFI/BOOT/BOOTX64.EFI \
         >"$STATE_DIR/efi-directory-${SHORT_COMMIT}.txt" 2>&1; then
         pass 'EFI fallback image contains EFI/BOOT/BOOTX64.EFI.'
@@ -159,7 +160,7 @@ if xorriso -osirrox on -indev "$ISO_PATH" -extract /isolinux/efiboot.img "$EFI_I
         die 'EFI image exists but EFI/BOOT/BOOTX64.EFI was not found.'
     fi
 else
-    die 'Unable to extract /isolinux/efiboot.img from the validation ISO.'
+    die 'Unable to extract EFI boot image from the validation ISO.'
 fi
 
 FINISHED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
