@@ -56,20 +56,20 @@ fi
 ssh_repo_host() {
     local cmd="$1"
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
-    gcloud compute ssh "$REPOSITORY_INSTANCE_NAME" --zone="${GCP_ZONE:-asia-south1-a}" --project="${GCP_PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
+    gcloud compute ssh "$REPOSITORY_INSTANCE_NAME" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
 }
 
 scp_to_repo_host() {
     local src="$1"
     local dest="$2"
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
-    gcloud compute scp "$src" "${REPOSITORY_INSTANCE_NAME}:${dest}" --zone="${GCP_ZONE:-asia-south1-a}" --project="${GCP_PROJECT_ID:-genixbit-staging}" --tunnel-through-iap
+    gcloud compute scp "$src" "${REPOSITORY_INSTANCE_NAME}:${dest}" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap
 }
 
 ssh_client() {
     local cmd="$1"
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
-    gcloud compute ssh "$CLIENT_INSTANCE_NAME" --zone="${GCP_ZONE:-asia-south1-a}" --project="${GCP_PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
+    gcloud compute ssh "$CLIENT_INSTANCE_NAME" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
 }
 
 TAMPER_WORK_DIR=$(mktemp -d)

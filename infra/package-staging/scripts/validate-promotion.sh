@@ -60,7 +60,7 @@ ssh_client() {
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
         return 0
     else
-        gcloud compute ssh "${CLIENT_INSTANCE_NAME:-genixbit-staging-client}" --zone="${GCP_ZONE:-asia-south1-a}" --project="${GCP_PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
+        gcloud compute ssh "${CLIENT_INSTANCE_NAME:-genixbit-staging-client}" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
     fi
 }
 
