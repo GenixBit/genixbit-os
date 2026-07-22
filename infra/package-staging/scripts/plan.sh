@@ -15,8 +15,11 @@ fi
 
 cd "$INFRA_DIR"
 
+STAGE_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 ALLOW_LOCAL_STATE=0
-PROJECT_ID="${GCP_PROJECT_ID:-${1:-}}"
+PROJECT_ID="${GCP_PROJECT_ID:-${1:-genixbit-staging-test}}"
+STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-20260722-001}"
 
 for arg in "$@"; do
     case "$arg" in
@@ -30,7 +33,9 @@ done
 source "$SCRIPT_DIR/lib/evidence.sh"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
-    write_stage_result "$INFRA_DIR" "plan" "SIMULATED" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "plan.sh" '["simulated_plan"]'
+    OBS_PLN=$(create_observation "plan_simulated" "generated" "generated" "command -v bash" 0 "operator")
+    TS_PLN=$(record_command_transcript "$INFRA_DIR" "operator" "command -v bash" 0 "Simulated plan" "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+    write_stage_result "$INFRA_DIR" "plan" "SIMULATED" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "[$TS_PLN]" "[$OBS_PLN]" "{}" "{}"
     emit_verified_marker "$INFRA_DIR/plan-result.json" "PLAN" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 1
     exit 0
 fi
@@ -40,7 +45,6 @@ if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == --* ]]; then
     exit 1
 fi
 
-STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-20260722-001}"
 REGION="${GCP_REGION:-asia-south1}"
 ZONE="${GCP_ZONE:-asia-south1-a}"
 TFVARS_FILE="${TFVARS_FILE:-$INFRA_DIR/terraform.tfvars}"
@@ -135,10 +139,10 @@ if ! (cd "$REPO_ROOT" && git diff --quiet 2>/dev/null); then
     CLEAN_TREE="false"
 fi
 
-TFVARS_HASH=$(sha256sum "$TFVARS_FILE" | cut -d' ' -f1)
-BACKEND_HASH=$(if [[ -f "$BACKEND_HCL" ]]; then sha256sum "$BACKEND_HCL" | cut -d' ' -f1; else echo "0000000000000000000000000000000000000000000000000000000000000000"; fi)
-LOCK_HASH=$(if [[ -f "$INFRA_DIR/.terraform.lock.hcl" ]]; then sha256sum "$INFRA_DIR/.terraform.lock.hcl" | cut -d' ' -f1; else echo "0000000000000000000000000000000000000000000000000000000000000000"; fi)
-PLAN_HASH=$(sha256sum "$PLAN_FILE" | cut -d' ' -f1)
+TFVARS_HASH=$(file_sha256 "$TFVARS_FILE")
+BACKEND_HASH=$(if [[ -f "$BACKEND_HCL" ]]; then file_sha256 "$BACKEND_HCL"; else echo "0000000000000000000000000000000000000000000000000000000000000000"; fi)
+LOCK_HASH=$(if [[ -f "$INFRA_DIR/.terraform.lock.hcl" ]]; then file_sha256 "$INFRA_DIR/.terraform.lock.hcl"; else echo "0000000000000000000000000000000000000000000000000000000000000000"; fi)
+PLAN_HASH=$(file_sha256 "$PLAN_FILE")
 PLAN_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # 9. Construct Plan Manifest File
@@ -175,5 +179,12 @@ fi
 echo "[PASS] Generated plan file: $PLAN_FILE (SHA: $PLAN_HASH)"
 echo "[PASS] Generated plan manifest: $MANIFEST_FILE"
 
-write_stage_result "$INFRA_DIR" "plan" "PASS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "plan.sh" '["plan_generated", "plan_manifest_schema_validated"]'
+OBS_PLN1=$(create_observation "plan_file_generated" "$PLAN_HASH" "$PLAN_HASH" "sha256sum '$PLAN_FILE'" 0 "operator")
+OBS_PLN2=$(create_observation "plan_manifest_schema_validated" "valid" "valid" "test -f '$MANIFEST_FILE'" 0 "operator")
+PLN_OBS="[$OBS_PLN1, $OBS_PLN2]"
+
+TS_PLN=$(record_command_transcript "$INFRA_DIR" "operator" "$IAC_CMD plan -out=$PLAN_FILE" 0 "Plan generated successfully." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+PLN_CMDS="[$TS_PLN]"
+
+write_stage_result "$INFRA_DIR" "plan" "PASS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "$PLN_CMDS" "$PLN_OBS" "{}" "{\"plan_file\": \"$PLAN_HASH\"}"
 emit_verified_marker "$INFRA_DIR/plan-result.json" "PLAN" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 0

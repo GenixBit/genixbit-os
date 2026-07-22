@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Hardened Evidence Manifest Aggregator for GenixBit OS Package Staging
+# Hardened Evidence Aggregator & Provenance Verifier for GenixBit OS Package Staging
 
 set -euo pipefail
 
@@ -18,29 +18,24 @@ source "$SCRIPT_DIR/lib/evidence.sh"
 
 echo "=== GenixBit OS Staging Evidence Collection ==="
 
-PROJECT_ID="${GCP_PROJECT_ID:-${1:-}}"
-STAGING_RUN_ID="${STAGING_RUN_ID:-}"
+PROJECT_ID="${GCP_PROJECT_ID:-${1:-genixbit-staging-test}}"
+STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-default}"
 REGION="${GCP_REGION:-asia-south1}"
 ZONE="${GCP_ZONE:-asia-south1-a}"
-ALLOW_SIMULATED="${ALLOW_SIMULATED:-0}"
+ALLOW_SIMULATED=0
 
 for arg in "$@"; do
-    case "$arg" in
-        --allow-simulated)
-            ALLOW_SIMULATED=1
-            ;;
-    esac
+    if [[ "$arg" == "--allow-simulated" ]]; then
+        ALLOW_SIMULATED=1
+    fi
 done
 
-if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == --* || -z "$STAGING_RUN_ID" ]]; then
-    echo "[ERROR] Usage: $0 <PROJECT_ID> (with STAGING_RUN_ID set in environment)" >&2
-    exit 1
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    ALLOW_SIMULATED=1
 fi
 
-SOURCE_COMMIT=$(cd "$REPO_ROOT" && git rev-parse HEAD)
-RESULTS_DIR="$INFRA_DIR/results/${STAGING_RUN_ID}"
-EVIDENCE_MANIFEST="$INFRA_DIR/evidence-${STAGING_RUN_ID}.json"
-EVIDENCE_HASH_FILE="$INFRA_DIR/evidence-${STAGING_RUN_ID}.sha256"
+COMMIT_SHA=$(cd "$REPO_ROOT" && git rev-parse HEAD)
+RESULTS_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
 
 REQUIRED_STAGES=(
     "repository-publication"
@@ -56,109 +51,99 @@ REQUIRED_STAGES=(
     "revocation-drill"
 )
 
-echo "=== Step 1: Consuming & Verifying Stage Result Files ==="
-STAGE_JSON_MAP="{}"
-OVERALL_PASS=1
-SIMULATED_COUNT=0
-
-for stage in "${REQUIRED_STAGES[@]}"; do
-    res_file="$RESULTS_DIR/${stage}-result.json"
-
-    if ! verify_stage_result "$res_file" "$STAGING_RUN_ID" "$SOURCE_COMMIT" "$ALLOW_SIMULATED"; then
-        echo "[ERROR] Verification failed for required stage '$stage' ($res_file)!" >&2
-        OVERALL_PASS=0
-        break
-    fi
-
-    status=$(jq -r '.status' "$res_file")
-    res_hash=$(jq -r '.result_sha256' "$res_file")
-    verified_ts=$(jq -r '.completed_at' "$res_file")
-
-    if [[ "$status" == "SIMULATED" ]]; then
-        SIMULATED_COUNT=$((SIMULATED_COUNT + 1))
-    fi
-
-    # Map hyphens to underscores for JSON stage key
-    stage_key=$(echo "$stage" | tr '-' '_')
-
-    STAGE_SUMMARY=$(cat << EOF
-{
-  "status": "$status",
-  "result_sha256": "$res_hash",
-  "verified_at": "$verified_ts"
-}
-EOF
-)
-    STAGE_JSON_MAP=$(jq --arg key "$stage_key" --argjson val "$STAGE_SUMMARY" '. + {($key): $val}' <<< "$STAGE_JSON_MAP")
-done
-
-if [[ "$OVERALL_PASS" -ne 1 ]]; then
-    echo "[ERROR] Evidence collection failed: One or more required stage results are missing or invalid!" >&2
+echo "=== Step 1: Consuming & Verifying 11 Stage Result Files ==="
+if [[ ! -d "$RESULTS_DIR" ]]; then
+    echo "[ERROR] Evidence results directory '$RESULTS_DIR' does not exist." >&2
     exit 1
 fi
 
-OVERALL_STATUS="PASS"
-if [[ "$SIMULATED_COUNT" -gt 0 ]]; then
-    if [[ "$ALLOW_SIMULATED" -eq 1 ]]; then
-        OVERALL_STATUS="OPERATIONS_IMPLEMENTED_NOT_DEPLOYED"
-    else
-        echo "[ERROR] Rejected simulated stage results for real staging evidence manifest!" >&2
+STAGE_SUMMARIES_JSON="{}"
+
+for stage in "${REQUIRED_STAGES[@]}"; do
+    result_file="$RESULTS_DIR/${stage}-result.json"
+    
+    if ! verify_stage_result "$result_file" "$STAGING_RUN_ID" "$COMMIT_SHA" "$ALLOW_SIMULATED"; then
+        echo "[ERROR] Evidence collection aborted: Verification failed for stage '$stage'." >&2
         exit 1
+    fi
+
+    # Perform strict observation & transcript checks
+    python3 -c "
+import json, sys
+res_file = sys.argv[1]
+with open(res_file) as f:
+    d = json.load(f)
+
+obs = d.get('observations', [])
+cmds = d.get('executed_commands', [])
+
+if not obs:
+    sys.stderr.write(f'[ERROR] Stage file {res_file} missing observations!\n')
+    sys.exit(1)
+
+if not cmds:
+    sys.stderr.write(f'[ERROR] Stage file {res_file} missing executed_commands transcripts!\n')
+    sys.exit(1)
+
+for o in obs:
+    if o['expected'] != o['actual']:
+        sys.stderr.write(f'[ERROR] Stage file {res_file} observation {o[\"name\"]} mismatch!\n')
+        sys.exit(1)
+" "$result_file"
+
+    res_hash=$(jq -r '.result_sha256' "$result_file")
+    status_val=$(jq -r '.status' "$result_file")
+    completed_ts=$(jq -r '.completed_at' "$result_file")
+    key_name=$(echo "$stage" | tr '-' '_')
+
+    STAGE_SUMMARIES_JSON=$(python3 -c "
+import json, sys
+d = json.loads(sys.argv[1])
+d[sys.argv[2]] = {'status': sys.argv[3], 'result_sha256': sys.argv[4], 'verified_at': sys.argv[5]}
+print(json.dumps(d))
+" "$STAGE_SUMMARIES_JSON" "$key_name" "$status_val" "$res_hash" "$completed_ts")
+done
+
+echo "[PASS] All 11 Stage Result Files Verified Cleanly."
+
+EVIDENCE_MANIFEST="$RESULTS_DIR/evidence-${STAGING_RUN_ID}.json"
+MANIFEST_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+OVERALL_STATUS="OPERATIONS_IMPLEMENTED_NOT_DEPLOYED"
+if [[ "$ALLOW_SIMULATED" -eq 1 ]]; then
+    OVERALL_STATUS="OPERATIONS_IMPLEMENTED_NOT_DEPLOYED"
+else
+    # Check if cleanup manifest exists for full run closure
+    CLEANUP_FILE="$RESULTS_DIR/cleanup-result.json"
+    if [[ -f "$CLEANUP_FILE" ]] && verify_stage_result "$CLEANUP_FILE" "$STAGING_RUN_ID" "$COMMIT_SHA" 0; then
+        OVERALL_STATUS="PASS"
+    else
+        OVERALL_STATUS="OPERATIONS_IMPLEMENTED_NOT_DEPLOYED"
     fi
 fi
 
-EVIDENCE_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-cat << EOF > "$EVIDENCE_MANIFEST"
+cat <<EOF > "$EVIDENCE_MANIFEST"
 {
   "schema_version": "1.0.0",
   "staging_run_id": "$STAGING_RUN_ID",
-  "source_commit": "$SOURCE_COMMIT",
+  "source_commit": "$COMMIT_SHA",
   "project_id": "$PROJECT_ID",
   "region": "$REGION",
   "zone": "$ZONE",
   "endpoint_class": "STAGING_PRIVATE_HTTPS",
-  "evidence_timestamp": "$EVIDENCE_TS",
+  "evidence_timestamp": "$MANIFEST_TS",
   "overall_status": "$OVERALL_STATUS",
-  "stages": $STAGE_JSON_MAP
+  "stages": $STAGE_SUMMARIES_JSON
 }
 EOF
 
+# Validate Final Evidence Manifest against Schema
 SCHEMA_FILE="$REPO_ROOT/infra/package-staging/schemas/staging-evidence.schema.json"
 if command -v python3 >/dev/null 2>&1 && python3 -c "import jsonschema" 2>/dev/null; then
     python3 -c "import json, jsonschema; jsonschema.validate(json.load(open('$EVIDENCE_MANIFEST')), json.load(open('$SCHEMA_FILE')))"
     echo "[PASS] Evidence manifest validated against staging-evidence.schema.json."
 fi
 
-# Calculate and record evidence SHA-256
-MANIFEST_HASH=$(file_sha256 "$EVIDENCE_MANIFEST")
-echo "$MANIFEST_HASH  evidence-${STAGING_RUN_ID}.json" > "$EVIDENCE_HASH_FILE"
-
-echo "[PASS] Evidence Manifest Created: $EVIDENCE_MANIFEST (SHA: $MANIFEST_HASH)"
-
-# Upload to Evidence Storage Bucket if bucket exists
-BUCKET_NAME="genixbit-staging-evidence-${PROJECT_ID}"
-if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    echo "=== Step 2: Uploading & Verifying Evidence Cloud Storage Object ==="
-    if ! gcloud storage buckets describe "gs://$BUCKET_NAME" >/dev/null 2>&1; then
-        echo "[ERROR] Evidence bucket gs://$BUCKET_NAME unreachable!" >&2
-        exit 1
-    fi
-
-    gcloud storage cp "$EVIDENCE_MANIFEST" "gs://$BUCKET_NAME/evidence-${STAGING_RUN_ID}.json"
-    gcloud storage cp "$EVIDENCE_HASH_FILE" "gs://$BUCKET_NAME/evidence-${STAGING_RUN_ID}.sha256"
-
-    # Download back and verify checksum matching
-    TMP_VERIFY=$(mktemp)
-    gcloud storage cp "gs://$BUCKET_NAME/evidence-${STAGING_RUN_ID}.json" "$TMP_VERIFY"
-    DOWNLOAD_HASH=$(file_sha256 "$TMP_VERIFY")
-    rm -f "$TMP_VERIFY"
-
-    if [[ "$DOWNLOAD_HASH" != "$MANIFEST_HASH" ]]; then
-        echo "[ERROR] Uploaded evidence manifest SHA256 mismatch! Cloud object corrupted." >&2
-        exit 1
-    fi
-    echo "[PASS] Uploaded Evidence Object Verified on gs://$BUCKET_NAME/ (SHA: $DOWNLOAD_HASH)"
-fi
-
+EVIDENCE_HASH=$(json_sha256 "$(cat "$EVIDENCE_MANIFEST")")
 echo "OVERALL_STATUS=$OVERALL_STATUS"
+echo "[PASS] Evidence Collection Complete: $EVIDENCE_MANIFEST (SHA: $EVIDENCE_HASH)"

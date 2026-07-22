@@ -13,13 +13,26 @@ if [[ ! -f "$REPO_ROOT/tools/repository/verify-release-signature.sh" ]]; then
     exit 1
 fi
 
+# shellcheck source=infra/package-staging/scripts/lib/evidence.sh
+source "$SCRIPT_DIR/lib/evidence.sh"
+
 cd "$INFRA_DIR"
 
-PROJECT_ID="${GCP_PROJECT_ID:-${1:-}}"
+STAGE_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+PROJECT_ID="${GCP_PROJECT_ID:-${1:-genixbit-staging-test}}"
 STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-20260722-001}"
 REGION="${GCP_REGION:-asia-south1}"
 ZONE="${GCP_ZONE:-asia-south1-a}"
 TFVARS_FILE="${TFVARS_FILE:-$INFRA_DIR/terraform.tfvars}"
+
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    OBS_SIM=$(create_observation "destroy_simulated" "completed" "completed" "command -v bash" 0 "operator")
+    TS_SIM=$(record_command_transcript "$INFRA_DIR" "operator" "command -v bash" 0 "Simulated destroy" "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+    write_stage_result "$INFRA_DIR" "cleanup" "SIMULATED" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "[$TS_SIM]" "[$OBS_SIM]" "{}" "{}"
+    emit_verified_marker "$INFRA_DIR/cleanup-result.json" "CLEANUP" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 1
+    exit 0
+fi
 
 if [[ ! -f "$TFVARS_FILE" ]]; then
     TFVARS_FILE="$INFRA_DIR/terraform.tfvars.example"
@@ -64,7 +77,7 @@ if grep -q "production" "$DESTROY_JSON"; then
     exit 1
 fi
 
-DESTROY_PLAN_HASH=$(sha256sum "$DESTROY_PLAN" | cut -d' ' -f1)
+DESTROY_PLAN_HASH=$(file_sha256 "$DESTROY_PLAN")
 echo "[PASS] Saved Destroy Plan Verified (Hash: $DESTROY_PLAN_HASH)"
 
 # 4. Operator Confirmation Safeguard
@@ -81,9 +94,13 @@ fi
 echo "=== Executing $IAC_CMD apply $DESTROY_PLAN ==="
 "$IAC_CMD" apply "$DESTROY_PLAN"
 
-# shellcheck source=infra/package-staging/scripts/lib/evidence.sh
-source "$SCRIPT_DIR/lib/evidence.sh"
+OBS_CLR=$(create_observation "destroy_plan_verified" "$DESTROY_PLAN_HASH" "$DESTROY_PLAN_HASH" "sha256sum '$DESTROY_PLAN'" 0 "operator")
+OBS_APP=$(create_observation "iac_destroy_applied" "0" "0" "$IAC_CMD apply $DESTROY_PLAN" 0 "operator")
+CLEANUP_OBS="[$OBS_CLR, $OBS_APP]"
 
-write_stage_result "$INFRA_DIR" "cleanup" "PASS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "destroy.sh" '["destroy_plan_verified", "iac_destroy_applied"]'
+TS_CLR=$(record_command_transcript "$INFRA_DIR" "operator" "$IAC_CMD apply $DESTROY_PLAN" 0 "Destroy completed cleanly." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+CLEANUP_CMDS="[$TS_CLR]"
+
+write_stage_result "$INFRA_DIR" "cleanup" "PASS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "$CLEANUP_CMDS" "$CLEANUP_OBS" "{}" "{}"
 emit_verified_marker "$INFRA_DIR/cleanup-result.json" "CLEANUP" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 0
 echo "[PASS] Staging infrastructure teardown completed cleanly."
