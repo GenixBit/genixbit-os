@@ -76,8 +76,8 @@ See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VA
 - [x] Create `genixbit-os-installer-config`.
 - [x] Replace user-facing boot, live-session, installer, desktop and support branding.
 - [x] Ensure `/etc/os-release`, issue files, URLs and settings identify GenixBit OS.
-- [ ] Audit remaining upstream terms as legal notices, technical dependencies or migration defects.
-- [ ] Produce genuine screenshots from a validated GenixBit build.
+- [x] Audit remaining upstream terms as legal notices, technical dependencies or migration defects.
+- [x] Produce genuine screenshots from a validated GenixBit build.
 
 ### GenixBit Branding Foundation Status
 - Branding package source: PASS

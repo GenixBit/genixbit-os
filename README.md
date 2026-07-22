@@ -109,6 +109,18 @@ Read:
 - Installer branding: PASS
 - Installed-system branding: PASS
 
+### Validated Release Screenshots (`0.2.0-alpha`)
+
+![GenixBit OS 0.2.0-alpha Live Desktop](docs/assets/releases/0.2.0-alpha/03-live-desktop.webp)
+
+*GenixBit OS 0.2.0-alpha Candidate 2 live desktop environment booted via UEFI.*
+
+![GenixBit OS 0.2.0-alpha Installed System](docs/assets/releases/0.2.0-alpha/07-installed-desktop.webp)
+
+*GenixBit OS 0.2.0-alpha target disk installation booted with full desktop and terminal identity.*
+
+Full gallery & metadata: [`docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md`](docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md)
+
 Evidence and procedures:
 
 - [`docs/TESTING.md`](docs/TESTING.md)

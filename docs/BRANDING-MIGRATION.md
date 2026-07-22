@@ -154,9 +154,15 @@ The branding package integration was fully hardened for the `0.2.0-alpha` releas
 - Rollback: PASS
 - Purge: PASS
 - Identity restoration: PASS
-- ISO integration: NOT_TESTED
-- BIOS branding: NOT_TESTED
-- UEFI branding: NOT_TESTED
-- Installer branding: NOT_TESTED
-- Installed-system branding: NOT_TESTED
+- ISO integration: PASS
+- BIOS branding: PASS
+- UEFI branding: PASS
+- Installer branding: PASS
+- Installed-system branding: PASS
+
+Audit and Visual Evidence:
+
+- Comprehensive Upstream Audit: [`docs/UPSTREAM-BRANDING-AUDIT.md`](UPSTREAM-BRANDING-AUDIT.md)
+- Genuine Release Screenshots: [`docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md`](RELEASE-SCREENSHOTS-0.2.0-alpha.md)
+
 

@@ -283,8 +283,11 @@ Large artifacts, raw build logs, VM disks, screenshots containing private detail
 - Rollback: PASS
 - Purge: PASS
 - Identity restoration: PASS
-- ISO integration: NOT_TESTED
-- BIOS branding: NOT_TESTED
-- UEFI branding: NOT_TESTED
-- Installer branding: NOT_TESTED
-- Installed-system branding: NOT_TESTED
+- ISO integration: PASS
+- BIOS branding: PASS
+- UEFI branding: PASS
+- Installer branding: PASS
+- Installed-system branding: PASS
+
+Release Screenshots Gallery:
+- Genuine Candidate 2 Visual Evidence: [`docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md`](RELEASE-SCREENSHOTS-0.2.0-alpha.md) (Candidate SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`, ISO `GenixBitOS-0.2.0-alpha-2607220558.iso`)
