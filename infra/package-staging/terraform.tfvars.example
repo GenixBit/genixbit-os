@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Example terraform.tfvars configuration for GenixBit OS Package Staging Infrastructure
+
+project_id              = "genixbit-staging-project"
+region                  = "asia-south1"
+prefix                  = "genixbit-staging"
+subnet_cidr             = "10.100.0.0/24"
+machine_type            = "e2-medium"
+evidence_retention_days = 30
+kms_key_id              = ""
