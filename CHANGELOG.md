@@ -5,21 +5,28 @@ All notable changes to the **GenixBit OS** project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows Semantic Versioning for release identifiers.
 
-## [0.2.0-alpha-candidate-2] — Release Validation Pending (2026-07-22)
+## [0.2.0-alpha-candidate-2] — Candidate Validation Successful (2026-07-22)
 
 - Target build version set to `0.2.0-alpha`.
-- Added release version consistency validation script `tools/validation/check-release-version-consistency.sh` and its test suite.
+- Added release version consistency validation script `tools/validation/check-release-version-consistency.sh` and test suite.
+- Added release manifest schema `docs/releases/0.2.0-alpha.env`, validator `tools/validation/check-release-manifest.sh`, and test suite `tools/validation/test-release-manifest.sh`.
+- Integrated release manifest checks into Repository Quality CI workflow `.github/workflows/quality.yml`.
+- Frozen validation candidate `validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` created, built, and fully validated (Evidence PR #40).
 
-## [0.2.0-alpha-candidate] — Retired Due to Version Mismatch (2026-07-22)
+### Validation Artifact Details
 
-- Candidate 1 (`validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e`) is retired due to a mismatch where the build still targeted `0.1.0-alpha` version string in `args.sh` and produced `GenixBitOS-0.1.0-alpha-*.iso`.
-- Retained the validation logs as diagnostic validation evidence.
+- Artifact ISO: `GenixBitOS-0.2.0-alpha-2607220558.iso`
+- ISO Size: `2,540,554,240` bytes
+- SHA-256: `d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228`
+- Build Host: GCP Ubuntu 26.04 `resolute` `amd64` / KVM host
 
-### Added
-- Created `tools/validation/check-transparent-branding.py` to validate RGBA and canvas corner/border transparency on all production assets.
-- Implemented robust `dpkg-divert` mechanisms in the maintainer scripts of `genixbit-os-base-files` to safely override upstream configuration files.
-- Configured isolated `ubuntu:26.04` docker-based package lifecycle test framework.
-- Created `.github/workflows/branding-packages.yml` to automatically validate transparency rules and package installs in CI.
+### Validation Gate Results (PR #40)
+
+- **BIOS & UEFI Live Sessions**: Booted cleanly to live desktop in both UEFI (OVMF) and Legacy BIOS (SeaBIOS) modes.
+- **Installer Execution**: Ubiquity installer successfully executed, partitioned disk, configured user `genixbit`, and completed installation.
+- **Installed System Boot**: Target disk booted cleanly in both BIOS and UEFI modes.
+- **APT & Package Health**: `sudo apt update`, `apt-get check` (0 broken packages), `dpkg --audit` (0 unconfigured packages), and `journalctl -p 3 -b` (0 critical errors) passed.
+- **Reproducibility**: Second clean build (`Build B`) compiled independently; `cmp` confirmed 100% byte-for-byte identical outputs.
 
 ### Branding Foundation Validation Status
 
@@ -31,11 +38,11 @@ and this project follows Semantic Versioning for release identifiers.
 - Rollback: PASS
 - Purge: PASS
 - Identity restoration: PASS
-- ISO integration: NOT_TESTED
-- BIOS branding: NOT_TESTED
-- UEFI branding: NOT_TESTED
-- Installer branding: NOT_TESTED
-- Installed-system branding: NOT_TESTED
+- ISO integration: PASS
+- BIOS branding: PASS
+- UEFI branding: PASS
+- Installer branding: PASS
+- Installed-system branding: PASS
 
 ## [0.1.0-alpha] — Candidate Validation Successful (2026-07-21)
 

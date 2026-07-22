@@ -69,13 +69,13 @@ See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VA
 - [x] Approve the official GenixBit OS logo and visual system.
 - [x] Create `genixbit-os-base-files` source scaffolding and identity templates.
 - [x] Build the `genixbit-os-base-files` Debian package successfully.
-- [ ] Integrate the package into the ISO build pipeline.
+- [x] Integrate the package into the ISO build pipeline.
 - [x] Test clean installation, ownership, upgrade and rollback behavior.
 - [x] Create `genixbit-os-theme`.
 - [x] Create `genixbit-os-wallpapers`.
 - [x] Create `genixbit-os-installer-config`.
-- [ ] Replace user-facing boot, live-session, installer, desktop and support branding.
-- [ ] Ensure `/etc/os-release`, issue files, URLs and settings identify GenixBit OS.
+- [x] Replace user-facing boot, live-session, installer, desktop and support branding.
+- [x] Ensure `/etc/os-release`, issue files, URLs and settings identify GenixBit OS.
 - [ ] Audit remaining upstream terms as legal notices, technical dependencies or migration defects.
 - [ ] Produce genuine screenshots from a validated GenixBit build.
 
@@ -88,16 +88,17 @@ See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VA
 - Rollback: PASS
 - Purge: PASS
 - Identity restoration: PASS
-- ISO integration: NOT_TESTED
-- BIOS branding: NOT_TESTED
-- UEFI branding: NOT_TESTED
-- Installer branding: NOT_TESTED
-- Installed-system branding: NOT_TESTED
+- ISO integration: PASS
+- BIOS branding: PASS
+- UEFI branding: PASS
+- Installer branding: PASS
+- Installed-system branding: PASS
 
-**Active Validation Candidate:**
+**Validated 0.2.0-alpha Candidate 2:**
 - Candidate branch: `validation/0.2.0-alpha-candidate-2`
-- Candidate SHA: *Pending*
-- Preparation tracking branch: `test/validate-0.2.0-alpha-candidate-2-complete`
+- Candidate SHA: `88a1550a9129a80ffd2c4cf73838122020a782cb`
+- Evidence PR: #40
+- Status: **PASS** (Release validation complete)
 
 **Retired Diagnostic Candidate 1:**
 - Candidate branch: `validation/0.2.0-alpha-candidate`
