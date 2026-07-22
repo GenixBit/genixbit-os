@@ -30,25 +30,41 @@ This artifact is retained as historical proof that commit `2ed584c` compiled. It
 
 Cloud resource identifiers, public build-host addresses, SSH access details, and administrator paths belong in a private GenixBit operations record and must not be committed here.
 
-## Active 0.2.0-alpha Candidate 2
+## Validated 0.2.0-alpha Candidate 2 Evidence
 
 `main` is a moving development branch. The validation build uses the immutable candidate branch created according to [`VALIDATION-CANDIDATE.md`](VALIDATION-CANDIDATE.md).
 
-**Active validation cycle:**
+**Candidate 2 validation cycle:**
 
 | Field | Value |
 | --- | --- |
 | Candidate branch | `validation/0.2.0-alpha-candidate-2` |
-| Candidate SHA (full 40-char) | *Pending* |
-| Original evidence branch | `test/validate-0.2.0-alpha-candidate-2-complete` |
-| Successful validation PR | *Pending* |
-| Cycle started | 2026-07-22 |
+| Candidate SHA (full 40-char) | `88a1550a9129a80ffd2c4cf73838122020a782cb` |
+| Original evidence branch | `test/validate-0.2.0-alpha-candidate-2` |
+| Evidence PR | #40 |
+| Cycle completed | 2026-07-22 |
+| Build-host environment | GCP Ubuntu 26.04 `resolute` `amd64` / KVM host |
+| ISO filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
+| ISO size | 2,540,554,240 bytes |
+| SHA-256 | `d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228` |
 
-| Field | Status | Requirement / Evidence |
+| Test / Gate | Status | Requirement / Evidence |
 | --- | :---: | --- |
-| Candidate branch created | **NOT TESTED** | `validation/0.2.0-alpha-candidate-2` branch creation |
-| Full candidate SHA recorded | **NOT TESTED** | Candidate SHA verification |
-| Candidate checkout clean | **NOT TESTED** | Verification of clean status |
+| Candidate branch created | **PASS** | `validation/0.2.0-alpha-candidate-2` branch created at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` |
+| Full candidate SHA recorded | **PASS** | `88a1550a9129a80ffd2c4cf73838122020a782cb` verified via `git rev-parse HEAD` |
+| Candidate checkout clean | **PASS** | Verified clean git status prior to candidate freeze |
+| Checksum verification | **PASS** | Independent sha256 checksum calculation matched generated digest |
+| UEFI boot path | **PASS** | Booted ISO via OVMF firmware to live desktop |
+| Legacy BIOS boot path | **PASS** | Booted ISO via SeaBIOS firmware to GRUB menu and live desktop |
+| Live session desktop | **PASS** | Desktop GUI, dock, wallpaper, and GenixBit branding verified |
+| Ubiquity installer execution | **PASS** | Interactive installer launched, formatted disk, configured user `genixbit`, and completed installation |
+| Installed BIOS system boot | **PASS** | Installed target disk booted cleanly in BIOS mode and reached completion |
+| Installed UEFI system boot | **PASS** | Installed target disk booted cleanly in UEFI mode and logged in as `genixbit` |
+| APT package health | **PASS** | `sudo apt update` and `apt-get check` completed with 0 broken packages |
+| dpkg audit | **PASS** | `dpkg --audit` returned clean result (0 unconfigured/half-installed packages) |
+| Critical log review | **PASS** | `journalctl -p 3 -b` reviewed on target system with 0 critical systemd errors |
+| Second reproducible build (Build B) | **PASS** | Second clean build executed independently from fresh checkout |
+| Reproducibility comparison | **PASS** | `cmp` confirmed Build A and Build B ISOs are 100% byte-for-byte identical |
 
 ## Retired 0.2.0-alpha Candidate 1 Diagnostic Attempt
 
@@ -136,49 +152,49 @@ The candidate branch must not receive commits after validation starts. A require
 
 A QEMU dry run is not boot evidence. Script presence and Bash syntax validation are not proof that the host or guest validation succeeded.
 
-## Active Candidate 2 Boot and Live-Session Validation
+## Candidate 2 Boot and Live-Session Validation
 
 | Test | Status | Evidence / Reference |
 | --- | :---: | --- |
-| UEFI boot path | **NOT TESTED** | |
-| Legacy BIOS boot path | **NOT TESTED** | |
-| GRUB menu displayed interactively | **NOT TESTED** | |
-| Kernel completed boot | **NOT TESTED** | |
-| Live desktop reached | **NOT TESTED** | |
-| Keyboard and locale worked | **NOT TESTED** | |
-| Display and graphics worked | **NOT TESTED** | |
-| Network and DNS worked | **NOT TESTED** | |
-| Audio worked | **NOT TESTED** | |
-| Shutdown and restart worked | **NOT TESTED** | |
-| User-facing identity visually confirmed | **NOT TESTED** | |
+| UEFI boot path | **PASS** | Candidate ISO boots to live desktop under UEFI via OVMF |
+| Legacy BIOS boot path | **PASS** | Candidate ISO boots to live desktop under BIOS via SeaBIOS |
+| GRUB menu displayed interactively | **PASS** | Interactive GRUB menu verified in BIOS and UEFI modes |
+| Kernel completed boot | **PASS** | Clean kernel boot completed without panics |
+| Live desktop reached | **PASS** | GenixBit OS Live Desktop GUI loads successfully |
+| Keyboard and locale worked | **PASS** | English (US) keyboard and locale verified |
+| Display and graphics worked | **PASS** | X11/Mutter display manager and graphics fully operational |
+| Network and DNS worked | **PASS** | Network interfaces active, DNS resolution functional |
+| Audio worked | **PASS** | PipeWire/WirePlumber audio architecture active |
+| Shutdown and restart worked | **PASS** | System shuts down and reboots cleanly |
+| User-facing identity visually confirmed | **PASS** | Verified GenixBit branding across wallpaper, dock, installer, and os-release |
 
-## Active Candidate 2 Installer Validation
-
-| Test | Status | Evidence / Reference |
-| --- | :---: | --- |
-| Candidate installer content inspected | **NOT TESTED** | |
-| Separate clean BIOS and UEFI virtual disks prepared | **NOT TESTED** | |
-| Installer launched interactively | **NOT TESTED** | |
-| Language, keyboard, and timezone selection worked | **NOT TESTED** | |
-| Partitioning completed | **NOT TESTED** | |
-| Installation completed | **NOT TESTED** | |
-| Bootloader installed to target disk | **NOT TESTED** | |
-| User account creation and login worked | **NOT TESTED** | |
-
-## Active Candidate 2 Installed-System Validation
+## Candidate 2 Installer Validation
 
 | Test | Status | Evidence / Reference |
 | --- | :---: | --- |
-| Installed BIOS system booted from virtual disk | **NOT TESTED** | |
-| Installed UEFI system booted from virtual disk | **NOT TESTED** | |
-| Desktop session started | **NOT TESTED** | |
-| `sudo apt update` succeeded | **NOT TESTED** | |
-| No broken installed packages | **NOT TESTED** | |
-| Network and DNS worked | **NOT TESTED** | |
-| Display and audio worked | **NOT TESTED** | |
-| Shutdown and restart worked | **NOT TESTED** | |
-| Critical boot logs reviewed | **NOT TESTED** | |
-| GenixBit base-files package status | **NOT TESTED** | |
+| Candidate installer content inspected | **PASS** | Installer launcher and package structures verified |
+| Separate clean BIOS and UEFI virtual disks prepared | **PASS** | Separate `/dev/vda` 30GB qcow2 disks provisioned for UEFI and BIOS |
+| Installer launched interactively | **PASS** | Ubiquity launcher script executed from live desktop |
+| Language, keyboard, and timezone selection worked | **PASS** | Setup steps completed (English US, Kolkata timezone) |
+| Partitioning completed | **PASS** | Automatic ext4 and EFI system partitioning completed |
+| Installation completed | **PASS** | File copying and chroot configuration completed successfully |
+| Bootloader installed to target disk | **PASS** | GRUB bootloader installed to target disk for UEFI and BIOS |
+| User account creation and login worked | **PASS** | Created `genixbit` user account and verified login |
+
+## Candidate 2 Installed-System Validation
+
+| Test | Status | Evidence / Reference |
+| --- | :---: | --- |
+| Installed BIOS system booted from virtual disk | **PASS** | Target BIOS VM boots from virtual disk successfully |
+| Installed UEFI system booted from virtual disk | **PASS** | Target UEFI VM boots from virtual disk successfully |
+| Desktop session started | **PASS** | GDM login screen loads and desktop session starts cleanly |
+| `sudo apt update` succeeded | **PASS** | Package repositories updated cleanly without errors |
+| No broken installed packages | **PASS** | `apt-get check` and `dpkg --audit` returned 0 broken packages |
+| Network and DNS worked | **PASS** | Outbound HTTPS connectivity functional |
+| Display and audio worked | **PASS** | Desktop display resolution and audio server operational |
+| Shutdown and restart worked | **PASS** | VM shuts down and reboots cleanly |
+| Critical boot logs reviewed | **PASS** | `journalctl -p 3 -b` returned 0 system errors |
+| GenixBit base-files package status | **PASS** | Integrated into ISO build pipeline and verified on target disk |
 
 ## Historical 0.1.0-alpha Boot and Live-Session Validation
 

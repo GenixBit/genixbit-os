@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!NOTE]
-> **Early Alpha (`0.2.0-alpha`)**: the frozen candidate `validation/0.2.0-alpha-candidate-2` is currently undergoing release validation. The historical `0.1.0-alpha` candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` has successfully completed overall release validation. The candidate `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` is retired due to a target build version mismatch.
+> **Release Validation Complete (`0.2.0-alpha`)**: GenixBit OS `0.2.0-alpha` candidate 2 (`validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`) successfully completed release validation (Evidence PR #40, artifact `GenixBitOS-0.2.0-alpha-2607220558.iso`, SHA-256 `d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228`). The historical `0.1.0-alpha` candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` remains recorded as historical validation. Candidate 1 `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` is retired due to target build version mismatch.
 
 ## Build with AI. Own your environment.
 
@@ -24,7 +24,7 @@ GenixBit OS currently uses:
 - **Build system and layout**: derived from AnduinOS 2;
 - **License**: GPL-3.0 for covered source;
 - **Current version**: `0.2.0-alpha`;
-- **Current release state**: 0.2.0-alpha candidate validation preparation; complete GenixBit identity-package and runtime-branding integration is active.
+- **Current release state**: 0.2.0-alpha validation complete; signed GenixBit package and update infrastructure is the next active phase.
 
 The source retains mandatory upstream attribution. See [`UPSTREAM.md`](UPSTREAM.md), [`LICENSE`](LICENSE) and [`OSS.md`](OSS.md).
 
@@ -74,16 +74,17 @@ Read:
 | --- | --- | --- |
 | Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM tooling are present |
 | Historical ISO compilation | **PASS** | commit `2ed584c` generated the recorded ISO, size and checksum |
-| Frozen validation candidate branch | **PASS** | `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` is fully validated |
-| First candidate host attempt | **FAIL** | macOS `arm64` was correctly rejected; PR #17 records the blocker but is not successful validation |
+| Historical 0.1.0 candidate branch | **PASS** | `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` is fully validated |
+| Candidate 1 0.2.0 branch (retired) | **FAIL** | `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` retired due to target version mismatch |
+| Candidate 2 0.2.0 branch (validated) | **PASS** | `validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` is fully validated (PR #40) |
 | Candidate clean ISO build | **PASS** | Build A successfully compiled on GCE Ubuntu 26.04 `resolute` amd64 |
 | Candidate BIOS/UEFI runtime validation | **PASS** | Verified boot and execution via run-qemu.sh |
-| Live session and installer | **PASS** | Interactive live sessions and Calamares installer execution validated |
+| Live session and installer | **PASS** | Interactive live sessions and Calamares/Ubiquity installer execution validated |
 | Installed system and APT validation | **PASS** | Clean boot from target disk and verified apt update & system package health |
-| Reproducibility | **PASS** | Diffoscope verified Build A and Build B ISOs are 100% bit-for-bit identical |
+| Reproducibility | **PASS** | cmp verified Build A and Build B ISOs are 100% byte-for-byte identical |
 | Release-evidence CI gate | **Active** | validation PRs must set every required machine-readable release gate to `PASS` |
 | `genixbit-os-base-files` | **PASS** | identity templates and Debian package metadata exist; build/install/upgrade evidence verified |
-| Complete GenixBit runtime branding | **PARTIAL** | user-visible upstream branding may remain during migration; branding packages are validated |
+| Complete GenixBit runtime branding | **PASS** | GenixBit OS identity validated across boot, live session, installer, and installed system |
 | Product website preview | **Active** | public preview recorded at `os.genixbit.com` |
 | Documentation preview | **Active** | public preview recorded at `docs.os.genixbit.com` |
 | Package repository | **Not active** | `packages.os.genixbit.com` is a status page only; signing and APT infrastructure remain pending |
@@ -102,11 +103,11 @@ Read:
 - Rollback: PASS
 - Purge: PASS
 - Identity restoration: PASS
-- ISO integration: NOT_TESTED
-- BIOS branding: NOT_TESTED
-- UEFI branding: NOT_TESTED
-- Installer branding: NOT_TESTED
-- Installed-system branding: NOT_TESTED
+- ISO integration: PASS
+- BIOS branding: PASS
+- UEFI branding: PASS
+- Installer branding: PASS
+- Installed-system branding: PASS
 
 Evidence and procedures:
 
