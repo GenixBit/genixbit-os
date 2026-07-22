@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'fix/**'
       - 'feat/**'
       - 'test/**'
   pull_request:
@@ -22,35 +23,34 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Install ShellCheck & JSON tools
+      - name: Install ShellCheck, GnuPG, APT and Packaging tools
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y shellcheck jq
+          sudo apt-get install -y shellcheck jq gnupg gpgv apt-utils dpkg-dev devscripts lintian python3-jsonschema
 
       - name: Validate shell syntax for repository tooling
         run: |
+          bash -n tools/repository/lib/safety.sh
           bash -n tools/repository/*.sh
+          bash -n tests/repository/*.sh
 
-      - name: Run ShellCheck on repository tooling
+      - name: Run ShellCheck on repository tooling & tests
         run: |
+          shellcheck tools/repository/lib/safety.sh
           shellcheck tools/repository/*.sh
+          shellcheck tests/repository/*.sh
 
-      - name: Test staging repository initialization & safety
+      - name: Test path safety library rules
         run: |
-          TMP_REPO="$(mktemp -d)"
-          bash tools/repository/init-staging-repository.sh --repo-dir "$TMP_REPO"
-          bash tools/repository/validate-repository-layout.sh --repo-dir "$TMP_REPO"
-          bash tools/repository/build-package-index.sh --repo-dir "$TMP_REPO" --channel resolute-alpha
-          bash tools/repository/promote-package.sh --repo-dir "$TMP_REPO" --package genixbit-os-base-files --from-channel resolute-alpha --to-channel resolute-testing
-          bash tools/repository/rollback-snapshot.sh --repo-dir "$TMP_REPO" --channel resolute-testing --snapshot-id 20260722
-          rm -rf "$TMP_REPO"
+          bash tests/repository/test-path-safety.sh
 
-      - name: Verify path safety enforcement
+      - name: Run negative security tests
         run: |
-          if bash tools/repository/init-staging-repository.sh --repo-dir / 2>/dev/null; then
-            echo "Error: Allowed dangerous root path!" >&2
-            exit 1
-          fi
+          bash tests/repository/test-negative-security.sh
+
+      - name: Run end-to-end signed repository lifecycle test
+        run: |
+          bash tests/repository/test-signed-repository-lifecycle.sh
 
       - name: Validate JSON manifest schemas
         run: |
@@ -60,5 +60,12 @@ jobs:
         run: |
           if find . -type f \( -name "*.pem" -o -name "*.key" -o -name "*.sec" -o -name "secring.gpg" \) -not -path "./.git/*" | grep .; then
             echo "Error: Detected committed private key file!" >&2
+            exit 1
+          fi
+
+      - name: Verify absence of tracked build artifacts (.deb, .dsc, .key, .pgp)
+        run: |
+          if git ls-files | grep -E '\.(deb|dsc|changes|buildinfo|key|sec|pem)$'; then
+            echo "Error: Detected tracked build artifacts in git repository!" >&2
             exit 1
           fi
