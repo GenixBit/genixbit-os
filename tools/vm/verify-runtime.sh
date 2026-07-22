@@ -119,7 +119,12 @@ make clean
 make bootstrap
 make
 
-ISO_PATH=$(find dist -maxdepth 1 -type f -name 'GenixBitOS-0.1.0-alpha-*.iso' -printf '%T@ %p\n' \
+if [[ -f args.sh ]]; then
+    TARGET_BUILD_VERSION=$(grep -E '^export TARGET_BUILD_VERSION=' args.sh | cut -d'"' -f2)
+else
+    TARGET_BUILD_VERSION="0.1.0-alpha"
+fi
+ISO_PATH=$(find dist -maxdepth 1 -type f -name "GenixBitOS-${TARGET_BUILD_VERSION}-*.iso" -printf '%T@ %p\n' \
     | sort -n \
     | tail -n 1 \
     | cut -d' ' -f2-)
