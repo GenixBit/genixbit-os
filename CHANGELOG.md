@@ -11,6 +11,8 @@ and this project follows Semantic Versioning for release identifiers.
 - Added release version consistency validation script `tools/validation/check-release-version-consistency.sh` and test suite.
 - Added release manifest schema `docs/releases/0.2.0-alpha.env`, validator `tools/validation/check-release-manifest.sh`, and test suite `tools/validation/test-release-manifest.sh`.
 - Integrated release manifest checks into Repository Quality CI workflow `.github/workflows/quality.yml`.
+- Completed comprehensive upstream branding audit `docs/UPSTREAM-BRANDING-AUDIT.md` and audit validation tools.
+- Published genuine Candidate 2 release screenshots gallery `docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md` and WebP assets under `docs/assets/releases/0.2.0-alpha/`.
 - Frozen validation candidate `validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` created, built, and fully validated (Evidence PR #40).
 
 ### Validation Artifact Details
