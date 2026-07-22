@@ -1,6 +1,6 @@
 # GenixBit OS Baseline Testing Record
 
-This document records evidence for `0.1.0-alpha`. A status is `PASS` only when the specific activity was directly performed and recorded. Package presence, configuration files, manifests, dry runs, or bootloader files do not by themselves prove that a live desktop, installer, or installed system worked interactively.
+This document records evidence for `0.1.0-alpha` and `0.2.0-alpha` release validation. A status is `PASS` only when the specific activity was directly performed and recorded. Package presence, configuration files, manifests, dry runs, or bootloader files do not by themselves prove that a live desktop, installer, or installed system worked interactively.
 
 The machine-readable summary is maintained in [`VALIDATION-STATUS.env`](VALIDATION-STATUS.env). Candidate-validation pull requests must pass the release-evidence CI gate before merge.
 
@@ -30,7 +30,7 @@ This artifact is retained as historical proof that commit `2ed584c` compiled. It
 
 Cloud resource identifiers, public build-host addresses, SSH access details, and administrator paths belong in a private GenixBit operations record and must not be committed here.
 
-## Active 0.2.0-alpha Candidate
+## Active 0.2.0-alpha Candidate 2
 
 `main` is a moving development branch. The validation build uses the immutable candidate branch created according to [`VALIDATION-CANDIDATE.md`](VALIDATION-CANDIDATE.md).
 
@@ -38,10 +38,37 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 
 | Field | Value |
 | --- | --- |
+| Candidate branch | `validation/0.2.0-alpha-candidate-2` |
+| Candidate SHA (full 40-char) | *Pending* |
+| Original evidence branch | `test/validate-0.2.0-alpha-candidate-2-complete` |
+| Successful validation PR | *Pending* |
+| Cycle started | 2026-07-22 |
+
+| Field | Status | Requirement / Evidence |
+| --- | :---: | --- |
+| Candidate branch created | **NOT TESTED** | `validation/0.2.0-alpha-candidate-2` branch creation |
+| Full candidate SHA recorded | **NOT TESTED** | Candidate SHA verification |
+| Candidate checkout clean | **NOT TESTED** | Verification of clean status |
+
+## Retired 0.2.0-alpha Candidate 1 Diagnostic Attempt
+
+> [!WARNING]
+> **Candidate 1 is retired as a FAIL due to target build version mismatch and post-freeze modifications:**
+> - The candidate was intended to represent the `0.2.0-alpha` release;
+> - However, `args.sh` still specified `TARGET_BUILD_VERSION="0.1.0-alpha"`;
+> - The generated ISO filename was identified as `GenixBitOS-0.1.0-alpha-2607212122.iso`;
+> - Build-system fixes (re-enabling umask 022, permission adjustments for GPG keyrings, etc.) were merged after candidate 1 was frozen;
+> - The runtime evidence is retained as diagnostic validation evidence only;
+> - Candidate 1 cannot be promoted as the `0.2.0-alpha` release.
+
+**Retired candidate 1 validation cycle:**
+
+| Field | Value |
+| --- | --- |
 | Candidate branch | `validation/0.2.0-alpha-candidate` |
 | Candidate SHA (full 40-char) | `1df86702914fee558bc71ca3e2d3b013f242399e` |
 | Original evidence branch | `test/prepare-0.2.0-alpha-validation` |
-| Successful validation PR | #37 |
+| Diagnostic validation PR | #37 |
 | Cycle started | 2026-07-22 |
 
 | Field | Status | Requirement / Evidence |
@@ -109,7 +136,51 @@ The candidate branch must not receive commits after validation starts. A require
 
 A QEMU dry run is not boot evidence. Script presence and Bash syntax validation are not proof that the host or guest validation succeeded.
 
-## Candidate Boot and Live-Session Validation
+## Active Candidate 2 Boot and Live-Session Validation
+
+| Test | Status | Evidence / Reference |
+| --- | :---: | --- |
+| UEFI boot path | **NOT TESTED** | |
+| Legacy BIOS boot path | **NOT TESTED** | |
+| GRUB menu displayed interactively | **NOT TESTED** | |
+| Kernel completed boot | **NOT TESTED** | |
+| Live desktop reached | **NOT TESTED** | |
+| Keyboard and locale worked | **NOT TESTED** | |
+| Display and graphics worked | **NOT TESTED** | |
+| Network and DNS worked | **NOT TESTED** | |
+| Audio worked | **NOT TESTED** | |
+| Shutdown and restart worked | **NOT TESTED** | |
+| User-facing identity visually confirmed | **NOT TESTED** | |
+
+## Active Candidate 2 Installer Validation
+
+| Test | Status | Evidence / Reference |
+| --- | :---: | --- |
+| Candidate installer content inspected | **NOT TESTED** | |
+| Separate clean BIOS and UEFI virtual disks prepared | **NOT TESTED** | |
+| Installer launched interactively | **NOT TESTED** | |
+| Language, keyboard, and timezone selection worked | **NOT TESTED** | |
+| Partitioning completed | **NOT TESTED** | |
+| Installation completed | **NOT TESTED** | |
+| Bootloader installed to target disk | **NOT TESTED** | |
+| User account creation and login worked | **NOT TESTED** | |
+
+## Active Candidate 2 Installed-System Validation
+
+| Test | Status | Evidence / Reference |
+| --- | :---: | --- |
+| Installed BIOS system booted from virtual disk | **NOT TESTED** | |
+| Installed UEFI system booted from virtual disk | **NOT TESTED** | |
+| Desktop session started | **NOT TESTED** | |
+| `sudo apt update` succeeded | **NOT TESTED** | |
+| No broken installed packages | **NOT TESTED** | |
+| Network and DNS worked | **NOT TESTED** | |
+| Display and audio worked | **NOT TESTED** | |
+| Shutdown and restart worked | **NOT TESTED** | |
+| Critical boot logs reviewed | **NOT TESTED** | |
+| GenixBit base-files package status | **NOT TESTED** | |
+
+## Historical 0.1.0-alpha Boot and Live-Session Validation
 
 | Test | Status | Missing evidence |
 | --- | :---: | --- |
@@ -125,7 +196,7 @@ A QEMU dry run is not boot evidence. Script presence and Bash syntax validation 
 | Shutdown and restart worked | **PASS** | System shut down and restarted cleanly via systemd |
 | User-facing identity visually confirmed | **PASS** | Verified AnduinOS user branding and layout |
 
-## Installer Validation
+## Historical 0.1.0-alpha Installer Validation
 
 | Test | Status | Missing evidence |
 | --- | :---: | --- |
@@ -138,7 +209,7 @@ A QEMU dry run is not boot evidence. Script presence and Bash syntax validation 
 | Bootloader installed to target disk | **PASS** | GRUB target installation completed for both UEFI and BIOS |
 | User account creation and login worked | **PASS** | Initial user account created and password encryption validated |
 
-## Installed-System Validation
+## Historical 0.1.0-alpha Installed-System Validation
 
 | Test | Status | Missing evidence |
 | --- | :---: | --- |

@@ -5,7 +5,15 @@ All notable changes to the **GenixBit OS** project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows Semantic Versioning for release identifiers.
 
-## [0.2.0-alpha-candidate] — Branding Foundation Verified
+## [0.2.0-alpha-candidate-2] — Release Validation Pending (2026-07-22)
+
+- Target build version set to `0.2.0-alpha`.
+- Added release version consistency validation script `tools/validation/check-release-version-consistency.sh` and its test suite.
+
+## [0.2.0-alpha-candidate] — Retired Due to Version Mismatch (2026-07-22)
+
+- Candidate 1 (`validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e`) is retired due to a mismatch where the build still targeted `0.1.0-alpha` version string in `args.sh` and produced `GenixBitOS-0.1.0-alpha-*.iso`.
+- Retained the validation logs as diagnostic validation evidence.
 
 ### Added
 - Created `tools/validation/check-transparent-branding.py` to validate RGBA and canvas corner/border transparency on all production assets.

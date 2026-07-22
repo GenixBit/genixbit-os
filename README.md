@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!NOTE]
-> **Early Alpha (`0.2.0-alpha`)**: the frozen candidate `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` is currently undergoing release validation. The historical `0.1.0-alpha` candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` has successfully completed overall release validation.
+> **Early Alpha (`0.2.0-alpha`)**: the frozen candidate `validation/0.2.0-alpha-candidate-2` is currently undergoing release validation. The historical `0.1.0-alpha` candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` has successfully completed overall release validation. The candidate `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` is retired due to a target build version mismatch.
 
 ## Build with AI. Own your environment.
 
