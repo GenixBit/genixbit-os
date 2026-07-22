@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GenixBitStagingEvidenceManifest",
+  "description": "Schema for GenixBit OS package staging final evidence manifest.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "staging_run_id",
+    "source_commit",
+    "project_id",
+    "region",
+    "zone",
+    "endpoint_class",
+    "evidence_timestamp",
+    "overall_status",
+    "stages"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "staging_run_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"
+    },
+    "region": {
+      "type": "string"
+    },
+    "zone": {
+      "type": "string"
+    },
+    "endpoint_class": {
+      "type": "string",
+      "enum": ["STAGING_PRIVATE_HTTPS", "STAGING_INTERNAL_DNS"]
+    },
+    "evidence_timestamp": {
+      "type": "string"
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["PASS", "OPERATIONS_IMPLEMENTED_NOT_DEPLOYED", "FAILED"]
+    },
+    "stages": {
+      "type": "object",
+      "required": [
+        "repository_publication",
+        "https",
+        "apt_update",
+        "install",
+        "upgrade",
+        "promotion",
+        "snapshot",
+        "rollback",
+        "tamper_rejection",
+        "recovery_drill",
+        "revocation_drill"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "repository_publication": { "$ref": "#/definitions/stageSummary" },
+        "https": { "$ref": "#/definitions/stageSummary" },
+        "apt_update": { "$ref": "#/definitions/stageSummary" },
+        "install": { "$ref": "#/definitions/stageSummary" },
+        "upgrade": { "$ref": "#/definitions/stageSummary" },
+        "promotion": { "$ref": "#/definitions/stageSummary" },
+        "snapshot": { "$ref": "#/definitions/stageSummary" },
+        "rollback": { "$ref": "#/definitions/stageSummary" },
+        "tamper_rejection": { "$ref": "#/definitions/stageSummary" },
+        "recovery_drill": { "$ref": "#/definitions/stageSummary" },
+        "revocation_drill": { "$ref": "#/definitions/stageSummary" }
+      }
+    }
+  },
+  "definitions": {
+    "stageSummary": {
+      "type": "object",
+      "required": ["status", "result_sha256", "verified_at"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["PASS", "SIMULATED", "FAILED"]
+        },
+        "result_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "verified_at": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
