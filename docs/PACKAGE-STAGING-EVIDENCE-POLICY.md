@@ -1,68 +1,90 @@
-# GenixBit OS Package Staging Evidence Policy
+# GenixBit OS Package Staging Evidence & Anti-Fabrication Policy
 
-This document defines the strict evidence integrity requirements for GenixBit OS Package Staging verification.
+## 1. Overview & Core Anti-Fabrication Mandate
 
----
+This policy defines the strict, machine-verifiable requirements for evidence collection, command transcripts, and operational state verification in GenixBit OS package staging.
 
-## 1. Core Evidence Rule
-
-A **`PASS`** status marker or stage evidence record may be generated **only after**:
-1. The corresponding stage command executed;
-2. The command returned zero (success exit code);
-3. Expected output state was independently verified by assertion;
-4. A machine-readable, checksummed stage-result record was created;
-5. The result record passed JSON schema validation and checksum verification;
-6. The evidence collector verified that all required stage-result records exist and match the current `STAGING_RUN_ID` and Git `source_commit`.
-
-**Unconditional, simulated, or hardcoded PASS statuses in production operational scripts are strictly prohibited.**
+> [!IMPORTANT]
+> **Anti-Fabrication Rule**: A `PASS` status marker MUST NEVER be printed or assigned unconditionally. Status markers (`STAGING_<STAGE>=PASS`) may ONLY be emitted after:
+> 1. The underlying command executes on the target environment (or verified local test path).
+> 2. The command returns a zero exit code (or expected non-zero code for negative tests).
+> 3. Observed outputs match expected values exactly (`expected == actual`).
+> 4. A stage-result JSON file (`<stage>-result.json`) is recorded with command transcripts and checksummed observations.
+> 5. The stage-result file is verified against its `result_sha256` payload hash and schema.
 
 ---
 
-## 2. Required Stage Results
+## 2. Stage Result Manifest Model
 
-Every staging run must generate twelve separate, machine-readable stage-result JSON records:
+Each of the **11 operational stages** must produce an immutable, checksummed `<stage>-result.json` file in `$EVIDENCE_OUT_DIR`:
 
-| Stage Name | Result File Name | Verification Criteria |
-| :--- | :--- | :--- |
-| **repository_publication** | `repository-publication-result.json` | Atomic symlink switch to `/var/srv/genixbit-repository/releases/<release-id>/` verified. |
-| **https** | `https-validation-result.json` | TLS handshake, cert SAN, CA chain, and `https://` endpoint verified. |
-| **apt_update** | `apt-update-result.json` | `apt-get update` against `InRelease` returned 0 without trust errors. |
-| **install** | `install-result.json` | Package `1.0.0` installed and installed version verified via `dpkg-query`. |
-| **upgrade** | `upgrade-result.json` | Package `1.0.1` upgraded via APT and verified via `dpkg-query` & `apt-get check`. |
-| **promotion** | `promotion-result.json` | Package promoted to `resolute-testing`, signed, and client policy verified. |
-| **snapshot** | `snapshot-result.json` | Snapshot created, manifest verified, package/index checksums matched. |
-| **rollback** | `rollback-result.json` | Restored snapshot published, signed, and client policy matched. |
-| **tamper_rejection** | `tamper-result.json` | Tampered metadata rejected by client APT with explicit trust failure. |
-| **recovery_drill** | `recovery-result.json` | Signing key recovered from encrypted backup into fresh GNUPGHOME. |
-| **revocation_drill** | `revocation-result.json` | Revoked key published, and client APT rejected metadata signed by revoked key. |
-| **cleanup** | `cleanup-result.json` | Saved destroy plan executed and run-specific resources verified absent. |
+1. `repository-publication-result.json`
+2. `https-result.json`
+3. `apt-update-result.json`
+4. `install-result.json`
+5. `upgrade-result.json`
+6. `promotion-result.json`
+7. `snapshot-result.json`
+8. `rollback-result.json`
+9. `tamper-rejection-result.json`
+10. `recovery-drill-result.json`
+11. `revocation-drill-result.json`
+
+### Terminal Cleanup Record
+In addition to the 11 operational validation stages, infrastructure teardown produces a separate mandatory terminal record:
+- `cleanup-result.json`
+
+Final run closure is `PASS` **only when** both the 11-stage operational validation manifest AND the cleanup terminal manifest pass.
 
 ---
 
-## 3. Mandatory Stage Record Schema
+## 3. Required Fields in Stage Result Records
 
-Every stage-result record MUST contain:
+Every `<stage>-result.json` object MUST contain:
+
 - `schema_version`: `"1.0.0"`
-- `staging_run_id`: Matching active run ID
-- `source_commit`: Matching Git HEAD commit SHA (40 hex chars)
+- `staging_run_id`: Matching active `$STAGING_RUN_ID`
+- `source_commit`: 40-character hex commit SHA
 - `stage`: Stage identifier string
-- `started_at`: ISO 8601 UTC timestamp
-- `completed_at`: ISO 8601 UTC timestamp
-- `status`: `"PASS"` (or `"SIMULATED"` in unit test mode)
-- `command_summary`: Execution command string
-- `verified_conditions`: Array of verified assertion strings
-- `public_metadata`: Non-sensitive key/cert fingerprints
-- `artifact_checksums`: Map of filenames to SHA-256 hashes
-- `result_sha256`: SHA-256 hash of record fields
+- `started_at` & `completed_at`: ISO 8601 UTC timestamps
+- `status`: `"PASS"`, `"SIMULATED"`, or `"FAILED"`
+- `executed_commands`: Array of command transcript summary objects
+- `observations`: Non-empty array of observation objects
+- `artifact_checksums`: Object mapping artifact paths/names to SHA-256 hex strings
+- `public_metadata`: Object containing public metadata (strictly non-sensitive)
+- `result_sha256`: SHA-256 hash of compact JSON payload (calculated without `result_sha256`)
 
 ---
 
-## 4. Forbidden Data Fields
+## 4. Observation Structure & Verification Rules
 
-Under NO circumstances may any evidence file contain:
-- Private keys (`.pem`, `.key`, `.sec`, OpenPGP secret packets)
-- Key passphrases or authorization tokens
-- Raw Terraform state files
-- SSH private keys
-- GCP Secret Manager secret values
-- Personal usernames or billing account numbers
+Each object in `observations` MUST satisfy:
+
+- `name`: Non-empty string; MUST NOT be a placeholder (`placeholder`, `dummy`, `todo`, `tbd`, `none`, `null`, `test_value`, `0000000000000000000000000000000000000000`).
+- `expected` & `actual`: Must be non-empty, non-placeholder, and MUST match (`expected == actual`).
+- `verification_command`: Non-empty command string used to make the observation; MUST NOT be a trivial command (`echo`, `true`, `:`, `exit 0`).
+- `verification_exit_code`: Integer exit code.
+- `observed_at`: ISO 8601 timestamp.
+- `observer`: Host role (`host`, `client`, `verifier`, `operator`).
+- `observation_sha256`: SHA-256 hash of `name:expected:actual:verification_command:verification_exit_code:observer`.
+
+---
+
+## 5. Command Transcript Integrity
+
+Command execution helpers capture and redact command transcripts into `$EVIDENCE_OUT_DIR/transcripts/<cmd_id>.json`:
+- Full stdout/stderr captured.
+- PGP private keys, passphrases, tokens, and secrets redacted automatically.
+- Unrecoverable secret exposure triggers immediate execution abort.
+- Transcripts are referenced by SHA-256 in the `executed_commands` array.
+- Transcripts are excluded from Git version control via `.gitignore`.
+
+---
+
+## 6. Simulation Mode Safeguards
+
+When `GENIXBIT_SIMULATE_OPS=1` is set:
+- Operations are executed in simulated test environments.
+- Status is emitted as `STAGING_<STAGE>=SIMULATED`.
+- Evidence manifests record `status: "SIMULATED"` and `overall_status: "OPERATIONS_IMPLEMENTED_NOT_DEPLOYED"`.
+- Simulated manifests are strictly rejected during production evidence collection (`GENIXBIT_SIMULATE_OPS=0`).

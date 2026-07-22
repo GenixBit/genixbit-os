@@ -54,3 +54,8 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
+# Staging Evidence & Transcripts
+infra/package-staging/results/
+transcripts/
+*.transcript.json
+
