@@ -33,14 +33,15 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Install OpenTofu, ShellCheck, and Packaging tools
+      - name: Install ShellCheck and Packaging tools
         run: |
           sudo apt-get update -y
           sudo apt-get install -y shellcheck jq gpg curl
-          curl -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
-          chmod +x install-opentofu.sh
-          ./install-opentofu.sh --tofu-version 1.8.8 --install-method deb
-          rm -f install-opentofu.sh
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.8.8
 
       - name: Print OpenTofu version
         run: |
