@@ -1,0 +1,15 @@
+Source: genixbit-os-apt-config
+Section: admin
+Priority: optional
+Maintainer: GenixBit OS Maintainers <ftpmaster@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-apt-config
+Architecture: all
+Multi-Arch: foreign
+Depends: ${misc:Depends}, genixbit-os-archive-keyring
+Description: GenixBit OS APT repository configuration
+ Configures APT sources for GenixBit OS package updates hosted on
+ packages.os.genixbit.com.

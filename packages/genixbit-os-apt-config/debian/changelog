@@ -1,0 +1,6 @@
+genixbit-os-apt-config (0.2.0-alpha1) resolute; urgency=medium
+
+  * Initial scaffolding for GenixBit OS APT source repository configuration package.
+  * Configures staging repositories at packages.os.genixbit.com.
+
+ -- GenixBit OS Maintainers <ftpmaster@genixbit.com>  Wed, 22 Jul 2026 12:00:00 +0000
