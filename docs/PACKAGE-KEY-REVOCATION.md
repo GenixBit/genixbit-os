@@ -14,9 +14,10 @@ Immediate key revocation is mandatory under any of the following circumstances:
 2. **Publish Revocation**:
    ```bash
    gpg --import genixbit-archive-keyring-revocation.asc
-   gpg --keyserver keyserver.ubuntu.com --send-keys $KEY_ID
+   gpg --keyserver keyserver.ubuntu.com --send-keys $FINGERPRINT
    ```
 3. **Emergency Keyring Update**:
    - Issue emergency `genixbit-os-archive-keyring` package update removing the compromised subkey and inserting the new active subkey.
    - Re-sign all `dists/` manifests with the new subkey.
-4. **Notify Users**: Publish security advisory on `https://os.genixbit.com/security/` detailing the key rotation and verification steps.
+4. **Private Audit Logging**: Record revocation event and dual-maintainer authorization in the private operations audit log.
+5. **Notify Users**: Publish security advisory detailing key rotation and verification steps.
