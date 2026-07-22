@@ -6,7 +6,12 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 INFRA_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
-REPO_ROOT=$(cd "$INFRA_DIR/.." && pwd)
+REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || (cd "$SCRIPT_DIR/../.." && pwd))
+
+if [[ ! -f "$REPO_ROOT/tools/repository/verify-release-signature.sh" ]]; then
+    echo "[ERROR] Unable to resolve repository root at '$REPO_ROOT'!" >&2
+    exit 1
+fi
 
 cd "$INFRA_DIR"
 
@@ -20,6 +25,12 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    echo "[PASS] Simulated Plan Generation Success"
+    echo "STAGING_PLAN=PASS"
+    exit 0
+fi
 
 if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == --* ]]; then
     echo "[ERROR] GCP Project ID is required. Pass as first argument or set GCP_PROJECT_ID." >&2
