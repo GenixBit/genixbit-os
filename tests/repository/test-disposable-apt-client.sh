@@ -67,6 +67,7 @@ test "$VERSION_CODENAME" = "resolute"
 echo "[PASS] Container OS verified: Ubuntu $VERSION_ID ($VERSION_CODENAME)"
 
 echo "[INFO] Installing required APT & GnuPG dependencies in container..."
+echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
 apt-get update -qq
 apt-get install -y -qq gnupg gpgv dpkg-dev ca-certificates python3 >/dev/null
 
