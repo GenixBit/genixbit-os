@@ -14,13 +14,29 @@ validate_repository_path() {
         return 1
     fi
 
-    # 2. Canonicalize path
+    # 2. Check forbidden system roots immediately (even if unreadable/permission denied)
+    local raw_clean
+    # shellcheck disable=SC2001
+    raw_clean=$(echo "$path" | sed 's#^//*#/#')
+    case "$raw_clean" in
+        /|/root|/etc|/usr|/var|/boot|/sys|/proc|/dev)
+            echo "Error: Safety violation - Refusing operation on root system directory: $path" >&2
+            return 1
+            ;;
+    esac
+
+    if [[ -n "${HOME:-}" && "$raw_clean" == "$HOME" ]]; then
+        echo "Error: Safety violation - Refusing operation on user home directory: $path" >&2
+        return 1
+    fi
+
+    # 3. Canonicalize path if accessible, else retain clean path
     local abs_path=""
     if [[ -d "$path" ]]; then
-        abs_path=$(cd "$path" 2>/dev/null && pwd -P)
+        abs_path=$(cd "$path" 2>/dev/null && pwd -P || echo "$raw_clean")
     elif [[ -d "$(dirname "$path")" ]]; then
         local parent_dir
-        parent_dir=$(cd "$(dirname "$path")" 2>/dev/null && pwd -P)
+        parent_dir=$(cd "$(dirname "$path")" 2>/dev/null && pwd -P || echo "$(dirname "$path")")
         abs_path="${parent_dir}/$(basename "$path")"
     else
         echo "Error: Safety violation - Parent directory of $param_name does not exist: $path" >&2
@@ -31,7 +47,7 @@ validate_repository_path() {
     # shellcheck disable=SC2001
     abs_path=$(echo "$abs_path" | sed 's#^//*#/#')
 
-    # 3. Reject root, home, and system directories
+    # 4. Reject root, home, and system directories after canonicalization
     if [[ "$abs_path" == "/" || "$abs_path" == "/root" || "$abs_path" == "/etc" || "$abs_path" == "/usr" || "$abs_path" == "/var" ]]; then
         echo "Error: Safety violation - Refusing operation on root system directory: $abs_path" >&2
         return 1
@@ -42,7 +58,7 @@ validate_repository_path() {
         return 1
     fi
 
-    # 4. Check GENIXBIT_REPOSITORY_ROOT if defined
+    # 5. Check GENIXBIT_REPOSITORY_ROOT if defined
     if [[ -n "${GENIXBIT_REPOSITORY_ROOT:-}" ]]; then
         local allowed_root
         allowed_root=$(cd "$GENIXBIT_REPOSITORY_ROOT" 2>/dev/null && pwd -P || echo "$GENIXBIT_REPOSITORY_ROOT")
@@ -52,8 +68,6 @@ validate_repository_path() {
         fi
     fi
 
-    # Return canonical path via echo if caller captures it
     echo "$abs_path"
     return 0
 }
-
