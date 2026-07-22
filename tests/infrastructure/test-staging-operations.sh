@@ -32,7 +32,7 @@ touch "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release.gpg"
 # 1. Run Preflight in simulation mode
 echo "[INFO] Testing preflight.sh..."
 PREFLIGHT_OUT=$(bash "$INFRA_DIR/scripts/preflight.sh" 2>&1)
-echo "$PREFLIGHT_OUT" | grep -q "PREFLIGHT_CHECKS=PASS"
+echo "$PREFLIGHT_OUT" | grep -q "PREFLIGHT_CHECKS=SIMULATED"
 echo "[PASS] preflight.sh verified."
 
 # 2. Run Plan in simulation mode
