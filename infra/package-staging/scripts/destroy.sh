@@ -81,5 +81,9 @@ fi
 echo "=== Executing $IAC_CMD apply $DESTROY_PLAN ==="
 "$IAC_CMD" apply "$DESTROY_PLAN"
 
-echo "STAGING_CLEANUP=PASS"
+# shellcheck source=infra/package-staging/scripts/lib/evidence.sh
+source "$SCRIPT_DIR/lib/evidence.sh"
+
+write_stage_result "$INFRA_DIR" "cleanup" "PASS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "destroy.sh" '["destroy_plan_verified", "iac_destroy_applied"]'
+emit_verified_marker "$INFRA_DIR/cleanup-result.json" "CLEANUP" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 0
 echo "[PASS] Staging infrastructure teardown completed cleanly."

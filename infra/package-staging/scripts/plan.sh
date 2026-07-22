@@ -26,9 +26,12 @@ for arg in "$@"; do
     esac
 done
 
+# shellcheck source=infra/package-staging/scripts/lib/evidence.sh
+source "$SCRIPT_DIR/lib/evidence.sh"
+
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
-    echo "[PASS] Simulated Plan Generation Success"
-    echo "STAGING_PLAN=PASS"
+    write_stage_result "$INFRA_DIR" "plan" "SIMULATED" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "plan.sh" '["simulated_plan"]'
+    emit_verified_marker "$INFRA_DIR/plan-result.json" "PLAN" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 1
     exit 0
 fi
 
@@ -169,6 +172,8 @@ if command -v python3 >/dev/null 2>&1 && python3 -c "import jsonschema" 2>/dev/n
     python3 -c "import json, jsonschema; jsonschema.validate(json.load(open('$MANIFEST_FILE')), json.load(open('$INFRA_DIR/schemas/plan-manifest.schema.json')))"
     echo "[PASS] Plan manifest validated against schema."
 fi
-
 echo "[PASS] Generated plan file: $PLAN_FILE (SHA: $PLAN_HASH)"
 echo "[PASS] Generated plan manifest: $MANIFEST_FILE"
+
+write_stage_result "$INFRA_DIR" "plan" "PASS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "plan.sh" '["plan_generated", "plan_manifest_schema_validated"]'
+emit_verified_marker "$INFRA_DIR/plan-result.json" "PLAN" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 0

@@ -38,7 +38,7 @@ echo "[PASS] preflight.sh verified."
 # 2. Run Plan in simulation mode
 echo "[INFO] Testing plan.sh..."
 PLAN_OUT=$(bash "$INFRA_DIR/scripts/plan.sh" "$GCP_PROJECT_ID" 2>&1)
-echo "$PLAN_OUT" | grep -q "STAGING_PLAN=PASS"
+echo "$PLAN_OUT" | grep -q "STAGING_PLAN=SIMULATED"
 echo "[PASS] plan.sh verified."
 
 # 3. Run Configure Repository in simulation mode
