@@ -33,10 +33,18 @@ validate_repository_path() {
     # 3. Canonicalize path if accessible, else retain clean path
     local abs_path=""
     if [[ -d "$path" ]]; then
-        abs_path=$(cd "$path" 2>/dev/null && pwd -P || echo "$raw_clean")
+        if abs_path=$(cd "$path" 2>/dev/null && pwd -P); then
+            :
+        else
+            abs_path="$raw_clean"
+        fi
     elif [[ -d "$(dirname "$path")" ]]; then
         local parent_dir
-        parent_dir=$(cd "$(dirname "$path")" 2>/dev/null && pwd -P || dirname "$path")
+        if parent_dir=$(cd "$(dirname "$path")" 2>/dev/null && pwd -P); then
+            :
+        else
+            parent_dir=$(dirname "$path")
+        fi
         abs_path="${parent_dir}/$(basename "$path")"
     else
         echo "Error: Safety violation - Parent directory of $param_name does not exist: $path" >&2
