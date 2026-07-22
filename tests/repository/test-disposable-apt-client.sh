@@ -23,17 +23,17 @@ trap cleanup EXIT
 mkdir -p "$TMP_GPG" "$TMP_REPO"
 chmod 700 "$TMP_GPG"
 
-if ! command -v docker >/dev/null 2>&1; then
-    echo "[WARN] Docker not available; skipping containerized APT client validation."
-    exit 0
-fi
+DOCKER_IMG="${DOCKER_IMG:-ubuntu:26.04}"
 
-if ! docker ps >/dev/null 2>&1; then
-    echo "[WARN] Docker daemon not running; skipping containerized APT client validation."
-    exit 0
+if ! command -v docker >/dev/null 2>&1 || ! docker ps >/dev/null 2>&1; then
+    if [[ "${GENIXBIT_ALLOW_DOCKER_SKIP:-0}" == "1" ]]; then
+        echo "[WARN] Docker is missing/not running, skipping because GENIXBIT_ALLOW_DOCKER_SKIP=1 is set."
+        exit 0
+    else
+        echo "[ERROR] Docker is required for disposable APT client validation. Set GENIXBIT_ALLOW_DOCKER_SKIP=1 to allow local skip." >&2
+        exit 1
+    fi
 fi
-
-DOCKER_IMG="ubuntu:latest"
 
 cat <<EOF > "$TMP_DIR/ephemeral_genkey.conf"
 Key-Type: RSA
@@ -59,6 +59,12 @@ TMP_REPO="$TMP_DIR/repo"
 
 export GNUPGHOME="$TMP_GPG"
 export DEBIAN_FRONTEND=noninteractive
+
+echo "[INFO] Verifying container OS release..."
+. /etc/os-release
+test "$VERSION_ID" = "26.04"
+test "$VERSION_CODENAME" = "resolute"
+echo "[PASS] Container OS verified: Ubuntu $VERSION_ID ($VERSION_CODENAME)"
 
 echo "[INFO] Installing required APT & GnuPG dependencies in container..."
 apt-get update -qq

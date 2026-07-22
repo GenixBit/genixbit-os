@@ -126,11 +126,20 @@ See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md) and [`docs/BASE-F
 - APT-config package fixture: PASS
 - Real fixture index generation: PASS
 - Ephemeral signature verification: PASS
-- Disposable client apt update: PASS
-- Install and upgrade: PASS
-- Promotion fixture: PASS
-- Snapshot fixture: PASS
-- Rollback fixture: PASS
+- Pinned Ubuntu 26.04 validation: PASS
+- Fail-closed Docker validation: PASS
+- CI evidence markers: PASS
+- Staging infrastructure code: PASS
+- Staging infrastructure deployed: NOT_DEPLOYED (BLOCKED_GCP_STAGING_CONFIGURATION_MISSING)
+- Staging HTTPS: NOT_TESTED
+- Staging signing identity: NOT_CREATED
+- Staging APT update: NOT_TESTED
+- Staging install: NOT_TESTED
+- Staging upgrade: NOT_TESTED
+- Staging promotion: NOT_TESTED
+- Staging rollback: NOT_TESTED
+- Staging recovery drill: NOT_TESTED
+- Staging revocation drill: NOT_TESTED
 - Production signing key: NOT_CREATED
 - Production repository: NOT_DEPLOYED
 - AnduinOS dependency migration: NOT_STARTED

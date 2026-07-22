@@ -46,15 +46,30 @@ jobs:
 
       - name: Run negative security tests
         run: |
-          bash tests/repository/test-negative-security.sh
+          set -eo pipefail
+          bash tests/repository/test-negative-security.sh 2>&1 | tee negative_security.log
+          grep -q "TAMPERED_METADATA_REJECTED=PASS" negative_security.log
 
       - name: Run end-to-end signed repository lifecycle test
         run: |
           bash tests/repository/test-signed-repository-lifecycle.sh
 
-      - name: Run disposable APT client container test
+      - name: Inspect Docker environment and pull Ubuntu 26.04
         run: |
-          bash tests/repository/test-disposable-apt-client.sh
+          docker version
+          docker pull ubuntu:26.04
+          docker image inspect ubuntu:26.04 | jq -r '.[0].RepoDigests[]' || true
+
+      - name: Run disposable APT client container test and verify evidence markers
+        run: |
+          set -eo pipefail
+          bash tests/repository/test-disposable-apt-client.sh 2>&1 | tee disposable_test.log
+          grep -q "DISPOSABLE_APT_UPDATE=PASS" disposable_test.log
+          grep -q "DISPOSABLE_APT_INSTALL=PASS" disposable_test.log
+          grep -q "DISPOSABLE_APT_UPGRADE=PASS" disposable_test.log
+          grep -q "PROMOTION_APT_VALIDATION=PASS" disposable_test.log
+          grep -q "SNAPSHOT_VALIDATION=PASS" disposable_test.log
+          grep -q "ROLLBACK_APT_VALIDATION=PASS" disposable_test.log
 
       - name: Validate JSON manifest schemas
         run: |
