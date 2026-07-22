@@ -83,13 +83,55 @@ jobs:
 
       - name: Run evidence anti-fabrication static analysis checks
         run: |
-          # Verify NO unconditional PASS markers in production operational scripts
+          # 1. Verify NO unconditional PASS markers in production operational scripts
           if grep -rn 'echo "STAGING_.*=PASS"' infra/package-staging/scripts/*.sh | grep -v emit_verified_marker; then
             echo "Error: Detected unconditional STAGING_*=PASS echo in operational scripts!" >&2
             exit 1
           fi
           if grep -rn 'export STAGING_.*=PASS' infra/package-staging/scripts/*.sh; then
             echo "Error: Detected unconditional STAGING_*=PASS export in operational scripts!" >&2
+            exit 1
+          fi
+
+          # 2. Verify Key Recovery imports keys
+          if ! grep -E 'gpg.*import|restore' infra/package-staging/scripts/validate-key-recovery.sh >/dev/null; then
+            echo "Error: validate-key-recovery.sh missing import or restore operation!" >&2
+            exit 1
+          fi
+
+          # 3. Verify Key Revocation applies revocation certificate
+          if ! grep -E 'gen-revoke|import' infra/package-staging/scripts/validate-key-revocation.sh >/dev/null; then
+            echo "Error: validate-key-revocation.sh missing revocation certificate operations!" >&2
+            exit 1
+          fi
+
+          # 4. Verify Snapshot calls verify-snapshot.sh
+          if ! grep 'verify-snapshot.sh' infra/package-staging/scripts/validate-snapshot.sh >/dev/null; then
+            echo "Error: validate-snapshot.sh missing verify-snapshot.sh call!" >&2
+            exit 1
+          fi
+
+          # 5. Verify Tamper Rejection does NOT mutate production-like current endpoint
+          if grep 'dists/resolute-alpha' infra/package-staging/scripts/validate-tamper-rejection.sh | grep '/var/srv/genixbit-repository/current'; then
+            echo "Error: validate-tamper-rejection.sh mutates live production endpoint!" >&2
+            exit 1
+          fi
+
+          # 6. Verify Leaf Cert Verification & APPROVED_CERT_FPR in validate-client.sh
+          if ! grep 'STAGING_LEAF_CERT' infra/package-staging/scripts/validate-client.sh >/dev/null || ! grep 'APPROVED_CERT_FPR' infra/package-staging/scripts/validate-client.sh >/dev/null; then
+            echo "Error: validate-client.sh missing leaf TLS cert or APPROVED_CERT_FPR verification!" >&2
+            exit 1
+          fi
+
+          # 7. Verify collect-evidence checks observations & cleanup
+          if ! grep 'observations' infra/package-staging/scripts/collect-evidence.sh >/dev/null || ! grep 'cleanup' infra/package-staging/scripts/collect-evidence.sh >/dev/null; then
+            echo "Error: collect-evidence.sh missing observation or cleanup closure verification!" >&2
+            exit 1
+          fi
+
+          # 8. Verify configure-repository.sh does not use quoted wildcards in scp
+          if grep 'scp.*\*"' infra/package-staging/scripts/configure-repository.sh >/dev/null; then
+            echo "Error: configure-repository.sh uses quoted wildcard in scp!" >&2
             exit 1
           fi
 
