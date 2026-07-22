@@ -41,3 +41,16 @@ packages/build-debs/
 *.buildinfo
 *.changes
 
+# OpenTofu / Terraform State & Private Files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+backend.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+

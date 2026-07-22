@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Example backend configuration for GenixBit OS Package Staging Infrastructure
+
+bucket = "genixbit-staging-terraform-state-bucket"
+prefix = "state/package-staging"

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS Staging Validation Client Startup Bootstrap Template
+
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+echo "[INFO] Verifying Validation Client Host OS..."
+if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+    if [[ "$ID" != "ubuntu" ]]; then
+        echo "[ERROR] Host OS must be Ubuntu. Found: $ID" >&2
+        exit 1
+    fi
+else
+    echo "[ERROR] Missing /etc/os-release file!" >&2
+    exit 1
+fi
+echo "[PASS] Verified Ubuntu client OS: $VERSION_ID"
+
+echo "[INFO] Installing required validation tools..."
+apt-get update -qq
+apt-get install -y -qq gnupg gpgv ca-certificates curl dpkg-dev >/dev/null
+
+# Prepare APT sources directory for staging
+mkdir -p /etc/apt/keyrings /etc/apt/sources.list.d
+
+# Configure initial disabled staging APT repository source (No trusted=yes, no allow-insecure)
+cat << 'EOF' > /etc/apt/sources.list.d/genixbit-staging.sources
+Types: deb
+URIs: http://${hostname}
+Suites: resolute-alpha
+Components: main
+Signed-By: /usr/share/keyrings/genixbit-os-archive-keyring.gpg
+Enabled: no
+EOF
+
+echo "[PASS] GenixBit Staging Validation Client bootstrap completed cleanly."

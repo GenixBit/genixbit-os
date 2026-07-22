@@ -7,6 +7,11 @@ and this project follows Semantic Versioning for release identifiers.
 
 ## [Unreleased] — Phase 3 Signed Package & Update Infrastructure Hardening (2026-07-22)
 
+- Hardened OpenTofu / Terraform package staging infrastructure (`infra/package-staging/`) with Cloud NAT controlled egress (`enable_nat`), private Cloud DNS (`staging-packages.genixbit.internal.`), separate host/client service accounts (`repo_sa`, `client_sa`), enforced public-access prevention on evidence storage (`public_access_prevention = "enforced"`), and variable input validation rules.
+- Created startup bootstrap templates (`templates/repo-host-startup.sh.tftpl`, `templates/client-startup.sh.tftpl`) with Nginx static serving, autoindex off, health endpoint (`/healthz`), log rotation, and client APT source configuration.
+- Added operator-controlled deployment lifecycle scripts (`infra/package-staging/scripts/`): `preflight.sh` (fails closed with `BLOCKED_GCP_STAGING_CONFIGURATION_MISSING`), `plan.sh`, `apply.sh` (requires operator confirmation `GENIXBIT_CONFIRM_APPLY`), `configure-repository.sh`, `validate-client.sh`, `collect-evidence.sh`, and `destroy.sh`.
+- Added Infrastructure Validation CI workflow (`.github/workflows/infrastructure-validation.yml`) to enforce OpenTofu formatting, validation, script syntax, and security rules without requiring GCP credentials.
+- Created infrastructure security & policy test suite (`tests/infrastructure/test-infrastructure-security-rules.sh`) verifying zero public IPs, Cloud NAT, private DNS, bucket public-access prevention, separate SAs, no broad IAM roles, no committed private keys, and gitignore state rules.
 - Pinned disposable APT client container validation to `ubuntu:26.04` (`resolute`) and added `/etc/os-release` runtime verification.
 - Enforced fail-closed Docker requirement in `tests/repository/test-disposable-apt-client.sh` requiring `GENIXBIT_ALLOW_DOCKER_SKIP=1` for local skips.
 - Added explicit Docker image inspection and fail-closed evidence marker assertions (`DISPOSABLE_APT_*`, `PROMOTION_APT_VALIDATION`, `SNAPSHOT_VALIDATION`, `ROLLBACK_APT_VALIDATION`, `TAMPERED_METADATA_REJECTED`) to `.github/workflows/package-infrastructure.yml`.

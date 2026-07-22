@@ -21,12 +21,17 @@ output "disposable_client_private_ip" {
   description = "Private IP address of the disposable validation client."
 }
 
+output "private_staging_hostname" {
+  value       = "staging-packages.${google_dns_managed_zone.private_zone.dns_name}"
+  description = "Dedicated private staging repository hostname."
+}
+
 output "evidence_bucket_name" {
   value       = google_storage_bucket.staging_evidence.name
   description = "Name of the private evidence Cloud Storage bucket."
 }
 
-output "staging_hostname" {
-  value       = "staging-packages.os.genixbit.com"
-  description = "Dedicated staging repository hostname."
+output "staging_run_id" {
+  value       = var.staging_run_id
+  description = "Staging run identifier."
 }

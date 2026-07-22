@@ -1,0 +1,83 @@
+name: Infrastructure Validation
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+      - 'feat/**'
+      - 'test/**'
+    paths:
+      - 'infra/package-staging/**'
+      - 'docs/PACKAGE-STAGING-*.md'
+      - '.github/workflows/infrastructure-validation.yml'
+      - 'tests/infrastructure/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'infra/package-staging/**'
+      - 'docs/PACKAGE-STAGING-*.md'
+      - '.github/workflows/infrastructure-validation.yml'
+      - 'tests/infrastructure/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-infrastructure:
+    name: Infrastructure Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck and Packaging tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y shellcheck jq gpg curl
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.8.8
+
+      - name: Print OpenTofu version
+        run: |
+          tofu version
+
+      - name: Check OpenTofu code formatting
+        run: |
+          tofu fmt -check -recursive infra/package-staging
+
+      - name: Initialize and validate OpenTofu configuration
+        run: |
+          tofu -chdir=infra/package-staging init -backend=false
+          tofu -chdir=infra/package-staging validate
+
+      - name: Validate shell syntax for deployment scripts
+        run: |
+          bash -n infra/package-staging/scripts/*.sh
+
+      - name: Run ShellCheck on deployment scripts
+        run: |
+          shellcheck -e SC1091 infra/package-staging/scripts/*.sh
+
+      - name: Run infrastructure security and rules test suite
+        run: |
+          bash tests/infrastructure/test-infrastructure-security-rules.sh
+
+      - name: Verify absence of tracked state, plans, tfvars or credentials
+        run: |
+          if git ls-files | grep -E '(\.tfstate|\.tfplan|terraform\.tfvars|backend\.hcl|crash\.log)$'; then
+            echo "Error: Detected tracked terraform state, plan, or secret file!" >&2
+            exit 1
+          fi
+
+      - name: Verify absence of committed private keys or secrets
+        run: |
+          if find infra/package-staging -type f \( -name "*.pem" -o -name "*.key" -o -name "*.sec" -o -name "*.tfvars" \) | grep .; then
+            echo "Error: Detected committed private key or tfvars file in infra/package-staging!" >&2
+            exit 1
+          fi
