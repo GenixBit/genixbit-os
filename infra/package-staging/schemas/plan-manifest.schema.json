@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GenixBitPackageStagingPlanManifest",
+  "description": "Schema for GenixBit OS package staging plan provenance and security verification manifest.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_commit",
+    "clean_working_tree",
+    "project_id",
+    "region",
+    "zone",
+    "staging_run_id",
+    "tfvars_sha256",
+    "backend_config_sha256",
+    "opentofu_version",
+    "provider_lock_sha256",
+    "plan_file_sha256",
+    "plan_timestamp",
+    "no_public_ips",
+    "no_prod_dns_mutation",
+    "resource_count"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "clean_working_tree": {
+      "type": "boolean"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"
+    },
+    "region": {
+      "type": "string"
+    },
+    "zone": {
+      "type": "string"
+    },
+    "staging_run_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "tfvars_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "backend_config_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "opentofu_version": {
+      "type": "string"
+    },
+    "provider_lock_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "plan_file_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "plan_timestamp": {
+      "type": "string"
+    },
+    "no_public_ips": {
+      "type": "string",
+      "enum": ["PASS", "FAIL"]
+    },
+    "no_prod_dns_mutation": {
+      "type": "string",
+      "enum": ["PASS", "FAIL"]
+    },
+    "resource_count": {
+      "type": "object",
+      "required": ["add", "change", "destroy"],
+      "additionalProperties": false,
+      "properties": {
+        "add": { "type": "integer", "minimum": 0 },
+        "change": { "type": "integer", "minimum": 0 },
+        "destroy": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
