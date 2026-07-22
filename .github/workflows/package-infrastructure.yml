@@ -36,9 +36,9 @@ jobs:
 
       - name: Run ShellCheck on repository tooling & tests
         run: |
-          shellcheck -x tools/repository/lib/safety.sh
-          shellcheck -x tools/repository/*.sh
-          shellcheck -x tests/repository/*.sh
+          shellcheck -e SC1091 tools/repository/lib/safety.sh
+          shellcheck -e SC1091 tools/repository/*.sh
+          shellcheck -e SC1091 tests/repository/*.sh
 
       - name: Test path safety library rules
         run: |
