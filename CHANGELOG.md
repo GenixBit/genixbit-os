@@ -5,6 +5,15 @@ All notable changes to the **GenixBit OS** project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows Semantic Versioning for release identifiers.
 
+## [Unreleased] — Phase 3 Signed Package & Update Infrastructure Bootstrap (2026-07-22)
+
+- Defined offline GPG signing key management, backup, recovery, revocation, promotion, and rollback policies (`docs/PACKAGE-*.md`).
+- Scaffolded `genixbit-os-archive-keyring` and `genixbit-os-apt-config` Debian package structures under `packages/`.
+- Established `resolute-alpha`, `resolute-testing`, and `resolute-stable` APT repository channel layout standards (`docs/PACKAGE-REPOSITORY-LAYOUT.md`).
+- Created staging repository management scripts (`tools/repository/init-staging-repository.sh`, `build-package-index.sh`, `validate-repository-layout.sh`, `verify-release-signature.sh`, `promote-package.sh`, `rollback-snapshot.sh`, `create-release-manifest.sh`).
+- Defined JSON schemas for package manifests, promotion records, and rollback records (`docs/schemas/`).
+- Added Package Infrastructure CI workflow `.github/workflows/package-infrastructure.yml`.
+
 ## [0.2.0-alpha-candidate-2] — Candidate Validation Successful (2026-07-22)
 
 - Target build version set to `0.2.0-alpha`.

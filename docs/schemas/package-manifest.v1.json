@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GenixBitPackageManifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "package",
+    "version",
+    "architecture",
+    "source_repository",
+    "build_timestamp",
+    "license",
+    "builder",
+    "channel"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "package": { "type": "string" },
+    "version": { "type": "string" },
+    "architecture": { "type": "string" },
+    "source_repository": { "type": "string", "format": "uri" },
+    "source_commit": { "type": "string" },
+    "build_timestamp": { "type": "string" },
+    "SOURCE_DATE_EPOCH": { "type": "string" },
+    "sha256": { "type": "string" },
+    "license": { "type": "string" },
+    "sbom": { "type": "string" },
+    "builder": { "type": "string" },
+    "reviewer": { "type": "string" },
+    "channel": { "type": "string" }
+  }
+}

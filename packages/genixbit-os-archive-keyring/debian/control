@@ -1,0 +1,15 @@
+Source: genixbit-os-archive-keyring
+Section: misc
+Priority: optional
+Maintainer: GenixBit OS Maintainers <ftpmaster@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-archive-keyring
+Architecture: all
+Multi-Arch: foreign
+Depends: ${misc:Depends}
+Description: GenixBit OS GPG archive keyring
+ GPG keys used to sign the GenixBit OS package repository metadata and
+ Debian packages hosted on packages.os.genixbit.com.

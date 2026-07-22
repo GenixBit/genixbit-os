@@ -1,0 +1,64 @@
+name: Package Infrastructure Validation
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'test/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate-package-infrastructure:
+    name: Package Infrastructure Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck & JSON tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y shellcheck jq
+
+      - name: Validate shell syntax for repository tooling
+        run: |
+          bash -n tools/repository/*.sh
+
+      - name: Run ShellCheck on repository tooling
+        run: |
+          shellcheck tools/repository/*.sh
+
+      - name: Test staging repository initialization & safety
+        run: |
+          TMP_REPO="$(mktemp -d)"
+          bash tools/repository/init-staging-repository.sh --repo-dir "$TMP_REPO"
+          bash tools/repository/validate-repository-layout.sh --repo-dir "$TMP_REPO"
+          bash tools/repository/build-package-index.sh --repo-dir "$TMP_REPO" --channel resolute-alpha
+          bash tools/repository/promote-package.sh --repo-dir "$TMP_REPO" --package genixbit-os-base-files --from-channel resolute-alpha --to-channel resolute-testing
+          bash tools/repository/rollback-snapshot.sh --repo-dir "$TMP_REPO" --channel resolute-testing --snapshot-id 20260722
+          rm -rf "$TMP_REPO"
+
+      - name: Verify path safety enforcement
+        run: |
+          if bash tools/repository/init-staging-repository.sh --repo-dir / 2>/dev/null; then
+            echo "Error: Allowed dangerous root path!" >&2
+            exit 1
+          fi
+
+      - name: Validate JSON manifest schemas
+        run: |
+          jq . docs/schemas/*.json
+
+      - name: Verify absence of committed private keys or secrets
+        run: |
+          if find . -type f \( -name "*.pem" -o -name "*.key" -o -name "*.sec" -o -name "secring.gpg" \) -not -path "./.git/*" | grep .; then
+            echo "Error: Detected committed private key file!" >&2
+            exit 1
+          fi
