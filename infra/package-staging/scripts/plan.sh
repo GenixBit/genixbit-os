@@ -6,7 +6,12 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 INFRA_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
-REPO_ROOT=$(cd "$INFRA_DIR/.." && pwd)
+REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || (cd "$SCRIPT_DIR/../.." && pwd))
+
+if [[ ! -f "$REPO_ROOT/tools/repository/verify-release-signature.sh" ]]; then
+    echo "[ERROR] Unable to resolve repository root at '$REPO_ROOT'!" >&2
+    exit 1
+fi
 
 cd "$INFRA_DIR"
 
@@ -20,6 +25,15 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+# shellcheck source=infra/package-staging/scripts/lib/evidence.sh
+source "$SCRIPT_DIR/lib/evidence.sh"
+
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    write_stage_result "$INFRA_DIR" "plan" "SIMULATED" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "plan.sh" '["simulated_plan"]'
+    emit_verified_marker "$INFRA_DIR/plan-result.json" "PLAN" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 1
+    exit 0
+fi
 
 if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == --* ]]; then
     echo "[ERROR] GCP Project ID is required. Pass as first argument or set GCP_PROJECT_ID." >&2
@@ -158,6 +172,8 @@ if command -v python3 >/dev/null 2>&1 && python3 -c "import jsonschema" 2>/dev/n
     python3 -c "import json, jsonschema; jsonschema.validate(json.load(open('$MANIFEST_FILE')), json.load(open('$INFRA_DIR/schemas/plan-manifest.schema.json')))"
     echo "[PASS] Plan manifest validated against schema."
 fi
-
 echo "[PASS] Generated plan file: $PLAN_FILE (SHA: $PLAN_HASH)"
 echo "[PASS] Generated plan manifest: $MANIFEST_FILE"
+
+write_stage_result "$INFRA_DIR" "plan" "PASS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "plan.sh" '["plan_generated", "plan_manifest_schema_validated"]'
+emit_verified_marker "$INFRA_DIR/plan-result.json" "PLAN" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 0

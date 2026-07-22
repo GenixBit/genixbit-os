@@ -6,7 +6,12 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 INFRA_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
-REPO_ROOT=$(cd "$INFRA_DIR/.." && pwd)
+REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || (cd "$SCRIPT_DIR/../.." && pwd))
+
+if [[ ! -f "$REPO_ROOT/tools/repository/verify-release-signature.sh" ]]; then
+    echo "[ERROR] Unable to resolve repository root at '$REPO_ROOT'!" >&2
+    exit 1
+fi
 
 cd "$INFRA_DIR"
 

@@ -6,6 +6,12 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 INFRA_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || (cd "$SCRIPT_DIR/../.." && pwd))
+
+if [[ ! -f "$REPO_ROOT/tools/repository/verify-release-signature.sh" ]]; then
+    echo "[ERROR] Unable to resolve repository root at '$REPO_ROOT'!" >&2
+    exit 1
+fi
 
 cd "$INFRA_DIR"
 
@@ -75,5 +81,9 @@ fi
 echo "=== Executing $IAC_CMD apply $DESTROY_PLAN ==="
 "$IAC_CMD" apply "$DESTROY_PLAN"
 
-echo "STAGING_CLEANUP=PASS"
+# shellcheck source=infra/package-staging/scripts/lib/evidence.sh
+source "$SCRIPT_DIR/lib/evidence.sh"
+
+write_stage_result "$INFRA_DIR" "cleanup" "PASS" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "destroy.sh" '["destroy_plan_verified", "iac_destroy_applied"]'
+emit_verified_marker "$INFRA_DIR/cleanup-result.json" "CLEANUP" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" 0
 echo "[PASS] Staging infrastructure teardown completed cleanly."

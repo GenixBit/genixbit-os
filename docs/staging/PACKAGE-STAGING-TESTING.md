@@ -13,7 +13,7 @@ This document records the testing specifications, infrastructure parameters, and
 | **Endpoint Classification** | Staging internal DNS / isolated subnet (`staging-packages.os.genixbit.com`) |
 | **Pinned Docker Client** | Ubuntu 26.04 (`resolute`) |
 | **Infrastructure Code** | `PASS` (`infra/package-staging/`) |
-| **Staging Deployment** | `READY_FOR_OPERATOR_DEPLOYMENT` |
+| **Staging Deployment** | `NOT_DEPLOYED` (`OPERATIONS_IMPLEMENTED_NOT_DEPLOYED`) |
 | **Production Key Status** | `NOT_CREATED` |
 | **Production Repo Status** | `NOT_DEPLOYED` |
 | **AnduinOS Migration** | `NOT_STARTED` |

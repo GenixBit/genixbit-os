@@ -6,6 +6,12 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 INFRA_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || (cd "$SCRIPT_DIR/../.." && pwd))
+
+if [[ ! -f "$REPO_ROOT/tools/repository/verify-release-signature.sh" ]]; then
+    echo "[ERROR] Unable to resolve repository root at '$REPO_ROOT'!" >&2
+    exit 1
+fi
 cd "$INFRA_DIR"
 
 echo "=== GenixBit OS Package Staging Preflight Checks ==="
@@ -23,6 +29,13 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+# Simulation mode short-circuit for unit testing without live GCP CLI credentials
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
+    echo "[PASS] Simulated Preflight Checks Passed"
+    echo "PREFLIGHT_CHECKS=PASS"
+    exit 0
+fi
 
 # 1. Verify gcloud CLI
 if ! command -v gcloud >/dev/null 2>&1; then
