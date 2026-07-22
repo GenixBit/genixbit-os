@@ -36,7 +36,7 @@ validate_repository_path() {
         abs_path=$(cd "$path" 2>/dev/null && pwd -P || echo "$raw_clean")
     elif [[ -d "$(dirname "$path")" ]]; then
         local parent_dir
-        parent_dir=$(cd "$(dirname "$path")" 2>/dev/null && pwd -P || echo "$(dirname "$path")")
+        parent_dir=$(cd "$(dirname "$path")" 2>/dev/null && pwd -P || dirname "$path")
         abs_path="${parent_dir}/$(basename "$path")"
     else
         echo "Error: Safety violation - Parent directory of $param_name does not exist: $path" >&2
