@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS Staging Repository Host Startup Bootstrap Template
+
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+echo "[INFO] Verifying Repository Host OS..."
+if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+    if [[ "$ID" != "ubuntu" ]]; then
+        echo "[ERROR] Host OS must be Ubuntu. Found: $ID" >&2
+        exit 1
+    fi
+else
+    echo "[ERROR] Missing /etc/os-release file!" >&2
+    exit 1
+fi
+echo "[PASS] Verified Ubuntu host OS: $VERSION_ID"
+
+echo "[INFO] Installing repository serving packages..."
+apt-get update -qq
+apt-get install -y -qq nginx python3 gnupg gpgv dpkg-dev logrotate curl >/dev/null
+
+echo "[INFO] Creating dedicated non-login service user 'genixbit-repo'..."
+if ! id -u genixbit-repo >/dev/null 2>&1; then
+    useradd -r -s /usr/sbin/nologin -d /var/srv/genixbit-repository genixbit-repo
+fi
+
+REPO_ROOT="/var/srv/genixbit-repository"
+mkdir -p "$REPO_ROOT/dists" "$REPO_ROOT/pool" "$REPO_ROOT/health"
+chmod 755 "$REPO_ROOT"
+chown -R genixbit-repo:genixbit-repo "$REPO_ROOT"
+
+# Health endpoint setup
+cat << 'EOF' > "$REPO_ROOT/health/index.html"
+{"status":"OK","service":"genixbit-staging-repository","run_id":"${run_id}"}
+EOF
+
+# Nginx configuration (Directory listing OFF, health endpoint enabled)
+cat << 'EOF' > /etc/nginx/sites-available/genixbit-staging-repo
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name ${hostname};
+
+    root /var/srv/genixbit-repository;
+    index index.html;
+
+    # Disable directory index browsing
+    autoindex off;
+
+    location /healthz {
+        alias /var/srv/genixbit-repository/health/index.html;
+        default_type application/json;
+    }
+
+    location /dists/ {
+        try_files $uri =404;
+    }
+
+    location /pool/ {
+        try_files $uri =404;
+    }
+}
+EOF
+
+ln -sf /etc/nginx/sites-available/genixbit-staging-repo /etc/nginx/sites-enabled/default
+
+# Configure log rotation
+cat << 'EOF' > /etc/logrotate.d/genixbit-repo
+/var/log/nginx/genixbit-staging-*.log {
+    daily
+    missingok
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        if [ -f /var/run/nginx.pid ]; then
+            kill -USR1 $(cat /var/run/nginx.pid)
+        fi
+    endscript
+}
+EOF
+
+systemctl restart nginx
+systemctl enable nginx
+
+echo "[PASS] GenixBit Staging Repository Host service bootstrap completed cleanly."
