@@ -15,7 +15,8 @@ TMP_GPG="$TMP_DIR/gpg"
 TMP_REPO="$TMP_DIR/repo"
 
 cleanup() {
-    rm -rf "$TMP_DIR"
+    chmod -R 777 "$TMP_DIR" 2>/dev/null || true
+    rm -rf "$TMP_DIR" 2>/dev/null || docker run --rm -v "$TMP_DIR:$TMP_DIR" "$DOCKER_IMG" rm -rf "$TMP_DIR" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -161,7 +162,8 @@ bash "$REPO_ROOT/tools/repository/set-channel.sh" testing \
     --keyring-file "$PUB_KEYRING" \
     --skip-network-check
 
-apt-cache policy genixbit-repository-fixture | grep -q "resolute-testing"
+POLICY_OUT=$(apt-cache policy genixbit-repository-fixture)
+echo "$POLICY_OUT" | grep -q "resolute-testing"
 apt-get install -y --reinstall genixbit-repository-fixture
 echo "PROMOTION_APT_VALIDATION=PASS"
 
@@ -182,7 +184,8 @@ bash "$REPO_ROOT/tools/repository/sign-release-metadata.sh" \
     --gnupg-home "$TMP_GPG" >/dev/null
 
 apt-get update
-apt-cache policy genixbit-repository-fixture | grep -q "resolute-testing"
+POLICY_OUT=$(apt-cache policy genixbit-repository-fixture)
+echo "$POLICY_OUT" | grep -q "resolute-testing"
 echo "ROLLBACK_APT_VALIDATION=PASS"
 
 echo "[PASS] Containerized APT client validation suite passed successfully."
