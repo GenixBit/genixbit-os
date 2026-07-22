@@ -6,6 +6,7 @@
 set -e                  # exit on error
 set -o pipefail         # exit on pipeline error
 set -u                  # treat unset variable as error
+umask 022               # ensure built system files and keyrings are world-readable
 export SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 # Define SOURCE_DATE_EPOCH if not already defined (fall back to latest git commit time or current time)
@@ -190,19 +191,21 @@ function build_iso() {
     print_ok "Copying kernel files as /casper/vmlinuz, /casper/initrd and /casper/initrd.gz..."
     # Resolve the distro-maintained symlinks — they always point to the
     # current kernel, so we never pick a stale one left behind by apt.
-    REAL_VMLINUZ=$(readlink -f new_building_os/vmlinuz 2>/dev/null)
-    [ -f "$REAL_VMLINUZ" ] || REAL_VMLINUZ=$(readlink -f new_building_os/boot/vmlinuz 2>/dev/null)
-    REAL_INITRD=$(readlink -f new_building_os/initrd.img 2>/dev/null)
-    [ -f "$REAL_INITRD" ] || REAL_INITRD=$(readlink -f new_building_os/boot/initrd.img 2>/dev/null)
+    sudo chmod 755 new_building_os 2>/dev/null || true
+    sudo chmod -R a+rX new_building_os/boot 2>/dev/null || true
+    REAL_VMLINUZ=$(sudo readlink -f new_building_os/vmlinuz 2>/dev/null)
+    [ -n "$REAL_VMLINUZ" ] && [ -f "$REAL_VMLINUZ" ] || REAL_VMLINUZ=$(sudo readlink -f new_building_os/boot/vmlinuz 2>/dev/null)
+    REAL_INITRD=$(sudo readlink -f new_building_os/initrd.img 2>/dev/null)
+    [ -n "$REAL_INITRD" ] && [ -f "$REAL_INITRD" ] || REAL_INITRD=$(sudo readlink -f new_building_os/boot/initrd.img 2>/dev/null)
     if [ -z "$REAL_VMLINUZ" ] || [ ! -f "$REAL_VMLINUZ" ]; then
         print_error "No kernel found via vmlinuz symlink in new_building_os/"
         exit 1
     fi
+    if [ -z "$REAL_INITRD" ] || [ ! -f "$REAL_INITRD" ]; then
+        print_error "No initrd found via initrd.img symlink in new_building_os/"
+        exit 1
+    fi
     sudo cp "$REAL_VMLINUZ" image/casper/vmlinuz
-    # Keep both names for remix compatibility:
-    # - Legacy BIOS core.img may embed "/casper/initrd"
-    # - Some remix tools (e.g. Cubic) may rewrite text grub.cfg to "/casper/initrd.gz"
-    # Having both avoids boot mismatch between BIOS and UEFI paths.
     sudo cp "$REAL_INITRD" image/casper/initrd
     sudo cp "$REAL_INITRD" image/casper/initrd.gz
     judge "Copy kernel files"
