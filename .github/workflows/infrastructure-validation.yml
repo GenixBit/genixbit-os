@@ -178,6 +178,11 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y gpg jq openssl tar curl dpkg-dev apt-utils python3-jsonschema
 
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.8.8
+
       - name: Execute Real-Mode Staging Integration Harness
         run: |
           timeout 45m bash tests/infrastructure/test-staging-real-mode-local.sh 2>&1 | tee integration.log
