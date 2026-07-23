@@ -1,0 +1,64 @@
+{
+  "verification_target": "GenixBit Public Websites & Portal Deployment Verification",
+  "verification_timestamp_utc": "2026-07-23T13:48:34Z",
+  "source_commit": "a3c5b1e00b0516cc728dce41ea1a93ec7c6eaffa",
+  "endpoints": [
+    {
+      "domain": "www.genixbit.com",
+      "url": "https://www.genixbit.com",
+      "http_status": 200,
+      "tls_certificate": "Valid Let's Encrypt",
+      "hosting_target": "AWS EC2 (18.133.187.102)",
+      "sitemap_url": "https://www.genixbit.com/sitemap.xml",
+      "sitemap_status": 200,
+      "robots_url": "https://www.genixbit.com/robots.txt",
+      "robots_status": 200,
+      "product_entry_present": true,
+      "ecosystem_links_present": true
+    },
+    {
+      "domain": "os.genixbit.com",
+      "url": "https://os.genixbit.com",
+      "http_status": 200,
+      "tls_certificate": "Valid Let's Encrypt",
+      "hosting_target": "AWS EC2 (52.66.247.139)",
+      "sitemap_url": "https://os.genixbit.com/sitemap.xml",
+      "sitemap_status": 200,
+      "robots_url": "https://os.genixbit.com/robots.txt",
+      "robots_status": 200,
+      "download_button_visible": true,
+      "download_url_match": "https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso",
+      "placeholder_text_absent": true,
+      "displayed_filename": "GenixBitOS-0.2.0-alpha-2607220558.iso",
+      "displayed_sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"
+    },
+    {
+      "domain": "docs.os.genixbit.com",
+      "url": "https://docs.os.genixbit.com",
+      "http_status": 200,
+      "tls_certificate": "Valid Let's Encrypt",
+      "hosting_target": "AWS EC2 (52.66.247.139)",
+      "sitemap_url": "https://docs.os.genixbit.com/sitemap.xml",
+      "sitemap_status": 200,
+      "robots_url": "https://docs.os.genixbit.com/robots.txt",
+      "robots_status": 200,
+      "checksum_link_present": true,
+      "installation_guide_present": true,
+      "vm_testing_guide_present": true
+    },
+    {
+      "domain": "packages.os.genixbit.com",
+      "url": "https://packages.os.genixbit.com",
+      "http_status": 200,
+      "tls_certificate": "Valid Let's Encrypt",
+      "hosting_target": "AWS EC2 (52.66.247.139)",
+      "sitemap_url": "https://packages.os.genixbit.com/sitemap.xml",
+      "sitemap_status": 200,
+      "robots_url": "https://packages.os.genixbit.com/robots.txt",
+      "robots_status": 200,
+      "iso_distribution_status": "AVAILABLE",
+      "production_repository_status": "NOT DEPLOYED"
+    }
+  ],
+  "overall_web_verification_status": "PASS"
+}
