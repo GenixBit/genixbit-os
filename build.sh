@@ -105,19 +105,21 @@ EOF
     # Ubuntu 24.04+ uses deb822 .sources files in sources.list.d/ instead.
     sudo rm -f new_building_os/etc/apt/sources.list
 
-    print_ok "Setting up AnduinOS APKG apt source in chroot..."
+    local mode="${PACKAGE_SOURCE_MODE:-upstream}"
 
-    local keyring_path="new_building_os/usr/share/keyrings/anduinos-archive-keyring.gpg"
-    local cert_url="$APKG_SERVER/artifacts/certs/$APKG_CERT_NAME"
+    if [[ "$mode" == "upstream" ]]; then
+        print_ok "Setting up Upstream AnduinOS APKG apt source in chroot (mode: upstream)..."
+        local keyring_path="new_building_os/usr/share/keyrings/anduinos-archive-keyring.gpg"
+        local cert_url="$APKG_SERVER/artifacts/certs/$APKG_CERT_NAME"
 
-    print_ok "Downloading GPG keyring from $cert_url ..."
-    sudo mkdir -p new_building_os/usr/share/keyrings
-    curl -sL "$cert_url" | sed '1s/^\xEF\xBB\xBF//' | gpg --dearmor | sudo tee "$keyring_path" > /dev/null
-    judge "Download and dearmor keyring"
+        print_ok "Downloading GPG keyring from $cert_url ..."
+        sudo mkdir -p new_building_os/usr/share/keyrings
+        curl -sL "$cert_url" | sed '1s/^\xEF\xBB\xBF//' | gpg --dearmor | sudo tee "$keyring_path" > /dev/null
+        judge "Download and dearmor keyring"
 
-    print_ok "Generating anduinos.sources for $APKG_SERVER (suite: $TARGET_UBUNTU_VERSION-addon)..."
-    sudo mkdir -p new_building_os/etc/apt/sources.list.d
-    sudo tee new_building_os/etc/apt/sources.list.d/anduinos.sources > /dev/null <<EOF
+        print_ok "Generating anduinos.sources for $APKG_SERVER (suite: $TARGET_UBUNTU_VERSION-addon)..."
+        sudo mkdir -p new_building_os/etc/apt/sources.list.d
+        sudo tee new_building_os/etc/apt/sources.list.d/anduinos.sources > /dev/null <<EOF
 Types: deb
 URIs: $APKG_SERVER/artifacts/anduinos/
 Suites: $TARGET_UBUNTU_VERSION-addon
@@ -125,7 +127,34 @@ Components: main
 Architectures: amd64
 Signed-By: /usr/share/keyrings/anduinos-archive-keyring.gpg
 EOF
-    judge "Generate sources"
+        judge "Generate sources"
+
+    elif [[ "$mode" == "genixbit-staging" ]]; then
+        print_ok "Setting up GenixBit Signed Staging APT source in chroot (mode: genixbit-staging)..."
+        local keyring_dest="new_building_os/usr/share/keyrings/genixbit-os-archive-keyring.pgp"
+        sudo mkdir -p new_building_os/usr/share/keyrings
+        sudo cp "$SCRIPT_DIR/packages/genixbit-os-archive-keyring/keyring/genixbit-os-archive-keyring.pgp" "$keyring_dest"
+        judge "Install GenixBit staging keyring"
+
+        local staging_url="${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}"
+        sudo mkdir -p new_building_os/etc/apt/sources.list.d
+        sudo tee new_building_os/etc/apt/sources.list.d/genixbit-staging.sources > /dev/null <<EOF
+Types: deb
+URIs: $staging_url
+Suites: resolute-alpha
+Components: main
+Architectures: amd64
+Signed-By: /usr/share/keyrings/genixbit-os-archive-keyring.pgp
+EOF
+        judge "Generate GenixBit staging sources"
+    elif [[ "$mode" == "production" || "$mode" == "genixbit-production" ]]; then
+        print_error "Production package repository (packages.os.genixbit.com) is NOT DEPLOYED yet! Aborting build."
+        exit 1
+    else
+        print_error "Invalid PACKAGE_SOURCE_MODE: '$mode'. Must be 'upstream' or 'genixbit-staging'."
+        exit 1
+    fi
+
 
     print_ok "Enabling apt recommends in chroot..."
     echo 'APT::Install-Recommends "true";' | sudo tee new_building_os/etc/apt/apt.conf.d/99-enable-recommends > /dev/null

@@ -21,16 +21,54 @@ apt install $INTERACTIVE \
     --no-install-recommends
 judge "Install kernel"
 
-print_ok "Installing genixbit-os-desktop (full GenixBit OS desktop metapackage)..."
-apt install $INTERACTIVE \
-    genixbit-os-desktop \
-    genixbit-os-theme \
-    genixbit-os-wallpapers \
-    initramfs-tools \
-    --install-recommends
-judge "Install genixbit-os-desktop"
+mode="${PACKAGE_SOURCE_MODE:-upstream}"
 
-print_ok "Installing GenixBit OS installer (Ubiquity + wrapper + slides + bwrap compat)..."
-apt install $INTERACTIVE genixbit-os-installer-config --no-install-recommends
-judge "Install genixbit-os-installer-config"
+if [[ "$mode" == "upstream" ]]; then
+    print_ok "Installing anduinos-desktop (full Upstream AnduinOS desktop metapackage)..."
+    apt install $INTERACTIVE \
+        anduinos-desktop \
+        anduinos-desktop-apps \
+        anduinos-gnome-extensions \
+        anduinos-appstore \
+        anduinos-theme \
+        anduinos-wallpapers \
+        anduinos-fonts \
+        anduinos-no-snapd \
+        anduinos-session \
+        anduinos-software-properties-common \
+        anduinos-software-properties-gtk \
+        anduinos-system-tweaks \
+        firefox-anduinos \
+        gnome-shell-extension-appindicator-anduinos \
+        gnome-shell-extension-dash-to-panel-anduinos \
+        gnome-shell-extension-desktop-icons-ng-anduinos \
+        plymouth-anduinos \
+        alsa-ucm-conf-anduinos \
+        firmware-sof-anduinos \
+        initramfs-tools \
+        --install-recommends
+    judge "Install anduinos-desktop"
+
+    print_ok "Installing AnduinOS installer config..."
+    apt install $INTERACTIVE anduinos-installer-config --no-install-recommends
+    judge "Install anduinos-installer-config"
+
+elif [[ "$mode" == "genixbit-staging" ]]; then
+    print_ok "Installing genixbit-os-desktop (full GenixBit OS desktop metapackage)..."
+    apt install $INTERACTIVE \
+        genixbit-os-desktop \
+        genixbit-os-theme \
+        genixbit-os-wallpapers \
+        initramfs-tools \
+        --install-recommends
+    judge "Install genixbit-os-desktop"
+
+    print_ok "Installing GenixBit OS installer config..."
+    apt install $INTERACTIVE genixbit-os-installer-config --no-install-recommends
+    judge "Install genixbit-os-installer-config"
+else
+    echo "Error: Invalid PACKAGE_SOURCE_MODE: $mode" >&2
+    exit 1
+fi
+
 

@@ -144,20 +144,25 @@ export TARGET_PACKAGE_REMOVE="
 "
 
 #============================
-# Upstream APKG server configuration (Temporary Upstream Dependencies)
+# Package Source Mode Configuration
 #============================
-# Note: The following package repository settings reference upstream AnduinOS infrastructure.
-# They will be replaced by GenixBit package server infrastructure (packages.os.genixbit.com)
-# once the GenixBit package build & signing repository is fully provisioned.
+# PACKAGE_SOURCE_MODE can be 'upstream' or 'genixbit-staging'.
+# Production mode (packages.os.genixbit.com) remains NOT DEPLOYED.
+export PACKAGE_SOURCE_MODE="${PACKAGE_SOURCE_MODE:-upstream}"
 
-# GenixBit OS APT config package name
-export APT_CONFIG_PACKAGE="genixbit-os-apt-config"
+if [[ "$PACKAGE_SOURCE_MODE" == "upstream" ]]; then
+    export APT_CONFIG_PACKAGE="anduinos-apt-config"
+    export APKG_SERVER="https://packages.anduinos.com"
+    export APKG_CERT_NAME="anduinos"
+elif [[ "$PACKAGE_SOURCE_MODE" == "genixbit-staging" ]]; then
+    export APT_CONFIG_PACKAGE="genixbit-os-apt-config"
+    export APKG_SERVER="${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}"
+    export APKG_CERT_NAME="genixbit-os"
+else
+    echo "Error: Invalid or un-deployed PACKAGE_SOURCE_MODE='$PACKAGE_SOURCE_MODE'. Must be 'upstream' or 'genixbit-staging'." >&2
+    exit 1
+fi
 
-# APKG server URL for overlay packages. [TEMPORARY UPSTREAM DEPENDENCY]
-export APKG_SERVER="https://packages.anduinos.com"
-
-# GPG certificate name on the APKG server. [TEMPORARY UPSTREAM DEPENDENCY]
-export APKG_CERT_NAME="anduinos"
 
 
 
