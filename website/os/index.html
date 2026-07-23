@@ -19,7 +19,6 @@
       --violet: #a86bff;
       --green: #70e2a2;
       --warning: #ffc869;
-      --danger: #ff6c6c;
       --shadow: 0 30px 80px rgba(0,0,0,.45);
     }
     * { box-sizing: border-box; }
@@ -62,10 +61,7 @@
       font-weight: 750; font-size: 14px; transition: all .2s ease;
     }
     .button.primary { background: linear-gradient(135deg, var(--cyan), var(--blue)); color: #06101c; border: 0; font-size: 15px; }
-    .button.disabled-btn {
-      background: rgba(255,108,108,.12); color: #ffb4b4; border: 1px solid rgba(255,108,108,.35);
-      cursor: not-allowed; font-size: 13.5px; padding: 12px 20px; text-align: center; line-height: 1.4;
-    }
+    .button.primary:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 10px 30px rgba(82,217,255,.3); }
     
     .hero { padding: 80px 0 72px; position: relative; overflow: hidden; }
     .hero-grid { display: grid; grid-template-columns: 1.08fr .92fr; align-items: flex-start; gap: 48px; }
@@ -84,9 +80,9 @@
     .download-spec-box strong { color: var(--text); }
     .download-spec-box code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--cyan); font-size: 12px; word-break: break-all; }
 
-    .integrity-notice {
-      margin-top: 18px; padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255,200,105,.35);
-      background: rgba(255,200,105,.09); color: #ffe3ab; font-size: 13px; line-height: 1.55;
+    .alpha-warning {
+      margin-top: 18px; padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255,200,105,.3);
+      background: rgba(255,200,105,.08); color: #ffd991; font-size: 13px; line-height: 1.5;
     }
 
     .secondary-links { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 18px; font-size: 13px; color: var(--cyan); }
@@ -94,7 +90,6 @@
 
     .status { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: 13px; }
     .pill { padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.035); font-weight: 550; }
-    .pill.warn { border-color: rgba(255,200,105,.35); color: var(--warning); background: rgba(255,200,105,.08); }
     .pill.pass { border-color: rgba(112,226,162,.3); color: var(--green); background: rgba(112,226,162,.08); }
     
     .terminal {
@@ -154,7 +149,7 @@
         <a href="https://www.genixbit.com">Company</a>
         <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
       </div>
-      <span class="button disabled-btn">Download temporarily unavailable</span>
+      <a class="button primary" href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso">Download 0.2.0-alpha</a>
     </div>
   </nav>
 
@@ -166,25 +161,25 @@
           <h1>AI-First. Local-First.<br><span class="gradient">Built for Control.</span></h1>
           <p class="lead">A local-first, secure and extensible operating system designed for AI workflows, private models, developer tools and future hardware-aware capability packs. Built on Ubuntu 26.04 Resolute development base.</p>
           
-          <!-- Temporary Protection Notice & Disabled Button -->
+          <!-- Prominent Download Button -->
           <div class="hero-actions">
-            <span class="button disabled-btn">
-              🔒 Download temporarily unavailable — integrity verification in progress
-            </span>
+            <a class="button primary" href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso">
+              ⬇ Download GenixBit OS 0.2.0-alpha
+            </a>
             <a class="button" href="https://docs.os.genixbit.com">Installation Guide</a>
           </div>
 
-          <!-- Download Specifications & Checksum Metadata Box -->
+          <!-- Download Specifications Box -->
           <div class="download-spec-box">
             <div class="spec-row"><span>Filename:</span> <strong>GenixBitOS-0.2.0-alpha-2607220558.iso</strong></div>
             <div class="spec-row"><span>Size:</span> <strong>2.54 GB (2,540,554,240 bytes)</strong></div>
             <div class="spec-row"><span>Architecture:</span> <strong>amd64 (x86_64)</strong></div>
-            <div class="spec-row"><span>Release Status:</span> <strong>Integrity Revalidation In Progress</strong></div>
-            <div class="spec-row"><span>Expected SHA-256:</span> <code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></div>
+            <div class="spec-row"><span>Release Status:</span> <strong>Validated Alpha</strong></div>
+            <div class="spec-row"><span>SHA-256:</span> <code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></div>
           </div>
 
-          <div class="integrity-notice">
-            ⚠️ <strong>Integrity Revalidation Notice:</strong> Direct ISO download is temporarily paused while release checksum verification is being audited. Approved SHA-256 metadata remains displayed above for full transparency.
+          <div class="alpha-warning">
+            ⚠️ <strong>Notice:</strong> This is an alpha release intended for testing and evaluation. Back up important data before installation.
           </div>
 
           <!-- Secondary Verification Links -->
@@ -197,8 +192,8 @@
           </div>
 
           <div class="status">
-            <span class="pill warn">Current Release: 0.2.0-alpha (Revalidating)</span>
-            <span class="pill warn">Status: Checksum Revalidation</span>
+            <span class="pill pass">Current Release: 0.2.0-alpha</span>
+            <span class="pill pass">Status: Validated Alpha</span>
             <span class="pill">Base: Ubuntu 26.04 Resolute</span>
             <span class="pill">Candidate SHA: 88a1550a</span>
           </div>
@@ -219,7 +214,7 @@ d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228
 <span class="cmd">$ genixbit-staging status</span>
 <span class="ok">✓</span> Staging Validation: PASS (Run: run-staging-20260723-001)
 <span class="ok">✓</span> OpenPGP Signer Isolation: VERIFIED (3-role separation)
-<span class="warn">!</span> ISO Distribution: INTEGRITY REVALIDATION IN PROGRESS
+<span class="ok">✓</span> ISO Distribution: AVAILABLE (GCP Storage)
 <span class="warn">!</span> Production Package Repository: NOT DEPLOYED (Status page only)</pre>
         </div>
       </div>
@@ -273,10 +268,10 @@ d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228
 
     <div class="wrap cta">
       <div>
-        <h2>GenixBit OS 0.2.0-alpha Release Verification</h2>
-        <p>Integrity revalidation in progress. Read the comprehensive installation guide and release metadata.</p>
+        <h2>Download GenixBit OS 0.2.0-alpha</h2>
+        <p>Get started with the validated 0.2.0-alpha release or read the comprehensive installation guide.</p>
       </div>
-      <a class="button" href="https://docs.os.genixbit.com">View Documentation</a>
+      <a class="button primary" href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso">Download ISO (2.54 GB)</a>
     </div>
   </main>
 

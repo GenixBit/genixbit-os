@@ -13,13 +13,13 @@ EVIDENCE_FILE="docs/releases/0.2.0-alpha-distribution-verification.json"
 
 get_json_val() {
     local key=$1
-    python3 -c "import json; data=json.load(open('$EVIDENCE_FILE')); print(data.get('$key', ''))" 2>/dev/null || echo ""
+    python3 -c "import json; data=json.load(open('$EVIDENCE_FILE')); v=data.get('$key', ''); print(str(v).lower() if isinstance(v, bool) else v)" 2>/dev/null || echo ""
 }
 
 get_json_nested() {
     local p1=$1
     local p2=$2
-    python3 -c "import json; data=json.load(open('$EVIDENCE_FILE')); print(data.get('$p1', {}).get('$p2', ''))" 2>/dev/null || echo ""
+    python3 -c "import json; data=json.load(open('$EVIDENCE_FILE')); v=data.get('$p1', {}).get('$p2', ''); print(str(v).lower() if isinstance(v, bool) else v)" 2>/dev/null || echo ""
 }
 
 downloaded_hash=$(get_json_val "downloaded_file_sha256")

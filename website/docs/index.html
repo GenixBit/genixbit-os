@@ -18,7 +18,6 @@
       --violet: #9a73ff;
       --green: #70e2a2;
       --warning: #ffc869;
-      --danger: #ff6c6c;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -39,7 +38,7 @@
     }
     nav { height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .brand { font-weight: 850; font-size: 20px; display: flex; align-items: center; gap: 10px; }
-    .badge { padding: 6px 12px; border: 1px solid rgba(255,200,105,.35); border-radius: 999px; color: var(--warning); background: rgba(255,200,105,.08); font-size: 13px; font-weight: 600; }
+    .badge { padding: 6px 12px; border: 1px solid rgba(112,226,162,.3); border-radius: 999px; color: var(--green); background: rgba(112,226,162,.08); font-size: 13px; font-weight: 600; }
     .nav-links { display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
     .nav-links a:hover { color: var(--accent); }
     .layout { display: grid; grid-template-columns: 260px 1fr; gap: 36px; padding: 40px 0 80px; }
@@ -55,11 +54,11 @@
     .content p, .content li { color: var(--muted); line-height: 1.65; font-size: 15px; }
     .code-block { background: #060e18; border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; color: #dceaff; overflow-x: auto; margin: 16px 0; }
     .notice { padding: 16px 20px; border: 1px solid rgba(85,217,255,.3); border-radius: 14px; background: rgba(85,217,255,.06); color: var(--text); margin: 20px 0; }
-    .notice.warn { border-color: rgba(255,200,105,.35); background: rgba(255,200,105,.08); color: #ffd991; }
+    .notice.warn { border-color: rgba(255,200,105,.3); background: rgba(255,200,105,.06); color: #ffd991; }
     table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
     th, td { text-align: left; padding: 10px 14px; border: 1px solid var(--line); }
     th { background: rgba(255,255,255,.05); color: var(--text); }
-    .disabled-notice-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; background: rgba(255,108,108,.12); color: #ffb4b4; border: 1px solid rgba(255,108,108,.35); font-weight: 700; font-size: 14px; margin: 12px 0; }
+    .download-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--violet)); color: #06101c; font-weight: 800; text-decoration: none; margin: 12px 0; }
     footer { border-top: 1px solid var(--line); padding: 30px 0; color: var(--muted); font-size: 14px; text-align: center; }
     @media (max-width: 850px) {
       .layout { grid-template-columns: 1fr; }
@@ -77,7 +76,7 @@
         <a href="https://www.genixbit.com">Company</a>
         <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
       </div>
-      <span class="badge">v0.2.0-alpha Revalidating</span>
+      <span class="badge">v0.2.0-alpha Validated</span>
     </nav>
   </header>
 
@@ -114,13 +113,11 @@
 
       <!-- 2. Download & Checksum -->
       <section id="download">
-        <h2>2. Download & Checksum Status</h2>
-        <div class="notice warn">
-          🔒 <strong>Download temporarily unavailable — integrity verification in progress.</strong> Direct ISO download links are paused while release checksum verification is audited. Checksum metadata remains displayed below for transparency.
-        </div>
-        <span class="disabled-notice-btn">
-          🔒 Download temporarily unavailable — integrity verification in progress
-        </span>
+        <h2>2. Download & Checksum</h2>
+        <p>Download the official validated 0.2.0-alpha ISO image hosted on GCP Cloud Storage:</p>
+        <a class="download-btn" href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso">
+          ⬇ Download GenixBitOS-0.2.0-alpha-2607220558.iso (2.54 GB)
+        </a>
         <p>Direct checksum link: <a href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso.sha256" style="color:var(--accent)">GenixBitOS-0.2.0-alpha-2607220558.iso.sha256</a></p>
 
         <h3>Checksum Verification Command</h3>
