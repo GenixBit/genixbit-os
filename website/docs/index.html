@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS Official Documentation — Architecture, Release 0.2.0-alpha, ISO verification, package architecture, GCP staging validation, and security policies.">
+  <meta name="description" content="GenixBit OS Official Documentation — Architecture, Release 0.2.0-alpha, ISO verification, USB creation, VM testing, package architecture, GCP staging validation, and security policies.">
   <title>GenixBit OS Documentation Portal</title>
   <style>
     :root {
@@ -58,6 +58,7 @@
     table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
     th, td { text-align: left; padding: 10px 14px; border: 1px solid var(--line); }
     th { background: rgba(255,255,255,.05); color: var(--text); }
+    .download-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--violet)); color: #06101c; font-weight: 800; text-decoration: none; margin: 12px 0; }
     footer { border-top: 1px solid var(--line); padding: 30px 0; color: var(--muted); font-size: 14px; text-align: center; }
     @media (max-width: 850px) {
       .layout { grid-template-columns: 1fr; }
@@ -84,18 +85,18 @@
       <h4>Documentation Guide</h4>
       <ul>
         <li><a href="#overview">1. Overview</a></li>
-        <li><a href="#installation">2. Installation</a></li>
-        <li><a href="#release">3. Release 0.2.0-alpha</a></li>
-        <li><a href="#iso-verification">4. ISO Verification</a></li>
-        <li><a href="#branding">5. Branding Architecture</a></li>
-        <li><a href="#packaging">6. Package Architecture</a></li>
-        <li><a href="#gcp-staging">7. GCP Staging Validation</a></li>
-        <li><a href="#signing">8. Signing & Trust Model</a></li>
-        <li><a href="#snapshots">9. Snapshots & Rollback</a></li>
-        <li><a href="#security">10. Security Policy</a></li>
-        <li><a href="#troubleshooting">11. Troubleshooting</a></li>
-        <li><a href="#roadmap">12. Roadmap</a></li>
-        <li><a href="#contributing">13. Contributing</a></li>
+        <li><a href="#download">2. Download & Checksum</a></li>
+        <li><a href="#installation">3. Installation & USB</a></li>
+        <li><a href="#vm-testing">4. VM Testing Guide</a></li>
+        <li><a href="#release">5. Release 0.2.0-alpha</a></li>
+        <li><a href="#branding">6. Branding Architecture</a></li>
+        <li><a href="#packaging">7. Package Architecture</a></li>
+        <li><a href="#gcp-staging">8. GCP Staging Validation</a></li>
+        <li><a href="#signing">9. Signing & Trust Model</a></li>
+        <li><a href="#snapshots">10. Snapshots & Rollback</a></li>
+        <li><a href="#security">11. Security Policy</a></li>
+        <li><a href="#troubleshooting">12. Troubleshooting</a></li>
+        <li><a href="#roadmap">13. Roadmap</a></li>
         <li><a href="#attribution">14. Legal Attribution</a></li>
       </ul>
     </aside>
@@ -110,107 +111,135 @@
         </div>
       </section>
 
-      <!-- 2. Installation -->
-      <section id="installation">
-        <h2>2. Installation</h2>
-        <p>GenixBit OS is distributed as a bootable hybrid ISO image suitable for bare-metal x86_64 hardware, KVM/QEMU virtual machines, and modern hypervisors.</p>
-        <h3>System Requirements</h3>
-        <ul>
-          <li><strong>CPU:</strong> 64-bit x86_64 processor (quad-core recommended)</li>
-          <li><strong>RAM:</strong> 8 GB minimum (16 GB+ recommended for local LLM inference)</li>
-          <li><strong>Storage:</strong> 32 GB NVMe/SSD space</li>
-          <li><strong>GPU:</strong> Optional NVIDIA or AMD GPU for hardware-accelerated model execution</li>
-        </ul>
+      <!-- 2. Download & Checksum -->
+      <section id="download">
+        <h2>2. Download & Checksum</h2>
+        <p>Download the official validated 0.2.0-alpha ISO image hosted on GCP Cloud Storage:</p>
+        <a class="download-btn" href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso">
+          ⬇ Download GenixBitOS-0.2.0-alpha-2607220558.iso (2.54 GB)
+        </a>
+        <p>Direct checksum link: <a href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso.sha256" style="color:var(--accent)">GenixBitOS-0.2.0-alpha-2607220558.iso.sha256</a></p>
+
+        <h3>Checksum Verification Command</h3>
+        <div class="code-block">
+$ sha256sum GenixBitOS-0.2.0-alpha-2607220558.iso
+d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228  GenixBitOS-0.2.0-alpha-2607220558.iso
+        </div>
       </section>
 
-      <!-- 3. Release 0.2.0-alpha -->
+      <!-- 3. Installation & USB -->
+      <section id="installation">
+        <h2>3. Installation & Bootable USB Creation</h2>
+        <p>GenixBit OS requires a 64-bit <code>amd64</code> architecture. Secure Boot setup should be disabled or set to Audit mode for custom kernel drivers.</p>
+        
+        <h3>Creating a Bootable USB Flash Drive</h3>
+        <div class="notice warn">
+          <strong>Warning:</strong> The <code>dd</code> command will overwrite all data on the target USB device. Confirm device path carefully.
+        </div>
+        <div class="code-block">
+# Identify your USB drive device path (e.g., /dev/sdX)
+sudo lsblk
+
+# Write ISO to USB drive
+sudo dd if=GenixBitOS-0.2.0-alpha-2607220558.iso of=/dev/sdX bs=4M status=progress conv=fsync
+        </div>
+      </section>
+
+      <!-- 4. VM Testing Guide -->
+      <section id="vm-testing">
+        <h2>4. Virtual Machine Testing Guide</h2>
+        <p>To test GenixBit OS inside a QEMU/KVM virtual machine:</p>
+        <div class="code-block">
+qemu-system-x86_64 \
+  -enable-kvm \
+  -m 4096 \
+  -smp 4 \
+  -cpu host \
+  -cdrom GenixBitOS-0.2.0-alpha-2607220558.iso \
+  -boot d
+        </div>
+      </section>
+
+      <!-- 5. Release 0.2.0-alpha -->
       <section id="release">
-        <h2>3. Release 0.2.0-alpha</h2>
-        <p>Release 0.2.0-alpha represents our initial validated alpha milestone for the GenixBit OS platform.</p>
+        <h2>5. Release 0.2.0-alpha Specifications</h2>
         <table>
           <tr><th>Attribute</th><th>Specification / Hash</th></tr>
           <tr><td>Release Version</td><td><code>0.2.0-alpha</code></td></tr>
+          <tr><td>ISO Filename</td><td><code>GenixBitOS-0.2.0-alpha-2607220558.iso</code></td></tr>
+          <tr><td>ISO Size</td><td><code>2,540,554,240</code> bytes (2.54 GB)</td></tr>
           <tr><td>Candidate SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td></tr>
           <tr><td>ISO SHA-256</td><td><code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></td></tr>
           <tr><td>Base OS Platform</td><td>Ubuntu 26.04 Resolute Development Base</td></tr>
-          <tr><td>Release Invariants</td><td>Tag <code>v0.2.0-alpha</code> pinned to candidate commit</td></tr>
+          <tr><td>Architecture</td><td>amd64 (x86_64)</td></tr>
         </table>
+
+        <h3>Known Limitations</h3>
+        <ul>
+          <li>Alpha release intended for testing and evaluation only; back up important data.</li>
+          <li>Secure Boot key enrollment is manual in 0.2.0-alpha.</li>
+          <li>Production package repository is NOT active; package staging ran on isolated GCP environment.</li>
+        </ul>
       </section>
 
-      <!-- 4. ISO Verification -->
-      <section id="iso-verification">
-        <h2>4. ISO Verification</h2>
-        <p>Always verify the integrity of your downloaded ISO image before booting or writing to physical media:</p>
-        <div class="code-block">
-$ sha256sum genixbit-os-0.2.0-alpha-amd64.iso
-d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228  genixbit-os-0.2.0-alpha-amd64.iso
-        </div>
-      </section>
-
-      <!-- 5. Branding Architecture -->
+      <!-- 6. Branding Architecture -->
       <section id="branding">
-        <h2>5. Branding Architecture</h2>
-        <p>GenixBit OS enforces consistent visual identity and system metadata across terminal banners, desktop artwork, GRUB bootloader, Plymouth splash screens, and <code>/etc/os-release</code> while preserving legally mandated upstream copyright attributions.</p>
+        <h2>6. Branding Architecture</h2>
+        <p>GenixBit OS enforces consistent visual identity across GRUB bootloader, Plymouth splash, terminal banners, desktop artwork, and <code>/etc/os-release</code> while preserving legally mandated upstream copyright notices.</p>
       </section>
 
-      <!-- 6. Package Architecture -->
+      <!-- 7. Package Architecture -->
       <section id="packaging">
-        <h2>6. Package Architecture</h2>
-        <p>The GenixBit package ecosystem features dual-suite release channels (<code>resolute-alpha</code> and <code>resolute-testing</code>), automated <code>dpkg-scanpackages</code> index generation, and atomic directory symlink swappings for instant production publication.</p>
+        <h2>7. Package Architecture</h2>
+        <p>The package ecosystem features dual-suite channels (<code>resolute-alpha</code> and <code>resolute-testing</code>), automated <code>dpkg-scanpackages</code> indexes, and atomic directory symlinking for instant publication.</p>
       </section>
 
-      <!-- 7. GCP Staging Validation -->
+      <!-- 8. GCP Staging Validation -->
       <section id="gcp-staging">
-        <h2>7. GCP Staging Validation</h2>
+        <h2>8. GCP Staging Validation</h2>
         <p>We executed a full 12-stage package repository validation drill on an isolated GCP staging infrastructure under run ID <code>run-staging-20260723-001</code>.</p>
         <div class="notice">
-          <strong>Staging Transparency Notice:</strong> The GCP deployment exercise was purely for staging validation. All temporary resources (VPC, VMs, Cloud NAT, DNS, and Storage Buckets) were completely torn down and cleaned up upon completion. The production package repository remains undeployed.
+          <strong>Staging Notice:</strong> The GCP staging exercise was purely for validation. All temporary resources (VPC, VMs, NAT, DNS, buckets) were destroyed. Production repo remains undeployed.
         </div>
       </section>
 
-      <!-- 8. Signing & Trust Model -->
+      <!-- 9. Signing & Trust Model -->
       <section id="signing">
-        <h2>8. Signing & Trust Model</h2>
-        <p>OpenPGP metadata signatures (InRelease and Release.gpg) are produced exclusively on a isolated <strong>Signing Workstation</strong> (<code>SIGNER_INSTANCE_NAME</code>). Repository Host and APT Client nodes contain zero secret key packets.</p>
+        <h2>9. Signing & Trust Model</h2>
+        <p>OpenPGP metadata signatures (InRelease and Release.gpg) are produced exclusively on an isolated <strong>Signing Workstation</strong> (<code>SIGNER_INSTANCE_NAME</code>). Repository Host and APT Client nodes contain zero secret key packets.</p>
       </section>
 
-      <!-- 9. Snapshots & Rollback -->
+      <!-- 10. Snapshots & Rollback -->
       <section id="snapshots">
-        <h2>9. Snapshots & Rollback</h2>
-        <p>Staging supports atomic release snapshots (e.g., <code>snap-resolute-alpha-20260723-104011</code>) allowing instant rollbacks to previous validated suite states without client-side APT corruption.</p>
+        <h2>10. Snapshots & Rollback</h2>
+        <p>Supports atomic release snapshots (e.g., <code>snap-resolute-alpha-20260723-104011</code>) allowing instant rollbacks to previous validated suite states without client-side APT corruption.</p>
       </section>
 
-      <!-- 10. Security Policy -->
+      <!-- 11. Security Policy -->
       <section id="security">
-        <h2>10. Security Policy</h2>
-        <p>Security vulnerabilities should be reported directly to <code>security@genixbit.com</code>. We enforce zero hardcoded secrets, fail-closed operational runners, and complete anti-fabrication testing gates across all CI pipelines.</p>
+        <h2>11. Security Policy</h2>
+        <p>Security vulnerabilities should be reported directly to <code>security@genixbit.com</code>. We enforce zero hardcoded secrets, fail-closed operational runners, and anti-fabrication testing gates across all CI pipelines.</p>
       </section>
 
-      <!-- 11. Troubleshooting -->
+      <!-- 12. Troubleshooting -->
       <section id="troubleshooting">
-        <h2>11. Troubleshooting</h2>
-        <p>For common build, GPG key import, or repository sync issues, consult our automated test suite logs or run preflight diagnostics using <code>./preflight.sh</code> in the repository root.</p>
+        <h2>12. Troubleshooting</h2>
+        <p>If you encounter boot issues, verify ISO SHA-256 hash, disable Secure Boot in BIOS, or check QEMU memory allocation (minimum 4 GB RAM required).</p>
       </section>
 
-      <!-- 12. Roadmap -->
+      <!-- 13. Roadmap -->
       <section id="roadmap">
-        <h2>12. Roadmap</h2>
+        <h2>13. Roadmap</h2>
         <ul>
           <li><strong>Phase 1 (Completed):</strong> ISO build pipeline & 12-stage GCP package staging validation drill.</li>
-          <li><strong>Phase 2 (Current):</strong> Public status & documentation portal release.</li>
+          <li><strong>Phase 2 (Completed):</strong> Public ISO release & transparency portal publication.</li>
           <li><strong>Phase 3 (Upcoming):</strong> Hardware-accelerated AI Core integration & production package repository approval.</li>
         </ul>
       </section>
 
-      <!-- 13. Contributing -->
-      <section id="contributing">
-        <h2>13. Contributing</h2>
-        <p>We welcome open-source contributions! Please review our <a href="https://github.com/GenixBit/genixbit-os/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> and <a href="https://github.com/GenixBit/genixbit-os/blob/main/CODE_OF_CONDUCT.md">Code of Conduct</a> before submitting pull requests.</p>
-      </section>
-
       <!-- 14. Legal & Upstream Attribution -->
       <section id="attribution">
-        <h2>14. Legal & Upstream Attribution</h2>
+        <h2>14. Legal Attribution</h2>
         <p>GenixBit OS incorporates GPL-3.0 and Ubuntu Linux upstream components. All copyrights, trademarks, and license notices belong to their respective copyright holders. See <a href="https://github.com/GenixBit/genixbit-os/blob/main/UPSTREAM.md">UPSTREAM.md</a> for full details.</p>
       </section>
     </main>

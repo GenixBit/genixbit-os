@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS Package Transparency & Staging Status Page — Validated GCP staging execution metrics and production repository status.">
+  <meta name="description" content="GenixBit OS Package Transparency & Staging Status Page — Validated GCP staging execution metrics, ISO distribution, and production repository status.">
   <title>GenixBit Package Transparency & Staging Status</title>
   <style>
     :root {
@@ -90,13 +90,17 @@
   <main class="wrap">
     <div class="eyebrow">Transparency & Infrastructure Status</div>
     <h1>Package Transparency Status</h1>
-    <p class="lead">Audit record for GenixBit OS package infrastructure, OpenPGP signing model, and GCP staging validation drills.</p>
+    <p class="lead">Audit record for GenixBit OS package infrastructure, ISO distribution, OpenPGP signing model, and GCP staging validation drills.</p>
 
     <!-- Top 4 Summary Cards -->
     <div class="status-summary-grid">
       <div class="summary-card">
         <label>Production Repository</label>
         <div class="val not-deployed">NOT DEPLOYED</div>
+      </div>
+      <div class="summary-card">
+        <label>ISO Distribution</label>
+        <div class="val pass">AVAILABLE (0.2.0-alpha)</div>
       </div>
       <div class="summary-card">
         <label>GCP Staging Validation</label>
@@ -106,25 +110,23 @@
         <label>Temporary GCP Resources</label>
         <div class="val pass">CLEANED UP</div>
       </div>
-      <div class="summary-card">
-        <label>Production Signing Key</label>
-        <div class="val not-deployed">NOT CREATED</div>
-      </div>
     </div>
 
     <div class="warning-banner">
-      <strong>Security & Operational Notice:</strong> No production APT package repository is served from this hostname. The GCP staging validation exercise was executed strictly on isolated private staging infrastructure and all temporary cloud resources have been completely destroyed. Do not add this domain to APT sources.
+      <strong>Security & Operational Notice:</strong> No production APT package repository is served from this hostname. The ISO download bucket (GCP Cloud Storage) serves verified ISO installation images only and is separate from package repository mirrors. Do not add this domain to APT sources.
     </div>
 
     <!-- Validated Staging Metrics -->
     <div class="table-section">
-      <h2>Validated GCP Staging Results</h2>
+      <h2>Validated Release & GCP Staging Results</h2>
       <table>
         <thead>
           <tr><th>Validation Metric</th><th>Value / Identifier</th><th>Status</th></tr>
         </thead>
         <tbody>
-          <tr><td>Validated Release</td><td><code>0.2.0-alpha</code></td><td><span class="tag-pass">VALIDATED</span></td></tr>
+          <tr><td>Current Release</td><td><code>0.2.0-alpha</code></td><td><span class="tag-pass">VALIDATED</span></td></tr>
+          <tr><td>ISO Download Host</td><td><code>storage.googleapis.com / downloads.os.genixbit.com</code></td><td><span class="tag-pass">AVAILABLE</span></td></tr>
+          <tr><td>ISO SHA-256 Checksum</td><td><code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
           <tr><td>Candidate Git SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td><td><span class="tag-pass">PINNED</span></td></tr>
           <tr><td>Staging Run ID</td><td><code>run-staging-20260723-001</code></td><td><span class="tag-info">GCP STAGING</span></td></tr>
           <tr><td>Staging Public Key Fingerprint</td><td><code>9D8696C4BF7862A6366C1669BF6D1B248A0760A2</code></td><td><span class="tag-pass">ISOLATED SIGNER</span></td></tr>
@@ -141,7 +143,7 @@
           <tr><td>Revocation Drill Stage</td><td>Revocation cert import & APT client rejection</td><td><span class="tag-pass">PASS</span></td></tr>
           <tr><td>Infrastructure Cleanup</td><td>OpenTofu destroy of 16 GCP resources</td><td><span class="tag-pass">PASS</span></td></tr>
           <tr><td>Evidence Manifest Checksum</td><td><code>ea14c7c883eef6a08915b497bce17926b4816c7cf6dcf8efb5420fa26bcdd7e0</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
-          <tr><td>Verification Timestamp</td><td><code>2026-07-23T11:45:09Z</code></td><td><span class="tag-info">FINAL AUDIT</span></td></tr>
+          <tr><td>Last Verified Timestamp</td><td><code>2026-07-23T12:27:18Z</code></td><td><span class="tag-info">AUDITED</span></td></tr>
         </tbody>
       </table>
     </div>
