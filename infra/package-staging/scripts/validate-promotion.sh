@@ -55,6 +55,38 @@ else
     fi
 fi
 
+ssh_signer() {
+    local cmd="$1"
+    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
+    if command -v docker >/dev/null 2>&1 && docker inspect "${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}" >/dev/null 2>&1; then
+        docker exec "${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}" bash -c "$cmd"
+    else
+        gcloud compute ssh "${SIGNER_INSTANCE_NAME:-${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}}" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-growth-os}" --tunnel-through-iap --command="$cmd"
+    fi
+}
+
+scp_to_signer() {
+    local src="$1"
+    local dst="$2"
+    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
+    if command -v docker >/dev/null 2>&1 && docker inspect "${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}" >/dev/null 2>&1; then
+        docker cp "$src" "${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}:$dst"
+    else
+        gcloud compute scp "$src" "${SIGNER_INSTANCE_NAME:-${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}}:$dst" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-growth-os}" --tunnel-through-iap
+    fi
+}
+
+scp_from_signer() {
+    local src="$1"
+    local dst="$2"
+    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
+    if command -v docker >/dev/null 2>&1 && docker inspect "${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}" >/dev/null 2>&1; then
+        docker cp "${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}:$src" "$dst"
+    else
+        gcloud compute scp "${SIGNER_INSTANCE_NAME:-${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}}:$src" "$dst" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-growth-os}" --tunnel-through-iap
+    fi
+}
+
 ssh_repo_host() {
     local cmd="$1"
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
@@ -93,21 +125,28 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-testing"
     bash "$REPO_ROOT/tools/repository/promote-package.sh" --repo-dir "$LOCAL_STAGING_DIR" --package "genixbit-repository-fixture" --from-channel "resolute-alpha" --to-channel "resolute-testing"
 
+    # Sign resolute-testing Release metadata on SIGNER WORKSTATION
+    scp_to_signer "$LOCAL_STAGING_DIR/dists/resolute-testing/Release" "/tmp/Release_testing"
+    ssh_signer "
+    set -euo pipefail
+    BUILD_DIR='/tmp/genixbit_repo_build'
+    KEY_FPR='${STAGING_KEY_FPR:-}'
+    if [[ -z \"\$KEY_FPR\" && -f \"\$BUILD_DIR/key_fpr.txt\" ]]; then KEY_FPR=\$(cat \"\$BUILD_DIR/key_fpr.txt\"); fi
+    if [[ -z \"\$KEY_FPR\" ]]; then KEY_FPR=\$(gpg --list-keys --with-colons 2>/dev/null | awk -F: '\$1 == \"fpr\" {print \$10; exit}'); fi
+    GPG_HOMEDIR=\"\$BUILD_DIR/gpg\"
+    if [[ ! -d \"\$GPG_HOMEDIR\" ]]; then GPG_HOMEDIR=\"\$HOME/.gnupg\"; fi
+    gpg --batch --yes --homedir \"\$GPG_HOMEDIR\" -u \"\$KEY_FPR\" --clearsign --digest-algo SHA256 -o /tmp/InRelease_testing /tmp/Release_testing 2>/dev/null || gpg --batch --yes -u \"\$KEY_FPR\" --clearsign --digest-algo SHA256 -o /tmp/InRelease_testing /tmp/Release_testing
+    gpg --batch --yes --homedir \"\$GPG_HOMEDIR\" -u \"\$KEY_FPR\" --detach-sign --armor --digest-algo SHA256 -o /tmp/Release.gpg_testing /tmp/Release_testing 2>/dev/null || gpg --batch --yes -u \"\$KEY_FPR\" --detach-sign --armor --digest-algo SHA256 -o /tmp/Release.gpg_testing /tmp/Release_testing
+    "
+    scp_from_signer "/tmp/InRelease_testing" "$LOCAL_STAGING_DIR/dists/resolute-testing/InRelease"
+    scp_from_signer "/tmp/Release.gpg_testing" "$LOCAL_STAGING_DIR/dists/resolute-testing/Release.gpg"
+
     # Sync promoted testing channel to repo host
     COPYFILE_DISABLE=1 tar -czf "$LOCAL_STAGING_DIR/testing_dist.tar.gz" -C "$LOCAL_STAGING_DIR/dists/resolute-testing" .
     scp_to_repo_host "$LOCAL_STAGING_DIR/testing_dist.tar.gz" "/tmp/testing_dist.tar.gz"
     ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/current/dists/resolute-testing && sudo tar -xzf /tmp/testing_dist.tar.gz -C /var/srv/genixbit-repository/current/dists/resolute-testing/ && sudo rm -f /tmp/testing_dist.tar.gz"
     rm -f "$LOCAL_STAGING_DIR/testing_dist.tar.gz"
 
-    # Sign promoted resolute-testing Release metadata on repo host
-    ssh_repo_host "
-    set -euo pipefail
-    BUILD_DIR='/tmp/genixbit_repo_build'
-    KEY_FPR=\$(cat \"\$BUILD_DIR/key_fpr.txt\")
-    cd /var/srv/genixbit-repository/current/dists/resolute-testing
-    sudo GNUPGHOME=\"\$BUILD_DIR/gpg\" gpg --batch --yes -u \"\$KEY_FPR\" --clearsign --digest-algo SHA256 -o InRelease Release
-    sudo GNUPGHOME=\"\$BUILD_DIR/gpg\" gpg --batch --yes -u \"\$KEY_FPR\" --detach-sign --armor --digest-algo SHA256 -o Release.gpg Release
-    "
 
     # Configure client source for resolute-testing and update APT cache
     ssh_client "cat <<EOF | sudo tee /etc/apt/sources.list.d/genixbit-testing.sources
