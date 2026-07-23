@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Validates local real-mode stage result records against anti-fabrication rules."""
+"""Validates local real-mode stage result records against anti-fabrication rules for GenixBit OS."""
 
 import json
 import sys
