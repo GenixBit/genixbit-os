@@ -120,7 +120,7 @@ echo "=== Step 4: Analyzing Plan JSON Security Rules ==="
 NO_PUBLIC_IPS="PASS"
 NO_PROD_DNS="PASS"
 
-if grep -q '"access_config"' "$PLAN_JSON_FILE"; then
+if python3 -c "import json, sys; d=json.load(open(sys.argv[1])); rc = [r for r in d.get('resource_changes', []) if any(len(net.get('access_config') or []) > 0 for net in r.get('change', {}).get('after', {}).get('network_interface', []))]; sys.exit(0 if rc else 1)" "$PLAN_JSON_FILE"; then
     echo "[ERROR] Security Violation: Detected active public IP access_config in plan JSON!" >&2
     exit 1
 fi

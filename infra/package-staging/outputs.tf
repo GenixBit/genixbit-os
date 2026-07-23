@@ -22,7 +22,7 @@ output "disposable_client_private_ip" {
 }
 
 output "private_staging_hostname" {
-  value       = "staging-packages.${google_dns_managed_zone.private_zone.dns_name}"
+  value       = google_dns_managed_zone.private_zone.dns_name
   description = "Dedicated private staging repository hostname."
 }
 

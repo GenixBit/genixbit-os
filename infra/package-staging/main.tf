@@ -78,7 +78,7 @@ resource "google_dns_managed_zone" "private_zone" {
 }
 
 resource "google_dns_record_set" "repo_host_a" {
-  name         = "staging-packages.${google_dns_managed_zone.private_zone.dns_name}"
+  name         = var.private_dns_name
   managed_zone = google_dns_managed_zone.private_zone.name
   type         = "A"
   ttl          = 300
