@@ -229,31 +229,7 @@ jobs:
               echo "[ERROR] Missing required stage result file: $filepath" >&2
               exit 1
             fi
-            python3 -c "
-import json, sys
-fn = sys.argv[1]
-with open(fn) as f:
-    d = json.load(f)
-if d.get('status') != 'PASS':
-    sys.stderr.write(f'[ERROR] {fn} status is not PASS\n')
-    sys.exit(1)
-if not d.get('executed_commands'):
-    sys.stderr.write(f'[ERROR] {fn} executed_commands is empty\n')
-    sys.exit(1)
-if not d.get('observations'):
-    sys.stderr.write(f'[ERROR] {fn} observations is empty\n')
-    sys.exit(1)
-for o in d['observations']:
-    if o['expected'] != o['actual']:
-        sys.stderr.write(f'[ERROR] {fn} observation {o[\"name\"]} mismatch\n')
-        sys.exit(1)
-s_str = json.dumps(d).lower()
-for b in ['simulated', 'mock', 'placeholder', 'dummy', 'todo', 'tbd']:
-    if b in s_str:
-        sys.stderr.write(f'[ERROR] {fn} contains forbidden word: {b}\n')
-        sys.exit(1)
-" "$filepath"
-            echo "[PASS] Verified stage result file: $f"
+            python3 tests/infrastructure/validate-real-mode-evidence.py "$filepath"
           done
           echo "LOCAL_REAL_MODE_INTEGRATION=PASS"
 
