@@ -28,7 +28,7 @@ Name-Email: staging-key@genixbit.internal
 Expire-Date: 30d
 EOF
 
-gpg --batch --generate-key "$KEY_PARAMS" >/dev/null 2>&1 || true
+gpg --batch --generate-key "$KEY_PARAMS" >/dev/null 2>&1
 
 KEY_FPR=$(gpg --list-keys --with-colons 2>/dev/null | awk -F: '$1 == "fpr" {print $10; exit}')
 

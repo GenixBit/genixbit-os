@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "staging_run_id": "run-ops-test-999",
+  "source_commit": "4853bb294c304adbcac1615480cb14b9685d06c7",
+  "stage": "preflight",
+  "started_at": "2026-07-23T11:09:13Z",
+  "completed_at": "2026-07-23T11:09:13Z",
+  "status": "SIMULATED",
+  "executed_commands": [
+    {
+      "command_id": "cmd-cf0191ea063c",
+      "command": "command -v bash",
+      "observer": "operator",
+      "exit_code": 0,
+      "transcript_sha256": "cf0191ea063c7608260da54bd0ea8e699977ff5b071852536ca574374ed53b29",
+      "started_at": "2026-07-23T11:09:13Z",
+      "completed_at": "2026-07-23T11:09:13Z"
+    }
+  ],
+  "observations": [
+    {
+      "name": "preflight_simulated",
+      "expected": "passed",
+      "actual": "passed",
+      "verification_command": "command -v bash",
+      "verification_exit_code": 0,
+      "observed_at": "2026-07-23T11:09:13Z",
+      "observer": "operator",
+      "observation_sha256": "8b0e4c1c8bbd2514efca959e9c191c01caccd0aca30039ff2cb3292c6718d95f"
+    }
+  ],
+  "public_metadata": {},
+  "artifact_checksums": {},
+  "result_sha256": "d765b1ed39cb2a2dff6b09a0a800c5b4a91ed04f670c51107aba1f81e23badeb"
+}

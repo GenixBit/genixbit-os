@@ -63,6 +63,16 @@ server {
     location /pool/ {
         try_files $uri =404;
     }
+
+    location /tamper-test/ {
+        alias /var/srv/genixbit-repository/tamper-test/;
+        try_files $uri =404;
+    }
+
+    location /revocation-test/ {
+        alias /var/srv/genixbit-repository/revocation-test/;
+        try_files $uri =404;
+    }
 }
 EOF
 

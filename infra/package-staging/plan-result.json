@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "staging_run_id": "run-ops-test-999",
+  "source_commit": "4853bb294c304adbcac1615480cb14b9685d06c7",
+  "stage": "plan",
+  "started_at": "2026-07-23T11:09:13Z",
+  "completed_at": "2026-07-23T11:09:13Z",
+  "status": "SIMULATED",
+  "executed_commands": [
+    {
+      "command_id": "cmd-953d5d926ff5",
+      "command": "command -v bash",
+      "observer": "operator",
+      "exit_code": 0,
+      "transcript_sha256": "953d5d926ff5a70c5e60a63174e168749bb0d4ba1d7a4049fea4ef06a3afd08a",
+      "started_at": "2026-07-23T11:09:13Z",
+      "completed_at": "2026-07-23T11:09:13Z"
+    }
+  ],
+  "observations": [
+    {
+      "name": "plan_simulated",
+      "expected": "generated",
+      "actual": "generated",
+      "verification_command": "command -v bash",
+      "verification_exit_code": 0,
+      "observed_at": "2026-07-23T11:09:13Z",
+      "observer": "operator",
+      "observation_sha256": "fdd7a0266ecdc0d7ac1003939cf228fb0187d3d2f1ac0b53c56dae2fef6b72b4"
+    }
+  ],
+  "public_metadata": {},
+  "artifact_checksums": {},
+  "result_sha256": "704148211c11d44e7cec259d43602468db0b412260deb230a9a55569d3a616b5"
+}

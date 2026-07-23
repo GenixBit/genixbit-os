@@ -64,7 +64,7 @@ Name-Email: staging-key@genixbit.internal
 Expire-Date: 30d
 KEYEOF
 
-gpg --batch --generate-key "$BUILD_DIR/gpg/key_params" >/dev/null 2>&1 || true
+gpg --batch --generate-key "$BUILD_DIR/gpg/key_params" >/dev/null 2>&1
 
 KEY_FPR=$(gpg --list-keys --with-colons 2>/dev/null | awk -F: '$1 == "fpr" {print $10; exit}')
 echo "$KEY_FPR" > "$BUILD_DIR/key_fpr.txt"
