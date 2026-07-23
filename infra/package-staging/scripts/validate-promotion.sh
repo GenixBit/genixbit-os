@@ -55,12 +55,34 @@ else
     fi
 fi
 
+ssh_repo_host() {
+    local cmd="$1"
+    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
+    if command -v docker >/dev/null 2>&1 && docker inspect "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" >/dev/null 2>&1; then
+        docker exec "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" bash -c "$cmd"
+    else
+        gcloud compute ssh "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-growth-os}" --tunnel-through-iap --command="$cmd"
+    fi
+}
+
+scp_to_repo_host() {
+    local src="$1"
+    local dst="$2"
+    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
+    if command -v docker >/dev/null 2>&1 && docker inspect "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" >/dev/null 2>&1; then
+        docker cp "$src" "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}:$dst"
+    else
+        gcloud compute scp "$src" "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}:$dst" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-growth-os}" --tunnel-through-iap
+    fi
+}
+
 ssh_client() {
     local cmd="$1"
-    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
-        return 0
+    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
+    if command -v docker >/dev/null 2>&1 && docker inspect "${CLIENT_INSTANCE_NAME:-genixbit-staging-client}" >/dev/null 2>&1; then
+        docker exec "${CLIENT_INSTANCE_NAME:-genixbit-staging-client}" bash -c "$cmd"
     else
-        gcloud compute ssh "${CLIENT_INSTANCE_NAME:-genixbit-staging-client}" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
+        gcloud compute ssh "${CLIENT_INSTANCE_NAME:-genixbit-staging-client}" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-growth-os}" --tunnel-through-iap --command="$cmd"
     fi
 }
 
@@ -73,12 +95,12 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
 
     # Sync promoted testing channel to repo host
     COPYFILE_DISABLE=1 tar -czf "$LOCAL_STAGING_DIR/testing_dist.tar.gz" -C "$LOCAL_STAGING_DIR/dists/resolute-testing" .
-    gcloud compute scp "$LOCAL_STAGING_DIR/testing_dist.tar.gz" "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}:/tmp/testing_dist.tar.gz" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
-    gcloud compute ssh "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="sudo mkdir -p /var/srv/genixbit-repository/current/dists/resolute-testing && sudo tar -xzf /tmp/testing_dist.tar.gz -C /var/srv/genixbit-repository/current/dists/resolute-testing/ && sudo rm -f /tmp/testing_dist.tar.gz"
+    scp_to_repo_host "$LOCAL_STAGING_DIR/testing_dist.tar.gz" "/tmp/testing_dist.tar.gz"
+    ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/current/dists/resolute-testing && sudo tar -xzf /tmp/testing_dist.tar.gz -C /var/srv/genixbit-repository/current/dists/resolute-testing/ && sudo rm -f /tmp/testing_dist.tar.gz"
     rm -f "$LOCAL_STAGING_DIR/testing_dist.tar.gz"
 
     # Sign promoted resolute-testing Release metadata on repo host
-    gcloud compute ssh "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="
+    ssh_repo_host "
     set -euo pipefail
     BUILD_DIR='/tmp/genixbit_repo_build'
     KEY_FPR=\$(cat \"\$BUILD_DIR/key_fpr.txt\")
