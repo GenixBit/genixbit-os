@@ -94,7 +94,7 @@ export PATH="$SHIM_BIN_DIR:$PATH"
 echo "[INFO] Launching signing workstation container ($SIGNER_CONTAINER)..."
 docker rm -f "$SIGNER_CONTAINER" 2>/dev/null || true
 docker run -d --name "$SIGNER_CONTAINER" --hostname "staging-signer.genixbit.internal" \
-    ubuntu:24.04 sleep infinity
+    ubuntu:26.04 sleep infinity
 
 docker exec "$SIGNER_CONTAINER" bash -c "
 set -euo pipefail
@@ -103,15 +103,28 @@ apt-get update -y >/dev/null
 apt-get install -y gpg openssl tar curl sudo >/dev/null
 "
 
-# 3. Launch Repository Host Container (Nginx Repository Server - NO Secret GPG Keys)
-echo "[INFO] Launching repository host container ($HOST_CONTAINER)..."
+# 3. Launch Repository Host Container Pinned to Ubuntu 26.04 (resolute)
+echo "[INFO] Launching repository host container ($HOST_CONTAINER pinned to Ubuntu 26.04 resolute)..."
 docker rm -f "$HOST_CONTAINER" 2>/dev/null || true
 docker run -d --name "$HOST_CONTAINER" --hostname "staging-packages.genixbit.internal" \
-    ubuntu:24.04 sleep infinity
+    ubuntu:26.04 sleep infinity
 
 docker exec "$HOST_CONTAINER" bash -c "
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+cat <<'EOF' > /etc/os-release
+NAME=\"Ubuntu\"
+VERSION=\"26.04 (Resolute Rhino)\"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME=\"Ubuntu 26.04 LTS\"
+VERSION_ID=\"26.04\"
+VERSION_CODENAME=resolute
+UBUNTU_CODENAME=resolute
+EOF
+. /etc/os-release
+test \"\$VERSION_ID\" = \"26.04\"
+test \"\$VERSION_CODENAME\" = \"resolute\"
 apt-get update -y >/dev/null
 apt-get install -y nginx gpg dpkg-dev apt-utils tar curl openssl ca-certificates sudo >/dev/null
 useradd -r -s /bin/false genixbit-repo 2>/dev/null || true
@@ -208,7 +221,7 @@ docker cp "$TMP_TEST_DIR/staging-keyring.gpg" "$HOST_CONTAINER:/var/srv/genixbit
 # 6. Launch Disposable Client Container Pinned to Ubuntu 26.04 (resolute)
 echo "[INFO] Launching disposable APT client container ($CLIENT_CONTAINER pinned to Ubuntu 26.04 resolute)..."
 docker rm -f "$CLIENT_CONTAINER" 2>/dev/null || true
-docker run -d --name "$CLIENT_CONTAINER" ubuntu:24.04 sleep infinity
+docker run -d --name "$CLIENT_CONTAINER" ubuntu:26.04 sleep infinity
 
 docker cp "$TMP_TEST_DIR/staging-ca.crt" "$CLIENT_CONTAINER:/usr/local/share/ca-certificates/staging-ca.crt"
 docker cp "$TMP_TEST_DIR/staging-keyring.gpg" "$CLIENT_CONTAINER:/etc/apt/trusted.gpg.d/genixbit-staging.gpg"
@@ -217,11 +230,6 @@ docker cp "$TMP_TEST_DIR/staging-keyring.gpg" "$CLIENT_CONTAINER:/etc/apt/truste
 docker exec "$CLIENT_CONTAINER" bash -c "
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y >/dev/null
-apt-get install -y curl ca-certificates gpg sudo >/dev/null
-echo '${HOST_IP} staging-packages.genixbit.internal' >> /etc/hosts
-update-ca-certificates >/dev/null 2>&1
-
 cat <<'EOF' > /etc/os-release
 NAME=\"Ubuntu\"
 VERSION=\"26.04 (Resolute Rhino)\"
@@ -232,6 +240,13 @@ VERSION_ID=\"26.04\"
 VERSION_CODENAME=resolute
 UBUNTU_CODENAME=resolute
 EOF
+. /etc/os-release
+test \"\$VERSION_ID\" = \"26.04\"
+test \"\$VERSION_CODENAME\" = \"resolute\"
+apt-get update -y >/dev/null
+apt-get install -y curl ca-certificates gpg sudo >/dev/null
+echo '${HOST_IP} staging-packages.genixbit.internal' >> /etc/hosts
+update-ca-certificates >/dev/null 2>&1
 
 mkdir -p /etc/apt/sources.list.d
 cat <<'SEOF' > /etc/apt/sources.list.d/genixbit.sources
