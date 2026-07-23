@@ -103,7 +103,18 @@ fi
 
 # 4. Create Fresh Isolated Recovery GNUPGHOME
 REC_GNUPGHOME=$(mktemp -d)
+chmod 700 "$REC_GNUPGHOME"
 trap 'rm -rf "$REC_GNUPGHOME"' EXIT
+
+# 4a. Verify Plaintext Import Fails
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    if command -v gpg >/dev/null 2>&1; then
+        if gpg --homedir "$REC_GNUPGHOME" --batch --import "$STAGING_KEY_BACKUP" 2>/dev/null; then
+            echo "[ERROR] Key recovery drill failed: Plaintext secret-key import succeeded on backup file! Backup file is NOT genuinely encrypted!" >&2
+            exit 1
+        fi
+    fi
+fi
 
 # 5. Decrypt and Import Encrypted Backup into Isolated GNUPGHOME
 IMPORT_CMD="openssl enc -d | gpg --homedir '$REC_GNUPGHOME' --batch --import"
