@@ -10,6 +10,10 @@ Package: genixbit-os-apt-config
 Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends}, genixbit-os-archive-keyring
+Replaces: anduinos-apt-config
+Provides: anduinos-apt-config
+Conflicts: anduinos-apt-config
 Description: GenixBit OS APT repository configuration
  Configures APT sources for GenixBit OS package updates hosted on
  packages.os.genixbit.com.
+

@@ -9,5 +9,9 @@ Homepage: https://os.genixbit.com
 Package: genixbit-os-installer-config
 Architecture: all
 Depends: ${misc:Depends}
+Replaces: anduinos-installer-config
+Provides: anduinos-installer-config
+Conflicts: anduinos-installer-config
 Description: Calamares installer configuration for GenixBit OS
  Provides product branding, slide animations, and custom wizard configuration.
+

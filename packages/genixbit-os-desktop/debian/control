@@ -1,0 +1,17 @@
+Source: genixbit-os-desktop
+Section: metapackages
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-desktop
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-apt-config, genixbit-os-theme, genixbit-os-wallpapers
+Replaces: anduinos-desktop, anduinos-desktop-apps, anduinos-gnome-extensions, anduinos-appstore, anduinos-fonts, anduinos-no-snapd, anduinos-session, anduinos-software-properties-common, anduinos-software-properties-gtk, anduinos-system-tweaks, firefox-anduinos, gnome-shell-extension-appindicator-anduinos, gnome-shell-extension-dash-to-panel-anduinos, gnome-shell-extension-desktop-icons-ng-anduinos, alsa-ucm-conf-anduinos, firmware-sof-anduinos, plymouth-anduinos
+Provides: anduinos-desktop, anduinos-desktop-apps, anduinos-gnome-extensions, anduinos-appstore, anduinos-fonts, anduinos-no-snapd, anduinos-session, anduinos-software-properties-common, anduinos-software-properties-gtk, anduinos-system-tweaks, firefox-anduinos, gnome-shell-extension-appindicator-anduinos, gnome-shell-extension-dash-to-panel-anduinos, gnome-shell-extension-desktop-icons-ng-anduinos, alsa-ucm-conf-anduinos, firmware-sof-anduinos, plymouth-anduinos, firefox-genixbit, plymouth-genixbit
+Conflicts: anduinos-desktop, anduinos-desktop-apps, anduinos-gnome-extensions, anduinos-appstore, anduinos-fonts, anduinos-no-snapd, anduinos-session, anduinos-software-properties-common, anduinos-software-properties-gtk, anduinos-system-tweaks, firefox-anduinos, gnome-shell-extension-appindicator-anduinos, gnome-shell-extension-dash-to-panel-anduinos, gnome-shell-extension-desktop-icons-ng-anduinos, alsa-ucm-conf-anduinos, firmware-sof-anduinos, plymouth-anduinos
+Description: Desktop metapackage for GenixBit OS
+ Provides core desktop environment dependencies and replaces upstream
+ AnduinOS desktop packages with GenixBit OS native metapackage.

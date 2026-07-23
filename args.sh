@@ -138,6 +138,7 @@ export TARGET_PACKAGE_REMOVE="
     laptop-detect \
     os-prober \
     gparted \
+    genixbit-os-installer-config \
     anduinos-installer-config \
     anduinos-bwrap-hack \
 "
@@ -149,13 +150,14 @@ export TARGET_PACKAGE_REMOVE="
 # They will be replaced by GenixBit package server infrastructure (packages.os.genixbit.com)
 # once the GenixBit package build & signing repository is fully provisioned.
 
-# AnduinOS APT config package name (can also be anduinos-apt-config-dev). [TEMPORARY UPSTREAM DEPENDENCY]
-export APT_CONFIG_PACKAGE="anduinos-apt-config"
+# GenixBit OS APT config package name
+export APT_CONFIG_PACKAGE="genixbit-os-apt-config"
 
-# APKG server URL for AnduinOS-branded overlay packages. [TEMPORARY UPSTREAM DEPENDENCY]
+# APKG server URL for overlay packages. [TEMPORARY UPSTREAM DEPENDENCY]
 export APKG_SERVER="https://packages.anduinos.com"
 
 # GPG certificate name on the APKG server. [TEMPORARY UPSTREAM DEPENDENCY]
 export APKG_CERT_NAME="anduinos"
+
 
 

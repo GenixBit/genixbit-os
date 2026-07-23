@@ -1,0 +1,9 @@
+# GenixBit OS Plymouth Script
+Window.SetBackgroundTopColor(0.02, 0.07, 0.13);
+Window.SetBackgroundBottomColor(0.04, 0.12, 0.19);
+
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
+logo.sprite.SetOpacity(1.0);

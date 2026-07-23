@@ -6,12 +6,13 @@ set -u                  # treat unset variable as error
 # Install AnduinOS swap packages
 #==========================
 
-print_ok "Installing AnduinOS APT configuration and keyring packages..."
+print_ok "Installing GenixBit OS APT configuration and keyring packages..."
 apt install $INTERACTIVE \
     $APT_CONFIG_PACKAGE \
-    anduinos-archive-keyring \
+    genixbit-os-archive-keyring \
     base-files
-judge "Install AnduinOS basic packages"
+judge "Install GenixBit OS basic packages"
+
 
 
 
