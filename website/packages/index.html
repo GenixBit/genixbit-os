@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS Package Transparency & Staging Status Page — Validated GCP staging execution metrics, ISO distribution, and production repository status.">
+  <meta name="description" content="GenixBit OS Package Transparency & Staging Status Page — Validated GCP staging execution metrics, ISO distribution status, and production repository status.">
   <title>GenixBit Package Transparency & Staging Status</title>
   <style>
     :root {
@@ -18,6 +18,7 @@
       --green: #70e2a2;
       --warn: #ffc86b;
       --amber: #f59e0b;
+      --danger: #ff6c6c;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -47,8 +48,9 @@
     .status-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 32px 0; }
     .summary-card { padding: 20px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
     .summary-card label { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
-    .summary-card .val { font-size: 18px; font-weight: 800; }
+    .summary-card .val { font-size: 16px; font-weight: 800; }
     .val.not-deployed { color: var(--warn); }
+    .val.revalidating { color: var(--warn); }
     .val.pass { color: var(--green); }
 
     .warning-banner { margin: 28px 0; padding: 18px 22px; border: 1px solid rgba(245,158,11,.3); border-radius: 16px; background: rgba(245,158,11,.08); color: #fde68a; font-size: 14px; line-height: 1.6; }
@@ -61,6 +63,7 @@
     th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; }
     td.badge-cell { font-weight: 700; }
     .tag-pass { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(112,226,162,.12); color: var(--green); border: 1px solid rgba(112,226,162,.25); font-size: 12px; }
+    .tag-warn { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(255,200,105,.12); color: var(--warn); border: 1px solid rgba(255,200,105,.25); font-size: 12px; }
     .tag-info { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(88,220,255,.12); color: var(--accent); border: 1px solid rgba(88,220,255,.25); font-size: 12px; }
     code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; color: var(--accent); }
 
@@ -90,7 +93,7 @@
   <main class="wrap">
     <div class="eyebrow">Transparency & Infrastructure Status</div>
     <h1>Package Transparency Status</h1>
-    <p class="lead">Audit record for GenixBit OS package infrastructure, ISO distribution, OpenPGP signing model, and GCP staging validation drills.</p>
+    <p class="lead">Audit record for GenixBit OS package infrastructure, ISO distribution status, OpenPGP signing model, and GCP staging validation drills.</p>
 
     <!-- Top 4 Summary Cards -->
     <div class="status-summary-grid">
@@ -100,7 +103,7 @@
       </div>
       <div class="summary-card">
         <label>ISO Distribution</label>
-        <div class="val pass">AVAILABLE (0.2.0-alpha)</div>
+        <div class="val revalidating">INTEGRITY REVALIDATION IN PROGRESS</div>
       </div>
       <div class="summary-card">
         <label>GCP Staging Validation</label>
@@ -113,7 +116,7 @@
     </div>
 
     <div class="warning-banner">
-      <strong>Security & Operational Notice:</strong> No production APT package repository is served from this hostname. The ISO download bucket (GCP Cloud Storage) serves verified ISO installation images only and is separate from package repository mirrors. Do not add this domain to APT sources.
+      <strong>Security & Operational Notice:</strong> No production APT package repository is served from this hostname. The ISO distribution is currently undergoing integrity revalidation. Do not add this domain to APT sources.
     </div>
 
     <!-- Validated Staging Metrics -->
@@ -124,9 +127,10 @@
           <tr><th>Validation Metric</th><th>Value / Identifier</th><th>Status</th></tr>
         </thead>
         <tbody>
-          <tr><td>Current Release</td><td><code>0.2.0-alpha</code></td><td><span class="tag-pass">VALIDATED</span></td></tr>
-          <tr><td>ISO Download Host</td><td><code>storage.googleapis.com / downloads.os.genixbit.com</code></td><td><span class="tag-pass">AVAILABLE</span></td></tr>
-          <tr><td>ISO SHA-256 Checksum</td><td><code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
+          <tr><td>Current Release</td><td><code>0.2.0-alpha</code></td><td><span class="tag-warn">REVALIDATING</span></td></tr>
+          <tr><td>ISO Distribution Status</td><td><code>INTEGRITY REVALIDATION IN PROGRESS</code></td><td><span class="tag-warn">REVALIDATING</span></td></tr>
+          <tr><td>ISO Download Host</td><td><code>storage.googleapis.com / downloads.os.genixbit.com</code></td><td><span class="tag-warn">PAUSED</span></td></tr>
+          <tr><td>Expected ISO SHA-256 Checksum</td><td><code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></td><td><span class="tag-pass">VERIFIED MANIFEST</span></td></tr>
           <tr><td>Candidate Git SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td><td><span class="tag-pass">PINNED</span></td></tr>
           <tr><td>Staging Run ID</td><td><code>run-staging-20260723-001</code></td><td><span class="tag-info">GCP STAGING</span></td></tr>
           <tr><td>Staging Public Key Fingerprint</td><td><code>9D8696C4BF7862A6366C1669BF6D1B248A0760A2</code></td><td><span class="tag-pass">ISOLATED SIGNER</span></td></tr>
@@ -143,7 +147,7 @@
           <tr><td>Revocation Drill Stage</td><td>Revocation cert import & APT client rejection</td><td><span class="tag-pass">PASS</span></td></tr>
           <tr><td>Infrastructure Cleanup</td><td>OpenTofu destroy of 16 GCP resources</td><td><span class="tag-pass">PASS</span></td></tr>
           <tr><td>Evidence Manifest Checksum</td><td><code>ea14c7c883eef6a08915b497bce17926b4816c7cf6dcf8efb5420fa26bcdd7e0</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
-          <tr><td>Last Verified Timestamp</td><td><code>2026-07-23T12:27:18Z</code></td><td><span class="tag-info">AUDITED</span></td></tr>
+          <tr><td>Last Audit Timestamp</td><td><code>2026-07-23T14:05:00Z</code></td><td><span class="tag-info">AUDITED</span></td></tr>
         </tbody>
       </table>
     </div>

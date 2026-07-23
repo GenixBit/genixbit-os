@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS — AI-First. Local-First. Built for Control. Validated 0.2.0-alpha ISO release download based on Ubuntu 26.04 Resolute development base.">
+  <meta name="description" content="GenixBit OS — AI-First. Local-First. Built for Control. Validated 0.2.0-alpha release based on Ubuntu 26.04 Resolute development base.">
   <title>GenixBit OS — AI-First. Local-First. Built for Control.</title>
   <style>
     :root {
@@ -19,7 +19,8 @@
       --violet: #a86bff;
       --green: #70e2a2;
       --warning: #ffc869;
-      --shadow: 0 30px 80px rgba(0,0,0,.35);
+      --danger: #ff6c6c;
+      --shadow: 0 30px 80px rgba(0,0,0,.45);
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -32,13 +33,14 @@
         linear-gradient(180deg, #07111f 0%, #081624 48%, #050b13 100%);
       color: var(--text);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
     a { color: inherit; text-decoration: none; }
     .wrap { width: min(1180px, calc(100% - 36px)); margin: 0 auto; }
     .nav {
       position: sticky; top: 0; z-index: 20;
       backdrop-filter: blur(18px);
-      background: rgba(7,17,31,.76);
+      background: rgba(7,17,31,.82);
       border-bottom: 1px solid var(--line);
     }
     .nav-inner { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
@@ -52,6 +54,7 @@
     .mark:after { content: "G"; position: absolute; inset: 0; display: grid; place-items: center; color: #07111f; font-weight: 950; }
     .nav-links { display: flex; align-items: center; gap: 22px; color: var(--muted); font-size: 14px; }
     .nav-links a:hover { color: var(--cyan); }
+    
     .button {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
       min-height: 44px; padding: 0 20px; border-radius: 12px;
@@ -59,62 +62,68 @@
       font-weight: 750; font-size: 14px; transition: all .2s ease;
     }
     .button.primary { background: linear-gradient(135deg, var(--cyan), var(--blue)); color: #06101c; border: 0; font-size: 15px; }
-    .button.primary:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 10px 30px rgba(82,217,255,.3); }
+    .button.disabled-btn {
+      background: rgba(255,108,108,.12); color: #ffb4b4; border: 1px solid rgba(255,108,108,.35);
+      cursor: not-allowed; font-size: 13.5px; padding: 12px 20px; text-align: center; line-height: 1.4;
+    }
+    
     .hero { padding: 80px 0 72px; position: relative; overflow: hidden; }
-    .hero-grid { display: grid; grid-template-columns: 1.08fr .92fr; align-items: center; gap: 54px; }
+    .hero-grid { display: grid; grid-template-columns: 1.08fr .92fr; align-items: flex-start; gap: 48px; }
     .eyebrow { color: var(--cyan); text-transform: uppercase; letter-spacing: .14em; font-size: 13px; font-weight: 850; }
-    h1 { margin: 16px 0 22px; font-size: clamp(46px, 6.5vw, 80px); line-height: .96; letter-spacing: -.06em; }
+    h1 { margin: 16px 0 22px; font-size: clamp(42px, 6vw, 76px); line-height: .98; letter-spacing: -.05em; }
     .gradient { background: linear-gradient(90deg, var(--cyan), #a9c6ff 50%, var(--violet)); -webkit-background-clip: text; color: transparent; }
-    .lead { max-width: 700px; color: var(--muted); font-size: clamp(17px, 2vw, 21px); line-height: 1.55; }
+    .lead { max-width: 700px; color: var(--muted); font-size: clamp(16px, 1.8vw, 20px); line-height: 1.6; }
     .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
     
     .download-spec-box {
-      margin-top: 24px; padding: 22px; border-radius: 16px; border: 1px solid rgba(82,217,255,.25);
-      background: rgba(16,36,61,.75); font-size: 13px; color: var(--muted);
+      margin-top: 24px; padding: 20px 22px; border-radius: 16px; border: 1px solid rgba(82,217,255,.22);
+      background: rgba(16,36,61,.85); font-size: 13px; color: var(--muted); box-shadow: 0 10px 30px rgba(0,0,0,.25);
     }
-    .download-spec-box .spec-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+    .download-spec-box .spec-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
     .download-spec-box .spec-row:last-child { border-bottom: 0; }
     .download-spec-box strong { color: var(--text); }
-    .download-spec-box code { font-family: ui-monospace, monospace; color: var(--cyan); word-break: break-all; }
+    .download-spec-box code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--cyan); font-size: 12px; word-break: break-all; }
 
-    .alpha-warning {
-      margin-top: 18px; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,200,105,.3);
-      background: rgba(255,200,105,.08); color: #ffd991; font-size: 13px; line-height: 1.5;
+    .integrity-notice {
+      margin-top: 18px; padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255,200,105,.35);
+      background: rgba(255,200,105,.09); color: #ffe3ab; font-size: 13px; line-height: 1.55;
     }
 
-    .secondary-links { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; font-size: 13px; color: var(--cyan); }
+    .secondary-links { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 18px; font-size: 13px; color: var(--cyan); }
     .secondary-links a:hover { text-decoration: underline; }
 
-    .status { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: 13px; }
-    .pill { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.035); }
+    .status { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: 13px; }
+    .pill { padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.035); font-weight: 550; }
+    .pill.warn { border-color: rgba(255,200,105,.35); color: var(--warning); background: rgba(255,200,105,.08); }
     .pill.pass { border-color: rgba(112,226,162,.3); color: var(--green); background: rgba(112,226,162,.08); }
+    
     .terminal {
-      border: 1px solid var(--line); border-radius: 22px; overflow: hidden;
+      border: 1px solid var(--line); border-radius: 20px; overflow: hidden;
       background: linear-gradient(180deg, rgba(18,38,65,.95), rgba(6,14,25,.98));
-      box-shadow: var(--shadow);
-      transform: perspective(1200px) rotateY(-3deg) rotateX(2deg);
+      box-shadow: var(--shadow); width: 100%;
     }
-    .terminal-bar { height: 46px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 16px; gap: 8px; }
+    .terminal-bar { height: 44px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 16px; gap: 8px; }
     .dot { width: 10px; height: 10px; border-radius: 50%; background: #ff6c6c; }
     .dot:nth-child(2) { background: #ffd36c; }
     .dot:nth-child(3) { background: #6ee7a8; }
-    pre { margin: 0; padding: 24px; min-height: 380px; overflow: auto; font: 13px/1.8 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #dceaff; }
+    pre { margin: 0; padding: 22px; min-height: 400px; overflow-x: auto; font: 12.5px/1.8 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #dceaff; white-space: pre; }
     .cmd { color: var(--cyan); } .ok { color: var(--green); } .warn { color: var(--warning); }
+    
     section { padding: 76px 0; }
     .section-title { max-width: 780px; margin-bottom: 36px; }
-    h2 { margin: 10px 0 14px; font-size: clamp(32px, 4.5vw, 54px); letter-spacing: -.05em; }
-    .section-title p { color: var(--muted); font-size: 17px; line-height: 1.6; }
+    h2 { margin: 10px 0 14px; font-size: clamp(30px, 4.2vw, 50px); letter-spacing: -.04em; }
+    .section-title p { color: var(--muted); font-size: 16.5px; line-height: 1.6; }
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
     .card { padding: 26px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); box-shadow: 0 12px 40px rgba(0,0,0,.14); }
-    .card h3 { margin: 16px 0 9px; font-size: 21px; }
+    .card h3 { margin: 16px 0 9px; font-size: 20px; }
     .card p { margin: 0; color: var(--muted); line-height: 1.6; font-size: 14px; }
     .icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: linear-gradient(135deg, rgba(82,217,255,.2), rgba(168,107,255,.2)); font-size: 20px; }
     .distinction-box { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; }
     .dist-card { padding: 20px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255,255,255,.025); }
     .dist-card h4 { margin: 0 0 8px; font-size: 15px; color: var(--cyan); }
     .dist-card p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.55; }
-    .cta { margin: 50px 0 90px; padding: 42px; border-radius: 26px; border: 1px solid rgba(82,217,255,.25); background: linear-gradient(135deg, rgba(82,217,255,.1), rgba(91,120,255,.1), rgba(168,107,255,.12)); display: flex; justify-content: space-between; align-items: center; gap: 32px; }
-    .cta h2 { margin: 0 0 10px; font-size: 36px; }
+    .cta { margin: 50px 0 90px; padding: 40px; border-radius: 24px; border: 1px solid rgba(82,217,255,.25); background: linear-gradient(135deg, rgba(82,217,255,.1), rgba(91,120,255,.1), rgba(168,107,255,.12)); display: flex; justify-content: space-between; align-items: center; gap: 32px; }
+    .cta h2 { margin: 0 0 10px; font-size: 34px; }
     .cta p { margin: 0; color: var(--muted); font-size: 15px; }
     footer { border-top: 1px solid var(--line); padding: 34px 0 46px; color: var(--muted); font-size: 14px; }
     .footer-grid { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
@@ -123,15 +132,14 @@
     @media (max-width: 900px) {
       .nav-links { display: none; }
       .hero-grid { grid-template-columns: 1fr; }
-      .terminal { transform: none; }
       .grid, .distinction-box { grid-template-columns: repeat(2, 1fr); }
       .cta { align-items: flex-start; flex-direction: column; }
     }
     @media (max-width: 620px) {
       .grid, .distinction-box { grid-template-columns: 1fr; }
-      .hero { padding-top: 72px; }
-      section { padding: 64px 0; }
-      h1 { font-size: 44px; }
+      .hero { padding-top: 60px; }
+      section { padding: 54px 0; }
+      h1 { font-size: 38px; }
     }
   </style>
 </head>
@@ -146,7 +154,7 @@
         <a href="https://www.genixbit.com">Company</a>
         <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
       </div>
-      <a class="button primary" href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso">Download 0.2.0-alpha</a>
+      <span class="button disabled-btn">Download temporarily unavailable</span>
     </div>
   </nav>
 
@@ -158,25 +166,25 @@
           <h1>AI-First. Local-First.<br><span class="gradient">Built for Control.</span></h1>
           <p class="lead">A local-first, secure and extensible operating system designed for AI workflows, private models, developer tools and future hardware-aware capability packs. Built on Ubuntu 26.04 Resolute development base.</p>
           
-          <!-- Prominent Download Button -->
+          <!-- Temporary Protection Notice & Disabled Button -->
           <div class="hero-actions">
-            <a class="button primary" href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso">
-              ⬇ Download GenixBit OS 0.2.0-alpha
-            </a>
+            <span class="button disabled-btn">
+              🔒 Download temporarily unavailable — integrity verification in progress
+            </span>
             <a class="button" href="https://docs.os.genixbit.com">Installation Guide</a>
           </div>
 
-          <!-- Download Specifications Box -->
+          <!-- Download Specifications & Checksum Metadata Box -->
           <div class="download-spec-box">
             <div class="spec-row"><span>Filename:</span> <strong>GenixBitOS-0.2.0-alpha-2607220558.iso</strong></div>
             <div class="spec-row"><span>Size:</span> <strong>2.54 GB (2,540,554,240 bytes)</strong></div>
             <div class="spec-row"><span>Architecture:</span> <strong>amd64 (x86_64)</strong></div>
-            <div class="spec-row"><span>Release Status:</span> <strong>Validated Alpha</strong></div>
-            <div class="spec-row"><span>SHA-256:</span> <code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></div>
+            <div class="spec-row"><span>Release Status:</span> <strong>Integrity Revalidation In Progress</strong></div>
+            <div class="spec-row"><span>Expected SHA-256:</span> <code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></div>
           </div>
 
-          <div class="alpha-warning">
-            ⚠️ <strong>Notice:</strong> This is an alpha release intended for testing and evaluation. Back up important data before installation.
+          <div class="integrity-notice">
+            ⚠️ <strong>Integrity Revalidation Notice:</strong> Direct ISO download is temporarily paused while release checksum verification is being audited. Approved SHA-256 metadata remains displayed above for full transparency.
           </div>
 
           <!-- Secondary Verification Links -->
@@ -189,8 +197,8 @@
           </div>
 
           <div class="status">
-            <span class="pill pass">Current Release: 0.2.0-alpha</span>
-            <span class="pill pass">Status: Validated Alpha</span>
+            <span class="pill warn">Current Release: 0.2.0-alpha (Revalidating)</span>
+            <span class="pill warn">Status: Checksum Revalidation</span>
             <span class="pill">Base: Ubuntu 26.04 Resolute</span>
             <span class="pill">Candidate SHA: 88a1550a</span>
           </div>
@@ -211,7 +219,7 @@ d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228
 <span class="cmd">$ genixbit-staging status</span>
 <span class="ok">✓</span> Staging Validation: PASS (Run: run-staging-20260723-001)
 <span class="ok">✓</span> OpenPGP Signer Isolation: VERIFIED (3-role separation)
-<span class="ok">✓</span> ISO Distribution: AVAILABLE (GCP Storage)
+<span class="warn">!</span> ISO Distribution: INTEGRITY REVALIDATION IN PROGRESS
 <span class="warn">!</span> Production Package Repository: NOT DEPLOYED (Status page only)</pre>
         </div>
       </div>
@@ -265,10 +273,10 @@ d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228
 
     <div class="wrap cta">
       <div>
-        <h2>Download GenixBit OS 0.2.0-alpha</h2>
-        <p>Get started with the validated 0.2.0-alpha release or read the comprehensive installation guide.</p>
+        <h2>GenixBit OS 0.2.0-alpha Release Verification</h2>
+        <p>Integrity revalidation in progress. Read the comprehensive installation guide and release metadata.</p>
       </div>
-      <a class="button primary" href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso">Download ISO (2.54 GB)</a>
+      <a class="button" href="https://docs.os.genixbit.com">View Documentation</a>
     </div>
   </main>
 
