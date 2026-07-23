@@ -72,7 +72,7 @@ fi
 ssh_signer_host() {
     local cmd="$1"
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
-    gcloud compute ssh "${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="$cmd"
+    gcloud compute ssh "${SIGNER_INSTANCE_NAME:-${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}}" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="$cmd"
 }
 
 # 1. Verify Active Key Fingerprint
@@ -127,8 +127,9 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
         ACTUAL_REC_FPR=$(gpg --homedir "$REC_GNUPGHOME" --list-secret-keys --with-colons 2>/dev/null | grep '^fpr:' | head -n1 | cut -d: -f10 | tr -d '\r\n')
     else
         ssh_signer_host "mkdir -p /tmp/rec_gpg && chmod 700 /tmp/rec_gpg"
-        gcloud compute scp "$STAGING_KEY_BACKUP" "${SIGNER_INSTANCE_NAME}:/tmp/key_backup.enc" --tunnel-through-iap
-        gcloud compute scp "$STAGING_KEY_BACKUP_PASSPHRASE_FILE" "${SIGNER_INSTANCE_NAME}:/tmp/pass.txt" --tunnel-through-iap
+        target_host="${SIGNER_INSTANCE_NAME:-${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}}"
+        gcloud compute scp "$STAGING_KEY_BACKUP" "${target_host}:/tmp/key_backup.enc" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
+        gcloud compute scp "$STAGING_KEY_BACKUP_PASSPHRASE_FILE" "${target_host}:/tmp/pass.txt" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
         ssh_signer_host "openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass file:/tmp/pass.txt -in /tmp/key_backup.enc | gpg --homedir /tmp/rec_gpg --batch --import"
         ACTUAL_REC_FPR=$(ssh_signer_host "gpg --homedir /tmp/rec_gpg --list-secret-keys --with-colons 2>/dev/null | grep '^fpr:' | head -n1 | cut -d: -f10" | tr -d '\r\n')
     fi

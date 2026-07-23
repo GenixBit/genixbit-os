@@ -90,7 +90,7 @@ echo "=== Step 1: Initializing Isolated Tamper Repository Copy ==="
 mkdir -p "$TAMPER_WORK_DIR/clean_repo" "$TAMPER_WORK_DIR/isolated_tamper_repo"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    cp -r "$LOCAL_STAGING_DIR/"* "$TAMPER_WORK_DIR/clean_repo/"
+    COPYFILE_DISABLE=1 cp -R "$LOCAL_STAGING_DIR/"* "$TAMPER_WORK_DIR/clean_repo/" 2>/dev/null
 else
     mkdir -p "$TAMPER_WORK_DIR/clean_repo/dists/resolute-alpha/main/binary-amd64" "$TAMPER_WORK_DIR/clean_repo/pool/main/g/genixbit-repository-fixture"
     echo "Origin: GenixBit OS Staging" > "$TAMPER_WORK_DIR/clean_repo/dists/resolute-alpha/InRelease"
@@ -129,7 +129,7 @@ run_tamper_test_case() {
     # 1. Reset isolated copy
     rm -rf "$TAMPER_WORK_DIR/isolated_tamper_repo"
     mkdir -p "$TAMPER_WORK_DIR/isolated_tamper_repo"
-    cp -r "$TAMPER_WORK_DIR/clean_repo/"* "$TAMPER_WORK_DIR/isolated_tamper_repo/"
+    COPYFILE_DISABLE=1 cp -R "$TAMPER_WORK_DIR/clean_repo/"* "$TAMPER_WORK_DIR/isolated_tamper_repo/" 2>/dev/null
 
     # 2. Apply tamper action
     eval "$tamper_action"

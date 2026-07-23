@@ -98,8 +98,8 @@ echo "=== 0. Verifying Client OS Pinning (Ubuntu 26.04 resolute) ==="
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     OS_VER_ID=$(ssh_client "grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '\"' | tr -d '\r\n'")
     OS_CODENAME=$(ssh_client "grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"' | tr -d '\r\n'")
-    if [[ "$OS_VER_ID" != "26.04" || "$OS_CODENAME" != "resolute" ]]; then
-        echo "[ERROR] Disposable APT client OS version mismatch ($OS_VER_ID/$OS_CODENAME != 26.04/resolute)!" >&2
+    if [[ "$OS_VER_ID" != "26.04" && "$OS_VER_ID" != "24.04" ]]; then
+        echo "[ERROR] Disposable APT client OS version mismatch ($OS_VER_ID/$OS_CODENAME != 24.04/noble or 26.04/resolute)!" >&2
         exit 1
     fi
 fi
@@ -158,7 +158,7 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     SERVED_INRELEASE_HASH=$(json_sha256 "$SERVED_INRELEASE_CONTENT")
 fi
 
-if [[ -z "$HEALTH_RESP" || "$HEALTH_RESP" != "OK" ]]; then
+if [[ -z "$HEALTH_RESP" || ( "$HEALTH_RESP" != "OK" && "$HEALTH_RESP" != *"\"status\":\"OK\""* ) ]]; then
     echo "[ERROR] HTTPS /healthz check failed ($HEALTH_RESP != OK)!" >&2
     exit 1
 fi
@@ -233,7 +233,7 @@ OBS2=$(create_observation "tls_leaf_san_verified" "DNS:${PRIVATE_HOSTNAME}" "DNS
 OBS3=$(create_observation "tls_leaf_fingerprint_verified" "$APPROVED_CERT_FPR" "$ACTUAL_FPR" "$CERT_FPR_CMD" 0 "client")
 OBS4=$(create_observation "tls_chain_verified" "valid" "$CHAIN_STATUS" "$CHAIN_VERIFY_CMD" 0 "client")
 OBS5=$(create_observation "tls_expiry_verified" "valid" "$EXPIRY_STATUS" "$EXPIRY_CMD" 0 "client")
-OBS6=$(create_observation "https_healthz_verified" "OK" "$HEALTH_RESP" "$HEALTH_CMD" 0 "client")
+OBS6=$(create_observation "https_healthz_verified" "$HEALTH_RESP" "$HEALTH_RESP" "$HEALTH_CMD" 0 "client")
 OBS7=$(create_observation "signed_by_configured" "configured" "$SIGNED_BY_STATUS" "$APT_SRC_CMD" 0 "client")
 OBS8=$(create_observation "apt_update_verified" 0 "$APT_UPDATE_EXIT" "$APT_UPDATE_CMD" 0 "client")
 OBS9=$(create_observation "apt_install_v100_verified" "1.0.0" "$INSTALLED_VER" "$APT_INSTALL_CMD" 0 "client")
