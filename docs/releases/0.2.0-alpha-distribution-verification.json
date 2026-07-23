@@ -1,11 +1,22 @@
 {
   "verification_target": "GenixBit OS 0.2.0-alpha Distribution & GCP Object Verification",
-  "verification_timestamp_utc": "2026-07-23T13:19:35Z",
-  "source_commit": "a3c5b1e00b0516cc728dce41ea1a93ec7c6eaffa",
+  "verification_timestamp_utc": "2026-07-23T14:05:00Z",
+  "source_commit": "1d07b04496b2005a7f9b80822d4811637be89d11",
   "release_version": "0.2.0-alpha",
   "candidate_branch": "validation/0.2.0-alpha-candidate-2",
   "candidate_sha": "88a1550a9129a80ffd2c4cf73838122020a782cb",
   "release_tag": "v0.2.0-alpha",
+  "expected_release_sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228",
+  "manifest_sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228",
+  "checksum_file_sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228",
+  "downloaded_file_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669",
+  "hash_match": false,
+  "hash_mismatch_incident_details": {
+    "approved_release_manifest_hash": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228",
+    "public_gcp_object_hash": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669",
+    "root_cause": "The 2.54 GB object uploaded to GCP Cloud Storage was a sparse zero-filled file created on macOS during GCP bucket setup testing, which produced hash 1cb79fbf... instead of the approved candidate 2 build hash d9aa0d2e... produced on the Ubuntu 26.04 resolute build server.",
+    "corrective_action": "Direct download buttons were immediately paused to protect users. Revalidation is in progress pending upload of the exact approved candidate 2 ISO binary from the Linux build server."
+  },
   "gcp_storage_details": {
     "gcp_project_id": "genixbit-growth-os",
     "bucket_name": "genixbit-growth-os-downloads",
@@ -14,40 +25,15 @@
     "object_generation": "1784810864397202",
     "object_created_time_utc": "2026-07-23T12:47:44Z",
     "object_versioning": "ENABLED",
-    "uniform_bucket_level_access": "ENABLED",
-    "public_access_role": "roles/storage.objectViewer (allUsers)"
+    "uniform_bucket_level_access": "ENABLED"
   },
-  "public_http_verification": {
-    "iso_url": "https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso",
-    "http_status": 200,
-    "content_type": "application/x-iso9660-image",
-    "content_length": 2540554240,
-    "accept_ranges": "bytes",
-    "range_request_status": 206,
-    "range_request_content_range": "bytes 0-1023/2540554240",
-    "checksum_url": "https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso.sha256",
-    "checksum_url_status": 200,
-    "checksum_url_content": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228  GenixBitOS-0.2.0-alpha-2607220558.iso"
-  },
-  "full_download_verification": {
-    "download_method": "Public HTTPS GET",
-    "download_status": "PASS",
+  "audit_environment_details": {
+    "verification_environment": "macOS / curl HTTPS direct download",
+    "download_completed_at": "2026-07-23T13:19:35Z",
+    "download_exit_code": 0,
     "downloaded_bytes": 2540554240,
-    "stat_size_match": true,
-    "downloaded_file_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669",
-    "manifest_sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"
+    "temporary_file_removed": true,
+    "reviewer_confirmation": "Security & Release Integrity Audit"
   },
-  "github_release_verification": {
-    "release_tag": "v0.2.0-alpha",
-    "release_url": "https://github.com/GenixBit/genixbit-os/releases/tag/v0.2.0-alpha",
-    "is_prerelease": true,
-    "is_published": true,
-    "external_gcp_iso_url_present": true,
-    "checksum_url_present": true,
-    "attached_assets": [
-      "GenixBitOS-0.2.0-alpha-2607220558.iso.sha256",
-      "0.2.0-alpha.env"
-    ]
-  },
-  "overall_verification_status": "PASS"
+  "overall_verification_status": "FAIL"
 }
