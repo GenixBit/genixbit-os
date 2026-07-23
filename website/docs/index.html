@@ -3,30 +3,223 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS documentation preview.">
-  <title>GenixBit OS Documentation</title>
+  <meta name="description" content="GenixBit OS Official Documentation — Architecture, Release 0.2.0-alpha, ISO verification, package architecture, GCP staging validation, and security policies.">
+  <title>GenixBit OS Documentation Portal</title>
   <style>
-    :root{color-scheme:dark;--bg:#07111f;--panel:#102139;--text:#f4f8ff;--muted:#adbad0;--line:rgba(255,255,255,.12);--accent:#55d9ff;--violet:#9a73ff}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:radial-gradient(circle at 15% 0%,rgba(85,217,255,.16),transparent 30rem),var(--bg);color:var(--text)}a{color:inherit;text-decoration:none}.wrap{width:min(1120px,calc(100% - 36px));margin:auto}header{border-bottom:1px solid var(--line);background:rgba(7,17,31,.85);position:sticky;top:0;backdrop-filter:blur(16px)}nav{height:70px;display:flex;align-items:center;justify-content:space-between}.brand{font-weight:850;font-size:20px}.badge{padding:7px 10px;border:1px solid var(--line);border-radius:999px;color:var(--accent);font-size:13px}.hero{padding:86px 0 52px}.hero h1{font-size:clamp(44px,7vw,72px);letter-spacing:-.06em;margin:10px 0 16px}.hero p{max-width:760px;color:var(--muted);font-size:20px;line-height:1.6}.notice{padding:16px 18px;border:1px solid rgba(255,200,105,.25);border-radius:14px;background:rgba(255,200,105,.07);color:#ffd991;margin-top:24px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding-bottom:80px}.card{padding:24px;border:1px solid var(--line);border-radius:18px;background:rgba(16,33,57,.82)}.card h2{margin:0 0 10px;font-size:21px}.card p{margin:0 0 18px;color:var(--muted);line-height:1.55}.links{display:grid;gap:9px}.links a{color:var(--accent)}footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-size:14px}@media(max-width:850px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.grid{grid-template-columns:1fr}}
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: #102139;
+      --panel-strong: #162c4b;
+      --text: #f4f8ff;
+      --muted: #adbad0;
+      --line: rgba(255,255,255,.12);
+      --accent: #55d9ff;
+      --violet: #9a73ff;
+      --green: #70e2a2;
+      --warning: #ffc869;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      background: radial-gradient(circle at 15% 0%, rgba(85,217,255,.16), transparent 30rem), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    a { color: inherit; text-decoration: none; }
+    .wrap { width: min(1140px, calc(100% - 36px)); margin: auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(7,17,31,.85);
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(16px);
+    }
+    nav { height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { font-weight: 850; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+    .badge { padding: 6px 12px; border: 1px solid rgba(112,226,162,.3); border-radius: 999px; color: var(--green); background: rgba(112,226,162,.08); font-size: 13px; font-weight: 600; }
+    .nav-links { display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
+    .nav-links a:hover { color: var(--accent); }
+    .layout { display: grid; grid-template-columns: 260px 1fr; gap: 36px; padding: 40px 0 80px; }
+    .sidebar { position: sticky; top: 100px; height: calc(100vh - 120px); overflow-y: auto; font-size: 14px; }
+    .sidebar h4 { text-transform: uppercase; font-size: 11px; letter-spacing: .12em; color: var(--accent); margin: 20px 0 10px; }
+    .sidebar ul { list-style: none; padding: 0; margin: 0; }
+    .sidebar li { margin-bottom: 6px; }
+    .sidebar a { color: var(--muted); display: block; padding: 4px 8px; border-radius: 6px; }
+    .sidebar a:hover { color: var(--text); background: rgba(255,255,255,.05); }
+    .content section { margin-bottom: 56px; scroll-margin-top: 100px; }
+    .content h2 { font-size: 28px; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-top: 0; color: var(--text); }
+    .content h3 { font-size: 20px; color: var(--accent); margin-top: 24px; }
+    .content p, .content li { color: var(--muted); line-height: 1.65; font-size: 15px; }
+    .code-block { background: #060e18; border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; color: #dceaff; overflow-x: auto; margin: 16px 0; }
+    .notice { padding: 16px 20px; border: 1px solid rgba(85,217,255,.3); border-radius: 14px; background: rgba(85,217,255,.06); color: var(--text); margin: 20px 0; }
+    .notice.warn { border-color: rgba(255,200,105,.3); background: rgba(255,200,105,.06); color: #ffd991; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+    th, td { text-align: left; padding: 10px 14px; border: 1px solid var(--line); }
+    th { background: rgba(255,255,255,.05); color: var(--text); }
+    footer { border-top: 1px solid var(--line); padding: 30px 0; color: var(--muted); font-size: 14px; text-align: center; }
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
   </style>
 </head>
 <body>
-<header><nav class="wrap"><a class="brand" href="https://os.genixbit.com">GenixBit OS Docs</a><span class="badge">0.1.0-alpha preview</span></nav></header>
-<main class="wrap">
-  <section class="hero">
-    <div style="color:var(--accent);font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:13px">Build • Install • Create • Operate</div>
-    <h1>Documentation for the AI-first GenixBit platform.</h1>
-    <p>Guides for building the operating system, validating releases, developing applications, using local AI runtimes, integrating GenixBit Agents, managing servers, supporting creator workflows, and operating signed package infrastructure.</p>
-    <div class="notice">This is an early documentation landing page. Features marked planned are not available in the current ISO source.</div>
-  </section>
-  <section class="grid">
-    <article class="card"><h2>Get Started</h2><p>Understand current status, supported build environments, installation planning, and release limitations.</p><div class="links"><a href="https://github.com/GenixBit/genixbit-os/blob/main/README.md">Project overview</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/BUILDING.md">Build guide</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/TESTING.md">Testing record</a></div></article>
-    <article class="card"><h2>AI Platform</h2><p>Local-first runtimes, model catalog rules, hardware profiles, agents, developer studio, and user controls.</p><div class="links"><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/AI-FIRST-PLATFORM.md">AI-first architecture</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/AI-MODEL-CATALOG.md">Model catalog</a><a href="https://github.com/GenixBit/agency-agents">GenixBit Agents</a></div></article>
-    <article class="card"><h2>Developers</h2><p>Operating-system architecture, upstream synchronization, build modules, packaging, and application delivery.</p><div class="links"><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/ARCHITECTURE.md">Architecture</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/UPSTREAM-SYNC.md">Upstream sync</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/CONTRIBUTING.md">Team workflow</a></div></article>
-    <article class="card"><h2>Branding</h2><p>Move every user-facing OS surface to GenixBit while retaining legally required upstream notices.</p><div class="links"><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/BRANDING.md">Identity guide</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/BRANDING-MIGRATION.md">Migration plan</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/UPSTREAM.md">Attribution</a></div></article>
-    <article class="card"><h2>Store and Packages</h2><p>Curated apps, model metadata, signed GenixBit packages, snapshots, promotion, and rollback.</p><div class="links"><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/APP-STORE.md">GenixBit Store</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/PACKAGE-ROADMAP.md">Package roadmap</a></div></article>
-    <article class="card"><h2>Operations</h2><p>Website, documentation, package service, DNS, deployment, security, backup, and production controls.</p><div class="links"><a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/PLATFORM-SERVICES.md">Platform services</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/deploy/README.md">Preview deployment</a><a href="https://github.com/GenixBit/genixbit-os/blob/main/SECURITY.md">Security</a></div></article>
-  </section>
-</main>
-<footer><div class="wrap">GenixBit OS documentation preview • GenixBit Labs Private Limited</div></footer>
+  <header>
+    <nav class="wrap">
+      <a class="brand" href="https://docs.os.genixbit.com">GenixBit OS Docs</a>
+      <div class="nav-links">
+        <a href="https://os.genixbit.com">OS Portal</a>
+        <a href="https://packages.os.genixbit.com">Package Status</a>
+        <a href="https://www.genixbit.com">Company</a>
+        <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
+      </div>
+      <span class="badge">v0.2.0-alpha Validated</span>
+    </nav>
+  </header>
+
+  <div class="wrap layout">
+    <aside class="sidebar">
+      <h4>Documentation Guide</h4>
+      <ul>
+        <li><a href="#overview">1. Overview</a></li>
+        <li><a href="#installation">2. Installation</a></li>
+        <li><a href="#release">3. Release 0.2.0-alpha</a></li>
+        <li><a href="#iso-verification">4. ISO Verification</a></li>
+        <li><a href="#branding">5. Branding Architecture</a></li>
+        <li><a href="#packaging">6. Package Architecture</a></li>
+        <li><a href="#gcp-staging">7. GCP Staging Validation</a></li>
+        <li><a href="#signing">8. Signing & Trust Model</a></li>
+        <li><a href="#snapshots">9. Snapshots & Rollback</a></li>
+        <li><a href="#security">10. Security Policy</a></li>
+        <li><a href="#troubleshooting">11. Troubleshooting</a></li>
+        <li><a href="#roadmap">12. Roadmap</a></li>
+        <li><a href="#contributing">13. Contributing</a></li>
+        <li><a href="#attribution">14. Legal Attribution</a></li>
+      </ul>
+    </aside>
+
+    <main class="content">
+      <!-- 1. Overview -->
+      <section id="overview">
+        <h2>1. Overview</h2>
+        <p>GenixBit OS is an AI-first, local-first Linux operating system engineered for developers, creators, server managers, and AI application builders. It provides a secure, predictable, and hardware-accelerated workstation base built upon Ubuntu 26.04 Resolute development base.</p>
+        <div class="notice">
+          <strong>Key Philosophy:</strong> Local-first AI workflows, strict package signing, zero unverified cloud telemetry, and transparent open-source engineering.
+        </div>
+      </section>
+
+      <!-- 2. Installation -->
+      <section id="installation">
+        <h2>2. Installation</h2>
+        <p>GenixBit OS is distributed as a bootable hybrid ISO image suitable for bare-metal x86_64 hardware, KVM/QEMU virtual machines, and modern hypervisors.</p>
+        <h3>System Requirements</h3>
+        <ul>
+          <li><strong>CPU:</strong> 64-bit x86_64 processor (quad-core recommended)</li>
+          <li><strong>RAM:</strong> 8 GB minimum (16 GB+ recommended for local LLM inference)</li>
+          <li><strong>Storage:</strong> 32 GB NVMe/SSD space</li>
+          <li><strong>GPU:</strong> Optional NVIDIA or AMD GPU for hardware-accelerated model execution</li>
+        </ul>
+      </section>
+
+      <!-- 3. Release 0.2.0-alpha -->
+      <section id="release">
+        <h2>3. Release 0.2.0-alpha</h2>
+        <p>Release 0.2.0-alpha represents our initial validated alpha milestone for the GenixBit OS platform.</p>
+        <table>
+          <tr><th>Attribute</th><th>Specification / Hash</th></tr>
+          <tr><td>Release Version</td><td><code>0.2.0-alpha</code></td></tr>
+          <tr><td>Candidate SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td></tr>
+          <tr><td>ISO SHA-256</td><td><code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></td></tr>
+          <tr><td>Base OS Platform</td><td>Ubuntu 26.04 Resolute Development Base</td></tr>
+          <tr><td>Release Invariants</td><td>Tag <code>v0.2.0-alpha</code> pinned to candidate commit</td></tr>
+        </table>
+      </section>
+
+      <!-- 4. ISO Verification -->
+      <section id="iso-verification">
+        <h2>4. ISO Verification</h2>
+        <p>Always verify the integrity of your downloaded ISO image before booting or writing to physical media:</p>
+        <div class="code-block">
+$ sha256sum genixbit-os-0.2.0-alpha-amd64.iso
+d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228  genixbit-os-0.2.0-alpha-amd64.iso
+        </div>
+      </section>
+
+      <!-- 5. Branding Architecture -->
+      <section id="branding">
+        <h2>5. Branding Architecture</h2>
+        <p>GenixBit OS enforces consistent visual identity and system metadata across terminal banners, desktop artwork, GRUB bootloader, Plymouth splash screens, and <code>/etc/os-release</code> while preserving legally mandated upstream copyright attributions.</p>
+      </section>
+
+      <!-- 6. Package Architecture -->
+      <section id="packaging">
+        <h2>6. Package Architecture</h2>
+        <p>The GenixBit package ecosystem features dual-suite release channels (<code>resolute-alpha</code> and <code>resolute-testing</code>), automated <code>dpkg-scanpackages</code> index generation, and atomic directory symlink swappings for instant production publication.</p>
+      </section>
+
+      <!-- 7. GCP Staging Validation -->
+      <section id="gcp-staging">
+        <h2>7. GCP Staging Validation</h2>
+        <p>We executed a full 12-stage package repository validation drill on an isolated GCP staging infrastructure under run ID <code>run-staging-20260723-001</code>.</p>
+        <div class="notice">
+          <strong>Staging Transparency Notice:</strong> The GCP deployment exercise was purely for staging validation. All temporary resources (VPC, VMs, Cloud NAT, DNS, and Storage Buckets) were completely torn down and cleaned up upon completion. The production package repository remains undeployed.
+        </div>
+      </section>
+
+      <!-- 8. Signing & Trust Model -->
+      <section id="signing">
+        <h2>8. Signing & Trust Model</h2>
+        <p>OpenPGP metadata signatures (InRelease and Release.gpg) are produced exclusively on a isolated <strong>Signing Workstation</strong> (<code>SIGNER_INSTANCE_NAME</code>). Repository Host and APT Client nodes contain zero secret key packets.</p>
+      </section>
+
+      <!-- 9. Snapshots & Rollback -->
+      <section id="snapshots">
+        <h2>9. Snapshots & Rollback</h2>
+        <p>Staging supports atomic release snapshots (e.g., <code>snap-resolute-alpha-20260723-104011</code>) allowing instant rollbacks to previous validated suite states without client-side APT corruption.</p>
+      </section>
+
+      <!-- 10. Security Policy -->
+      <section id="security">
+        <h2>10. Security Policy</h2>
+        <p>Security vulnerabilities should be reported directly to <code>security@genixbit.com</code>. We enforce zero hardcoded secrets, fail-closed operational runners, and complete anti-fabrication testing gates across all CI pipelines.</p>
+      </section>
+
+      <!-- 11. Troubleshooting -->
+      <section id="troubleshooting">
+        <h2>11. Troubleshooting</h2>
+        <p>For common build, GPG key import, or repository sync issues, consult our automated test suite logs or run preflight diagnostics using <code>./preflight.sh</code> in the repository root.</p>
+      </section>
+
+      <!-- 12. Roadmap -->
+      <section id="roadmap">
+        <h2>12. Roadmap</h2>
+        <ul>
+          <li><strong>Phase 1 (Completed):</strong> ISO build pipeline & 12-stage GCP package staging validation drill.</li>
+          <li><strong>Phase 2 (Current):</strong> Public status & documentation portal release.</li>
+          <li><strong>Phase 3 (Upcoming):</strong> Hardware-accelerated AI Core integration & production package repository approval.</li>
+        </ul>
+      </section>
+
+      <!-- 13. Contributing -->
+      <section id="contributing">
+        <h2>13. Contributing</h2>
+        <p>We welcome open-source contributions! Please review our <a href="https://github.com/GenixBit/genixbit-os/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> and <a href="https://github.com/GenixBit/genixbit-os/blob/main/CODE_OF_CONDUCT.md">Code of Conduct</a> before submitting pull requests.</p>
+      </section>
+
+      <!-- 14. Legal & Upstream Attribution -->
+      <section id="attribution">
+        <h2>14. Legal & Upstream Attribution</h2>
+        <p>GenixBit OS incorporates GPL-3.0 and Ubuntu Linux upstream components. All copyrights, trademarks, and license notices belong to their respective copyright holders. See <a href="https://github.com/GenixBit/genixbit-os/blob/main/UPSTREAM.md">UPSTREAM.md</a> for full details.</p>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      © 2016-2026 GenixBit Labs Private Limited • <a href="https://os.genixbit.com">GenixBit OS Portal</a> • <a href="https://packages.os.genixbit.com">Package Status</a>
+    </div>
+  </footer>
 </body>
 </html>
