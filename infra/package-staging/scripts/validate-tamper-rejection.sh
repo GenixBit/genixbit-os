@@ -149,8 +149,8 @@ run_tamper_test_case() {
             ssh_client "gpg --batch --passphrase '' --quick-gen-key 'Wrong Test Key <wrong@test.local>' default default 1y 2>/dev/null && gpg --export 'Wrong Test Key' | sudo tee $key_path >/dev/null"
         fi
 
-        # Temporarily disable main sources list so APT fetches strictly from tamper source
-        ssh_client "if [ -f /etc/apt/sources.list.d/genixbit.sources ]; then sudo mv /etc/apt/sources.list.d/genixbit.sources /etc/apt/sources.list.d/genixbit.sources.disabled; fi"
+        # Temporarily disable all existing sources lists so APT fetches strictly from tamper source
+        ssh_client "sudo mkdir -p /etc/apt/sources.list.d.disabled; if ls /etc/apt/sources.list.d/*.sources >/dev/null 2>&1; then sudo mv /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d.disabled/; fi"
 
         ssh_client "cat <<EOF | sudo tee /etc/apt/sources.list.d/tamper.sources
 Types: deb
@@ -173,9 +173,8 @@ EOF"
         fi
         set -e
 
-        # Clean up tamper source & restore main sources
-        ssh_client "sudo rm -f /etc/apt/sources.list.d/tamper.sources /etc/apt/trusted.gpg.d/wrong_key.gpg"
-        ssh_client "if [ -f /etc/apt/sources.list.d/genixbit.sources.disabled ]; then sudo mv /etc/apt/sources.list.d/genixbit.sources.disabled /etc/apt/sources.list.d/genixbit.sources; fi"
+        # Clean up tamper source & restore all original sources
+        ssh_client "sudo rm -f /etc/apt/sources.list.d/tamper.sources /etc/apt/trusted.gpg.d/wrong_key.gpg; if ls /etc/apt/sources.list.d.disabled/*.sources >/dev/null 2>&1; then sudo mv /etc/apt/sources.list.d.disabled/*.sources /etc/apt/sources.list.d/; fi; sudo rm -rf /etc/apt/sources.list.d.disabled"
 
         if [[ $apt_exit -eq 0 ]]; then
             echo "[ERROR] Tamper Case '$case_name' FAILED: Client APT accepted tampered metadata/package!" >&2

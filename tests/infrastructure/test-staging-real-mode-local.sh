@@ -90,14 +90,35 @@ chmod +x "$SHIM_BIN_DIR/gcloud"
 
 export PATH="$SHIM_BIN_DIR:$PATH"
 
+UBUNTU_2604_IMAGE="${UBUNTU_2604_IMAGE:-ubuntu:26.04}"
+echo "[INFO] Pulling and inspecting Ubuntu 26.04 container image ($UBUNTU_2604_IMAGE)..."
+docker pull "$UBUNTU_2604_IMAGE" >/dev/null
+
+INSPECT_JSON=$(docker image inspect "$UBUNTU_2604_IMAGE")
+IMAGE_ID=$(echo "$INSPECT_JSON" | jq -r '.[0].Id')
+IMAGE_DIGEST=$(echo "$INSPECT_JSON" | jq -r '.[0].RepoDigests[0] // .[0].Id')
+IMAGE_ARCH=$(echo "$INSPECT_JSON" | jq -r '.[0].Architecture')
+IMAGE_CREATED=$(echo "$INSPECT_JSON" | jq -r '.[0].Created')
+
+echo "[INFO] Recorded Container Image Provenance:"
+echo "       Reference:  $UBUNTU_2604_IMAGE"
+echo "       RepoDigest: $IMAGE_DIGEST"
+echo "       Image ID:   $IMAGE_ID"
+echo "       Arch:       $IMAGE_ARCH"
+echo "       Created:    $IMAGE_CREATED"
+
 # 2. Launch Signer Container (Signing Workstation - Holds Private GPG Key)
 echo "[INFO] Launching signing workstation container ($SIGNER_CONTAINER)..."
 docker rm -f "$SIGNER_CONTAINER" 2>/dev/null || true
 docker run -d --name "$SIGNER_CONTAINER" --hostname "staging-signer.genixbit.internal" \
-    ubuntu:26.04 sleep infinity
+    "$UBUNTU_2604_IMAGE" sleep infinity
 
 docker exec "$SIGNER_CONTAINER" bash -c "
 set -euo pipefail
+. /etc/os-release
+test \"\$ID\" = \"ubuntu\"
+test \"\$VERSION_ID\" = \"26.04\"
+test \"\$VERSION_CODENAME\" = \"resolute\"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y >/dev/null
 apt-get install -y gpg openssl tar curl sudo >/dev/null
@@ -107,24 +128,15 @@ apt-get install -y gpg openssl tar curl sudo >/dev/null
 echo "[INFO] Launching repository host container ($HOST_CONTAINER pinned to Ubuntu 26.04 resolute)..."
 docker rm -f "$HOST_CONTAINER" 2>/dev/null || true
 docker run -d --name "$HOST_CONTAINER" --hostname "staging-packages.genixbit.internal" \
-    ubuntu:26.04 sleep infinity
+    "$UBUNTU_2604_IMAGE" sleep infinity
 
 docker exec "$HOST_CONTAINER" bash -c "
 set -euo pipefail
-export DEBIAN_FRONTEND=noninteractive
-cat <<'EOF' > /etc/os-release
-NAME=\"Ubuntu\"
-VERSION=\"26.04 (Resolute Rhino)\"
-ID=ubuntu
-ID_LIKE=debian
-PRETTY_NAME=\"Ubuntu 26.04 LTS\"
-VERSION_ID=\"26.04\"
-VERSION_CODENAME=resolute
-UBUNTU_CODENAME=resolute
-EOF
 . /etc/os-release
+test \"\$ID\" = \"ubuntu\"
 test \"\$VERSION_ID\" = \"26.04\"
 test \"\$VERSION_CODENAME\" = \"resolute\"
+export DEBIAN_FRONTEND=noninteractive
 apt-get update -y >/dev/null
 apt-get install -y nginx gpg dpkg-dev apt-utils tar curl openssl ca-certificates sudo >/dev/null
 useradd -r -s /bin/false genixbit-repo 2>/dev/null || true
@@ -221,28 +233,19 @@ docker cp "$TMP_TEST_DIR/staging-keyring.gpg" "$HOST_CONTAINER:/var/srv/genixbit
 # 6. Launch Disposable Client Container Pinned to Ubuntu 26.04 (resolute)
 echo "[INFO] Launching disposable APT client container ($CLIENT_CONTAINER pinned to Ubuntu 26.04 resolute)..."
 docker rm -f "$CLIENT_CONTAINER" 2>/dev/null || true
-docker run -d --name "$CLIENT_CONTAINER" ubuntu:26.04 sleep infinity
+docker run -d --name "$CLIENT_CONTAINER" "$UBUNTU_2604_IMAGE" sleep infinity
+docker exec "$CLIENT_CONTAINER" mkdir -p /usr/local/share/ca-certificates /etc/apt/trusted.gpg.d
 
 docker cp "$TMP_TEST_DIR/staging-ca.crt" "$CLIENT_CONTAINER:/usr/local/share/ca-certificates/staging-ca.crt"
 docker cp "$TMP_TEST_DIR/staging-keyring.gpg" "$CLIENT_CONTAINER:/etc/apt/trusted.gpg.d/genixbit-staging.gpg"
 
-# Set up /etc/os-release to identify as Ubuntu 26.04 (resolute)
 docker exec "$CLIENT_CONTAINER" bash -c "
 set -euo pipefail
-export DEBIAN_FRONTEND=noninteractive
-cat <<'EOF' > /etc/os-release
-NAME=\"Ubuntu\"
-VERSION=\"26.04 (Resolute Rhino)\"
-ID=ubuntu
-ID_LIKE=debian
-PRETTY_NAME=\"Ubuntu 26.04 LTS\"
-VERSION_ID=\"26.04\"
-VERSION_CODENAME=resolute
-UBUNTU_CODENAME=resolute
-EOF
 . /etc/os-release
+test \"\$ID\" = \"ubuntu\"
 test \"\$VERSION_ID\" = \"26.04\"
 test \"\$VERSION_CODENAME\" = \"resolute\"
+export DEBIAN_FRONTEND=noninteractive
 apt-get update -y >/dev/null
 apt-get install -y curl ca-certificates gpg sudo >/dev/null
 echo '${HOST_IP} staging-packages.genixbit.internal' >> /etc/hosts
@@ -257,6 +260,27 @@ Components: main
 Signed-By: /etc/apt/trusted.gpg.d/genixbit-staging.gpg
 SEOF
 "
+
+# Perform Part 9 Signer Isolation Verification
+echo "[INFO] Verifying Signer Isolation Policy..."
+docker exec "$SIGNER_CONTAINER" gpg --list-secret-keys 2>/dev/null | grep -q '^sec' || {
+    echo "[ERROR] Signing workstation missing secret signing key!" >&2
+    exit 1
+}
+if docker exec "$HOST_CONTAINER" gpg --list-secret-keys 2>/dev/null | grep -q '^sec'; then
+    echo "[ERROR] Repository host contains secret OpenPGP packets!" >&2
+    exit 1
+fi
+if docker exec "$CLIENT_CONTAINER" gpg --list-secret-keys 2>/dev/null | grep -q '^sec'; then
+    echo "[ERROR] Client container contains secret OpenPGP packets!" >&2
+    exit 1
+fi
+docker exec "$HOST_CONTAINER" test -f /var/srv/genixbit-repository/keyring/keyring.gpg || {
+    echo "[ERROR] Repository host missing public keyring file!" >&2
+    exit 1
+}
+
+echo "REAL_MODE_SIGNER_SEPARATION=PASS"
 
 SYS_ARCH=$(docker exec "$CLIENT_CONTAINER" dpkg --print-architecture | tr -d '\r\n')
 if [[ -z "$SYS_ARCH" ]]; then SYS_ARCH="amd64"; fi
@@ -363,34 +387,46 @@ bash "$INFRA_DIR/scripts/preflight.sh" "$GCP_PROJECT_ID"
 
 echo "[INFO] Running non-simulated Configure Repository..."
 bash "$INFRA_DIR/scripts/configure-repository.sh"
+echo "REAL_MODE_REPOSITORY_PUBLICATION=PASS"
 
 echo "[INFO] Running non-simulated Client Validation..."
 bash "$INFRA_DIR/scripts/validate-client.sh"
+echo "REAL_MODE_HTTPS=PASS"
+echo "REAL_MODE_APT_UPDATE=PASS"
+echo "REAL_MODE_APT_INSTALL=PASS"
+echo "REAL_MODE_APT_UPGRADE=PASS"
 
 echo "[INFO] Running non-simulated Promotion Validation..."
 bash "$INFRA_DIR/scripts/validate-promotion.sh"
+echo "REAL_MODE_PROMOTION=PASS"
 
 echo "[INFO] Running non-simulated Snapshot Validation..."
 bash "$INFRA_DIR/scripts/validate-snapshot.sh"
+echo "REAL_MODE_SNAPSHOT=PASS"
 
 echo "[INFO] Running non-simulated Rollback Validation..."
 bash "$INFRA_DIR/scripts/validate-rollback.sh"
+echo "REAL_MODE_ROLLBACK=PASS"
 
 echo "[INFO] Running non-simulated Tamper Rejection Matrix..."
 bash "$INFRA_DIR/scripts/validate-tamper-rejection.sh"
+echo "REAL_MODE_TAMPER_MATRIX=PASS"
 
 echo "[INFO] Running non-simulated Key Recovery Drill..."
 bash "$INFRA_DIR/scripts/validate-key-recovery.sh"
+echo "REAL_MODE_KEY_RECOVERY=PASS"
 
 echo "[INFO] Running non-simulated Key Revocation Drill..."
-bash -x "$INFRA_DIR/scripts/validate-key-revocation.sh"
+bash "$INFRA_DIR/scripts/validate-key-revocation.sh"
+echo "REAL_MODE_KEY_REVOCATION=PASS"
 
 echo "[INFO] Running Evidence Collection..."
 bash "$INFRA_DIR/scripts/collect-evidence.sh" "$GCP_PROJECT_ID"
+echo "REAL_MODE_EVIDENCE_COLLECTION=PASS"
 
-# Mark status READY_FOR_OPERATOR_DEPLOYMENT in PACKAGE-STAGING-STATUS.env upon 100% clean 3-host test pass
+# Mark status LOCAL_REAL_MODE_VALIDATED_GCP_NOT_STARTED in PACKAGE-STAGING-STATUS.env upon 100% clean 3-host test pass
 if [[ -f "$REPO_ROOT/docs/staging/PACKAGE-STAGING-STATUS.env" ]]; then
-    sed -i.bak 's/^OVERALL_STATUS=.*/OVERALL_STATUS=READY_FOR_OPERATOR_DEPLOYMENT/' "$REPO_ROOT/docs/staging/PACKAGE-STAGING-STATUS.env" && rm -f "$REPO_ROOT/docs/staging/PACKAGE-STAGING-STATUS.env.bak"
+    sed -i.bak 's/^OVERALL_STATUS=.*/OVERALL_STATUS=LOCAL_REAL_MODE_VALIDATED_GCP_NOT_STARTED/' "$REPO_ROOT/docs/staging/PACKAGE-STAGING-STATUS.env" && rm -f "$REPO_ROOT/docs/staging/PACKAGE-STAGING-STATUS.env.bak"
 fi
 
 echo "[PASS] Real non-simulated 3-host local integration test suite executed cleanly!"

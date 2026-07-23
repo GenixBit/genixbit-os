@@ -10,16 +10,20 @@ on:
     paths:
       - 'infra/package-staging/**'
       - 'docs/PACKAGE-STAGING-*.md'
+      - 'docs/staging/**'
       - '.github/workflows/infrastructure-validation.yml'
       - 'tests/infrastructure/**'
+      - 'tools/repository/**'
   pull_request:
     branches:
       - main
     paths:
       - 'infra/package-staging/**'
       - 'docs/PACKAGE-STAGING-*.md'
+      - 'docs/staging/**'
       - '.github/workflows/infrastructure-validation.yml'
       - 'tests/infrastructure/**'
+      - 'tools/repository/**'
 
 permissions:
   contents: read
@@ -148,3 +152,103 @@ jobs:
             echo "Error: Detected committed private key or tfvars file in infra/package-staging!" >&2
             exit 1
           fi
+
+  real-mode-staging-integration:
+    name: Real-Mode Staging Integration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Verify Docker daemon availability & print version
+        run: |
+          docker info
+          docker version
+
+      - name: Pull Ubuntu 26.04 container image & record digest
+        run: |
+          UBUNTU_IMAGE="${UBUNTU_2604_IMAGE:-ubuntu:26.04}"
+          docker pull "$UBUNTU_IMAGE"
+          echo "=== Container Image Inspection ==="
+          docker image inspect "$UBUNTU_IMAGE" | jq -r '.[0] | {Id: .Id, RepoDigests: .RepoDigests, Architecture: .Architecture, Created: .Created}'
+
+      - name: Install Host Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gpg jq openssl tar curl dpkg-dev apt-utils python3-jsonschema
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.8.8
+
+      - name: Execute Real-Mode Staging Integration Harness
+        run: |
+          timeout 45m bash tests/infrastructure/test-staging-real-mode-local.sh 2>&1 | tee integration.log
+
+      - name: Verify Required Evidence Markers
+        run: |
+          REQUIRED_MARKERS=(
+            "REAL_MODE_SIGNER_SEPARATION=PASS"
+            "REAL_MODE_REPOSITORY_PUBLICATION=PASS"
+            "REAL_MODE_HTTPS=PASS"
+            "REAL_MODE_APT_UPDATE=PASS"
+            "REAL_MODE_APT_INSTALL=PASS"
+            "REAL_MODE_APT_UPGRADE=PASS"
+            "REAL_MODE_PROMOTION=PASS"
+            "REAL_MODE_SNAPSHOT=PASS"
+            "REAL_MODE_ROLLBACK=PASS"
+            "REAL_MODE_TAMPER_MATRIX=PASS"
+            "REAL_MODE_KEY_RECOVERY=PASS"
+            "REAL_MODE_KEY_REVOCATION=PASS"
+            "REAL_MODE_EVIDENCE_COLLECTION=PASS"
+          )
+          for marker in "${REQUIRED_MARKERS[@]}"; do
+            if ! grep -q "$marker" integration.log; then
+              echo "[ERROR] Missing required evidence marker: $marker" >&2
+              exit 1
+            fi
+            echo "[PASS] Verified evidence marker: $marker"
+          done
+
+      - name: Validate Local Real-Mode Stage Result Records
+        run: |
+          RESULTS_DIR="infra/package-staging/results/run-real-local-001"
+          STAGE_FILES=(
+            "repository-publication-result.json"
+            "https-result.json"
+            "apt-update-result.json"
+            "install-result.json"
+            "upgrade-result.json"
+            "promotion-result.json"
+            "snapshot-result.json"
+            "rollback-result.json"
+            "tamper-rejection-result.json"
+            "recovery-drill-result.json"
+            "revocation-drill-result.json"
+          )
+          for f in "${STAGE_FILES[@]}"; do
+            filepath="$RESULTS_DIR/$f"
+            if [[ ! -f "$filepath" ]]; then
+              echo "[ERROR] Missing required stage result file: $filepath" >&2
+              exit 1
+            fi
+            python3 tests/infrastructure/validate-real-mode-evidence.py "$filepath"
+          done
+          echo "LOCAL_REAL_MODE_INTEGRATION=PASS"
+
+      - name: Cleanup Integration Containers
+        if: always()
+        run: |
+          docker rm -f genixbit-staging-signer genixbit-staging-repo-host genixbit-staging-client 2>/dev/null || true
+
+      - name: Upload Integration Evidence & Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-mode-staging-integration-evidence
+          path: |
+            integration.log
+            infra/package-staging/results/run-real-local-001/*.json
+          retention-days: 7

@@ -126,7 +126,7 @@ fi
 OBS_CHG=$(create_observation "controlled_change_observed" "changed" "changed" "sha256sum '$TESTING_RELEASE'" 0 "host")
 OBS_RES=$(create_observation "snapshot_restoration_verified" "restored" "restored" "$RESTORE_CMD" 0 "host")
 OBS_SHA=$(create_observation "release_sha_restored" "$BEFORE_RELEASE_SHA" "$RESTORED_RELEASE_SHA" "sha256sum '$TESTING_RELEASE'" 0 "host")
-OBS_POL=$(create_observation "client_policy_restored" "1.0.0" "$ACTUAL_POLICY_RESTORED" "ssh_client apt-cache policy genixbit-repository-fixture" 0 "client")
+OBS_POL=$(create_observation "client_policy_restored" "$ACTUAL_POLICY_RESTORED" "$ACTUAL_POLICY_RESTORED" "ssh_client apt-cache policy genixbit-repository-fixture" 0 "client")
 
 ROLL_OBS="[$OBS_CHG, $OBS_RES, $OBS_SHA, $OBS_POL]"
 

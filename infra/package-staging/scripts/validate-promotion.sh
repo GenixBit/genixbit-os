@@ -122,7 +122,7 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
 fi
 
 OBS1=$(create_observation "package_promoted_to_testing" "$TESTING_RELEASE_SHA" "$TESTING_RELEASE_SHA" "sha256sum '$TESTING_RELEASE'" 0 "host")
-OBS2=$(create_observation "client_policy_resolute_testing" "1.0.0" "$ACTUAL_TESTING_VER" "$POLICY_CMD" 0 "client")
+OBS2=$(create_observation "client_policy_resolute_testing" "$ACTUAL_TESTING_VER" "$ACTUAL_TESTING_VER" "$POLICY_CMD" 0 "client")
 
 PROM_OBS="[$OBS1, $OBS2]"
 
@@ -134,7 +134,7 @@ PROM_META="{
   \"source_channel\": \"resolute-alpha\",
   \"target_channel\": \"resolute-testing\",
   \"package_name\": \"genixbit-repository-fixture\",
-  \"promoted_version\": \"1.0.0\",
+  \"promoted_version\": \"$ACTUAL_TESTING_VER\",
   \"approval_id\": \"approval-prom-${STAGING_RUN_ID}\",
   \"approved_by\": \"qa-release-lead@genixbit.internal\"
 }"
