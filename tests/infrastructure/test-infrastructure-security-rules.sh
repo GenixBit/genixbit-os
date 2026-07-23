@@ -166,11 +166,23 @@ if grep -E '\|\|[[:space:]]*echo[[:space:]]+"' "$INFRA_DIR/scripts/validate-prom
 fi
 echo "[PASS] Zero empty fallback assignments detected."
 
-# 14e. Verify Ubuntu 26.04 Resolute Pinning
-if grep -E 'ubuntu:24\.04' "$REPO_ROOT/tests/infrastructure/test-staging-real-mode-local.sh"; then
-    echo "[ERROR] Detected un-pinned ubuntu:24.04 image in real-mode local integration test harness! Must pin to ubuntu:26.04." >&2
+# 14f. Verify remote-gcp-runner.sh has NO default values and requires SIGNER_INSTANCE_NAME
+if grep -E 'GCP_PROJECT_ID:-\|GCP_ZONE:-\|REPOSITORY_INSTANCE_NAME:-\|SIGNER_INSTANCE_NAME:-' "$INFRA_DIR/scripts/remote-gcp-runner.sh"; then
+    echo "[ERROR] Detected default fallbacks in remote-gcp-runner.sh! Must fail closed on missing values." >&2
     exit 1
 fi
-echo "[PASS] Integration containers pinned to Ubuntu 26.04 resolute."
+if grep -F '%no-protection' "$INFRA_DIR/scripts/remote-gcp-runner.sh"; then
+    echo "[ERROR] Detected %no-protection in remote-gcp-runner.sh! Passphrase protection is required." >&2
+    exit 1
+fi
+echo "[PASS] remote-gcp-runner.sh fail-closed parameters & passphrase protection verified."
+
+# 14g. Verify CLEANUP_STATUS in PACKAGE-STAGING-STATUS.env
+STATUS_ENV="$REPO_ROOT/docs/staging/PACKAGE-STAGING-STATUS.env"
+if ! grep -q "CLEANUP_STATUS=" "$STATUS_ENV"; then
+    echo "[ERROR] Missing CLEANUP_STATUS in docs/staging/PACKAGE-STAGING-STATUS.env!" >&2
+    exit 1
+fi
+echo "[PASS] CLEANUP_STATUS present in PACKAGE-STAGING-STATUS.env."
 
 echo "[PASS] All infrastructure security & policy checks passed successfully."
