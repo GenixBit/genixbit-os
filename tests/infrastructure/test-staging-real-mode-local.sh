@@ -234,6 +234,7 @@ docker cp "$TMP_TEST_DIR/staging-keyring.gpg" "$HOST_CONTAINER:/var/srv/genixbit
 echo "[INFO] Launching disposable APT client container ($CLIENT_CONTAINER pinned to Ubuntu 26.04 resolute)..."
 docker rm -f "$CLIENT_CONTAINER" 2>/dev/null || true
 docker run -d --name "$CLIENT_CONTAINER" "$UBUNTU_2604_IMAGE" sleep infinity
+docker exec "$CLIENT_CONTAINER" mkdir -p /usr/local/share/ca-certificates /etc/apt/trusted.gpg.d
 
 docker cp "$TMP_TEST_DIR/staging-ca.crt" "$CLIENT_CONTAINER:/usr/local/share/ca-certificates/staging-ca.crt"
 docker cp "$TMP_TEST_DIR/staging-keyring.gpg" "$CLIENT_CONTAINER:/etc/apt/trusted.gpg.d/genixbit-staging.gpg"
