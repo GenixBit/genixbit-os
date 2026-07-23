@@ -81,9 +81,10 @@ build_dist() {
 
     local deb_path="pool/main/g/genixbit-repository-fixture/genixbit-repository-fixture_1.0.0_all.deb"
     local full_deb="$BUILD_DIR/repo/$deb_path"
-    local deb_size=$(wc -c < "$full_deb" | tr -d ' ')
-    local deb_md5=$(md5 -q "$full_deb" 2>/dev/null || md5sum "$full_deb" | cut -d' ' -f1)
-    local deb_sha256=$(shasum -a 256 "$full_deb" 2>/dev/null | cut -d' ' -f1 || sha256sum "$full_deb" | cut -d' ' -f1)
+    local deb_size deb_md5 deb_sha256
+    deb_size=$(wc -c < "$full_deb" | tr -d ' ')
+    deb_md5=$(md5 -q "$full_deb" 2>/dev/null || md5sum "$full_deb" | cut -d' ' -f1)
+    deb_sha256=$(shasum -a 256 "$full_deb" 2>/dev/null | cut -d' ' -f1 || sha256sum "$full_deb" | cut -d' ' -f1)
 
     cat << EOF > "$dist_dir/main/binary-amd64/Packages"
 Package: genixbit-repository-fixture
@@ -103,10 +104,11 @@ EOF
     gzip -9c "$dist_dir/main/binary-amd64/Packages" > "$dist_dir/main/binary-amd64/Packages.gz"
     gzip -9c "$dist_dir/main/binary-amd64/Packages" > "$dist_dir/main/binary-amd64/Packages.xz"
 
-    local pkgs_size=$(wc -c < "$dist_dir/main/binary-amd64/Packages" | tr -d ' ')
-    local pkgs_sha256=$(shasum -a 256 "$dist_dir/main/binary-amd64/Packages" | cut -d' ' -f1 || sha256sum "$dist_dir/main/binary-amd64/Packages" | cut -d' ' -f1)
-    local pkgs_gz_size=$(wc -c < "$dist_dir/main/binary-amd64/Packages.gz" | tr -d ' ')
-    local pkgs_gz_sha256=$(shasum -a 256 "$dist_dir/main/binary-amd64/Packages.gz" | cut -d' ' -f1 || sha256sum "$dist_dir/main/binary-amd64/Packages.gz" | cut -d' ' -f1)
+    local pkgs_size pkgs_sha256 pkgs_gz_size pkgs_gz_sha256
+    pkgs_size=$(wc -c < "$dist_dir/main/binary-amd64/Packages" | tr -d ' ')
+    pkgs_sha256=$(shasum -a 256 "$dist_dir/main/binary-amd64/Packages" | cut -d' ' -f1 || sha256sum "$dist_dir/main/binary-amd64/Packages" | cut -d' ' -f1)
+    pkgs_gz_size=$(wc -c < "$dist_dir/main/binary-amd64/Packages.gz" | tr -d ' ')
+    pkgs_gz_sha256=$(shasum -a 256 "$dist_dir/main/binary-amd64/Packages.gz" | cut -d' ' -f1 || sha256sum "$dist_dir/main/binary-amd64/Packages.gz" | cut -d' ' -f1)
 
     cat << EOF > "$dist_dir/Release"
 Origin: GenixBit OS
