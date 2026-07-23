@@ -3,24 +3,154 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS package repository status page.">
-  <title>GenixBit OS Packages</title>
+  <meta name="description" content="GenixBit OS Package Transparency & Staging Status Page — Validated GCP staging execution metrics and production repository status.">
+  <title>GenixBit Package Transparency & Staging Status</title>
   <style>
-    :root{color-scheme:dark;--bg:#07111f;--panel:#10243d;--text:#f3f8ff;--muted:#a9b9cf;--line:rgba(255,255,255,.12);--accent:#58dcff;--warn:#ffc86b}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;background:radial-gradient(circle at 20% 10%,rgba(88,220,255,.16),transparent 34rem),radial-gradient(circle at 85% 15%,rgba(154,115,255,.14),transparent 28rem),var(--bg);color:var(--text)}main{width:min(820px,calc(100% - 36px));padding:38px;border:1px solid var(--line);border-radius:24px;background:rgba(16,36,61,.88);box-shadow:0 28px 80px rgba(0,0,0,.35)}.eyebrow{color:var(--accent);font-size:13px;text-transform:uppercase;letter-spacing:.13em;font-weight:850}h1{font-size:clamp(42px,7vw,68px);letter-spacing:-.06em;line-height:1;margin:14px 0 18px}p{color:var(--muted);font-size:18px;line-height:1.65}.warning{margin:24px 0;padding:16px 18px;border:1px solid rgba(255,200,107,.26);border-radius:14px;background:rgba(255,200,107,.07);color:#ffdc9b}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:28px}.item{padding:16px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.03)}.item strong{display:block;margin-bottom:6px}.item span{color:var(--muted);font-size:14px}a{display:inline-flex;margin-top:28px;color:var(--accent);font-weight:750;text-decoration:none}@media(max-width:650px){main{padding:28px}.grid{grid-template-columns:1fr}}
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: #10243d;
+      --panel-strong: #162e4e;
+      --text: #f3f8ff;
+      --muted: #a9b9cf;
+      --line: rgba(255,255,255,.12);
+      --accent: #58dcff;
+      --green: #70e2a2;
+      --warn: #ffc86b;
+      --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      background: radial-gradient(circle at 20% 10%,rgba(88,220,255,.16),transparent 34rem),radial-gradient(circle at 85% 15%,rgba(154,115,255,.14),transparent 28rem),var(--bg);
+      color: var(--text);
+    }
+    a { color: inherit; text-decoration: none; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(7,17,31,.85);
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(16px);
+    }
+    nav { height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { font-weight: 850; font-size: 20px; }
+    .nav-links { display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
+    .nav-links a:hover { color: var(--accent); }
+    .wrap { width: min(1080px, calc(100% - 36px)); margin: auto; }
+    main { padding: 48px 0 80px; }
+    .eyebrow { color: var(--accent); font-size: 13px; text-transform: uppercase; letter-spacing: .13em; font-weight: 850; }
+    h1 { font-size: clamp(38px, 6vw, 62px); letter-spacing: -.05em; line-height: 1.05; margin: 14px 0 18px; }
+    .lead { color: var(--muted); font-size: 19px; line-height: 1.6; max-width: 800px; }
+    
+    .status-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 32px 0; }
+    .summary-card { padding: 20px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
+    .summary-card label { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+    .summary-card .val { font-size: 18px; font-weight: 800; }
+    .val.not-deployed { color: var(--warn); }
+    .val.pass { color: var(--green); }
+
+    .warning-banner { margin: 28px 0; padding: 18px 22px; border: 1px solid rgba(245,158,11,.3); border-radius: 16px; background: rgba(245,158,11,.08); color: #fde68a; font-size: 14px; line-height: 1.6; }
+
+    .table-section { margin-top: 40px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 28px; }
+    .table-section h2 { margin-top: 0; font-size: 22px; color: var(--text); border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; }
+    td.badge-cell { font-weight: 700; }
+    .tag-pass { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(112,226,162,.12); color: var(--green); border: 1px solid rgba(112,226,162,.25); font-size: 12px; }
+    .tag-info { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(88,220,255,.12); color: var(--accent); border: 1px solid rgba(88,220,255,.25); font-size: 12px; }
+    code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; color: var(--accent); }
+
+    footer { border-top: 1px solid var(--line); padding: 30px 0; color: var(--muted); font-size: 14px; text-align: center; }
+
+    @media (max-width: 850px) {
+      .status-summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 540px) {
+      .status-summary-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-<main>
-  <div class="eyebrow">packages.os.genixbit.com</div>
-  <h1>GenixBit package infrastructure is being prepared.</h1>
-  <p>This domain will publish signed GenixBit OS packages, repository metadata, public verification keys, release channels, and package indexes after the signing, snapshot, promotion, rollback, and recovery processes pass security review.</p>
-  <div class="warning"><strong>No production APT repository is active on this preview.</strong> Do not add this domain to an APT source until an official GenixBit release announcement provides the exact signed configuration.</div>
-  <div class="grid">
-    <div class="item"><strong>Alpha</strong><span>internal and early validation packages</span></div>
-    <div class="item"><strong>Testing</strong><span>promoted packages undergoing integration tests</span></div>
-    <div class="item"><strong>Stable</strong><span>future reviewed production channel</span></div>
-  </div>
-  <a href="https://github.com/GenixBit/genixbit-os/blob/main/docs/PACKAGE-ROADMAP.md">Read the package roadmap →</a>
-</main>
+  <header>
+    <nav class="wrap">
+      <a class="brand" href="https://packages.os.genixbit.com">packages.os.genixbit.com</a>
+      <div class="nav-links">
+        <a href="https://os.genixbit.com">OS Portal</a>
+        <a href="https://docs.os.genixbit.com">Documentation</a>
+        <a href="https://www.genixbit.com">Company</a>
+        <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <div class="eyebrow">Transparency & Infrastructure Status</div>
+    <h1>Package Transparency Status</h1>
+    <p class="lead">Audit record for GenixBit OS package infrastructure, OpenPGP signing model, and GCP staging validation drills.</p>
+
+    <!-- Top 4 Summary Cards -->
+    <div class="status-summary-grid">
+      <div class="summary-card">
+        <label>Production Repository</label>
+        <div class="val not-deployed">NOT DEPLOYED</div>
+      </div>
+      <div class="summary-card">
+        <label>GCP Staging Validation</label>
+        <div class="val pass">PASS (PR #57 / #58)</div>
+      </div>
+      <div class="summary-card">
+        <label>Temporary GCP Resources</label>
+        <div class="val pass">CLEANED UP</div>
+      </div>
+      <div class="summary-card">
+        <label>Production Signing Key</label>
+        <div class="val not-deployed">NOT CREATED</div>
+      </div>
+    </div>
+
+    <div class="warning-banner">
+      <strong>Security & Operational Notice:</strong> No production APT package repository is served from this hostname. The GCP staging validation exercise was executed strictly on isolated private staging infrastructure and all temporary cloud resources have been completely destroyed. Do not add this domain to APT sources.
+    </div>
+
+    <!-- Validated Staging Metrics -->
+    <div class="table-section">
+      <h2>Validated GCP Staging Results</h2>
+      <table>
+        <thead>
+          <tr><th>Validation Metric</th><th>Value / Identifier</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Validated Release</td><td><code>0.2.0-alpha</code></td><td><span class="tag-pass">VALIDATED</span></td></tr>
+          <tr><td>Candidate Git SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td><td><span class="tag-pass">PINNED</span></td></tr>
+          <tr><td>Staging Run ID</td><td><code>run-staging-20260723-001</code></td><td><span class="tag-info">GCP STAGING</span></td></tr>
+          <tr><td>Staging Public Key Fingerprint</td><td><code>9D8696C4BF7862A6366C1669BF6D1B248A0760A2</code></td><td><span class="tag-pass">ISOLATED SIGNER</span></td></tr>
+          <tr><td>Key Expiry Record</td><td><code>2026-08-22T00:00:00Z</code></td><td><span class="tag-info">30 DAYS</span></td></tr>
+          <tr><td>Alpha Snapshot ID</td><td><code>snap-resolute-alpha-20260723-104011</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
+          <tr><td>Testing Snapshot ID</td><td><code>snap-resolute-testing-20260723-104018</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
+          <tr><td>APT Update Stage</td><td>Private HTTPS repository index fetch</td><td><span class="tag-pass">PASS</span></td></tr>
+          <tr><td>Install Stage</td><td>Fixture package version 1.0.0 installation</td><td><span class="tag-pass">PASS</span></td></tr>
+          <tr><td>Upgrade Stage</td><td>Fixture package version 1.0.1 upgrade</td><td><span class="tag-pass">PASS</span></td></tr>
+          <tr><td>Promotion Stage</td><td>Signed channel promotion (alpha → testing)</td><td><span class="tag-pass">PASS</span></td></tr>
+          <tr><td>Rollback Stage</td><td>Snapshot state rollback restoration</td><td><span class="tag-pass">PASS</span></td></tr>
+          <tr><td>Tamper Rejection Stage</td><td>APT client rejected all 9 tamper scenarios</td><td><span class="tag-pass">PASS</span></td></tr>
+          <tr><td>Key Recovery Stage</td><td>PBKDF2/AES-256 backup key restoration</td><td><span class="tag-pass">PASS</span></td></tr>
+          <tr><td>Revocation Drill Stage</td><td>Revocation cert import & APT client rejection</td><td><span class="tag-pass">PASS</span></td></tr>
+          <tr><td>Infrastructure Cleanup</td><td>OpenTofu destroy of 16 GCP resources</td><td><span class="tag-pass">PASS</span></td></tr>
+          <tr><td>Evidence Manifest Checksum</td><td><code>ea14c7c883eef6a08915b497bce17926b4816c7cf6dcf8efb5420fa26bcdd7e0</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
+          <tr><td>Verification Timestamp</td><td><code>2026-07-23T11:45:09Z</code></td><td><span class="tag-info">FINAL AUDIT</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      © 2016-2026 GenixBit Labs Private Limited • <a href="https://os.genixbit.com">GenixBit OS Portal</a> • <a href="https://docs.os.genixbit.com">Documentation Portal</a> • <a href="https://www.genixbit.com">Company Site</a>
+    </div>
+  </footer>
 </body>
 </html>
