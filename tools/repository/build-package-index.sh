@@ -153,7 +153,7 @@ for comp in components:
 
     # Gzip -9
     gz_file = os.path.join(comp_arch_dir, "Packages.gz")
-    with gzip.open(gz_file, "wb", compresslevel=9) as f:
+    with gzip.GzipFile(gz_file, "wb", mtime=0, compresslevel=9) as f:
         f.write(pkgs_str.encode("utf-8"))
 
     # XZ -9

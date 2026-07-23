@@ -81,7 +81,7 @@ scp_to_repo_host() {
 ssh_signer() {
     local cmd="$1"
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
-    gcloud compute ssh "${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
+    gcloud compute ssh "${SIGNER_INSTANCE_NAME:-${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}}" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
 }
 
 # 1. Generate Expendable Key in Isolated GNUPGHOME
@@ -96,8 +96,8 @@ EXPENDABLE_FPR="FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
 GEN_KEY_CMD="gpg --homedir '$EXP_GNUPGHOME' --batch --generate-key"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    if [[ -n "${SIGNER_INSTANCE_NAME:-}" ]]; then
-        ssh_signer "mkdir -p /tmp/exp_gpg && chmod 700 /tmp/exp_gpg && cat <<'EOF' > /tmp/gen_key.spec
+    target_signer="${SIGNER_INSTANCE_NAME:-${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}}"
+    ssh_signer "mkdir -p /tmp/exp_gpg && chmod 700 /tmp/exp_gpg && cat <<'EOF' > /tmp/gen_key.spec
 Key-Type: RSA
 Key-Length: 2048
 Subkey-Type: RSA
@@ -109,8 +109,8 @@ Expire-Date: 1d
 %commit
 EOF
 gpg --homedir /tmp/exp_gpg --batch --generate-key /tmp/gen_key.spec 2>/dev/null"
-        EXPENDABLE_FPR=$(ssh_signer "gpg --homedir /tmp/exp_gpg --list-keys --with-colons 2>/dev/null" | awk -F: '$1 == "fpr" {print $10; exit}' | tr -d '\r\n')
-    fi
+    EXPENDABLE_FPR=$(ssh_signer "gpg --homedir /tmp/exp_gpg --list-keys --with-colons 2>/dev/null" | awk -F: '$1 == "fpr" {print $10; exit}' | tr -d '\r\n')
+
     if [[ -z "$EXPENDABLE_FPR" || "$EXPENDABLE_FPR" == "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" ]]; then
         cat <<EOF > "$REV_WORK_DIR/gen_key.spec"
 Key-Type: RSA
@@ -142,12 +142,8 @@ REV_CERT="$REV_WORK_DIR/expendable_revocation.crt"
 GEN_REV_CMD="gpg --homedir '$EXP_GNUPGHOME' --output '$REV_CERT' --gen-revoke '$EXPENDABLE_FPR'"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    if [[ -n "${SIGNER_INSTANCE_NAME:-}" ]]; then
-        ssh_signer "printf '%s\n' 'y' '0' 'Key Revocation Test' '' 'y' | gpg --homedir /tmp/exp_gpg --no-tty --pinentry-mode loopback --passphrase '' --command-fd 0 --output /tmp/exp_rev.crt --gen-revoke '$EXPENDABLE_FPR' 2>/dev/null"
-        gcloud compute scp "${SIGNER_INSTANCE_NAME}:/tmp/exp_rev.crt" "$REV_CERT" --tunnel-through-iap 2>/dev/null || docker cp "${SIGNER_INSTANCE_NAME}:/tmp/exp_rev.crt" "$REV_CERT"
-    else
-        printf "%s\n" "y" "0" "Key Revocation Test" "" "y" | gpg --homedir "$EXP_GNUPGHOME" --no-tty --pinentry-mode loopback --passphrase '' --command-fd 0 --output "$REV_CERT" --gen-revoke "$EXPENDABLE_FPR" 2>/dev/null
-    fi
+    ssh_signer "printf '%s\n' 'y' '0' 'Key Revocation Test' '' 'y' | gpg --homedir /tmp/exp_gpg --no-tty --pinentry-mode loopback --passphrase '' --command-fd 0 --output /tmp/exp_rev.crt --gen-revoke '$EXPENDABLE_FPR' 2>/dev/null"
+    gcloud compute scp "${target_signer}:/tmp/exp_rev.crt" "$REV_CERT" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap 2>/dev/null || true
     if [[ ! -f "$REV_CERT" || ! -s "$REV_CERT" ]]; then
         echo "[ERROR] Failed to generate real revocation certificate for expendable key!" >&2
         exit 1
@@ -179,19 +175,14 @@ SHA256:
 EOF
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    if [[ -n "${SIGNER_INSTANCE_NAME:-}" ]]; then
-        gcloud compute scp "$TEST_REPO/dists/resolute-revocation/Release" "${SIGNER_INSTANCE_NAME}:/tmp/Release_rev" --tunnel-through-iap 2>/dev/null || docker cp "$TEST_REPO/dists/resolute-revocation/Release" "${SIGNER_INSTANCE_NAME}:/tmp/Release_rev"
-        ssh_signer "gpg --homedir /tmp/exp_gpg --batch --yes --trust-model always --clearsign -o /tmp/InRelease_rev /tmp/Release_rev && gpg --homedir /tmp/exp_gpg --export '$EXPENDABLE_FPR' > /tmp/expendable_pub.gpg"
-        gcloud compute scp "${SIGNER_INSTANCE_NAME}:/tmp/InRelease_rev" "$TEST_REPO/dists/resolute-revocation/InRelease" --tunnel-through-iap 2>/dev/null || docker cp "${SIGNER_INSTANCE_NAME}:/tmp/InRelease_rev" "$TEST_REPO/dists/resolute-revocation/InRelease"
-        gcloud compute scp "${SIGNER_INSTANCE_NAME}:/tmp/expendable_pub.gpg" "$REV_WORK_DIR/expendable_pub.gpg" --tunnel-through-iap 2>/dev/null || docker cp "${SIGNER_INSTANCE_NAME}:/tmp/expendable_pub.gpg" "$REV_WORK_DIR/expendable_pub.gpg"
-    else
-        gpg --homedir "$EXP_GNUPGHOME" --batch --yes --trust-model always --clearsign -o "$TEST_REPO/dists/resolute-revocation/InRelease" "$TEST_REPO/dists/resolute-revocation/Release"
-        gpg --homedir "$EXP_GNUPGHOME" --export "$EXPENDABLE_FPR" > "$REV_WORK_DIR/expendable_pub.gpg"
-    fi
+    gcloud compute scp "$TEST_REPO/dists/resolute-revocation/Release" "${target_signer}:/tmp/Release_rev" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
+    ssh_signer "gpg --homedir /tmp/exp_gpg --batch --yes --trust-model always --clearsign -o /tmp/InRelease_rev /tmp/Release_rev && gpg --homedir /tmp/exp_gpg --export '$EXPENDABLE_FPR' > /tmp/expendable_pub.gpg"
+    gcloud compute scp "${target_signer}:/tmp/InRelease_rev" "$TEST_REPO/dists/resolute-revocation/InRelease" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
+    gcloud compute scp "${target_signer}:/tmp/expendable_pub.gpg" "$REV_WORK_DIR/expendable_pub.gpg" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
 
     COPYFILE_DISABLE=1 tar -czf "$REV_WORK_DIR/revocation_repo.tar.gz" -C "$TEST_REPO" .
     scp_to_repo_host "$REV_WORK_DIR/revocation_repo.tar.gz" "/tmp/revocation_repo.tar.gz"
-    ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/revocation-test && sudo tar -xzf /tmp/revocation_repo.tar.gz -C /var/srv/genixbit-repository/revocation-test/ && sudo rm -f /tmp/revocation_repo.tar.gz"
+    ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/current/revocation-test && sudo tar -xzf /tmp/revocation_repo.tar.gz -C /var/srv/genixbit-repository/current/revocation-test/ && sudo rm -f /tmp/revocation_repo.tar.gz"
 fi
 
 # 4. Prove Client Accepts Unrevoked Key
@@ -216,13 +207,8 @@ EXPORT_REV_CMD="gpg --homedir '$EXP_GNUPGHOME' --armor --export '$EXPENDABLE_FPR
 ACTUAL_REV_APPLIED="applied"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    if [[ -n "${SIGNER_INSTANCE_NAME:-}" ]]; then
-        ssh_signer "gpg --homedir /tmp/exp_gpg --batch --import /tmp/exp_rev.crt && gpg --homedir /tmp/exp_gpg --export '$EXPENDABLE_FPR' > /tmp/expendable_revoked.gpg"
-        gcloud compute scp "${SIGNER_INSTANCE_NAME}:/tmp/expendable_revoked.gpg" "$REV_WORK_DIR/expendable_revoked.gpg" --tunnel-through-iap 2>/dev/null || docker cp "${SIGNER_INSTANCE_NAME}:/tmp/expendable_revoked.gpg" "$REV_WORK_DIR/expendable_revoked.gpg"
-    else
-        gpg --homedir "$EXP_GNUPGHOME" --batch --import "$REV_CERT"
-        gpg --homedir "$EXP_GNUPGHOME" --export "$EXPENDABLE_FPR" > "$REV_WORK_DIR/expendable_revoked.gpg"
-    fi
+    ssh_signer "gpg --homedir /tmp/exp_gpg --batch --import /tmp/exp_rev.crt && gpg --homedir /tmp/exp_gpg --export '$EXPENDABLE_FPR' > /tmp/expendable_revoked.gpg"
+    gcloud compute scp "${target_signer}:/tmp/expendable_revoked.gpg" "$REV_WORK_DIR/expendable_revoked.gpg" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
 fi
 
 # 6. Deploy Revoked Key to Client & Require Specific KEYREV / KEY_REVOKED Failure
@@ -241,7 +227,7 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
 
     # Clean up client sources
     ssh_client "sudo rm -f /etc/apt/trusted.gpg.d/expendable.gpg /etc/apt/sources.list.d/expendable.sources /tmp/expendable_*.gpg"
-    ssh_repo_host "sudo rm -rf /var/srv/genixbit-repository/revocation-test"
+    ssh_repo_host "sudo rm -rf /var/srv/genixbit-repository/current/revocation-test"
 
     if [[ $REV_EXIT -eq 0 ]]; then
         echo "[ERROR] Key Revocation Drill Failed: Client accepted repository signed by revoked key!" >&2

@@ -71,25 +71,21 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-testing"
     bash "$REPO_ROOT/tools/repository/promote-package.sh" --repo-dir "$LOCAL_STAGING_DIR" --package "genixbit-repository-fixture" --from-channel "resolute-alpha" --to-channel "resolute-testing"
 
-    # Sign promoted resolute-testing Release metadata
-    if [[ -n "${SIGNER_INSTANCE_NAME:-}" ]]; then
-        gcloud compute scp "$LOCAL_STAGING_DIR/dists/resolute-testing/Release" "${SIGNER_INSTANCE_NAME}:/tmp/Release" --tunnel-through-iap
-        gcloud compute ssh "${SIGNER_INSTANCE_NAME}" --tunnel-through-iap --command="gpg --batch --yes --clearsign --digest-algo SHA256 -o /tmp/InRelease /tmp/Release && gpg --batch --yes --detach-sign --armor --digest-algo SHA256 -o /tmp/Release.gpg /tmp/Release"
-        gcloud compute scp "${SIGNER_INSTANCE_NAME}:/tmp/InRelease" "$LOCAL_STAGING_DIR/dists/resolute-testing/InRelease" --tunnel-through-iap
-        gcloud compute scp "${SIGNER_INSTANCE_NAME}:/tmp/Release.gpg" "$LOCAL_STAGING_DIR/dists/resolute-testing/Release.gpg" --tunnel-through-iap
-    elif command -v gpg >/dev/null 2>&1; then
-        (
-            cd "$LOCAL_STAGING_DIR/dists/resolute-testing"
-            gpg --batch --yes --clearsign --digest-algo SHA256 -o InRelease Release 2>/dev/null
-            gpg --batch --yes --detach-sign --armor --digest-algo SHA256 -o Release.gpg Release 2>/dev/null
-        )
-    fi
-
     # Sync promoted testing channel to repo host
     COPYFILE_DISABLE=1 tar -czf "$LOCAL_STAGING_DIR/testing_dist.tar.gz" -C "$LOCAL_STAGING_DIR/dists/resolute-testing" .
-    gcloud compute scp "$LOCAL_STAGING_DIR/testing_dist.tar.gz" "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}:/tmp/testing_dist.tar.gz" --tunnel-through-iap
-    gcloud compute ssh "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" --tunnel-through-iap --command="sudo mkdir -p /var/srv/genixbit-repository/current/dists/resolute-testing && sudo tar -xzf /tmp/testing_dist.tar.gz -C /var/srv/genixbit-repository/current/dists/resolute-testing/ && sudo rm -f /tmp/testing_dist.tar.gz"
+    gcloud compute scp "$LOCAL_STAGING_DIR/testing_dist.tar.gz" "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}:/tmp/testing_dist.tar.gz" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap
+    gcloud compute ssh "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="sudo mkdir -p /var/srv/genixbit-repository/current/dists/resolute-testing && sudo tar -xzf /tmp/testing_dist.tar.gz -C /var/srv/genixbit-repository/current/dists/resolute-testing/ && sudo rm -f /tmp/testing_dist.tar.gz"
     rm -f "$LOCAL_STAGING_DIR/testing_dist.tar.gz"
+
+    # Sign promoted resolute-testing Release metadata on repo host
+    gcloud compute ssh "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="
+    set -euo pipefail
+    BUILD_DIR='/tmp/genixbit_repo_build'
+    KEY_FPR=\$(cat \"\$BUILD_DIR/key_fpr.txt\")
+    cd /var/srv/genixbit-repository/current/dists/resolute-testing
+    sudo GNUPGHOME=\"\$BUILD_DIR/gpg\" gpg --batch --yes -u \"\$KEY_FPR\" --clearsign --digest-algo SHA256 -o InRelease Release
+    sudo GNUPGHOME=\"\$BUILD_DIR/gpg\" gpg --batch --yes -u \"\$KEY_FPR\" --detach-sign --armor --digest-algo SHA256 -o Release.gpg Release
+    "
 
     # Configure client source for resolute-testing and update APT cache
     ssh_client "cat <<EOF | sudo tee /etc/apt/sources.list.d/genixbit-testing.sources

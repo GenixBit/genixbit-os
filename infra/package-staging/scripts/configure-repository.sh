@@ -164,7 +164,7 @@ TARGET_RELEASE_DIR="/var/srv/genixbit-repository/releases/${RELEASE_ID}"
 CURRENT_SYMLINK="/var/srv/genixbit-repository/current"
 
 echo "=== Step 3: Transferring Archive & Remote Extraction ==="
-ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/releases /tmp/repo_upload_${RELEASE_ID}"
+ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/releases /tmp/repo_upload_${RELEASE_ID} && sudo chown -R \$(whoami) /tmp/repo_upload_${RELEASE_ID}"
 scp_to_repo_host "$RELEASE_ARCHIVE" "/tmp/repo_upload_${RELEASE_ID}/release.tar.gz"
 scp_to_repo_host "$MANIFEST_FILE" "/tmp/repo_upload_${RELEASE_ID}/manifest.json"
 

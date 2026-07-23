@@ -90,7 +90,7 @@ echo "=== Step 1: Initializing Isolated Tamper Repository Copy ==="
 mkdir -p "$TAMPER_WORK_DIR/clean_repo" "$TAMPER_WORK_DIR/isolated_tamper_repo"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    cp -r "$LOCAL_STAGING_DIR/"* "$TAMPER_WORK_DIR/clean_repo/"
+    COPYFILE_DISABLE=1 cp -R "$LOCAL_STAGING_DIR/"* "$TAMPER_WORK_DIR/clean_repo/" 2>/dev/null || true
 else
     mkdir -p "$TAMPER_WORK_DIR/clean_repo/dists/resolute-alpha/main/binary-amd64" "$TAMPER_WORK_DIR/clean_repo/pool/main/g/genixbit-repository-fixture"
     echo "Origin: GenixBit OS Staging" > "$TAMPER_WORK_DIR/clean_repo/dists/resolute-alpha/InRelease"
@@ -110,12 +110,12 @@ deploy_tampered_dists_isolated() {
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
     COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar --no-xattrs -czf "$TAMPER_WORK_DIR/tamper_dist.tar.gz" -C "$TAMPER_WORK_DIR/isolated_tamper_repo" . 2>/dev/null || COPYFILE_DISABLE=1 tar -czf "$TAMPER_WORK_DIR/tamper_dist.tar.gz" -C "$TAMPER_WORK_DIR/isolated_tamper_repo" .
     scp_to_repo_host "$TAMPER_WORK_DIR/tamper_dist.tar.gz" "/tmp/tamper_dist.tar.gz"
-    ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/tamper-test && sudo rm -rf /var/srv/genixbit-repository/tamper-test/* && sudo tar -xzf /tmp/tamper_dist.tar.gz -C /var/srv/genixbit-repository/tamper-test/ && sudo rm -f /tmp/tamper_dist.tar.gz"
+    ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/current/tamper-test && sudo rm -rf /var/srv/genixbit-repository/current/tamper-test/* && sudo tar -xzf /tmp/tamper_dist.tar.gz -C /var/srv/genixbit-repository/current/tamper-test/ && sudo rm -f /tmp/tamper_dist.tar.gz"
 }
 
 cleanup_tamper_endpoint() {
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
-    ssh_repo_host "sudo rm -rf /var/srv/genixbit-repository/tamper-test"
+    ssh_repo_host "sudo rm -rf /var/srv/genixbit-repository/current/tamper-test"
     ssh_client "sudo rm -f /etc/apt/sources.list.d/tamper.sources /etc/apt/trusted.gpg.d/tamper_*.gpg && sudo rm -rf /var/lib/apt/lists/*"
 }
 
@@ -129,7 +129,7 @@ run_tamper_test_case() {
     # 1. Reset isolated copy
     rm -rf "$TAMPER_WORK_DIR/isolated_tamper_repo"
     mkdir -p "$TAMPER_WORK_DIR/isolated_tamper_repo"
-    cp -r "$TAMPER_WORK_DIR/clean_repo/"* "$TAMPER_WORK_DIR/isolated_tamper_repo/"
+    COPYFILE_DISABLE=1 cp -R "$TAMPER_WORK_DIR/clean_repo/"* "$TAMPER_WORK_DIR/isolated_tamper_repo/" 2>/dev/null || true
 
     # 2. Apply tamper action
     eval "$tamper_action"
