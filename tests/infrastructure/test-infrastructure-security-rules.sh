@@ -133,4 +133,37 @@ if command -v shellcheck >/dev/null 2>&1; then
 fi
 echo "[PASS] Startup templates syntax & shellcheck valid."
 
+# 14. Verify Static CI Gates for Real-Mode Fail-Closed Integrity
+echo "[INFO] 14. Verifying static CI gates for real-mode evidence integrity..."
+
+# 14a. Reject || true in operational scripts
+if grep -E '\|\|[[:space:]]*true' "$INFRA_DIR/scripts/validate-client.sh" "$INFRA_DIR/scripts/validate-key-recovery.sh" "$INFRA_DIR/scripts/validate-key-revocation.sh" "$INFRA_DIR/scripts/validate-tamper-rejection.sh" "$INFRA_DIR/scripts/configure-repository.sh" | grep -v '#'; then
+    echo "[ERROR] Detected '|| true' in operational scripts! Failure suppression forbidden." >&2
+    exit 1
+fi
+echo "[PASS] Zero '|| true' failure suppression detected in operational scripts."
+
+# 14b. Reject mock revocation fallback
+if grep -q "MOCK_REVOCATION_CERTIFICATE" "$INFRA_DIR/scripts/validate-key-revocation.sh"; then
+    if ! grep -q 'GENIXBIT_SIMULATE_OPS' "$INFRA_DIR/scripts/validate-key-revocation.sh"; then
+        echo "[ERROR] Detected un-gated mock revocation fallback in validate-key-revocation.sh!" >&2
+        exit 1
+    fi
+fi
+echo "[PASS] Real revocation cert creation enforced."
+
+# 14c. Reject tamper operations against /var/srv/genixbit-repository/current
+if grep -F '/var/srv/genixbit-repository/current' "$INFRA_DIR/scripts/validate-tamper-rejection.sh" | grep -v '#'; then
+    echo "[ERROR] Tamper operations must NEVER target /var/srv/genixbit-repository/current!" >&2
+    exit 1
+fi
+echo "[PASS] Live current release protected during tamper testing."
+
+# 14d. Reject empty fallback assignments in real mode
+if grep -E '\|\|[[:space:]]*echo[[:space:]]+"' "$INFRA_DIR/scripts/validate-promotion.sh" "$INFRA_DIR/scripts/validate-rollback.sh" "$INFRA_DIR/scripts/configure-repository.sh"; then
+    echo "[ERROR] Detected empty-result fallback assignments (|| echo \"...\") in real mode!" >&2
+    exit 1
+fi
+echo "[PASS] Zero empty fallback assignments detected."
+
 echo "[PASS] All infrastructure security & policy checks passed successfully."

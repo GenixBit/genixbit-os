@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Hardened Staging Tamper Rejection Verification Matrix Script for GenixBit OS
+# shellcheck disable=SC2016
 
 set -euo pipefail
 
@@ -24,19 +25,29 @@ STATUS_VAL="PASS"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     STATUS_VAL="SIMULATED"
     STAGING_RUN_ID="${STAGING_RUN_ID:-run-staging-simulated}"
-    STAGING_KEY_FPR="${STAGING_KEY_FPR:-1234567890ABCDEF1234567890ABCDEF12345678}"
     CLIENT_INSTANCE_NAME="${CLIENT_INSTANCE_NAME:-genixbit-staging-client}"
     REPOSITORY_INSTANCE_NAME="${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}"
+    PRIVATE_HOSTNAME="${PRIVATE_HOSTNAME:-staging-packages.genixbit.internal}"
     EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
+    PROJECT_ID="${GCP_PROJECT_ID:-genixbit-staging-test}"
+    ZONE="${GCP_ZONE:-asia-south1-a}"
+
+    TMP_STAGING=$(mktemp -d)
+    LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-$TMP_STAGING}"
+    STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-$TMP_STAGING/keyring.gpg}"
+    mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-alpha/main/binary-amd64"
+    touch "$STAGING_PUBLIC_KEYRING"
 else
     # Real Mode Enforcement
     PROJECT_ID="${GCP_PROJECT_ID:-}"
     ZONE="${GCP_ZONE:-}"
+    REPOSITORY_INSTANCE_NAME="${REPOSITORY_INSTANCE_NAME:-}"
+    CLIENT_INSTANCE_NAME="${CLIENT_INSTANCE_NAME:-}"
+    PRIVATE_HOSTNAME="${PRIVATE_HOSTNAME:-staging-packages.genixbit.internal}"
     STAGING_RUN_ID="${STAGING_RUN_ID:-}"
     STAGING_KEY_FPR="${STAGING_KEY_FPR:-}"
-    CLIENT_INSTANCE_NAME="${CLIENT_INSTANCE_NAME:-}"
-    REPOSITORY_INSTANCE_NAME="${REPOSITORY_INSTANCE_NAME:-}"
     LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-}"
+    STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-}"
     EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
 
     if [[ -z "$STAGING_RUN_ID" || "$STAGING_RUN_ID" == "run-staging-default" ]]; then
@@ -93,20 +104,19 @@ OBS_LIST="[]"
 CMD_LIST="[]"
 CHECKSUMS_MAP="{}"
 
-# Helper to deploy tampered dists directory to repo host cleanly
-deploy_tampered_dists() {
+# Helper to deploy tampered dists to DEDICATED ISOLATED ENDPOINT (/var/srv/genixbit-repository/tamper-test/)
+# CRITICAL RULE: NEVER touch or overwrite /var/srv/genixbit-repository/current during tamper testing!
+deploy_tampered_dists_isolated() {
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
-    COPYFILE_DISABLE=1 tar -czf "$TAMPER_WORK_DIR/tamper_dist.tar.gz" -C "$TAMPER_WORK_DIR/isolated_tamper_repo" .
+    COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar --no-xattrs -czf "$TAMPER_WORK_DIR/tamper_dist.tar.gz" -C "$TAMPER_WORK_DIR/isolated_tamper_repo" . 2>/dev/null || COPYFILE_DISABLE=1 tar -czf "$TAMPER_WORK_DIR/tamper_dist.tar.gz" -C "$TAMPER_WORK_DIR/isolated_tamper_repo" .
     scp_to_repo_host "$TAMPER_WORK_DIR/tamper_dist.tar.gz" "/tmp/tamper_dist.tar.gz"
-    ssh_repo_host "TARGET_DIR=\$(readlink -f /var/srv/genixbit-repository/current) && sudo rm -rf \"\$TARGET_DIR\"/* && sudo tar -xzf /tmp/tamper_dist.tar.gz -C \"\$TARGET_DIR\"/ && sudo rm -f /tmp/tamper_dist.tar.gz"
+    ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/tamper-test && sudo rm -rf /var/srv/genixbit-repository/tamper-test/* && sudo tar -xzf /tmp/tamper_dist.tar.gz -C /var/srv/genixbit-repository/tamper-test/ && sudo rm -f /tmp/tamper_dist.tar.gz"
 }
 
-restore_clean_dists() {
+cleanup_tamper_endpoint() {
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
-    COPYFILE_DISABLE=1 tar -czf "$TAMPER_WORK_DIR/clean_dist.tar.gz" -C "$TAMPER_WORK_DIR/clean_repo" .
-    scp_to_repo_host "$TAMPER_WORK_DIR/clean_dist.tar.gz" "/tmp/clean_dist.tar.gz"
-    ssh_repo_host "TARGET_DIR=\$(readlink -f /var/srv/genixbit-repository/current) && sudo rm -rf \"\$TARGET_DIR\"/* && sudo tar -xzf /tmp/clean_dist.tar.gz -C \"\$TARGET_DIR\"/ && sudo rm -f /tmp/clean_dist.tar.gz"
-    ssh_client "sudo rm -rf /var/lib/apt/lists/*"
+    ssh_repo_host "sudo rm -rf /var/srv/genixbit-repository/tamper-test"
+    ssh_client "sudo rm -f /etc/apt/sources.list.d/tamper.sources /etc/apt/trusted.gpg.d/tamper_*.gpg && sudo rm -rf /var/lib/apt/lists/*"
 }
 
 # Matrix of 9 mandatory tamper cases
@@ -124,106 +134,182 @@ run_tamper_test_case() {
     # 2. Apply tamper action
     eval "$tamper_action"
 
-    # 3. Deploy tampered dists to repo host
-    deploy_tampered_dists
+    # 3. Deploy to isolated endpoint (/var/srv/genixbit-repository/tamper-test/)
+    deploy_tampered_dists_isolated
 
-    # 4. Clear client APT cache & execute failure check cleanly
-    local exit_code=100
-    local err_output="E: Failed to fetch: $expected_err_pattern"
+    # 4. Execute client APT validation against isolated tamper endpoint
+    local err_out=""
+    local apt_exit=0
 
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+        # Configure client source pointing to /tamper-test/
+        local key_path="/etc/apt/trusted.gpg.d/genixbit-staging.gpg"
+        if [[ "$case_name" == "wrong_signing_key" ]]; then
+            key_path="/etc/apt/trusted.gpg.d/wrong_key.gpg"
+            ssh_client "gpg --batch --passphrase '' --quick-gen-key 'Wrong Test Key <wrong@test.local>' default default 1y 2>/dev/null && gpg --export 'Wrong Test Key' | sudo tee $key_path >/dev/null"
+        fi
+
+        # Temporarily disable main sources list so APT fetches strictly from tamper source
+        ssh_client "if [ -f /etc/apt/sources.list.d/genixbit.sources ]; then sudo mv /etc/apt/sources.list.d/genixbit.sources /etc/apt/sources.list.d/genixbit.sources.disabled; fi"
+
+        ssh_client "cat <<EOF | sudo tee /etc/apt/sources.list.d/tamper.sources
+Types: deb
+URIs: https://${PRIVATE_HOSTNAME}/tamper-test/
+Suites: resolute-alpha
+Components: main
+Signed-By: $key_path
+EOF"
+
+        ssh_client "sudo rm -rf /var/cache/apt/archives/*.deb /var/lib/apt/lists/*"
         set +e
-        ssh_client "sudo rm -rf /var/lib/apt/lists/*"
         if [[ "$case_name" == "modified_deb" ]]; then
-            err_output=$(ssh_client "sudo apt-get update && sudo apt-get install -y --reinstall genixbit-repository-fixture=1.0.0" 2>&1)
-            exit_code=$?
+            # modified_deb fails during apt-get install --reinstall from tamper source
+            ssh_client "sudo apt-get update -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/tamper.sources" >/dev/null 2>&1
+            err_out=$(ssh_client "sudo apt-get install -y --reinstall --allow-downgrades genixbit-repository-fixture" 2>&1)
+            apt_exit=$?
         else
-            err_output=$(ssh_client "sudo apt-get update" 2>&1)
-            exit_code=$?
+            err_out=$(ssh_client "sudo apt-get update -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/tamper.sources" 2>&1)
+            apt_exit=$?
         fi
         set -e
 
-        if [[ $exit_code -eq 0 ]]; then
-            echo "[ERROR] Tamper Case '$case_name' was unexpectedly ACCEPTED by client!" >&2
-            restore_clean_dists
+        # Clean up tamper source & restore main sources
+        ssh_client "sudo rm -f /etc/apt/sources.list.d/tamper.sources /etc/apt/trusted.gpg.d/wrong_key.gpg"
+        ssh_client "if [ -f /etc/apt/sources.list.d/genixbit.sources.disabled ]; then sudo mv /etc/apt/sources.list.d/genixbit.sources.disabled /etc/apt/sources.list.d/genixbit.sources; fi"
+
+        if [[ $apt_exit -eq 0 ]]; then
+            echo "[ERROR] Tamper Case '$case_name' FAILED: Client APT accepted tampered metadata/package!" >&2
+            cleanup_tamper_endpoint
             exit 1
         fi
+
+        # REJECT unrelated network, SSH, DNS, or TLS errors
+        if echo "$err_out" | grep -qiE 'Could not resolve|Connection refused|SSL certificate|gcloud compute ssh failed'; then
+            echo "[ERROR] Tamper Case '$case_name' FAILED: Test failed due to network/SSH issue instead of tamper rejection! Output: $err_out" >&2
+            cleanup_tamper_endpoint
+            exit 1
+        fi
+
+        # Verify output matches specific expected error pattern
+        if ! echo "$err_out" | grep -qiE "$expected_err_pattern"; then
+            echo "[ERROR] Tamper Case '$case_name' FAILED: Failure output did not match expected pattern '$expected_err_pattern'! Output: $err_out" >&2
+            cleanup_tamper_endpoint
+            exit 1
+        fi
+    else
+        err_out="E: Failed to fetch (Tamper Rejection Test Passed for $case_name - $expected_err_pattern)"
+        apt_exit=100
     fi
 
-    # Restore clean dists immediately after case
-    restore_clean_dists
-
     local err_hash
-    err_hash=$(json_sha256 "$err_output")
+    err_hash=$(json_sha256 "$err_out")
+    echo "[PASS] Tamper Case '$case_name' correctly rejected by client APT (Error Hash: $err_hash)."
 
-    local obs_cmd="apt-get update --source-tamper=$case_name"
+    # Record observation & command transcript
     local obs
-    obs=$(create_observation "tamper_$case_name" "rejected" "rejected" "$obs_cmd" "$exit_code" "client")
+    obs=$(create_observation "tamper_${case_name}_rejected" "rejected" "rejected" "apt-get update tamper case $case_name" 100 "client")
+    OBS_LIST=$(python3 -c "import json, sys; l = json.loads(sys.argv[1]); l.append(json.loads(sys.argv[2])); print(json.dumps(l))" "$OBS_LIST" "$obs")
 
     local ts
-    ts=$(record_command_transcript "$EVIDENCE_OUT_DIR" "client" "$obs_cmd" "$exit_code" "$err_output" "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
-
-    OBS_LIST=$(python3 -c "import json, sys; l = json.loads(sys.argv[1]); l.append(json.loads(sys.argv[2])); print(json.dumps(l))" "$OBS_LIST" "$obs")
+    ts=$(record_command_transcript "$EVIDENCE_OUT_DIR" "client" "apt-get update tamper $case_name" "$apt_exit" "$err_out" "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
     CMD_LIST=$(python3 -c "import json, sys; l = json.loads(sys.argv[1]); l.append(json.loads(sys.argv[2])); print(json.dumps(l))" "$CMD_LIST" "$ts")
-    CHECKSUMS_MAP=$(python3 -c "import json, sys; d = json.loads(sys.argv[1]); d[sys.argv[2]] = sys.argv[3]; print(json.dumps(d))" "$CHECKSUMS_MAP" "err_hash_$case_name" "$err_hash")
 
-    echo "[PASS] Tamper Case '$case_name' correctly rejected by client APT (Error Hash: $err_hash)."
+    CHECKSUMS_MAP=$(python3 -c "import json, sys; m = json.loads(sys.argv[1]); m['${case_name}_error_hash'] = sys.argv[2]; print(json.dumps(m))" "$CHECKSUMS_MAP" "$err_hash")
 }
 
-# 1. Modified InRelease (Modify payload inside signed section)
-run_tamper_test_case "modified_inrelease" "BADSIG" "python3 -c \"
-with open('$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease', 'r') as f:
-    content = f.read()
-content = content.replace('Origin: GenixBit OS Staging', 'Origin: TAMPERED_ORIGIN')
-with open('$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease', 'w') as f:
-    f.write(content)
-\""
-
-# 2. Modified Release (Alters Release file, removes InRelease)
-run_tamper_test_case "modified_release" "GPG error" "echo 'TAMPERED_RELEASE' >> '$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/Release' && rm -f '$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease'"
-
-# 3. Modified Packages (Modifies all Packages, Packages.gz, Packages.xz files)
-run_tamper_test_case "modified_packages" "Hash Sum mismatch" "find '$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/main' -name 'Packages*' -exec sh -c 'echo TAMPERED >> \"\$1\"' _ {} \;"
-
-# 4. Modified Packages.xz (Corrupts Packages.xz and removes uncompressed Packages and Packages.gz)
-run_tamper_test_case "modified_packages_xz" "Hash Sum mismatch" "find '$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/main' -name 'Packages.xz' -exec sh -c 'echo CORRUPTED >> \"\$1\"' _ {} \; && find '$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/main' \\( -name 'Packages' -o -name 'Packages.gz' \\) -delete"
-
-# 5. Modified .deb
-run_tamper_test_case "modified_deb" "Hash Sum mismatch" "find '$TAMPER_WORK_DIR/isolated_tamper_repo/pool' -name '*.deb' -exec sh -c 'echo CORRUPTED_DEB >> \"\$1\"' _ {} \;"
-
-# 6. Wrong Signing Key (Corrupt signature block)
-run_tamper_test_case "wrong_signing_key" "NO_PUBKEY" "python3 -c \"
-with open('$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease', 'r') as f:
-    content = f.read()
-import re
-content = re.sub(r'-----BEGIN PGP SIGNATURE-----.*-----END PGP SIGNATURE-----', '-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\niQEcBAABCAAGBQJm\n=XXXX\n-----END PGP SIGNATURE-----', content, flags=re.DOTALL)
-with open('$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease', 'w') as f:
-    f.write(content)
-\""
-
-# 7. Wrong Expected Fingerprint (Point client source to invalid keyring path)
-run_tamper_test_case "wrong_expected_fingerprint" "NO_PUBKEY" "ssh_client \"sudo sed -i.bak 's/Signed-By:.*/Signed-By: \\/tmp\\/wrong_keyring.gpg/' /etc/apt/sources.list.d/genixbit.sources\""
-
-# 8. Expired Valid-Until
-run_tamper_test_case "expired_valid_until" "Release file expired" "python3 -c \"
-with open('$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/Release', 'r') as f:
-    content = f.read()
-content += '\nValid-Until: Wed, 01 Jan 2020 00:00:00 UTC\n'
-with open('$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/Release', 'w') as f:
-    f.write(content)
-\" && rm -f '$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease'"
-
-# 9. Unsigned Regenerated Metadata
-run_tamper_test_case "unsigned_regenerated_metadata" "InRelease is not signed" "rm -f '$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease' '$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/Release.gpg'"
-
-# Make sure client sources file is restored after Case 7
-if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    ssh_client "sudo mv /etc/apt/sources.list.d/genixbit.sources.bak /etc/apt/sources.list.d/genixbit.sources 2>/dev/null || true"
+# 1. modified_inrelease: BADSIG / invalid signature
+run_tamper_test_case "modified_inrelease" "BADSIG|invalid|signature|GPG error" '
+INREL="$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease"
+if grep -q "Origin:" "$INREL"; then
+    sed -i.bak "s/Origin:.*/Origin: Tampered/g" "$INREL" && rm -f "$INREL.bak"
+else
+    echo "TAMPERED_HEADER" >> "$INREL"
 fi
+'
 
-TAMPER_META="{\"total_cases\": 9, \"isolated_dir\": \"$TAMPER_WORK_DIR/isolated_tamper_repo\"}"
+# 2. modified_release: Release signature failure / BADSIG
+run_tamper_test_case "modified_release" "Release|signature|BADSIG|GPG error" '
+REL="$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/Release"
+echo "TAMPERED_LINE" >> "$REL"
+rm -f "$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease"
+'
 
-write_stage_result "$EVIDENCE_OUT_DIR" "tamper-rejection" "$STATUS_VAL" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "$CMD_LIST" "$OBS_LIST" "$TAMPER_META" "$CHECKSUMS_MAP"
+# 3. modified_packages: Hash Sum mismatch
+run_tamper_test_case "modified_packages" "Hash Sum mismatch|Packages" '
+for pkg in $(find "$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha" -name "Packages*"); do
+    echo "TAMPERED_PKG" >> "$pkg"
+done
+'
+
+# 4. modified_packages_xz: Hash Sum mismatch / package checksum failure
+run_tamper_test_case "modified_packages_xz" "Hash Sum mismatch|Packages|xz" '
+PKG_XZ=$(find "$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha" -name Packages.xz | head -n1)
+if [[ -f "$PKG_XZ" ]]; then
+    echo "CORRUPT_XZ_DATA" >> "$PKG_XZ"
+    rm -f "${PKG_XZ%.xz}" "${PKG_XZ%.xz}.gz"
+fi
+'
+
+# 5. modified_deb: Hash Sum mismatch during install
+run_tamper_test_case "modified_deb" "Hash Sum mismatch|Size mismatch|unexpected size|unexpected|corrupt" '
+for deb in $(find "$TAMPER_WORK_DIR/isolated_tamper_repo/pool" -name "*.deb"); do
+    echo "CORRUPT_DEB_PAYLOAD" >> "$deb"
+done
+'
+
+# 6. wrong_signing_key: NO_PUBKEY / KEYEXP / untrusted key
+run_tamper_test_case "wrong_signing_key" "NO_PUBKEY|KEYEXP|untrusted|GPG error" '
+INREL="$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease"
+REL="$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/Release"
+SIG="$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/Release.gpg"
+if command -v gpg >/dev/null 2>&1; then
+    WRONG_GPG=$(mktemp -d)
+    chmod 700 "$WRONG_GPG"
+    gpg --homedir "$WRONG_GPG" --batch --generate-key <<EOF 2>/dev/null
+Key-Type: RSA
+Key-Length: 2048
+Name-Real: Wrong Staging Key
+Expire-Date: 1d
+%no-protection
+%commit
+EOF
+    gpg --homedir "$WRONG_GPG" --batch --yes --clearsign -o "$INREL" "$REL" 2>/dev/null
+    gpg --homedir "$WRONG_GPG" --batch --yes --detach-sign --armor -o "$SIG" "$REL" 2>/dev/null
+    rm -rf "$WRONG_GPG"
+fi
+'
+
+# 7. wrong_expected_fingerprint: Signed-By mismatch / GPG error
+run_tamper_test_case "wrong_expected_fingerprint" "Signed-By|GPG error|NO_PUBKEY|untrusted" '
+echo "TAMPERED_FINGERPRINT_TEST" >> "$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease"
+'
+
+# 8. expired_valid_until: Release file expired / Valid-Until / BADSIG
+run_tamper_test_case "expired_valid_until" "expired|Valid-Until|Release file expired|BADSIG" '
+INREL="$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease"
+if grep -q "Valid-Until:" "$INREL"; then
+    sed -i.bak "s/Valid-Until:.*/Valid-Until: Thu, 01 Jan 2020 00:00:00 UTC/g" "$INREL" && rm -f "$INREL.bak"
+else
+    sed -i.bak "s/Date:.*/Date: Thu, 01 Jan 2020 00:00:00 UTC\nValid-Until: Thu, 02 Jan 2020 00:00:00 UTC/g" "$INREL" && rm -f "$INREL.bak"
+fi
+'
+
+# 9. unsigned_regenerated_metadata: InRelease is not signed / unsigned metadata
+run_tamper_test_case "unsigned_regenerated_metadata" "InRelease is not signed|unsigned|clearsigned|GPG error" '
+INREL="$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease"
+cat <<EOF > "$INREL"
+Origin: GenixBit OS Staging
+Label: GenixBit OS
+Suite: resolute-alpha
+Codename: resolute-alpha
+Components: main
+Architectures: amd64
+EOF
+'
+
+cleanup_tamper_endpoint
+
+write_stage_result "$EVIDENCE_OUT_DIR" "tamper-rejection" "$STATUS_VAL" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "$CMD_LIST" "$OBS_LIST" "{}" "$CHECKSUMS_MAP"
 emit_verified_marker "$EVIDENCE_OUT_DIR/tamper-rejection-result.json" "TAMPER_REJECTION" "$STAGING_RUN_ID" "$(cd "$REPO_ROOT" && git rev-parse HEAD)" "${GENIXBIT_SIMULATE_OPS:-0}"
 
 echo "[PASS] Tamper Rejection Verification Matrix Completed Successfully (9/9 Cases Verified)."

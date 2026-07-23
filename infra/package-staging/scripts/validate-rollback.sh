@@ -112,7 +112,15 @@ fi
 
 ACTUAL_POLICY_RESTORED="1.0.0"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    ACTUAL_POLICY_RESTORED=$(ssh_client "apt-cache policy genixbit-repository-fixture" | grep -A2 "resolute-testing" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo "1.0.0")
+    POLICY_OUT=$(ssh_client "apt-cache policy genixbit-repository-fixture")
+    if echo "$POLICY_OUT" | grep -q "resolute-testing"; then
+        ACTUAL_POLICY_RESTORED=$(echo "$POLICY_OUT" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | tr -d '\r\n')
+    fi
+    if [[ -z "$ACTUAL_POLICY_RESTORED" ]]; then
+        echo "[ERROR] Remote apt-cache policy failed or returned empty restored version!" >&2
+        echo "Policy Output: $POLICY_OUT" >&2
+        exit 1
+    fi
 fi
 
 OBS_CHG=$(create_observation "controlled_change_observed" "changed" "changed" "sha256sum '$TESTING_RELEASE'" 0 "host")

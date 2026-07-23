@@ -27,18 +27,24 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     STAGING_KEY_FPR="${STAGING_KEY_FPR:-1234567890ABCDEF1234567890ABCDEF12345678}"
     EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
     MOCK_REC=$(mktemp -d)
-    STAGING_GNUPG_HOME="${STAGING_GNUPG_HOME:-$MOCK_REC/active_gpg}"
     STAGING_KEY_BACKUP="${STAGING_KEY_BACKUP:-$MOCK_REC/key_backup.gpg.enc}"
-    mkdir -p "$STAGING_GNUPG_HOME"
+    STAGING_KEY_BACKUP_CHECKSUM="${STAGING_KEY_BACKUP_CHECKSUM:-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855}"
+    STAGING_KEY_BACKUP_PASSPHRASE_FILE="${STAGING_KEY_BACKUP_PASSPHRASE_FILE:-$MOCK_REC/pass.txt}"
+    echo "mock_passphrase" > "$STAGING_KEY_BACKUP_PASSPHRASE_FILE"
     echo "ENCRYPTED_BACKUP_BLOB_DATA" > "$STAGING_KEY_BACKUP"
+    PROJECT_ID="${GCP_PROJECT_ID:-genixbit-staging-test}"
+    ZONE="${GCP_ZONE:-asia-south1-a}"
+    SIGNER_INSTANCE_NAME="${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}"
 else
     # Real Mode Enforcement
     PROJECT_ID="${GCP_PROJECT_ID:-}"
     ZONE="${GCP_ZONE:-}"
-    REPOSITORY_INSTANCE_NAME="${REPOSITORY_INSTANCE_NAME:-}"
+    SIGNER_INSTANCE_NAME="${SIGNER_INSTANCE_NAME:-}"
     STAGING_RUN_ID="${STAGING_RUN_ID:-}"
     STAGING_KEY_FPR="${STAGING_KEY_FPR:-}"
     STAGING_KEY_BACKUP="${STAGING_KEY_BACKUP:-}"
+    STAGING_KEY_BACKUP_CHECKSUM="${STAGING_KEY_BACKUP_CHECKSUM:-}"
+    STAGING_KEY_BACKUP_PASSPHRASE_FILE="${STAGING_KEY_BACKUP_PASSPHRASE_FILE:-}"
     EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
 
     if [[ -z "$STAGING_RUN_ID" || "$STAGING_RUN_ID" == "run-staging-default" ]]; then
@@ -53,53 +59,83 @@ else
         echo "[ERROR] STAGING_KEY_BACKUP file is required and must exist!" >&2
         exit 1
     fi
+    if [[ -z "$STAGING_KEY_BACKUP_CHECKSUM" ]]; then
+        echo "[ERROR] STAGING_KEY_BACKUP_CHECKSUM required!" >&2
+        exit 1
+    fi
+    if [[ -z "$STAGING_KEY_BACKUP_PASSPHRASE_FILE" || ! -f "$STAGING_KEY_BACKUP_PASSPHRASE_FILE" ]]; then
+        echo "[ERROR] STAGING_KEY_BACKUP_PASSPHRASE_FILE required and must exist!" >&2
+        exit 1
+    fi
 fi
 
-ssh_repo_host() {
+ssh_signer_host() {
     local cmd="$1"
-    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
-        return 0
-    else
-        gcloud compute ssh "$REPOSITORY_INSTANCE_NAME" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
-    fi
+    if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then return 0; fi
+    gcloud compute ssh "${SIGNER_INSTANCE_NAME:-genixbit-staging-signer}" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="$cmd"
 }
 
 # 1. Verify Active Key Fingerprint
 FPR_CHECK_CMD="gpg --list-keys --with-colons"
 ACTUAL_ACTIVE_FPR="$STAGING_KEY_FPR"
 
-# 2 & 3. Verify Backup Checksum & Encryption State
+# 2. Verify Backup Checksum
 BACKUP_HASH=$(file_sha256 "$STAGING_KEY_BACKUP")
-BACKUP_CHK_CMD="file_sha256 '$STAGING_KEY_BACKUP'"
-ENCRYPT_CMD="file '$STAGING_KEY_BACKUP'"
+BACKUP_CHK_CMD="sha256sum '$STAGING_KEY_BACKUP'"
+
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    if [[ "$BACKUP_HASH" != "$STAGING_KEY_BACKUP_CHECKSUM" ]]; then
+        echo "[ERROR] Key backup file checksum mismatch ($BACKUP_HASH != $STAGING_KEY_BACKUP_CHECKSUM)!" >&2
+        exit 1
+    fi
+fi
+
+# 3. Verify Backup Encryption State (must NOT be plain PGP text block)
+ENCRYPT_CMD="openssl enc -d -aes-256-cbc -pbkdf2"
 ACTUAL_ENCRYPTION="encrypted"
+
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    if ! openssl enc -d -aes-256-cbc -pbkdf2 -in "$STAGING_KEY_BACKUP" -pass "file:$STAGING_KEY_BACKUP_PASSPHRASE_FILE" 2>/dev/null | grep -q -e "-----BEGIN PGP PRIVATE KEY BLOCK-----"; then
+        echo "[ERROR] Key recovery drill failed: Encrypted backup file could not be decrypted with provided passphrase!" >&2
+        exit 1
+    fi
+fi
 
 # 4. Create Fresh Isolated Recovery GNUPGHOME
 REC_GNUPGHOME=$(mktemp -d)
 trap 'rm -rf "$REC_GNUPGHOME"' EXIT
 
-# 5. Import Encrypted Backup via Secret Mechanism (no CLI passphrase leakage)
-IMPORT_CMD="gpg --homedir '$REC_GNUPGHOME' --batch --import"
+# 5. Decrypt and Import Encrypted Backup into Isolated GNUPGHOME
+IMPORT_CMD="openssl enc -d | gpg --homedir '$REC_GNUPGHOME' --batch --import"
+ACTUAL_REC_FPR=""
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    if command -v gpg >/dev/null 2>&1; then
-        gpg --homedir "$REC_GNUPGHOME" --batch --passphrase-fd 0 --import < "$STAGING_KEY_BACKUP" 2>/dev/null || gpg --homedir "$REC_GNUPGHOME" --batch --import < "$STAGING_KEY_BACKUP"
-        ACTUAL_REC_FPR=$(gpg --homedir "$REC_GNUPGHOME" --list-secret-keys --with-colons | grep '^fpr:' | head -n1 | cut -d: -f10)
+    if command -v gpg >/dev/null 2>&1 && command -v openssl >/dev/null 2>&1; then
+        DECRYPTED_KEY=$(openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass file:"$STAGING_KEY_BACKUP_PASSPHRASE_FILE" -in "$STAGING_KEY_BACKUP")
+        echo "$DECRYPTED_KEY" | gpg --homedir "$REC_GNUPGHOME" --batch --import 2>/dev/null
+        ACTUAL_REC_FPR=$(gpg --homedir "$REC_GNUPGHOME" --list-secret-keys --with-colons 2>/dev/null | grep '^fpr:' | head -n1 | cut -d: -f10 | tr -d '\r\n')
     else
-        ssh_repo_host "mkdir -p /tmp/rec_gpg && chmod 700 /tmp/rec_gpg"
-        gcloud compute scp "$STAGING_KEY_BACKUP" "${REPOSITORY_INSTANCE_NAME}:/tmp/key_backup.enc" --tunnel-through-iap
-        ssh_repo_host "gpg --homedir /tmp/rec_gpg --batch --import < /tmp/key_backup.enc"
-        ACTUAL_REC_FPR=$(ssh_repo_host "gpg --homedir /tmp/rec_gpg --list-secret-keys --with-colons | grep '^fpr:' | head -n1 | cut -d: -f10" | tr -d '\r\n')
+        ssh_signer_host "mkdir -p /tmp/rec_gpg && chmod 700 /tmp/rec_gpg"
+        gcloud compute scp "$STAGING_KEY_BACKUP" "${SIGNER_INSTANCE_NAME}:/tmp/key_backup.enc" --tunnel-through-iap
+        gcloud compute scp "$STAGING_KEY_BACKUP_PASSPHRASE_FILE" "${SIGNER_INSTANCE_NAME}:/tmp/pass.txt" --tunnel-through-iap
+        ssh_signer_host "openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass file:/tmp/pass.txt -in /tmp/key_backup.enc | gpg --homedir /tmp/rec_gpg --batch --import"
+        ACTUAL_REC_FPR=$(ssh_signer_host "gpg --homedir /tmp/rec_gpg --list-secret-keys --with-colons 2>/dev/null | grep '^fpr:' | head -n1 | cut -d: -f10" | tr -d '\r\n')
+    fi
+
+    # Fail closed if recovered fingerprint is empty or mismatched - NEVER replace with expected default!
+    if [[ -z "$ACTUAL_REC_FPR" ]]; then
+        echo "[ERROR] Key recovery failed: Could not parse recovered fingerprint from GPG secret key output!" >&2
+        exit 1
+    fi
+    if [[ "$ACTUAL_REC_FPR" != "$STAGING_KEY_FPR" ]]; then
+        echo "[ERROR] Recovered key fingerprint mismatch ($ACTUAL_REC_FPR != $STAGING_KEY_FPR)!" >&2
+        exit 1
     fi
 else
     ACTUAL_REC_FPR="$STAGING_KEY_FPR"
 fi
 
-if [[ -z "$ACTUAL_REC_FPR" ]]; then
-    ACTUAL_REC_FPR="$STAGING_KEY_FPR"
-fi
-
-# 6 & 7. Verify Signing Subkey
+# 6. Verify Signing-Capable Subkey ('ssb')
 REC_FPR_CMD="gpg --homedir '$REC_GNUPGHOME' --list-secret-keys --with-colons"
 ACTUAL_SUBKEY="signing_subkey_active"
 
@@ -110,14 +146,14 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
             exit 1
         fi
     else
-        if ! ssh_repo_host "gpg --homedir /tmp/rec_gpg --list-secret-keys --with-colons | grep -q '^ssb:'"; then
+        if ! ssh_signer_host "gpg --homedir /tmp/rec_gpg --list-secret-keys --with-colons | grep -q '^ssb:'"; then
             echo "[ERROR] Key recovery failed: Signing subkey ('ssb') missing in recovered keyring!" >&2
             exit 1
         fi
     fi
 fi
 
-# 8 & 9 & 10 & 11. Sign & Verify Test Release Metadata
+# 7 & 8. Sign Test Release & Independently Verify Signature
 TEST_RELEASE="$REC_GNUPGHOME/Release"
 echo "Origin: GenixBit Test Recovery" > "$TEST_RELEASE"
 
@@ -131,9 +167,9 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
         TEST_RELEASE_SHA=$(file_sha256 "$TEST_RELEASE")
         SIG_HASH=$(file_sha256 "$TEST_RELEASE.gpg")
     else
-        ssh_repo_host "echo 'Origin: GenixBit Test Recovery' > /tmp/rec_gpg/Release && gpg --homedir /tmp/rec_gpg --batch --yes --trust-model always --detach-sign --armor -o /tmp/rec_gpg/Release.gpg /tmp/rec_gpg/Release && gpg --homedir /tmp/rec_gpg --verify /tmp/rec_gpg/Release.gpg /tmp/rec_gpg/Release"
-        TEST_RELEASE_SHA=$(ssh_repo_host "sha256sum /tmp/rec_gpg/Release | awk '{print \$1}'" | tr -d '\r\n')
-        SIG_HASH=$(ssh_repo_host "sha256sum /tmp/rec_gpg/Release.gpg | awk '{print \$1}'" | tr -d '\r\n')
+        ssh_signer_host "echo 'Origin: GenixBit Test Recovery' > /tmp/rec_gpg/Release && gpg --homedir /tmp/rec_gpg --batch --yes --trust-model always --detach-sign --armor -o /tmp/rec_gpg/Release.gpg /tmp/rec_gpg/Release && gpg --homedir /tmp/rec_gpg --verify /tmp/rec_gpg/Release.gpg /tmp/rec_gpg/Release"
+        TEST_RELEASE_SHA=$(ssh_signer_host "sha256sum /tmp/rec_gpg/Release | awk '{print \$1}'" | tr -d '\r\n')
+        SIG_HASH=$(ssh_signer_host "sha256sum /tmp/rec_gpg/Release.gpg | awk '{print \$1}'" | tr -d '\r\n')
     fi
 else
     TEST_RELEASE_SHA=$(file_sha256 "$TEST_RELEASE")
@@ -143,11 +179,16 @@ else
     SIG_HASH=$(file_sha256 "$TEST_RELEASE.gpg")
 fi
 
-# 12 & 13. Clean Temporary Recovery GNUPGHOME
+if [[ -z "$SIG_HASH" || "$SIG_HASH" == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]]; then
+    echo "[ERROR] Stage key-recovery signature hash is empty or zero!" >&2
+    exit 1
+fi
+
+# 9. Clean Temporary Recovery GNUPGHOME
 rm -rf "$REC_GNUPGHOME"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     if ! command -v gpg >/dev/null 2>&1; then
-        ssh_repo_host "rm -rf /tmp/rec_gpg /tmp/key_backup.enc"
+        ssh_signer_host "rm -rf /tmp/rec_gpg /tmp/key_backup.enc /tmp/pass.txt"
     fi
 fi
 ACTUAL_CLEANUP="cleaned"
@@ -166,7 +207,7 @@ REC_OBS="[$OBS1, $OBS2, $OBS3, $OBS4, $OBS5, $OBS6, $OBS7, $OBS8, $OBS9]"
 
 TS1=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "$FPR_CHECK_CMD" 0 "$ACTUAL_ACTIVE_FPR" "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
 TS2=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "$BACKUP_CHK_CMD" 0 "$BACKUP_HASH" "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
-TS3=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "$IMPORT_CMD" 0 "Key imported into $REC_GNUPGHOME." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+TS3=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "$IMPORT_CMD" 0 "Key decrypted and imported into $REC_GNUPGHOME." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
 TS4=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "$SIGN_CMD" 0 "Signed $TEST_RELEASE." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
 TS5=$(record_command_transcript "$EVIDENCE_OUT_DIR" "host" "$SIG_VERIFY_CMD" 0 "Signature verified cleanly." "" "$STAGE_START_TS" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
 
