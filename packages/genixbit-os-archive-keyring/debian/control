@@ -10,6 +10,10 @@ Package: genixbit-os-archive-keyring
 Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends}
+Replaces: anduinos-archive-keyring
+Provides: anduinos-archive-keyring
+Conflicts: anduinos-archive-keyring
 Description: GenixBit OS GPG archive keyring
  GPG keys used to sign the GenixBit OS package repository metadata and
  Debian packages hosted on packages.os.genixbit.com.
+

@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-GENIXBIT_PUBLIC_KEYRING ?=
+GENIXBIT_PUBLIC_KEYRING ?= keyring/genixbit-os-archive-keyring.pgp
 
 %:
 	dh $@

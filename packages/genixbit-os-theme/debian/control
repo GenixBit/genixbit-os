@@ -9,5 +9,9 @@ Homepage: https://os.genixbit.com
 Package: genixbit-os-theme
 Architecture: all
 Depends: ${misc:Depends}
+Replaces: anduinos-theme, plymouth-anduinos
+Provides: anduinos-theme, plymouth-anduinos, plymouth-theme-genixbit
+Conflicts: anduinos-theme, plymouth-anduinos
 Description: Official theme and visual identity assets for GenixBit OS
  Provides logo marks, wordmarks, system icons, and Plymouth boot splash.
+

@@ -140,9 +140,14 @@ jobs:
         shell: bash
         run: bash tools/validation/check-upstream-branding-audit.sh
 
+      - name: Validate package migration integrity
+        shell: bash
+        run: bash tools/validation/check-package-migration-ci.sh
+
       - name: Test upstream branding audit check behavior
         shell: bash
         run: bash tools/validation/test-upstream-branding-audit.sh
+
 
       - name: Enforce completed candidate validation
         if: >-

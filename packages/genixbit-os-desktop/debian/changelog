@@ -1,0 +1,6 @@
+genixbit-os-desktop (0.2.0-alpha-1) resolute; urgency=medium
+
+  * Initial release of GenixBit OS desktop metapackage.
+  * Replaces upstream AnduinOS desktop metapackage dependencies.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 22 Jul 2026 00:00:00 +0530

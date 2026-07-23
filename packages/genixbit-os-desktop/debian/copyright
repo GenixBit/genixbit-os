@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: genixbit-os-desktop
+Source: https://github.com/GenixBit/genixbit-os
+
+Files: *
+Copyright: 2026 GenixBit Labs Private Limited <maintainers@genixbit.com>
+License: GPL-3.0-or-later
