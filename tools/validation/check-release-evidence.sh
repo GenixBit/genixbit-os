@@ -57,20 +57,36 @@ done
 
 [[ -f "$STATUS_FILE" ]] || fail "Status file not found: $STATUS_FILE"
 
-declare -A values=()
-while read -r line; do
-    [[ -n "$line" ]] || continue
-    [[ "$line" == \#* ]] && continue
-    if [[ "$line" != *=* ]]; then
-        fail "Invalid line in $STATUS_FILE (missing '='): $line"
-    fi
-    key="${line%%=*}"
-    value="${line#*=}"
-    [[ "$key" =~ ^[A-Z][A-Z0-9_]*$ ]] || fail "Invalid key in $STATUS_FILE: $key"
-    [[ -n "$value" ]] || fail "Empty value for $key in $STATUS_FILE"
-    [[ -z ${values[$key]+x} ]] || fail "Duplicate key in $STATUS_FILE: $key"
-    values[$key]=$value
-done < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$STATUS_FILE")
+eval "$(python3 - "$STATUS_FILE" <<'PYEOF'
+import sys, re
+
+status_file = sys.argv[1]
+seen = set()
+
+with open(status_file, 'r', encoding='utf-8') as f:
+    for line in f:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if '=' not in line:
+            print(f"fail 'Invalid line in {status_file} (missing =): {line}'")
+            sys.exit(0)
+        key, value = line.split('=', 1)
+        if not re.match(r'^[A-Z][A-Z0-9_]*$', key):
+            print(f"fail 'Invalid key in {status_file}: {key}'")
+            sys.exit(0)
+        if not value:
+            print(f"fail 'Empty value for {key} in {status_file}'")
+            sys.exit(0)
+        if key in seen:
+            print(f"fail 'Duplicate key in {status_file}: {key}'")
+            sys.exit(0)
+        seen.add(key)
+        # Escape value safely for sh eval
+        safe_val = value.replace("'", "'\"'\"'")
+        print(f"VAL_{key}='{safe_val}'")
+PYEOF
+)"
 
 required_keys=(
     VALIDATION_VERSION
@@ -93,13 +109,18 @@ required_keys=(
 )
 
 for key in "${required_keys[@]}"; do
-    [[ -n ${values[$key]:-} ]] || fail "Required key is missing: $key"
+    varname="VAL_$key"
+    val="${!varname:-}"
+    [[ -n "$val" ]] || fail "Required key is missing: $key"
 done
 
-[[ ${values[CANDIDATE_SHA]} =~ ^[[:xdigit:]]{40}$ ]] \
+CANDIDATE_SHA="${VAL_CANDIDATE_SHA:-}"
+CANDIDATE_BRANCH="${VAL_CANDIDATE_BRANCH:-}"
+
+[[ "$CANDIDATE_SHA" =~ ^[[:xdigit:]]{40}$ ]] \
     || fail 'CANDIDATE_SHA must be a full 40-character hexadecimal commit SHA.'
 
-[[ ${values[CANDIDATE_BRANCH]} == validation/* ]] \
+[[ "$CANDIDATE_BRANCH" == validation/* ]] \
     || fail 'CANDIDATE_BRANCH must use the validation/ namespace.'
 
 allowed_statuses='^(PASS|PARTIAL|FAIL|NOT_TESTED)$'
@@ -121,15 +142,17 @@ status_keys=(
 )
 
 for key in "${status_keys[@]}"; do
-    [[ ${values[$key]} =~ $allowed_statuses ]] \
-        || fail "$key has an unsupported status: ${values[$key]}"
+    varname="VAL_$key"
+    val="${!varname:-}"
+    [[ "$val" =~ $allowed_statuses ]] \
+        || fail "$key has an unsupported status: $val"
 done
 
-pass "Release-evidence schema is valid for ${values[CANDIDATE_BRANCH]} at ${values[CANDIDATE_SHA]}."
+pass "Release-evidence schema is valid for $CANDIDATE_BRANCH at $CANDIDATE_SHA."
 
 if [[ "$VERIFY_GIT_CANDIDATE" == true ]]; then
-    branch="${values[CANDIDATE_BRANCH]:-}"
-    sha="${values[CANDIDATE_SHA]:-}"
+    branch="$CANDIDATE_BRANCH"
+    sha="$CANDIDATE_SHA"
     
     [[ -n "$branch" ]] || fail "CANDIDATE_BRANCH is missing or empty."
     [[ -n "$sha" ]] || fail "CANDIDATE_SHA is missing or empty."
@@ -197,8 +220,10 @@ if [[ "$REQUIRE_COMPLETE" == true ]]; then
 
     incomplete=()
     for key in "${release_gate_keys[@]}"; do
-        if [[ ${values[$key]} != PASS ]]; then
-            incomplete+=("$key=${values[$key]}")
+        varname="VAL_$key"
+        val="${!varname:-}"
+        if [[ "$val" != PASS ]]; then
+            incomplete+=("$key=$val")
         fi
     done
 

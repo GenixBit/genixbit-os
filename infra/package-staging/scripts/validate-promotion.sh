@@ -68,7 +68,38 @@ ssh_client() {
 PROMOTE_CMD="bash $REPO_ROOT/tools/repository/promote-package.sh --repo-dir '$LOCAL_STAGING_DIR' --package genixbit-repository-fixture --from-channel resolute-alpha --to-channel resolute-testing"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-testing"
     bash "$REPO_ROOT/tools/repository/promote-package.sh" --repo-dir "$LOCAL_STAGING_DIR" --package "genixbit-repository-fixture" --from-channel "resolute-alpha" --to-channel "resolute-testing"
+
+    # Sign promoted resolute-testing Release metadata
+    if [[ -n "${SIGNER_INSTANCE_NAME:-}" ]]; then
+        gcloud compute scp "$LOCAL_STAGING_DIR/dists/resolute-testing/Release" "${SIGNER_INSTANCE_NAME}:/tmp/Release" --tunnel-through-iap
+        gcloud compute ssh "${SIGNER_INSTANCE_NAME}" --tunnel-through-iap --command="gpg --batch --yes --clearsign --digest-algo SHA256 -o /tmp/InRelease /tmp/Release && gpg --batch --yes --detach-sign --armor --digest-algo SHA256 -o /tmp/Release.gpg /tmp/Release"
+        gcloud compute scp "${SIGNER_INSTANCE_NAME}:/tmp/InRelease" "$LOCAL_STAGING_DIR/dists/resolute-testing/InRelease" --tunnel-through-iap
+        gcloud compute scp "${SIGNER_INSTANCE_NAME}:/tmp/Release.gpg" "$LOCAL_STAGING_DIR/dists/resolute-testing/Release.gpg" --tunnel-through-iap
+    elif command -v gpg >/dev/null 2>&1; then
+        (
+            cd "$LOCAL_STAGING_DIR/dists/resolute-testing"
+            gpg --batch --yes --clearsign --digest-algo SHA256 -o InRelease Release 2>/dev/null
+            gpg --batch --yes --detach-sign --armor --digest-algo SHA256 -o Release.gpg Release 2>/dev/null
+        )
+    fi
+
+    # Sync promoted testing channel to repo host
+    COPYFILE_DISABLE=1 tar -czf "$LOCAL_STAGING_DIR/testing_dist.tar.gz" -C "$LOCAL_STAGING_DIR/dists/resolute-testing" .
+    gcloud compute scp "$LOCAL_STAGING_DIR/testing_dist.tar.gz" "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}:/tmp/testing_dist.tar.gz" --tunnel-through-iap
+    gcloud compute ssh "${REPOSITORY_INSTANCE_NAME:-genixbit-staging-repo-host}" --tunnel-through-iap --command="sudo mkdir -p /var/srv/genixbit-repository/current/dists/resolute-testing && sudo tar -xzf /tmp/testing_dist.tar.gz -C /var/srv/genixbit-repository/current/dists/resolute-testing/ && sudo rm -f /tmp/testing_dist.tar.gz"
+    rm -f "$LOCAL_STAGING_DIR/testing_dist.tar.gz"
+
+    # Configure client source for resolute-testing and update APT cache
+    ssh_client "cat <<EOF | sudo tee /etc/apt/sources.list.d/genixbit-testing.sources
+Types: deb
+URIs: https://${PRIVATE_HOSTNAME:-staging-packages.genixbit.internal}/
+Suites: resolute-testing
+Components: main
+Signed-By: /etc/apt/trusted.gpg.d/genixbit-staging.gpg
+EOF
+sudo apt-get update -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/genixbit-testing.sources"
 fi
 
 TESTING_RELEASE="$LOCAL_STAGING_DIR/dists/resolute-testing/Release"
@@ -79,7 +110,15 @@ POLICY_CMD="ssh_client apt-cache policy genixbit-repository-fixture"
 ACTUAL_TESTING_VER="1.0.0"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    ACTUAL_TESTING_VER=$(ssh_client "apt-cache policy genixbit-repository-fixture" | grep -A2 "resolute-testing" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo "1.0.0")
+    POLICY_OUT=$(ssh_client "apt-cache policy genixbit-repository-fixture")
+    if echo "$POLICY_OUT" | grep -q "resolute-testing"; then
+        ACTUAL_TESTING_VER=$(echo "$POLICY_OUT" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | tr -d '\r\n')
+    fi
+    if [[ -z "$ACTUAL_TESTING_VER" ]]; then
+        echo "[ERROR] Remote apt-cache policy failed or returned empty version for resolute-testing!" >&2
+        echo "Policy Output: $POLICY_OUT" >&2
+        exit 1
+    fi
 fi
 
 OBS1=$(create_observation "package_promoted_to_testing" "$TESTING_RELEASE_SHA" "$TESTING_RELEASE_SHA" "sha256sum '$TESTING_RELEASE'" 0 "host")

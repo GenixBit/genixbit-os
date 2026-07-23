@@ -31,25 +31,43 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     STAGING_LEAF_CERT="${STAGING_LEAF_CERT:-/tmp/mock_leaf.crt}"
     STAGING_CA_CERT="${STAGING_CA_CERT:-/tmp/mock_ca.crt}"
     EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
+    PROJECT_ID="${GCP_PROJECT_ID:-genixbit-staging-test}"
+    ZONE="${GCP_ZONE:-asia-south1-a}"
 else
     # Real Mode Enforcement
     PROJECT_ID="${GCP_PROJECT_ID:-}"
     ZONE="${GCP_ZONE:-}"
     STAGING_RUN_ID="${STAGING_RUN_ID:-}"
     CLIENT_INSTANCE_NAME="${CLIENT_INSTANCE_NAME:-}"
-    PRIVATE_HOSTNAME="${PRIVATE_HOSTNAME:-staging-packages.genixbit.internal}"
+    PRIVATE_HOSTNAME="${PRIVATE_HOSTNAME:-}"
     EXPECTED_REPOSITORY_PRIVATE_IP="${EXPECTED_REPOSITORY_PRIVATE_IP:-}"
     APPROVED_CERT_FPR="${APPROVED_CERT_FPR:-}"
     STAGING_LEAF_CERT="${STAGING_LEAF_CERT:-}"
     STAGING_CA_CERT="${STAGING_CA_CERT:-}"
     EVIDENCE_OUT_DIR="${EVIDENCE_OUT_DIR:-$INFRA_DIR/results/${STAGING_RUN_ID}}"
 
-    if [[ -z "$STAGING_RUN_ID" || "$STAGING_RUN_ID" == "run-staging-default" ]]; then
-        echo "[ERROR] STAGING_RUN_ID required and must not be a placeholder default!" >&2
+    if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "genixbit-staging-test" ]]; then
+        echo "[ERROR] GCP_PROJECT_ID required and must not be placeholder!" >&2
         exit 1
     fi
-    if [[ -z "$EXPECTED_REPOSITORY_PRIVATE_IP" || "$EXPECTED_REPOSITORY_PRIVATE_IP" == "10.0.1.10" && -z "${GCP_PROJECT_ID:-}" ]]; then
-        echo "[ERROR] EXPECTED_REPOSITORY_PRIVATE_IP required and must not be placeholder!" >&2
+    if [[ -z "$ZONE" ]]; then
+        echo "[ERROR] GCP_ZONE required!" >&2
+        exit 1
+    fi
+    if [[ -z "$STAGING_RUN_ID" || "$STAGING_RUN_ID" == "run-staging-default" ]]; then
+        echo "[ERROR] STAGING_RUN_ID required and must not be placeholder!" >&2
+        exit 1
+    fi
+    if [[ -z "$CLIENT_INSTANCE_NAME" ]]; then
+        echo "[ERROR] CLIENT_INSTANCE_NAME required!" >&2
+        exit 1
+    fi
+    if [[ -z "$PRIVATE_HOSTNAME" ]]; then
+        echo "[ERROR] PRIVATE_HOSTNAME required!" >&2
+        exit 1
+    fi
+    if [[ -z "$EXPECTED_REPOSITORY_PRIVATE_IP" ]]; then
+        echo "[ERROR] EXPECTED_REPOSITORY_PRIVATE_IP required!" >&2
         exit 1
     fi
     if [[ -z "$APPROVED_CERT_FPR" || "$APPROVED_CERT_FPR" =~ ^12345678 ]]; then
@@ -71,9 +89,20 @@ ssh_client() {
     if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
         return 0
     else
-        gcloud compute ssh "$CLIENT_INSTANCE_NAME" --zone="${ZONE:-asia-south1-a}" --project="${PROJECT_ID:-genixbit-staging}" --tunnel-through-iap --command="$cmd"
+        gcloud compute ssh "$CLIENT_INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --tunnel-through-iap --command="$cmd"
     fi
 }
+
+# 0. Verify Client OS version (pinned to Ubuntu 26.04 resolute)
+echo "=== 0. Verifying Client OS Pinning (Ubuntu 26.04 resolute) ==="
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    OS_VER_ID=$(ssh_client "grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '\"' | tr -d '\r\n'")
+    OS_CODENAME=$(ssh_client "grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"' | tr -d '\r\n'")
+    if [[ "$OS_VER_ID" != "26.04" || "$OS_CODENAME" != "resolute" ]]; then
+        echo "[ERROR] Disposable APT client OS version mismatch ($OS_VER_ID/$OS_CODENAME != 26.04/resolute)!" >&2
+        exit 1
+    fi
+fi
 
 # 1. Directly prove Private DNS resolution
 echo "=== 1. Proving Private DNS Resolution ==="
@@ -83,7 +112,7 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     ACTUAL_DNS_IP=$(ssh_client "getent ahostsv4 ${PRIVATE_HOSTNAME} | head -n1 | awk '{print \$1}'" | tr -d '\r\n')
 fi
 
-if [[ "$ACTUAL_DNS_IP" != "$EXPECTED_REPOSITORY_PRIVATE_IP" ]]; then
+if [[ -z "$ACTUAL_DNS_IP" || "$ACTUAL_DNS_IP" != "$EXPECTED_REPOSITORY_PRIVATE_IP" ]]; then
     echo "[ERROR] Private DNS resolution mismatch ($ACTUAL_DNS_IP != $EXPECTED_REPOSITORY_PRIVATE_IP)!" >&2
     exit 1
 fi
@@ -112,7 +141,7 @@ if [[ "$ACTUAL_SAN" != "DNS:${PRIVATE_HOSTNAME}" ]]; then
     exit 1
 fi
 
-if [[ "$ACTUAL_FPR" != "$APPROVED_CERT_FPR" ]]; then
+if [[ -z "$ACTUAL_FPR" || "$ACTUAL_FPR" != "$APPROVED_CERT_FPR" ]]; then
     echo "[ERROR] Leaf Certificate Fingerprint mismatch ($ACTUAL_FPR != $APPROVED_CERT_FPR)!" >&2
     exit 1
 fi
@@ -129,18 +158,23 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     SERVED_INRELEASE_HASH=$(json_sha256 "$SERVED_INRELEASE_CONTENT")
 fi
 
-if [[ "$HEALTH_RESP" != "OK" ]]; then
+if [[ -z "$HEALTH_RESP" || "$HEALTH_RESP" != "OK" ]]; then
     echo "[ERROR] HTTPS /healthz check failed ($HEALTH_RESP != OK)!" >&2
     exit 1
 fi
 
-# 4. Directly prove Signed-By Configuration
-echo "=== 4. Proving Signed-By Configuration ==="
+# 4. Directly prove Signed-By Configuration & Reject Insecure Flags
+echo "=== 4. Proving Signed-By Configuration & Absence of Insecure Flags ==="
 APT_SRC_CMD="cat /etc/apt/sources.list.d/genixbit.sources"
 SIGNED_BY_STATUS="configured"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
-    if ! ssh_client "grep -q 'Signed-By:' /etc/apt/sources.list.d/genixbit.sources"; then
+    SRC_CONTENT=$(ssh_client "cat /etc/apt/sources.list.d/genixbit.sources")
+    if ! echo "$SRC_CONTENT" | grep -q 'Signed-By:'; then
         echo "[ERROR] Signed-By directive missing in /etc/apt/sources.list.d/genixbit.sources!" >&2
+        exit 1
+    fi
+    if echo "$SRC_CONTENT" | grep -qiE 'trusted=yes|allow-insecure|allow-unauthenticated'; then
+        echo "[ERROR] Insecure APT source directives detected in genixbit.sources!" >&2
         exit 1
     fi
 fi
@@ -162,7 +196,7 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     INSTALLED_VER=$(ssh_client "dpkg-query -W -f='\${Version}' genixbit-repository-fixture" | tr -d '\r\n')
 fi
 
-if [[ "$INSTALLED_VER" != "1.0.0" ]]; then
+if [[ -z "$INSTALLED_VER" || "$INSTALLED_VER" != "1.0.0" ]]; then
     echo "[ERROR] Installed package version mismatch ($INSTALLED_VER != 1.0.0)!" >&2
     exit 1
 fi
@@ -176,18 +210,22 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     UPGRADED_VER=$(ssh_client "dpkg-query -W -f='\${Version}' genixbit-repository-fixture" | tr -d '\r\n')
 fi
 
-if [[ "$UPGRADED_VER" != "1.0.1" ]]; then
+if [[ -z "$UPGRADED_VER" || "$UPGRADED_VER" != "1.0.1" ]]; then
     echo "[ERROR] Upgraded package version mismatch ($UPGRADED_VER != 1.0.1)!" >&2
     exit 1
 fi
 
-# 8. Directly prove apt-get check & dpkg --audit
-echo "=== 8. Proving System Integrity (apt-get check & dpkg --audit) ==="
+# 8. Directly prove apt-get check & dpkg --audit (dpkg --audit must be EMPTY)
+echo "=== 8. Proving System Integrity (apt-get check & empty dpkg --audit) ==="
 APT_CHECK_CMD="sudo apt-get check"
 DPKG_AUDIT_CMD="dpkg --audit"
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     ssh_client "sudo apt-get check"
-    ssh_client "dpkg --audit"
+    AUDIT_OUT=$(ssh_client "dpkg --audit" | tr -d '\r\n')
+    if [[ -n "$AUDIT_OUT" ]]; then
+        echo "[ERROR] dpkg --audit returned non-empty output ($AUDIT_OUT)!" >&2
+        exit 1
+    fi
 fi
 
 OBS1=$(create_observation "dns_resolution_verified" "$EXPECTED_REPOSITORY_PRIVATE_IP" "$ACTUAL_DNS_IP" "$DNS_CMD" 0 "client")

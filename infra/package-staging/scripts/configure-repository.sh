@@ -34,11 +34,12 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     TMP_STAGING=$(mktemp -d)
     LOCAL_STAGING_DIR="${LOCAL_STAGING_DIR:-$TMP_STAGING}"
     STAGING_PUBLIC_KEYRING="${STAGING_PUBLIC_KEYRING:-$TMP_STAGING/keyring.gpg}"
-    mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-alpha"
+    mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-alpha/main/binary-amd64" "$LOCAL_STAGING_DIR/pool/main/g/genixbit-repository-fixture"
     touch "$STAGING_PUBLIC_KEYRING"
     echo "InRelease_Content" > "$LOCAL_STAGING_DIR/dists/resolute-alpha/InRelease"
     echo "Release_Content" > "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release"
     echo "Release_gpg_Content" > "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release.gpg"
+    echo "Packages_Content" > "$LOCAL_STAGING_DIR/dists/resolute-alpha/main/binary-amd64/Packages"
 else
     # Real Mode: Require non-placeholder parameters
     PROJECT_ID="${GCP_PROJECT_ID:-}"
@@ -74,8 +75,8 @@ else
 fi
 
 ALPHA_DIST="$LOCAL_STAGING_DIR/dists/resolute-alpha"
-if [[ ! -f "$ALPHA_DIST/InRelease" ]]; then
-    echo "[ERROR] Resolute-alpha InRelease file missing at '$ALPHA_DIST/InRelease'!" >&2
+if [[ ! -f "$ALPHA_DIST/InRelease" || ! -f "$ALPHA_DIST/Release" || ! -f "$ALPHA_DIST/Release.gpg" ]]; then
+    echo "[ERROR] Resolute-alpha repository metadata missing at '$ALPHA_DIST'!" >&2
     exit 1
 fi
 
@@ -98,18 +99,41 @@ scp_to_repo_host() {
     fi
 }
 
-# Step 1: Verify Public Keyring & Signatures
+# Step 1: Verify Keyring, No Secret Key Packets, InRelease & Release.gpg Signatures
 echo "=== Step 1: Verifying Keyring & Signatures ==="
-LOCAL_VERIFY_CMD="gpg --keyring '$STAGING_PUBLIC_KEYRING' --verify '$ALPHA_DIST/InRelease'"
+LOCAL_VERIFY_CMD="gpg --keyring '$STAGING_PUBLIC_KEYRING' --verify '$ALPHA_DIST/InRelease' && gpg --keyring '$STAGING_PUBLIC_KEYRING' --verify '$ALPHA_DIST/Release.gpg' '$ALPHA_DIST/Release'"
 
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
     if command -v gpg >/dev/null 2>&1; then
+        KEYRING_FPR=$(gpg --keyring "$STAGING_PUBLIC_KEYRING" --list-keys --with-colons 2>/dev/null | awk -F: '$1 == "fpr" {print $10; exit}')
+        if [[ "$KEYRING_FPR" != "$STAGING_KEY_FPR" ]]; then
+            echo "[ERROR] Public keyring fingerprint mismatch ($KEYRING_FPR != $STAGING_KEY_FPR)!" >&2
+            exit 1
+        fi
+        if gpg --keyring "$STAGING_PUBLIC_KEYRING" --list-secret-keys 2>/dev/null | grep -q '^sec'; then
+            echo "[ERROR] Public keyring contains secret key packets! Staging private keys must NEVER reside on repo host or in public keyrings!" >&2
+            exit 1
+        fi
         gpg --keyring "$STAGING_PUBLIC_KEYRING" --verify "$ALPHA_DIST/InRelease"
+        gpg --keyring "$STAGING_PUBLIC_KEYRING" --verify "$ALPHA_DIST/Release.gpg" "$ALPHA_DIST/Release"
     else
         ssh_repo_host "mkdir -p /tmp/verify_staging"
         scp_to_repo_host "$STAGING_PUBLIC_KEYRING" "/tmp/verify_staging/keyring.gpg"
         scp_to_repo_host "$ALPHA_DIST/InRelease" "/tmp/verify_staging/InRelease"
+        scp_to_repo_host "$ALPHA_DIST/Release" "/tmp/verify_staging/Release"
+        scp_to_repo_host "$ALPHA_DIST/Release.gpg" "/tmp/verify_staging/Release.gpg"
+
+        REMOTE_KEY_FPR=$(ssh_repo_host "gpg --keyring /tmp/verify_staging/keyring.gpg --list-keys --with-colons 2>/dev/null | grep '^fpr:' | head -n1 | cut -d: -f10" | tr -d '\r\n')
+        if [[ "$REMOTE_KEY_FPR" != "$STAGING_KEY_FPR" ]]; then
+            echo "[ERROR] Remote public keyring fingerprint mismatch ($REMOTE_KEY_FPR != $STAGING_KEY_FPR)!" >&2
+            exit 1
+        fi
+        if ssh_repo_host "gpg --keyring /tmp/verify_staging/keyring.gpg --list-secret-keys 2>/dev/null | grep -q '^sec'"; then
+            echo "[ERROR] Remote public keyring contains secret key packets!" >&2
+            exit 1
+        fi
         ssh_repo_host "gpg --keyring /tmp/verify_staging/keyring.gpg --verify /tmp/verify_staging/InRelease"
+        ssh_repo_host "gpg --keyring /tmp/verify_staging/keyring.gpg --verify /tmp/verify_staging/Release.gpg /tmp/verify_staging/Release"
         ssh_repo_host "rm -rf /tmp/verify_staging"
     fi
 fi
@@ -123,7 +147,7 @@ RELEASE_ID="release-${STAGING_RUN_ID}-${TS_SEC}"
 RELEASE_ARCHIVE="$INFRA_DIR/repository-release-${STAGING_RUN_ID}.tar.gz"
 MANIFEST_FILE="$INFRA_DIR/release-manifest-${STAGING_RUN_ID}.json"
 
-tar -czf "$RELEASE_ARCHIVE" -C "$LOCAL_STAGING_DIR" .
+COPYFILE_DISABLE=1 tar -czf "$RELEASE_ARCHIVE" -C "$LOCAL_STAGING_DIR" .
 ARCHIVE_SHA=$(file_sha256 "$RELEASE_ARCHIVE")
 
 cat <<EOF > "$MANIFEST_FILE"
@@ -144,7 +168,15 @@ ssh_repo_host "sudo mkdir -p /var/srv/genixbit-repository/releases /tmp/repo_upl
 scp_to_repo_host "$RELEASE_ARCHIVE" "/tmp/repo_upload_${RELEASE_ID}/release.tar.gz"
 scp_to_repo_host "$MANIFEST_FILE" "/tmp/repo_upload_${RELEASE_ID}/manifest.json"
 
-# Execute Remote Extraction & Remote Verification
+# Execute Remote Extraction, Remote Checksum Verification, & Atomic Symlink Switch
+if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
+    REMOTE_ARCH_SHA=$(ssh_repo_host "sha256sum /tmp/repo_upload_${RELEASE_ID}/release.tar.gz | awk '{print \$1}'" | tr -d '\r\n')
+    if [[ "$REMOTE_ARCH_SHA" != "$ARCHIVE_SHA" ]]; then
+        echo "[ERROR] Remote archive SHA256 mismatch ($REMOTE_ARCH_SHA != $ARCHIVE_SHA)!" >&2
+        exit 1
+    fi
+fi
+
 REMOTE_CMD="sudo mkdir -p ${TARGET_RELEASE_DIR} && \
             sudo tar -xzf /tmp/repo_upload_${RELEASE_ID}/release.tar.gz -C ${TARGET_RELEASE_DIR} && \
             sudo chown -R genixbit-repo:genixbit-repo ${TARGET_RELEASE_DIR} && \
@@ -156,11 +188,11 @@ REMOTE_READLINK_TARGET=""
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     REMOTE_READLINK_TARGET="$TARGET_RELEASE_DIR"
 else
-    REMOTE_READLINK_TARGET=$(ssh_repo_host "$REMOTE_CMD" | tail -n1 | tr -d '\r')
-fi
-
-if [[ -z "$REMOTE_READLINK_TARGET" ]]; then
-    REMOTE_READLINK_TARGET="$TARGET_RELEASE_DIR"
+    REMOTE_READLINK_TARGET=$(ssh_repo_host "$REMOTE_CMD" | tail -n1 | tr -d '\r\n')
+    if [[ -z "$REMOTE_READLINK_TARGET" || "$REMOTE_READLINK_TARGET" != "$TARGET_RELEASE_DIR" ]]; then
+        echo "[ERROR] Remote readlink target failed or mismatched ($REMOTE_READLINK_TARGET != $TARGET_RELEASE_DIR)!" >&2
+        exit 1
+    fi
 fi
 
 # Step 4: Download Served InRelease over HTTPS & Compare SHA-256
@@ -170,11 +202,16 @@ FETCH_HTTPS_CMD="curl -fsSL --cacert '$STAGING_PUBLIC_KEYRING' 'https://${PRIVAT
 if [[ "${GENIXBIT_SIMULATE_OPS:-0}" == "1" ]]; then
     SERVED_INRELEASE_SHA="$INRELEASE_SHA"
 else
-    SERVED_INRELEASE_SHA=$(ssh_repo_host "curl -fsSL http://127.0.0.1/dists/resolute-alpha/InRelease | sha256sum | cut -d' ' -f1" | tail -n1 | tr -d '\r')
+    SERVED_INRELEASE_SHA=$(ssh_repo_host "curl -fsSL http://127.0.0.1/dists/resolute-alpha/InRelease | sha256sum | cut -d' ' -f1" | tail -n1 | tr -d '\r\n')
+    if [[ -z "$SERVED_INRELEASE_SHA" ]]; then
+        echo "[ERROR] Failed to fetch served InRelease remotely!" >&2
+        exit 1
+    fi
 fi
 
-if [[ -z "$SERVED_INRELEASE_SHA" ]]; then
-    SERVED_INRELEASE_SHA="$INRELEASE_SHA"
+if [[ "$SERVED_INRELEASE_SHA" != "$INRELEASE_SHA" ]]; then
+    echo "[ERROR] Served InRelease SHA256 mismatch ($SERVED_INRELEASE_SHA != $INRELEASE_SHA)!" >&2
+    exit 1
 fi
 
 OBS1=$(create_observation "release_archive_sha_verified" "$ARCHIVE_SHA" "$ARCHIVE_SHA" "sha256sum '$RELEASE_ARCHIVE'" 0 "host")

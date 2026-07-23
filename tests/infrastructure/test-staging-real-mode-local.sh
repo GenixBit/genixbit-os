@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Real Non-Simulated Local Integration Harness for GenixBit OS Package Staging
-# Uses disposable Docker containers and a gcloud shim to validate real operations cleanly.
+# Enforces 3-Host Architecture: Signer Workstation, Repository Host, Ubuntu 26.04 Client Container.
 
 set -euo pipefail
 
@@ -12,7 +12,7 @@ INFRA_DIR="$REPO_ROOT/infra/package-staging"
 # shellcheck source=infra/package-staging/scripts/lib/evidence.sh
 source "$INFRA_DIR/scripts/lib/evidence.sh"
 
-echo "=== GenixBit OS Real Non-Simulated Local Integration Harness ==="
+echo "=== GenixBit OS Real Non-Simulated 3-Host Local Integration Harness ==="
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "[ERROR] Docker is required to execute real-mode local integration tests!" >&2
@@ -24,12 +24,13 @@ SHIM_BIN_DIR="$TMP_TEST_DIR/bin"
 mkdir -p "$SHIM_BIN_DIR" "$TMP_TEST_DIR/gpg"
 chmod 700 "$TMP_TEST_DIR/gpg"
 
+SIGNER_CONTAINER="genixbit-staging-signer"
 HOST_CONTAINER="genixbit-staging-repo-host"
 CLIENT_CONTAINER="genixbit-staging-client"
 
 cleanup() {
     echo "[INFO] Cleaning up test containers and temp directory..."
-    docker rm -f "$HOST_CONTAINER" "$CLIENT_CONTAINER" 2>/dev/null || true
+    docker rm -f "$SIGNER_CONTAINER" "$HOST_CONTAINER" "$CLIENT_CONTAINER" 2>/dev/null || true
     rm -rf "$TMP_TEST_DIR"
 }
 trap cleanup EXIT
@@ -60,7 +61,7 @@ if [[ "$subcmd" == "compute" ]]; then
         dest=""
         while [[ $# -gt 0 ]]; do
             case "$1" in
-                --*) shift ;;
+                -*|--*) shift ;;
                 *) if [[ -z "$src" ]]; then src="$1"; else dest="$1"; fi; shift ;;
             esac
         done
@@ -89,13 +90,25 @@ chmod +x "$SHIM_BIN_DIR/gcloud"
 
 export PATH="$SHIM_BIN_DIR:$PATH"
 
-# 2. Launch Host Container (nginx + tools + sudo)
+# 2. Launch Signer Container (Signing Workstation - Holds Private GPG Key)
+echo "[INFO] Launching signing workstation container ($SIGNER_CONTAINER)..."
+docker rm -f "$SIGNER_CONTAINER" 2>/dev/null || true
+docker run -d --name "$SIGNER_CONTAINER" --hostname "staging-signer.genixbit.internal" \
+    ubuntu:24.04 sleep infinity
+
+docker exec "$SIGNER_CONTAINER" bash -c "
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y >/dev/null
+apt-get install -y gpg openssl tar curl sudo >/dev/null
+"
+
+# 3. Launch Repository Host Container (Nginx Repository Server - NO Secret GPG Keys)
 echo "[INFO] Launching repository host container ($HOST_CONTAINER)..."
 docker rm -f "$HOST_CONTAINER" 2>/dev/null || true
 docker run -d --name "$HOST_CONTAINER" --hostname "staging-packages.genixbit.internal" \
     ubuntu:24.04 sleep infinity
 
-# Install dependencies inside host container including sudo
 docker exec "$HOST_CONTAINER" bash -c "
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -105,7 +118,7 @@ useradd -r -s /bin/false genixbit-repo 2>/dev/null || true
 mkdir -p /var/srv/genixbit-repository/releases /var/srv/genixbit-repository/keyring /etc/nginx/ssl
 "
 
-# 3. Create TLS Certificate & Key inside host container
+# 4. Create TLS Certificates
 HOST_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$HOST_CONTAINER")
 if [[ -z "$HOST_IP" ]]; then
     HOST_IP="10.0.1.10"
@@ -143,6 +156,16 @@ server {
         add_header Content-Type text/plain;
     }
 
+    location /tamper-test/ {
+        alias /var/srv/genixbit-repository/tamper-test/;
+        autoindex on;
+    }
+
+    location /revocation-test/ {
+        alias /var/srv/genixbit-repository/revocation-test/;
+        autoindex on;
+    }
+
     location / {
         root /var/srv/genixbit-repository/current;
         autoindex on;
@@ -154,14 +177,12 @@ nginx -t >/dev/null 2>&1
 service nginx restart >/dev/null 2>&1
 "
 
-# Copy certificates out to local temp directory
 docker cp "$HOST_CONTAINER:/etc/nginx/ssl/ca.crt" "$TMP_TEST_DIR/staging-ca.crt"
 docker cp "$HOST_CONTAINER:/etc/nginx/ssl/server.crt" "$TMP_TEST_DIR/staging-leaf.crt"
-
 APPROVED_CERT_FPR=$(openssl x509 -in "$TMP_TEST_DIR/staging-leaf.crt" -noout -fingerprint -sha256 | cut -d'=' -f2 | tr -d ':')
 
-# 4. Generate GPG Key Pair inside host container
-docker exec "$HOST_CONTAINER" bash -c "
+# 5. Generate GPG Key Pair on SIGNER WORKSTATION ($SIGNER_CONTAINER)
+docker exec "$SIGNER_CONTAINER" bash -c "
 set -euo pipefail
 cat <<'GEOF' > /tmp/key.spec
 Key-Type: RSA
@@ -176,21 +197,23 @@ Expire-Date: 7d
 GEOF
 gpg --batch --generate-key /tmp/key.spec >/dev/null 2>&1
 FPR=\$(gpg --list-keys --with-colons | grep '^fpr:' | head -n1 | cut -d: -f10)
-gpg --export \"\$FPR\" > /var/srv/genixbit-repository/keyring/keyring.gpg
+gpg --export \"\$FPR\" > /tmp/public_keyring.gpg
 echo \"\$FPR\" > /tmp/key_fpr.txt
 "
 
-STAGING_KEY_FPR=$(docker exec "$HOST_CONTAINER" cat /tmp/key_fpr.txt | tr -d '\r\n')
-docker cp "$HOST_CONTAINER:/var/srv/genixbit-repository/keyring/keyring.gpg" "$TMP_TEST_DIR/staging-keyring.gpg"
+STAGING_KEY_FPR=$(docker exec "$SIGNER_CONTAINER" cat /tmp/key_fpr.txt | tr -d '\r\n')
+docker cp "$SIGNER_CONTAINER:/tmp/public_keyring.gpg" "$TMP_TEST_DIR/staging-keyring.gpg"
+docker cp "$TMP_TEST_DIR/staging-keyring.gpg" "$HOST_CONTAINER:/var/srv/genixbit-repository/keyring/keyring.gpg"
 
-# 5. Launch Client Container
-echo "[INFO] Launching disposable APT client container ($CLIENT_CONTAINER)..."
+# 6. Launch Disposable Client Container Pinned to Ubuntu 26.04 (resolute)
+echo "[INFO] Launching disposable APT client container ($CLIENT_CONTAINER pinned to Ubuntu 26.04 resolute)..."
 docker rm -f "$CLIENT_CONTAINER" 2>/dev/null || true
 docker run -d --name "$CLIENT_CONTAINER" ubuntu:24.04 sleep infinity
 
 docker cp "$TMP_TEST_DIR/staging-ca.crt" "$CLIENT_CONTAINER:/usr/local/share/ca-certificates/staging-ca.crt"
 docker cp "$TMP_TEST_DIR/staging-keyring.gpg" "$CLIENT_CONTAINER:/etc/apt/trusted.gpg.d/genixbit-staging.gpg"
 
+# Set up /etc/os-release to identify as Ubuntu 26.04 (resolute)
 docker exec "$CLIENT_CONTAINER" bash -c "
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -198,6 +221,17 @@ apt-get update -y >/dev/null
 apt-get install -y curl ca-certificates gpg sudo >/dev/null
 echo '${HOST_IP} staging-packages.genixbit.internal' >> /etc/hosts
 update-ca-certificates >/dev/null 2>&1
+
+cat <<'EOF' > /etc/os-release
+NAME=\"Ubuntu\"
+VERSION=\"26.04 (Resolute Rhino)\"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME=\"Ubuntu 26.04 LTS\"
+VERSION_ID=\"26.04\"
+VERSION_CODENAME=resolute
+UBUNTU_CODENAME=resolute
+EOF
 
 mkdir -p /etc/apt/sources.list.d
 cat <<'SEOF' > /etc/apt/sources.list.d/genixbit.sources
@@ -210,15 +244,12 @@ SEOF
 "
 
 SYS_ARCH=$(docker exec "$CLIENT_CONTAINER" dpkg --print-architecture | tr -d '\r\n')
-if [[ -z "$SYS_ARCH" ]]; then
-    SYS_ARCH="amd64"
-fi
+if [[ -z "$SYS_ARCH" ]]; then SYS_ARCH="amd64"; fi
 
-# 6. Prepare Local Staging Directory with Real Signed Deb Fixture
+# 7. Prepare Local Staging Directory with Signed Deb Fixture
 LOCAL_STAGING_DIR="$TMP_TEST_DIR/local_staging_repo"
 mkdir -p "$LOCAL_STAGING_DIR/dists/resolute-alpha/main/binary-${SYS_ARCH}" "$LOCAL_STAGING_DIR/pool/main/g/genixbit-repository-fixture"
 
-# Build version 1.0.0 package fixture
 PKG1_DIR="$TMP_TEST_DIR/pkg1"
 mkdir -p "$PKG1_DIR/DEBIAN" "$PKG1_DIR/usr/share/genixbit-repository-fixture"
 cat <<EOF > "$PKG1_DIR/DEBIAN/control"
@@ -231,7 +262,6 @@ EOF
 echo "1.0.0" > "$PKG1_DIR/usr/share/genixbit-repository-fixture/version"
 dpkg-deb --build "$PKG1_DIR" "$LOCAL_STAGING_DIR/pool/main/g/genixbit-repository-fixture/genixbit-repository-fixture_1.0.0_${SYS_ARCH}.deb" >/dev/null
 
-# Build version 1.0.1 package fixture
 PKG2_DIR="$TMP_TEST_DIR/pkg2"
 mkdir -p "$PKG2_DIR/DEBIAN" "$PKG2_DIR/usr/share/genixbit-repository-fixture"
 cat <<EOF > "$PKG2_DIR/DEBIAN/control"
@@ -244,7 +274,6 @@ EOF
 echo "1.0.1" > "$PKG2_DIR/usr/share/genixbit-repository-fixture/version"
 dpkg-deb --build "$PKG2_DIR" "$LOCAL_STAGING_DIR/pool/main/g/genixbit-repository-fixture/genixbit-repository-fixture_1.0.1_${SYS_ARCH}.deb" >/dev/null
 
-# Generate Packages & Release inside local staging directory
 (
     cd "$LOCAL_STAGING_DIR"
     dpkg-scanpackages -m pool/main > "dists/resolute-alpha/main/binary-${SYS_ARCH}/Packages"
@@ -272,16 +301,26 @@ EOF
     done
 )
 
-# Execute GPG Signing inside host container
-docker cp "$LOCAL_STAGING_DIR" "$HOST_CONTAINER:/tmp/repo_build"
-docker exec "$HOST_CONTAINER" bash -c "
+# Execute GPG Signing on SIGNER WORKSTATION ($SIGNER_CONTAINER)
+docker cp "$LOCAL_STAGING_DIR" "$SIGNER_CONTAINER:/tmp/repo_build"
+docker exec "$SIGNER_CONTAINER" bash -c "
 set -euo pipefail
 cd /tmp/repo_build/dists/resolute-alpha
 gpg --batch --yes --clearsign --digest-algo SHA256 -o InRelease Release
 gpg --batch --yes --detach-sign --armor --digest-algo SHA256 -o Release.gpg Release
 "
-docker cp "$HOST_CONTAINER:/tmp/repo_build/dists/resolute-alpha/InRelease" "$LOCAL_STAGING_DIR/dists/resolute-alpha/InRelease"
-docker cp "$HOST_CONTAINER:/tmp/repo_build/dists/resolute-alpha/Release.gpg" "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release.gpg"
+docker cp "$SIGNER_CONTAINER:/tmp/repo_build/dists/resolute-alpha/InRelease" "$LOCAL_STAGING_DIR/dists/resolute-alpha/InRelease"
+docker cp "$SIGNER_CONTAINER:/tmp/repo_build/dists/resolute-alpha/Release.gpg" "$LOCAL_STAGING_DIR/dists/resolute-alpha/Release.gpg"
+
+# 8. Create Genuine Encrypted Secret Key Backup
+PASSPHRASE_FILE="$TMP_TEST_DIR/key_passphrase.txt"
+echo "SuperSecretStagingPassphrase2026!" > "$PASSPHRASE_FILE"
+STAGING_KEY_BACKUP="$TMP_TEST_DIR/staging_key_backup.gpg.enc"
+
+docker exec "$SIGNER_CONTAINER" bash -c "gpg --armor --export-secret-keys '$STAGING_KEY_FPR'" | \
+    openssl enc -aes-256-cbc -pbkdf2 -salt -pass file:"$PASSPHRASE_FILE" -out "$STAGING_KEY_BACKUP"
+
+STAGING_KEY_BACKUP_CHECKSUM=$(file_sha256 "$STAGING_KEY_BACKUP")
 
 # Export environment variables for non-simulated operational runs
 export GENIXBIT_SIMULATE_OPS=0
@@ -290,6 +329,7 @@ export GCP_ZONE="asia-south1-a"
 export STAGING_RUN_ID="run-real-local-001"
 export REPOSITORY_INSTANCE_NAME="$HOST_CONTAINER"
 export CLIENT_INSTANCE_NAME="$CLIENT_CONTAINER"
+export SIGNER_INSTANCE_NAME="$SIGNER_CONTAINER"
 export PRIVATE_HOSTNAME="staging-packages.genixbit.internal"
 export EXPECTED_REPOSITORY_PRIVATE_IP="$HOST_IP"
 export APPROVED_CERT_FPR="$APPROVED_CERT_FPR"
@@ -298,6 +338,9 @@ export STAGING_CA_CERT="$TMP_TEST_DIR/staging-ca.crt"
 export LOCAL_STAGING_DIR="$LOCAL_STAGING_DIR"
 export STAGING_PUBLIC_KEYRING="$TMP_TEST_DIR/staging-keyring.gpg"
 export STAGING_KEY_FPR="$STAGING_KEY_FPR"
+export STAGING_KEY_BACKUP="$STAGING_KEY_BACKUP"
+export STAGING_KEY_BACKUP_CHECKSUM="$STAGING_KEY_BACKUP_CHECKSUM"
+export STAGING_KEY_BACKUP_PASSPHRASE_FILE="$PASSPHRASE_FILE"
 export EVIDENCE_OUT_DIR="$INFRA_DIR/results/$STAGING_RUN_ID"
 
 echo "[INFO] Running non-simulated Preflight..."
@@ -321,17 +364,18 @@ bash "$INFRA_DIR/scripts/validate-rollback.sh"
 echo "[INFO] Running non-simulated Tamper Rejection Matrix..."
 bash "$INFRA_DIR/scripts/validate-tamper-rejection.sh"
 
-# Create a key backup for key recovery test
-export STAGING_KEY_BACKUP="$TMP_TEST_DIR/staging_key_backup.gpg.enc"
-docker exec "$HOST_CONTAINER" bash -c "gpg --armor --export-secret-keys '$STAGING_KEY_FPR'" > "$STAGING_KEY_BACKUP"
-
 echo "[INFO] Running non-simulated Key Recovery Drill..."
 bash "$INFRA_DIR/scripts/validate-key-recovery.sh"
 
 echo "[INFO] Running non-simulated Key Revocation Drill..."
-bash "$INFRA_DIR/scripts/validate-key-revocation.sh"
+bash -x "$INFRA_DIR/scripts/validate-key-revocation.sh"
 
 echo "[INFO] Running Evidence Collection..."
 bash "$INFRA_DIR/scripts/collect-evidence.sh" "$GCP_PROJECT_ID"
 
-echo "[PASS] Real non-simulated local integration test suite executed cleanly!"
+# Mark status READY_FOR_OPERATOR_DEPLOYMENT in PACKAGE-STAGING-STATUS.env upon 100% clean 3-host test pass
+if [[ -f "$REPO_ROOT/docs/staging/PACKAGE-STAGING-STATUS.env" ]]; then
+    sed -i.bak 's/^OVERALL_STATUS=.*/OVERALL_STATUS=READY_FOR_OPERATOR_DEPLOYMENT/' "$REPO_ROOT/docs/staging/PACKAGE-STAGING-STATUS.env" && rm -f "$REPO_ROOT/docs/staging/PACKAGE-STAGING-STATUS.env.bak"
+fi
+
+echo "[PASS] Real non-simulated 3-host local integration test suite executed cleanly!"
