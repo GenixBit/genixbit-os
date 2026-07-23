@@ -253,7 +253,7 @@ if [[ "${GENIXBIT_SIMULATE_OPS:-0}" != "1" ]]; then
         echo "[ERROR] Revocation test failed: Error output indicates network failure instead of revocation rejection! Output: $ERR_OUT" >&2
         exit 1
     fi
-    if ! echo "$ERR_OUT" | grep -qiE 'KEYREV|KEY_REVOKED|GPG error|revoked|EXPKEYSIG|NO_PUBKEY'; then
+    if ! echo "$ERR_OUT" | grep -qiE 'REVKEYSIG|KEYREV|KEY_REVOKED|GPG error|revoked|EXPKEYSIG|NO_PUBKEY'; then
         echo "[ERROR] Revocation test failed: Error output does not classify as key revocation failure! Output: $ERR_OUT" >&2
         exit 1
     fi

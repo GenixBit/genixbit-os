@@ -166,4 +166,11 @@ if grep -E '\|\|[[:space:]]*echo[[:space:]]+"' "$INFRA_DIR/scripts/validate-prom
 fi
 echo "[PASS] Zero empty fallback assignments detected."
 
+# 14e. Verify Ubuntu 26.04 Resolute Pinning
+if grep -E 'ubuntu:24\.04' "$REPO_ROOT/tests/infrastructure/test-staging-real-mode-local.sh"; then
+    echo "[ERROR] Detected un-pinned ubuntu:24.04 image in real-mode local integration test harness! Must pin to ubuntu:26.04." >&2
+    exit 1
+fi
+echo "[PASS] Integration containers pinned to Ubuntu 26.04 resolute."
+
 echo "[PASS] All infrastructure security & policy checks passed successfully."

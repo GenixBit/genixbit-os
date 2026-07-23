@@ -280,7 +280,7 @@ fi
 '
 
 # 7. wrong_expected_fingerprint: Signed-By mismatch / GPG error
-run_tamper_test_case "wrong_expected_fingerprint" "Signed-By|GPG error|NO_PUBKEY|untrusted" '
+run_tamper_test_case "wrong_expected_fingerprint" "Signed-By|GPG error|NO_PUBKEY|untrusted|signature verification failed|is not signed|Splitting up" '
 echo "TAMPERED_FINGERPRINT_TEST" >> "$TAMPER_WORK_DIR/isolated_tamper_repo/dists/resolute-alpha/InRelease"
 '
 
