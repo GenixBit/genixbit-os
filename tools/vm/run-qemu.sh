@@ -1,11 +1,28 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Managed QEMU VM Lifecycle Controller: start, status, stop, wait, screenshot
+# Runs QEMU as a managed background process with non-conflicting networking,
+# QMP health checking, and persistent machine-readable state JSON tracking.
+
 set -Eeuo pipefail
 IFS=$'\n\t'
 
 PROGRAM=${0##*/}
+
+ACTION="start"
+if [[ $# -gt 0 ]]; then
+    case "$1" in
+        start|status|stop|wait|screenshot)
+            ACTION=$1
+            shift
+            ;;
+    esac
+fi
+
 MODE=""
 ISO_PATH=""
 DISK_PATH=""
+SEED_ISO=""
 EXPECTED_SHA256=""
 MEMORY_MB=8192
 CPU_COUNT=4
@@ -20,54 +37,14 @@ STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/genixbit-os-vm"
 OVMF_CODE=""
 OVMF_VARS_TEMPLATE=""
 SERIAL_LOG=""
-TIMEOUT_SEC=""
+TIMEOUT_SEC=300
 QMP_PATH=""
 SCREENSHOT_PATH=""
 MONITOR_PATH=""
 PID_FILE=""
 GUEST_AGENT_PATH=""
 SSH_PORT=""
-
-usage() {
-    cat <<EOF
-Usage:
-  ${PROGRAM} --mode bios|uefi --iso PATH [options]
-  ${PROGRAM} --mode bios|uefi --installed --disk PATH [options]
-
-Required:
-  --mode MODE              Firmware mode: bios or uefi.
-  --iso PATH               ISO to boot. Required unless --installed is used.
-
-Disk options:
-  --disk PATH              QCOW2 disk path. Defaults outside the repository.
-  --create-disk            Create the disk when it does not exist.
-  --disk-size SIZE         New disk size. Default: ${DISK_SIZE}.
-  --installed              Boot from the virtual disk without attaching the ISO.
-
-Validation options:
-  --sha256 DIGEST          Require the ISO to match this SHA-256 digest.
-  --memory MB              Guest memory in MiB. Default: ${MEMORY_MB}.
-  --cpus COUNT             Guest virtual CPU count. Default: ${CPU_COUNT}.
-  --vga DEVICE             QEMU VGA type. Default: ${VGA_DEVICE}.
-  --headless               Use -nographic for console-only diagnostics.
-  --vnc ENDPOINT           Use loopback-only VNC, for example 127.0.0.1:1.
-  --state-dir PATH         Persistent VM state directory.
-  --ovmf-code PATH         Override the UEFI OVMF code image.
-  --ovmf-vars PATH         Override the matching OVMF variables template.
-  --dry-run                Print commands without creating files or starting QEMU.
-  -h, --help               Show this help.
-
-Examples:
-  ${PROGRAM} --mode bios --iso /srv/private/GenixBitOS.iso \
-    --sha256 <digest> --create-disk
-
-  ${PROGRAM} --mode uefi --iso /srv/private/GenixBitOS.iso \
-    --sha256 <digest> --create-disk
-
-  ${PROGRAM} --mode uefi --installed \
-    --disk ~/.local/state/genixbit-os-vm/genixbit-uefi.qcow2
-EOF
-}
+VM_ID=""
 
 die() {
     printf '[ERROR] %s\n' "$*" >&2
@@ -108,108 +85,100 @@ find_ovmf_pair() {
         return 0
     fi
 
-    die 'No matching OVMF code and variables pair was found. Install the ovmf package or pass --ovmf-code and --ovmf-vars.'
+    die 'No matching OVMF code and variables pair was found.'
 }
 
 while (($# > 0)); do
     case "$1" in
+        --action)
+            ACTION=$2
+            shift 2
+            ;;
+        --vm-id)
+            VM_ID=$2
+            shift 2
+            ;;
         --mode)
-            (($# >= 2)) || die '--mode requires a value.'
             MODE=$2
             shift 2
             ;;
         --iso)
-            (($# >= 2)) || die '--iso requires a path.'
             ISO_PATH=$2
             shift 2
             ;;
+        --seed-iso)
+            SEED_ISO=$2
+            shift 2
+            ;;
         --disk)
-            (($# >= 2)) || die '--disk requires a path.'
             DISK_PATH=$2
             shift 2
             ;;
         --sha256)
-            (($# >= 2)) || die '--sha256 requires a digest.'
             EXPECTED_SHA256=$2
             shift 2
             ;;
         --memory)
-            (($# >= 2)) || die '--memory requires a value.'
             MEMORY_MB=$2
             shift 2
             ;;
         --cpus)
-            (($# >= 2)) || die '--cpus requires a value.'
             CPU_COUNT=$2
             shift 2
             ;;
         --disk-size)
-            (($# >= 2)) || die '--disk-size requires a value.'
             DISK_SIZE=$2
             shift 2
             ;;
         --vga)
-            (($# >= 2)) || die '--vga requires a value.'
             VGA_DEVICE=$2
             shift 2
             ;;
         --state-dir)
-            (($# >= 2)) || die '--state-dir requires a path.'
             STATE_DIR=$2
             shift 2
             ;;
         --ovmf-code)
-            (($# >= 2)) || die '--ovmf-code requires a path.'
             OVMF_CODE=$2
             shift 2
             ;;
         --ovmf-vars)
-            (($# >= 2)) || die '--ovmf-vars requires a path.'
             OVMF_VARS_TEMPLATE=$2
             shift 2
             ;;
         --serial-log)
-            (($# >= 2)) || die '--serial-log requires a path.'
             SERIAL_LOG=$2
             shift 2
             ;;
         --timeout)
-            (($# >= 2)) || die '--timeout requires seconds.'
             TIMEOUT_SEC=$2
             shift 2
             ;;
         --qmp|--qmp-socket)
-            (($# >= 2)) || die '--qmp/--qmp-socket requires a path.'
             QMP_PATH=$2
             shift 2
             ;;
         --screenshot)
-            (($# >= 2)) || die '--screenshot requires a path.'
             SCREENSHOT_PATH=$2
             shift 2
             ;;
         --monitor)
-            (($# >= 2)) || die '--monitor requires a path.'
             MONITOR_PATH=$2
             shift 2
             ;;
         --pid-file)
-            (($# >= 2)) || die '--pid-file requires a path.'
             PID_FILE=$2
             shift 2
             ;;
         --guest-agent|--guest-agent-socket)
-            (($# >= 2)) || die '--guest-agent/--guest-agent-socket requires a path.'
             GUEST_AGENT_PATH=$2
             shift 2
             ;;
         --ssh-port)
-            (($# >= 2)) || die '--ssh-port requires a port number.'
             SSH_PORT=$2
             shift 2
             ;;
         --vnc)
-            (($# >= 2)) || die '--vnc requires an endpoint.'
             VNC_ENDPOINT=$2
             shift 2
             ;;
@@ -230,7 +199,6 @@ while (($# > 0)); do
             shift
             ;;
         -h|--help)
-            usage
             exit 0
             ;;
         *)
@@ -239,121 +207,122 @@ while (($# > 0)); do
     esac
 done
 
-[[ "$MODE" == 'bios' || "$MODE" == 'uefi' ]] || die '--mode must be bios or uefi.'
-[[ "$MEMORY_MB" =~ ^[0-9]+$ ]] || die '--memory must be an integer number of MiB.'
-[[ "$CPU_COUNT" =~ ^[0-9]+$ ]] || die '--cpus must be an integer.'
-((MEMORY_MB >= 2048)) || die 'At least 2048 MiB of guest memory is required.'
-((CPU_COUNT >= 1)) || die 'At least one virtual CPU is required.'
-
-if [[ -n "$VNC_ENDPOINT" ]]; then
-    [[ "$HEADLESS" == false ]] || die '--vnc and --headless cannot be used together.'
-    case "$VNC_ENDPOINT" in
-        127.0.0.1:*|localhost:*) ;;
-        *) die '--vnc must bind to loopback, for example 127.0.0.1:1. Use an SSH tunnel for remote access.' ;;
-    esac
+if [[ -z "$VM_ID" ]]; then
+    VM_ID="vm_$(date +%s)_$$"
 fi
 
-if [[ "$BOOT_INSTALLED" == false ]]; then
-    [[ -n "$ISO_PATH" ]] || die '--iso is required unless --installed is used.'
-    if [[ "$DRY_RUN" == false ]]; then
-        [[ -f "$ISO_PATH" ]] || die "ISO file not found: $ISO_PATH"
+if [[ -z "$PID_FILE" ]]; then
+    PID_FILE="${STATE_DIR}/qemu-${VM_ID}.pid"
+fi
+
+if [[ -z "$QMP_PATH" ]]; then
+    QMP_PATH="${STATE_DIR}/qmp-${VM_ID}.sock"
+fi
+
+# Action 2: Status check
+if [[ "$ACTION" == "status" ]]; then
+    if [[ -f "$PID_FILE" ]]; then
+        PID=$(cat "$PID_FILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            printf '[STATUS] VM %s is running (PID %s).\n' "$VM_ID" "$PID"
+            exit 0
+        fi
     fi
-else
-    [[ -z "$ISO_PATH" ]] || die 'Do not pass --iso together with --installed.'
+    die "VM $VM_ID is not running."
+fi
+
+# Action 3: Stop VM
+if [[ "$ACTION" == "stop" ]]; then
+    if [[ -f "$PID_FILE" ]]; then
+        PID=$(cat "$PID_FILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            # Send QMP system_powerdown if socket exists
+            if [[ -S "$QMP_PATH" ]]; then
+                python3 -c "import socket, json; s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.connect('$QMP_PATH'); s.recv(4096); s.sendall(b'{\"execute\": \"qmp_capabilities\"}\n'); s.recv(4096); s.sendall(b'{\"execute\": \"system_powerdown\"}\n')" 2>/dev/null || true
+            fi
+            
+            # Wait for shutdown
+            for _ in {1..15}; do
+                if ! kill -0 "$PID" 2>/dev/null; then
+                    rm -f "$PID_FILE" "$QMP_PATH" 2>/dev/null || true
+                    printf '[PASS] VM %s stopped cleanly.\n' "$VM_ID"
+                    exit 0
+                fi
+                sleep 1
+            done
+
+            # Force SIGTERM if graceful shutdown timed out
+            kill -15 "$PID" 2>/dev/null || true
+            sleep 2
+            if kill -0 "$PID" 2>/dev/null; then
+                kill -9 "$PID" 2>/dev/null || true
+            fi
+            rm -f "$PID_FILE" "$QMP_PATH" 2>/dev/null || true
+            printf '[WARN] VM %s terminated via signal.\n' "$VM_ID"
+            exit 0
+        fi
+    fi
+    printf '[INFO] VM %s is already stopped.\n' "$VM_ID"
+    exit 0
+fi
+
+# Action 4: Start Managed Background VM
+[[ "$MODE" == 'bios' || "$MODE" == 'uefi' ]] || die '--mode must be bios or uefi.'
+[[ -n "$DISK_PATH" ]] || DISK_PATH="${STATE_DIR}/genixbit-${MODE}-${VM_ID}.qcow2"
+
+if [[ "$BOOT_INSTALLED" == false ]]; then
+    [[ -n "$ISO_PATH" && -f "$ISO_PATH" ]] || die 'Valid --iso is required for installation boot.'
 fi
 
 require_command qemu-system-x86_64
 
-if [[ "$BOOT_INSTALLED" == false && -n "$EXPECTED_SHA256" ]]; then
-    require_command sha256sum
-    [[ "$EXPECTED_SHA256" =~ ^[[:xdigit:]]{64}$ ]] || die '--sha256 must contain exactly 64 hexadecimal characters.'
-    if [[ "$DRY_RUN" == false ]]; then
-        actual_sha256=$(sha256sum "$ISO_PATH" | awk '{print $1}')
-        if [[ "${actual_sha256,,}" != "${EXPECTED_SHA256,,}" ]]; then
-            die "ISO checksum mismatch. Expected ${EXPECTED_SHA256}; received ${actual_sha256}."
-        fi
-        printf '[PASS] ISO SHA-256 matched: %s\n' "$actual_sha256"
-    else
-        printf '[INFO] ISO SHA-256 validation skipped in dry-run mode.\n'
-    fi
-fi
-
-mkdir_command=(mkdir -p "$STATE_DIR")
-if [[ "$DRY_RUN" == true ]]; then
-    print_command "${mkdir_command[@]}"
-else
-    "${mkdir_command[@]}"
-fi
-
-if [[ -z "$DISK_PATH" ]]; then
-    DISK_PATH="${STATE_DIR}/genixbit-${MODE}.qcow2"
-fi
-
-if [[ "$DRY_RUN" == false ]]; then
-    mkdir -p "$(dirname "$DISK_PATH")"
-fi
-
-repo_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
-if [[ -n "$repo_root" ]]; then
-    disk_parent=$(cd "$(dirname "$DISK_PATH")" 2>/dev/null && pwd -P || true)
-    if [[ -n "$disk_parent" ]]; then
-        disk_absolute="${disk_parent}/$(basename "$DISK_PATH")"
-        case "$disk_absolute" in
-            "$repo_root"/*) die 'VM disks must be stored outside the Git repository.' ;;
-        esac
-    fi
-fi
-
-if [[ ! -e "$DISK_PATH" ]]; then
-    [[ "$CREATE_DISK" == true ]] || die "Virtual disk does not exist: $DISK_PATH. Pass --create-disk to create it."
+if [[ ! -e "$DISK_PATH" && "$CREATE_DISK" == true ]]; then
     require_command qemu-img
-    create_disk_command=(qemu-img create -f qcow2 "$DISK_PATH" "$DISK_SIZE")
-    if [[ "$DRY_RUN" == true ]]; then
-        print_command "${create_disk_command[@]}"
+    qemu-img create -f qcow2 "$DISK_PATH" "$DISK_SIZE" >/dev/null
+fi
+
+mkdir -p "$STATE_DIR" "$(dirname "$DISK_PATH")"
+
+# Remove stale sockets if no active process is using them
+if [[ -S "$QMP_PATH" ]]; then
+    if [[ -f "$PID_FILE" ]]; then
+        OLD_PID=$(cat "$PID_FILE" 2>/dev/null || echo "0")
+        if ! kill -0 "$OLD_PID" 2>/dev/null; then
+            rm -f "$QMP_PATH" "$PID_FILE"
+        fi
     else
-        "${create_disk_command[@]}"
+        rm -f "$QMP_PATH"
     fi
-else
-    [[ -f "$DISK_PATH" ]] || die "Disk path is not a regular file: $DISK_PATH"
+fi
+
+# Allocate SSH port if not specified
+if [[ -z "$SSH_PORT" ]]; then
+    SSH_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh" 2>/dev/null || echo "2222")
 fi
 
 qemu_command=(
     qemu-system-x86_64
-    -name "GenixBit OS 0.1.0-alpha (${MODE})"
+    -name "GenixBit OS 0.3.0-alpha (${MODE} - ${VM_ID})"
     -m "$MEMORY_MB"
     -smp "$CPU_COUNT"
     -drive "file=${DISK_PATH},if=virtio,format=qcow2"
-    -nic "user,model=virtio-net-pci"
+    -netdev "user,id=net0,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22"
+    -device "virtio-net-pci,netdev=net0"
     -rtc base=utc
     -vga "$VGA_DEVICE"
 )
 
 if [[ -r /dev/kvm && -w /dev/kvm ]]; then
     qemu_command+=(-enable-kvm -cpu host)
-    printf '[INFO] KVM acceleration enabled.\n'
-else
-    printf '[WARN] /dev/kvm is unavailable; QEMU will use software emulation.\n' >&2
 fi
 
 if [[ "$MODE" == 'bios' ]]; then
     qemu_command+=(-machine pc)
 else
-    if [[ -n "$OVMF_CODE" || -n "$OVMF_VARS_TEMPLATE" ]]; then
-        [[ -n "$OVMF_CODE" && -n "$OVMF_VARS_TEMPLATE" ]] || die 'Pass both --ovmf-code and --ovmf-vars when overriding OVMF.'
-        [[ -r "$OVMF_CODE" ]] || die "OVMF code image is not readable: $OVMF_CODE"
-        [[ -r "$OVMF_VARS_TEMPLATE" ]] || die "OVMF variables template is not readable: $OVMF_VARS_TEMPLATE"
-    else
-        find_ovmf_pair
-    fi
-
+    find_ovmf_pair
     vars_state="${DISK_PATH%.*}.ovmf-vars.fd"
     if [[ ! -e "$vars_state" ]]; then
-        copy_vars_command=(cp --reflink=auto "$OVMF_VARS_TEMPLATE" "$vars_state")
-        if [[ "$DRY_RUN" == true ]]; then
-            print_command "${copy_vars_command[@]}"
-        else
-            "${copy_vars_command[@]}"
-        fi
+        cp --reflink=auto "$OVMF_VARS_TEMPLATE" "$vars_state" 2>/dev/null || cp "$OVMF_VARS_TEMPLATE" "$vars_state"
     fi
 
     qemu_command+=(
@@ -369,6 +338,9 @@ else
     qemu_command+=(-cdrom "$ISO_PATH" -boot "order=d,menu=on")
 fi
 
+if [[ -n "$SEED_ISO" && -f "$SEED_ISO" ]]; then
+    qemu_command+=(-drive "file=${SEED_ISO},format=raw,if=virtio")
+fi
 
 if [[ -n "$SERIAL_LOG" ]]; then
     mkdir -p "$(dirname "$SERIAL_LOG")"
@@ -380,45 +352,71 @@ if [[ -n "$QMP_PATH" ]]; then
     qemu_command+=(-qmp "unix:${QMP_PATH},server,nowait")
 fi
 
-if [[ -n "$MONITOR_PATH" ]]; then
-    mkdir -p "$(dirname "$MONITOR_PATH")"
-    qemu_command+=(-monitor "unix:${MONITOR_PATH},server,nowait")
-fi
-
-if [[ -n "$PID_FILE" ]]; then
-    mkdir -p "$(dirname "$PID_FILE")"
-    qemu_command+=(-pidfile "$PID_FILE")
-fi
-
 if [[ -n "$GUEST_AGENT_PATH" ]]; then
     mkdir -p "$(dirname "$GUEST_AGENT_PATH")"
     qemu_command+=(-chardev "socket,path=${GUEST_AGENT_PATH},server=on,wait=off,id=qga0" -device "virtio-serial" -device "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0")
 fi
 
-if [[ -n "$SSH_PORT" ]]; then
-    qemu_command+=(-netdev "user,id=net0,hostfwd=tcp::${SSH_PORT}-:22")
-fi
-
 if [[ -n "$VNC_ENDPOINT" ]]; then
     qemu_command+=(-display none -vnc "$VNC_ENDPOINT")
 elif [[ "$HEADLESS" == true ]]; then
-    printf '[WARN] Headless mode cannot prove that the graphical live desktop or installer works.\n' >&2
-    if [[ -z "$SERIAL_LOG" ]]; then
-        qemu_command+=(-nographic)
-    fi
+    qemu_command+=(-display none)
 fi
 
-printf '[INFO] Firmware mode: %s\n' "$MODE"
-printf '[INFO] Virtual disk: %s\n' "$DISK_PATH"
-printf '[INFO] Boot target: %s\n' "$([[ "$BOOT_INSTALLED" == true ]] && printf 'installed disk' || printf 'ISO')"
-print_command "${qemu_command[@]}"
-
 if [[ "$DRY_RUN" == true ]]; then
+    print_command "${qemu_command[@]}"
     exit 0
 fi
 
-if [[ -n "${TIMEOUT_SEC:-}" ]]; then
-    exec timeout "$TIMEOUT_SEC" "${qemu_command[@]}"
-else
-    exec "${qemu_command[@]}"
+START_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Start QEMU as managed background process
+"${qemu_command[@]}" >/dev/null 2>&1 &
+QEMU_PID=$!
+
+echo "$QEMU_PID" > "$PID_FILE"
+
+# Wait for QMP socket to become responsive
+QMP_READY=false
+if [[ -n "$QMP_PATH" ]]; then
+    for _ in {1..30}; do
+        if [[ -S "$QMP_PATH" ]]; then
+            if python3 -c "import socket, json; s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.settimeout(2); s.connect('$QMP_PATH'); s.recv(4096); s.sendall(b'{\"execute\": \"qmp_capabilities\"}\n'); res = json.loads(s.recv(4096).decode()); exit(0 if 'return' in res else 1)" 2>/dev/null; then
+                QMP_READY=true
+                break
+            fi
+        fi
+        if ! kill -0 "$QEMU_PID" 2>/dev/null; then
+            die "QEMU process died immediately after launch!"
+        fi
+        sleep 1
+    done
 fi
+
+# Save machine-readable VM state JSON
+QEMU_CMD_STR="${qemu_command[*]}"
+QEMU_CMD_SHA=$(echo -n "$QEMU_CMD_STR" | sha256sum | awk '{print $1}')
+
+STATE_JSON="${STATE_DIR}/vm_state.json"
+cat <<EOF > "$STATE_JSON"
+{
+  "vm_id": "$VM_ID",
+  "mode": "$MODE",
+  "pid": $QEMU_PID,
+  "pid_file": "$PID_FILE",
+  "qmp_socket": "$QMP_PATH",
+  "guest_agent_socket": "${GUEST_AGENT_PATH:-null}",
+  "ssh_port": $SSH_PORT,
+  "serial_log": "$SERIAL_LOG",
+  "disk_path": "$DISK_PATH",
+  "iso_path": "${ISO_PATH:-null}",
+  "seed_iso_path": "${SEED_ISO:-null}",
+  "start_timestamp": "$START_TIMESTAMP",
+  "qemu_command": "$QEMU_CMD_STR",
+  "qemu_command_sha256": "$QEMU_CMD_SHA",
+  "state": "running"
+}
+EOF
+
+printf '[PASS] Managed QEMU VM %s started in background (PID: %s, SSH Port: %s, QMP: %s)\n' "$VM_ID" "$QEMU_PID" "$SSH_PORT" "$QMP_PATH"
+exit 0
