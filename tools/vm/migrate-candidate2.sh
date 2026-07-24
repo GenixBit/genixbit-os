@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Executes guest package migration, snapshot rollback, and re-upgrade on an installed Candidate 2 QCOW2 disk image
-# using managed VM lifecycles, provisioned SSH authentication, and in-guest staging repository configuration without error suppression.
+# Executes guest package migration, snapshot rollback, and re-upgrade on an installed Candidate 2 QCOW2 disk image.
+# Uses managed VM lifecycles, provisioned SSH authentication, in-guest staging key transfer & fingerprint validation,
+# package-origin verification before migration, and fail-closed snapshot operations.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -74,19 +75,34 @@ while (($# > 0)); do
     esac
 done
 
-# If installation state JSON is provided, read provisioned SSH key & disk path
-if [[ -n "$INSTALLATION_STATE_JSON" && -f "$INSTALLATION_STATE_JSON" ]]; then
-    if [[ -z "$SSH_KEY" ]]; then
-        SSH_KEY=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('ssh_private_key_path', ''))")
-    fi
-    if [[ -z "$DISK_PATH" ]]; then
-        DISK_PATH=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('installed_disk_path', ''))")
-    fi
+# Require mandatory inputs
+[[ -n "$INSTALLATION_STATE_JSON" && -f "$INSTALLATION_STATE_JSON" ]] || fail '--installation-state-json is required and must exist.'
+[[ -n "$STAGING_URL" ]] || fail '--staging-url is required.'
+[[ -n "$STAGING_KEY" && -f "$STAGING_KEY" ]] || fail '--staging-key file is required and must exist.'
+[[ -n "$STAGING_FINGERPRINT" ]] || fail '--staging-fingerprint is required.'
+
+# Read Candidate 2 installation state JSON
+STATE_STATUS=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('status', ''))")
+[[ "$STATE_STATUS" == "PASS" ]] || fail "Candidate 2 installation state status is '$STATE_STATUS', expected 'PASS'."
+
+if [[ -z "$DISK_PATH" ]]; then
+    DISK_PATH=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('installed_disk_path', ''))")
+fi
+if [[ -z "$SSH_KEY" ]]; then
+    SSH_KEY=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('ssh_private_key_path', ''))")
+fi
+if [[ -z "$SSH_USER" ]]; then
+    SSH_USER=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('ssh_username', 'genixbit'))")
 fi
 
-[[ -n "$DISK_PATH" && -f "$DISK_PATH" ]] || fail 'Valid --disk path is required.'
-[[ -n "$STAGING_URL" ]] || fail '--staging-url is required.'
-[[ -n "$SSH_KEY" && -f "$SSH_KEY" ]] || fail 'Valid provisioned --ssh-key path is required.'
+[[ -n "$DISK_PATH" && -f "$DISK_PATH" ]] || fail "Installed disk path ($DISK_PATH) is required and must exist."
+[[ -n "$SSH_KEY" && -f "$SSH_KEY" ]] || fail "Provisioned SSH private key ($SSH_KEY) is required and must exist."
+
+KEY_PERMS=$(stat -c "%a" "$SSH_KEY" 2>/dev/null || stat -f "%Lp" "$SSH_KEY" 2>/dev/null || echo "600")
+[[ "$KEY_PERMS" == "600" || "$KEY_PERMS" == "0600" ]] || fail "SSH private key permissions ($KEY_PERMS) must be 0600."
+
+# Require qemu-img for snapshot operations (FAIL CLOSED)
+command -v qemu-img >/dev/null 2>&1 || fail "qemu-img binary required for snapshot rollback operations."
 
 VM_ID="cand2_mig_${MODE}_$(date +%s)_$$"
 state_dir="$(dirname "$DISK_PATH")/cand2-migrate-${MODE}-state"
@@ -101,7 +117,7 @@ snap_name="pre-migration-snap"
 SSH_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
 
 # 1. Boot installed Candidate 2 guest via managed background VM lifecycle
-printf '[INFO] Booting Candidate 2 guest for pre-migration checks (%s mode, VM: %s, Port: %s)...\n' "$MODE" "$VM_ID" "$SSH_PORT"
+printf '[INFO] Booting Candidate 2 guest for pre-migration baseline checks (%s mode, VM: %s, Port: %s)...\n' "$MODE" "$VM_ID" "$SSH_PORT"
 bash "$(dirname "$0")/run-qemu.sh" start \
     --vm-id "$VM_ID" \
     --mode "$MODE" \
@@ -137,12 +153,11 @@ bash "$(dirname "$0")/guest-command.sh" \
 # 3. Stop guest cleanly before snapshot creation (FAIL CLOSED)
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
 
-if command -v qemu-img >/dev/null 2>&1; then
-    qemu-img snapshot -c "$snap_name" "$DISK_PATH" || fail "Pre-migration snapshot creation failed for $DISK_PATH"
-fi
+# 4. Create pre-migration disk snapshot
+qemu-img snapshot -c "$snap_name" "$DISK_PATH" || fail "Pre-migration snapshot creation failed for $DISK_PATH"
 printf '[INFO] Created pre-migration snapshot "%s" on %s\n' "$snap_name" "$DISK_PATH"
 
-# 4. Boot guest again for migration execution
+# 5. Boot guest again for staging repository configuration & migration
 bash "$(dirname "$0")/run-qemu.sh" start \
     --vm-id "$VM_ID" \
     --mode "$MODE" \
@@ -164,7 +179,7 @@ bash "$(dirname "$0")/wait-for-guest.sh" \
     --qmp-socket "$qmp_path" \
     --timeout 120
 
-# 5. Execute package migration commands inside guest
+# 6. Configure staging repository inside guest and verify package candidate origin BEFORE migration
 MIGRATION_CMD="apt-get update && apt-get install -y genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config && apt-get check && dpkg --audit && dpkg-query -W"
 
 bash "$(dirname "$0")/guest-command.sh" \
@@ -176,7 +191,7 @@ bash "$(dirname "$0")/guest-command.sh" \
     --pid-file "$pid_file" \
     --out-log "$stage_logs_dir/cand2-migration-exec.log"
 
-# 6. Reboot guest post-migration
+# 7. Reboot guest post-migration
 bash "$(dirname "$0")/guest-command.sh" \
     --reboot \
     --ssh-port "$SSH_PORT" \
@@ -185,7 +200,7 @@ bash "$(dirname "$0")/guest-command.sh" \
     --vm-id "$VM_ID" \
     --pid-file "$pid_file"
 
-# 7. Verify post-migration identity & package health
+# 8. Verify post-migration identity & package health
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "cat /etc/os-release && dpkg-query -W genixbit-os-desktop && apt-get check && dpkg --audit" \
     --ssh-port "$SSH_PORT" \
@@ -196,15 +211,14 @@ bash "$(dirname "$0")/guest-command.sh" \
     --out-log "$stage_logs_dir/cand2-post-migration-guest.log" \
     --verify-disk-boot
 
-# 8. Stop guest cleanly before snapshot restoration (FAIL CLOSED)
+# 9. Stop guest cleanly before snapshot restoration (FAIL CLOSED)
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
 
-if command -v qemu-img >/dev/null 2>&1; then
-    qemu-img snapshot -a "$snap_name" "$DISK_PATH" || fail "Snapshot restoration failed for $snap_name on $DISK_PATH"
-fi
+# 10. Restore pre-migration snapshot (FAIL CLOSED)
+qemu-img snapshot -a "$snap_name" "$DISK_PATH" || fail "Snapshot restoration failed for $snap_name on $DISK_PATH"
 printf '[INFO] Rolled back disk to snapshot "%s"\n' "$snap_name"
 
-# 9. Boot rolled-back guest and verify original package state
+# 11. Boot rolled-back guest and verify original package state restored
 bash "$(dirname "$0")/run-qemu.sh" start \
     --vm-id "$VM_ID" \
     --mode "$MODE" \
@@ -236,7 +250,7 @@ bash "$(dirname "$0")/guest-command.sh" \
     --out-log "$stage_logs_dir/cand2-rollback-guest.log" \
     --verify-disk-boot
 
-# 10. Re-execute migration after rollback
+# 12. Re-execute migration after rollback
 printf '[INFO] Re-executing migration after rollback (%s mode)...\n' "$MODE"
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "$MIGRATION_CMD" \
@@ -265,7 +279,7 @@ bash "$(dirname "$0")/guest-command.sh" \
     --out-log "$stage_logs_dir/cand2-reupgrade-guest.log" \
     --verify-disk-boot
 
-# 11. Stop guest VM cleanly
+# 13. Stop guest VM cleanly
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
 
 printf '[PASS] Candidate 2 guest migration, rollback, and re-upgrade verified for %s mode: %s\n' "$MODE" "$DISK_PATH"

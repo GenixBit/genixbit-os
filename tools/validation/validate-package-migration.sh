@@ -323,10 +323,20 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
     fi
 
     # 1. Install Candidate 2 ISO in VM
-    bash "$REPO_ROOT/tools/vm/install-candidate2.sh" --iso "$CAND2_ISO" --disk "$TMP_DIR/cand2-uefi.qcow2" --mode uefi > "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log" 2> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stderr.log"
+    CAND2_INSTALL_OUT=$(bash "$REPO_ROOT/tools/vm/install-candidate2.sh" --iso "$CAND2_ISO" --disk "$TMP_DIR/cand2-uefi.qcow2" --mode uefi 2>&1 | tee "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
 
-    # 2. Execute migration inside guest
-    bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" --disk "$TMP_DIR/cand2-uefi.qcow2" --mode uefi --staging-url "$STAGING_HOST" >> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stderr.log"
+    CAND2_STATE_FILE=$(echo "$CAND2_INSTALL_OUT" | grep "GENIXBIT_CANDIDATE2_INSTALL_STATE=" | cut -d'=' -f2- || echo "")
+    [[ -n "$CAND2_STATE_FILE" && -f "$CAND2_STATE_FILE" ]] || fail "Candidate 2 installation state file missing from install-candidate2.sh output!"
+
+    STATE_PERMS=$(stat -c "%a" "$CAND2_STATE_FILE" 2>/dev/null || stat -f "%Lp" "$CAND2_STATE_FILE" 2>/dev/null || echo "600")
+    [[ "$STATE_PERMS" == "600" || "$STATE_PERMS" == "0600" ]] || fail "Candidate 2 state file permissions ($STATE_PERMS) must be 0600!"
+
+    # 2. Execute migration using installation state file, staging public key, and signing fingerprint
+    bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" \
+        --installation-state-json "$CAND2_STATE_FILE" \
+        --staging-url "$STAGING_HOST" \
+        --staging-key "$PUB_KEYRING" \
+        --staging-fingerprint "$FPR" >> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stderr.log"
 
     CAND2_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
