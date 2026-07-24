@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Executes commands inside a QEMU guest VM via authenticated SSH or dedicated QEMU Guest Agent socket.
-# Captures command stdout, stderr, timestamps, exit code, and stdout/stderr SHA-256 digests.
+# Executes commands inside a running QEMU guest VM via authenticated SSH.
+# Captures stdout, stderr, timestamps, exit code, and SHA-256 digests without error suppression.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -10,7 +10,6 @@ CMD=""
 SSH_PORT=""
 SSH_USER="genixbit"
 SSH_KEY=""
-QGA_SOCKET=""
 OUT_LOG=""
 STDERR_LOG=""
 RESULT_JSON=""
@@ -18,6 +17,8 @@ VERIFY_DISK_BOOT=false
 REBOOT=false
 SHUTDOWN=false
 TIMEOUT_SEC=300
+VM_ID=""
+PID_FILE=""
 
 fail() {
     printf '[FAIL] guest-command.sh: %s\n' "$*" >&2
@@ -46,9 +47,14 @@ while (($# > 0)); do
             SSH_KEY=$2
             shift 2
             ;;
-        --guest-agent-socket|--guest-agent)
-            (($# >= 2)) || fail '--guest-agent-socket requires a socket path.'
-            QGA_SOCKET=$2
+        --vm-id)
+            (($# >= 2)) || fail '--vm-id requires a value.'
+            VM_ID=$2
+            shift 2
+            ;;
+        --pid-file)
+            (($# >= 2)) || fail '--pid-file requires a path.'
+            PID_FILE=$2
             shift 2
             ;;
         --out-log|--stdout-log)
@@ -84,7 +90,12 @@ while (($# > 0)); do
             shift 2
             ;;
         *)
-            fail "Unknown argument: $1"
+            # Ignore legacy arguments for backward compatibility
+            if [[ "$1" == "--guest-agent-socket" || "$1" == "--guest-agent" || "$1" == "--qmp" || "$1" == "--serial-log" ]]; then
+                shift 2
+            else
+                fail "Unknown argument: $1"
+            fi
             ;;
     esac
 done
@@ -96,6 +107,7 @@ elif [[ "$SHUTDOWN" == "true" ]]; then
 fi
 
 [[ -n "$CMD" ]] || fail '--cmd, --verify-disk-boot, --reboot, or --shutdown is required.'
+[[ -n "$SSH_PORT" ]] || fail '--ssh-port is required.'
 
 START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -107,96 +119,66 @@ cleanup_tmp() {
 }
 trap cleanup_tmp EXIT
 
-CHANNEL=""
-EXIT_CODE=1
+CHANNEL="ssh"
+SSH_OPTS=(-o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" -o "ConnectTimeout=10" -p "$SSH_PORT")
+if [[ -n "$SSH_KEY" && -f "$SSH_KEY" ]]; then
+    SSH_OPTS+=(-i "$SSH_KEY")
+fi
+
+set +e
+timeout "$TIMEOUT_SEC" ssh "${SSH_OPTS[@]}" "${SSH_USER}@127.0.0.1" "$CMD" > "$STDOUT_FILE" 2> "$STDERR_FILE"
+EXIT_CODE=$?
+set -e
+
 EXEC_SUCCESS=false
 
-# Channel 1: Authenticated SSH over localhost port forwarding
-if [[ -n "$SSH_PORT" ]]; then
-    CHANNEL="ssh"
-    SSH_OPTS=(-o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" -o "ConnectTimeout=10" -p "$SSH_PORT")
-    if [[ -n "$SSH_KEY" && -f "$SSH_KEY" ]]; then
-        SSH_OPTS+=(-i "$SSH_KEY")
+if [[ "$REBOOT" == "true" ]]; then
+    # SSH disconnect exit 255 or 0 on reboot is accepted
+    if [[ $EXIT_CODE -eq 0 || $EXIT_CODE -eq 255 ]]; then
+        # Confirm guest returns after reboot
+        sleep 3
+        REBOOT_TOKEN="POST_REBOOT_$(date +%s)_$$"
+        REBOOT_OK=false
+        for _ in {1..30}; do
+            if ssh "${SSH_OPTS[@]}" "${SSH_USER}@127.0.0.1" "echo '$REBOOT_TOKEN'" 2>/dev/null | grep -F "$REBOOT_TOKEN" >/dev/null 2>&1; then
+                REBOOT_OK=true
+                break
+            fi
+            sleep 2
+        done
+        if [[ "$REBOOT_OK" == "true" ]]; then
+            EXEC_SUCCESS=true
+            EXIT_CODE=0
+        else
+            fail "Reboot command sent but guest failed to return and authenticate post-reboot!"
+        fi
     fi
-
-    set +e
-    timeout "$TIMEOUT_SEC" ssh "${SSH_OPTS[@]}" "${SSH_USER}@127.0.0.1" "$CMD" > "$STDOUT_FILE" 2> "$STDERR_FILE"
-    EXIT_CODE=$?
-    set -e
-
-    if [[ "$REBOOT" == "true" || "$SHUTDOWN" == "true" ]]; then
-        # SSH disconnect on reboot/poweroff gives 255 or 0
-        if [[ $EXIT_CODE -eq 0 || $EXIT_CODE -eq 255 ]]; then
+elif [[ "$SHUTDOWN" == "true" ]]; then
+    if [[ $EXIT_CODE -eq 0 || $EXIT_CODE -eq 255 ]]; then
+        # Confirm QEMU process exits
+        if [[ -n "$PID_FILE" && -f "$PID_FILE" ]]; then
+            PID=$(cat "$PID_FILE" 2>/dev/null || echo "0")
+            SHUTDOWN_OK=false
+            for _ in {1..20}; do
+                if ! kill -0 "$PID" 2>/dev/null; then
+                    SHUTDOWN_OK=true
+                    break
+                fi
+                sleep 1
+            done
+            if [[ "$SHUTDOWN_OK" == "true" ]]; then
+                EXEC_SUCCESS=true
+                EXIT_CODE=0
+            else
+                fail "Shutdown command sent but QEMU process (PID $PID) remained running!"
+            fi
+        else
             EXEC_SUCCESS=true
             EXIT_CODE=0
         fi
-    elif [[ $EXIT_CODE -eq 0 ]]; then
-        EXEC_SUCCESS=true
     fi
-fi
-
-# Channel 2: QEMU Guest Agent (via dedicated virtio-serial QGA socket, NOT QMP monitor socket)
-if [[ "$EXEC_SUCCESS" == "false" && -n "$QGA_SOCKET" && -S "$QGA_SOCKET" ]]; then
-    CHANNEL="qemu-guest-agent"
-    qga_python=$(cat <<PYEOF
-import socket, json, base64, time, sys
-
-sock_path = "${QGA_SOCKET}"
-cmd_str = """${CMD}"""
-
-try:
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.settimeout(15)
-    s.connect(sock_path)
-
-    # Ping QGA
-    s.sendall(b'{"execute": "guest-ping"}\n')
-    res = json.loads(s.recv(4096).decode())
-    if "error" in res:
-        sys.exit(1)
-
-    # Execute via guest-exec
-    req = json.dumps({"execute": "guest-exec", "arguments": {"path": "/bin/bash", "arg": ["-c", cmd_str], "capture-output": True}})
-    s.sendall(req.encode() + b'\n')
-    res = json.loads(s.recv(4096).decode())
-    pid = res.get("return", {}).get("pid")
-    if not pid:
-        sys.exit(1)
-
-    # Poll status
-    status_req = json.dumps({"execute": "guest-exec-status", "arguments": {"pid": pid}})
-    start_t = time.time()
-    while time.time() - start_t < 60:
-        s.sendall(status_req.encode() + b'\n')
-        status_res = json.loads(s.recv(8192).decode())
-        ret = status_res.get("return", {})
-        if ret.get("exited", False):
-            out_b64 = ret.get("out-data", "")
-            err_b64 = ret.get("err-data", "")
-            exit_code = ret.get("exitcode", 0)
-            with open("${STDOUT_FILE}", "wb") as f:
-                f.write(base64.b64decode(out_b64))
-            with open("${STDERR_FILE}", "wb") as f:
-                f.write(base64.b64decode(err_b64))
-            sys.exit(exit_code)
-        time.sleep(1)
-    sys.exit(1)
-except Exception as e:
-    sys.exit(1)
-PYEOF
-)
-    set +e
-    python3 -c "$qga_python"
-    EXIT_CODE=$?
-    set -e
-    if [[ $EXIT_CODE -eq 0 ]]; then
-        EXEC_SUCCESS=true
-    fi
-fi
-
-# NO SERIAL LOG FALLBACK! Serial logs do not prove arbitrary command execution.
-if [[ "$EXEC_SUCCESS" == "false" && -z "$CHANNEL" ]]; then
-    fail "No valid authenticated channel (SSH port or QGA socket) configured for guest command execution!"
+elif [[ $EXIT_CODE -eq 0 ]]; then
+    EXEC_SUCCESS=true
 fi
 
 END_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -233,13 +215,14 @@ $STDERR_TEXT
 EOF
 fi
 
-# Save result JSON if requested
+# Save result JSON
 if [[ -n "$RESULT_JSON" ]]; then
     mkdir -p "$(dirname "$RESULT_JSON")"
     cat <<EOF > "$RESULT_JSON"
 {
   "command": "$CMD",
   "channel": "$CHANNEL",
+  "vm_id": "${VM_ID:-unknown}",
   "start_timestamp": "$START_TIME",
   "completion_timestamp": "$END_TIME",
   "exit_code": $EXIT_CODE,
@@ -250,22 +233,14 @@ if [[ -n "$RESULT_JSON" ]]; then
 EOF
 fi
 
-# Part 3: Additive Disk-Boot Verification
+# Additive Disk-Boot Verification
 if [[ "$VERIFY_DISK_BOOT" == "true" && "$EXEC_SUCCESS" == "true" ]]; then
-    info "Executing additive disk-boot assertion check..."
     BOOT_VERIFY_CMD="findmnt -n -o SOURCE,FSTYPE / && lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINTS && cat /proc/cmdline && cat /etc/os-release"
-    BOOT_CHECK_OUT=""
-    
-    if [[ "$CHANNEL" == "ssh" ]]; then
-        SSH_OPTS=(-o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" -o "ConnectTimeout=10" -p "$SSH_PORT")
-        if [[ -n "$SSH_KEY" && -f "$SSH_KEY" ]]; then SSH_OPTS+=(-i "$SSH_KEY"); fi
-        BOOT_CHECK_OUT=$(ssh "${SSH_OPTS[@]}" "${SSH_USER}@127.0.0.1" "$BOOT_VERIFY_CMD" 2>&1 || echo "FAILED_BOOT_CHECK")
-    fi
+    BOOT_CHECK_OUT=$(ssh "${SSH_OPTS[@]}" "${SSH_USER}@127.0.0.1" "$BOOT_VERIFY_CMD" 2>&1 || echo "FAILED_BOOT_CHECK")
 
     if echo "$BOOT_CHECK_OUT" | grep -E "(iso9660|/dev/sr0|boot=casper|iso-scan)" >/dev/null 2>&1 || [[ "$BOOT_CHECK_OUT" == "FAILED_BOOT_CHECK" ]]; then
         fail "Disk-boot verification failed! Guest root filesystem is mounted from ISO/casper live media:\n$BOOT_CHECK_OUT"
     fi
-    info "Additive disk-boot assertion verified: guest is booted from installed virtual disk."
 fi
 
 if [[ "$EXEC_SUCCESS" == "true" ]]; then

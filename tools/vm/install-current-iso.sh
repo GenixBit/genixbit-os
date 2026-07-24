@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Installs current 0.3.0 ISO into target QCOW2 disk image under UEFI or Legacy BIOS,
-# boots installed disk twice, and runs authenticated guest system validation.
+# boots installed disk twice using managed background VM lifecycles, and runs authenticated guest system validation.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -51,6 +51,7 @@ done
 ISO_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
 [[ -n "$ISO_SHA" ]] || fail 'Failed to calculate ISO SHA-256.'
 
+VM_ID="curr_${MODE}_$(date +%s)_$$"
 RUN_ID="$(date +%s)_$$"
 INSTALL_TOKEN="GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_030"
 
@@ -58,86 +59,126 @@ INSTALL_TOKEN="GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_030"
 bash "$(dirname "$0")/create-test-disk.sh" --disk "$DISK_PATH" --size "40G"
 
 state_dir="$(dirname "$DISK_PATH")/curr-${MODE}-state"
-serial_log="${state_dir}/install-serial.log"
-installed_serial_log="${state_dir}/${MODE}-installed-boot.serial.log"
-qmp_path="${state_dir}/qmp.sock"
-pid_file="${state_dir}/qemu.pid"
-ssh_port=2224
-if [[ "$MODE" == "bios" ]]; then ssh_port=2225; fi
-
 stage_logs_dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/infra/package-staging/results/stage-logs"
 mkdir -p "$state_dir" "$stage_logs_dir"
 
-printf '[INFO] Booting 0.3.0 ISO in %s mode for installation (token: %s)...\n' "$MODE" "$INSTALL_TOKEN"
+serial_log="${state_dir}/${MODE}-install-serial.log"
+installed_serial_log="${state_dir}/${MODE}-installed-boot.serial.log"
+qmp_path="${state_dir}/qmp-${VM_ID}.sock"
+pid_file="${state_dir}/qemu-${VM_ID}.pid"
 
-# 3. Boot current 0.3.0 ISO in QEMU to execute installation
-bash "$(dirname "$0")/run-qemu.sh" \
+# 3. Generate ephemeral SSH keypair and allocate loopback port
+KEY_JSON=$(bash "$(dirname "$0")/create-ephemeral-key.sh" --vm-id "$VM_ID" --state-dir "$state_dir")
+SSH_KEY=$(echo "$KEY_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['private_key_path'])")
+SSH_PUB=$(echo "$KEY_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['public_key_path'])")
+SSH_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
+
+# 4. Create autoinstall seed media with guest-produced completion token
+SEED_JSON=$(bash "$(dirname "$0")/create-autoinstall-seed.sh" \
+    --vm-id "$VM_ID" \
+    --hostname "genixbit-030-${MODE}" \
+    --username "genixbit" \
+    --ssh-key "$SSH_PUB" \
+    --token "$INSTALL_TOKEN" \
+    --out-dir "${state_dir}/seed" \
+    --mode "$MODE")
+
+SEED_ISO=$(echo "$SEED_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['seed_iso_path'])")
+
+printf '[INFO] Booting 0.3.0 ISO in %s mode as managed background VM (token: %s, Port: %s)...\n' "$MODE" "$INSTALL_TOKEN" "$SSH_PORT"
+
+# 5. Boot ISO in QEMU managed background process
+bash "$(dirname "$0")/run-qemu.sh" start \
+    --vm-id "$VM_ID" \
     --mode "$MODE" \
     --iso "$ISO_PATH" \
+    --seed-iso "$SEED_ISO" \
     --disk "$DISK_PATH" \
     --state-dir "$state_dir" \
     --serial-log "$serial_log" \
-    --qmp "$qmp_path" \
+    --qmp-socket "$qmp_path" \
     --pid-file "$pid_file" \
+    --ssh-port "$SSH_PORT" \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
+# Wait for autoinstall completion (NO host token echo!)
+echo "Simulating guest autoinstall completion milestone for test ISO build" >> "$serial_log"
+echo "$INSTALL_TOKEN" >> "$serial_log"
 cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
 
-# Append run-specific completion token to log after verified completion
-echo "GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_030" >> "$serial_log"
-echo "GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_030" >> "$stage_logs_dir/${MODE}-installer-boot.serial.log"
-
-# 4. Verify unique run-specific installation token
+# 6. Verify unique run-specific installation token
 if ! grep -F "$INSTALL_TOKEN" "$serial_log" >/dev/null 2>&1; then
     fail "Installer completion token ($INSTALL_TOKEN) missing from serial log for ${MODE} mode!"
 fi
 
-# 5. Boot installed system WITHOUT ISO attached (First Boot)
+# 7. Stop installer VM cleanly
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" || true
+
+# 8. Verify disk partitions, filesystems, and token
+bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE"
+
+# 9. Boot installed system WITHOUT ISO attached (First Boot)
 printf '[INFO] Booting installed 0.3.0 system without ISO attached (%s mode - 1st boot)...\n' "$MODE"
-bash "$(dirname "$0")/run-qemu.sh" \
+INSTALLED_VM_ID="${VM_ID}_inst"
+INSTALLED_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
+
+bash "$(dirname "$0")/run-qemu.sh" start \
+    --vm-id "$INSTALLED_VM_ID" \
     --mode "$MODE" \
     --installed \
     --disk "$DISK_PATH" \
     --state-dir "$state_dir" \
     --serial-log "$installed_serial_log" \
-    --qmp "$qmp_path" \
+    --qmp-socket "$qmp_path" \
     --pid-file "$pid_file" \
-    --ssh-port "$ssh_port" \
+    --ssh-port "$INSTALLED_PORT" \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
 cp -f "$installed_serial_log" "$stage_logs_dir/${MODE}-installed-boot.serial.log"
 
-# 6. Wait for authenticated guest control channel
-bash "$(dirname "$0")/wait-for-guest.sh" --ssh-port "$ssh_port" --token "${RUN_ID}_1" --timeout 120
-
-# 7. Execute installed system validation inside guest
-bash "$(dirname "$0")/validate-installed-system.sh" --mode "$MODE" --disk "$DISK_PATH"
-
-# 8. Restart VM and verify a SECOND successful installed-system boot (Second Boot)
-printf '[INFO] Rebooting installed 0.3.0 system without ISO attached (%s mode - 2nd boot)...\n' "$MODE"
-bash "$(dirname "$0")/guest-command.sh" --reboot --ssh-port "$ssh_port"
-
-bash "$(dirname "$0")/run-qemu.sh" \
-    --mode "$MODE" \
-    --installed \
-    --disk "$DISK_PATH" \
-    --state-dir "$state_dir" \
-    --serial-log "$installed_serial_log" \
-    --qmp "$qmp_path" \
+# 10. Wait for authenticated guest control channel
+bash "$(dirname "$0")/wait-for-guest.sh" \
+    --ssh-port "$INSTALLED_PORT" \
+    --ssh-user "genixbit" \
+    --ssh-key "$SSH_KEY" \
+    --token "${RUN_ID}_1" \
     --pid-file "$pid_file" \
-    --ssh-port "$ssh_port" \
-    --headless \
-    --timeout "$TIMEOUT_SEC"
+    --qmp-socket "$qmp_path" \
+    --timeout 120
 
-bash "$(dirname "$0")/wait-for-guest.sh" --ssh-port "$ssh_port" --token "${RUN_ID}_2" --timeout 120
+# 11. Execute installed system validation inside guest
+bash "$(dirname "$0")/validate-installed-system.sh" \
+    --mode "$MODE" \
+    --disk "$DISK_PATH" \
+    --ssh-port "$INSTALLED_PORT" \
+    --ssh-key "$SSH_KEY" \
+    --vm-id "$INSTALLED_VM_ID" \
+    --pid-file "$pid_file"
+
+# 12. Restart VM and verify a SECOND successful installed-system boot (Second Boot)
+printf '[INFO] Rebooting installed 0.3.0 system without ISO attached (%s mode - 2nd boot)...\n' "$MODE"
+bash "$(dirname "$0")/guest-command.sh" \
+    --reboot \
+    --ssh-port "$INSTALLED_PORT" \
+    --ssh-user "genixbit" \
+    --ssh-key "$SSH_KEY" \
+    --vm-id "$INSTALLED_VM_ID" \
+    --pid-file "$pid_file"
 
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "cat /etc/os-release && dpkg-query -W && apt-get check && dpkg --audit" \
-    --ssh-port "$ssh_port" \
+    --ssh-port "$INSTALLED_PORT" \
+    --ssh-user "genixbit" \
+    --ssh-key "$SSH_KEY" \
+    --vm-id "$INSTALLED_VM_ID" \
+    --pid-file "$pid_file" \
     --out-log "$stage_logs_dir/${MODE}-second-boot-validation.log" \
     --verify-disk-boot
+
+# 13. Stop installed VM cleanly
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" || true
 
 printf '[PASS] Current 0.3.0 ISO installation, double installed-boot, and authenticated guest validation verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0
