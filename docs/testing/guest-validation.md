@@ -13,13 +13,13 @@ The primary guest-control mechanism uses **SSH over localhost port forwarding** 
 2. **Port Allocation**:
    - QEMU user network mode forwards a unique host port to guest port 22:
      `-netdev user,id=net0,hostfwd=tcp::<port>-:22`
-3. **Guest Readiness Verification** ([`tools/vm/wait-for-guest.sh`](file:///Users/manojnandanwar/genixbit-os/tools/vm/wait-for-guest.sh)):
+3. **Guest Readiness Verification** ([`tools/vm/wait-for-guest.sh`](../../tools/vm/wait-for-guest.sh)):
    - Verifies VM process is running.
    - Establishes SSH connection to guest on the forwarded port.
    - Executes readiness command inside guest:
      `printf 'GENIXBIT_GUEST_READY_%s\n' "$RUN_TOKEN"`
    - Verifies the run-specific token matches before declaring the guest ready.
-4. **Observed Command Execution** ([`tools/vm/guest-command.sh`](file:///Users/manojnandanwar/genixbit-os/tools/vm/guest-command.sh)):
+4. **Observed Command Execution** ([`tools/vm/guest-command.sh`](../../tools/vm/guest-command.sh)):
    - Runs requested commands inside the guest over authenticated SSH or dedicated QGA socket.
    - Captures exact command, start/completion timestamps, exit code, stdout file, stderr file, and stdout/stderr SHA-256 digests.
 5. **Additive Disk-Boot Verification**:
