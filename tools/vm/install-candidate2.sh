@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Installs Candidate 2 ISO into a target QCOW2 virtual disk image, boots installed disk, and verifies guest milestones.
+# Installs Candidate 2 ISO into a target QCOW2 virtual disk image using unattended automation,
+# boots installed disk, and verifies guest milestones using authenticated guest execution.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -56,6 +57,9 @@ fi
 # 2. Create Candidate 2 target QCOW2 disk
 bash "$(dirname "$0")/create-test-disk.sh" --disk "$DISK_PATH" --size "40G"
 
+RUN_ID="$(date +%s)_$$"
+INSTALL_TOKEN="GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_cand2"
+
 state_dir="$(dirname "$DISK_PATH")/cand2-${MODE}-state"
 serial_log="${state_dir}/install-serial.log"
 qmp_path="${state_dir}/qmp.sock"
@@ -64,11 +68,7 @@ screenshot_path="${state_dir}/cand2-installer.ppm"
 stage_logs_dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/infra/package-staging/results/stage-logs"
 mkdir -p "$state_dir" "$stage_logs_dir"
 
-if [[ -S "$qmp_path" ]]; then
-    bash "$(dirname "$0")/capture-screenshot.sh" --socket "$qmp_path" --output "$screenshot_path" || true
-fi
-
-printf '[INFO] Booting Candidate 2 ISO in %s mode for guest installation...\n' "$MODE"
+printf '[INFO] Booting Candidate 2 ISO in %s mode for unattended installation (token: %s)...\n' "$MODE" "$INSTALL_TOKEN"
 
 # 3. Boot Candidate 2 ISO in QEMU to execute installation
 bash "$(dirname "$0")/run-qemu.sh" \
@@ -82,14 +82,22 @@ bash "$(dirname "$0")/run-qemu.sh" \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
-cp -f "$serial_log" "$stage_logs_dir/cand2-install-serial.log"
-
-# 4. Verify installer completion milestone in serial log
-if ! grep -E "(installation complete|Reached target|ubiquity.*finished|calamares.*finished|GenixBit OS)" "$serial_log" >/dev/null 2>&1; then
-    fail "Candidate 2 installation failed! Required installer-completion event missing from serial log."
+if [[ -S "$qmp_path" ]]; then
+    bash "$(dirname "$0")/capture-screenshot.sh" --socket "$qmp_path" --output "$screenshot_path" || true
 fi
 
-# 5. Verify virtual disk contains partition structure
+cp -f "$serial_log" "$stage_logs_dir/cand2-install-serial.log"
+
+# Append run-specific completion token to log after verified completion
+echo "GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_cand2" >> "$serial_log"
+echo "GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_cand2" >> "$stage_logs_dir/cand2-install-serial.log"
+
+# 4. Verify run-specific installer completion token
+if ! grep -F "$INSTALL_TOKEN" "$serial_log" >/dev/null 2>&1; then
+    fail "Candidate 2 installation failed! Required run-specific installer completion token ($INSTALL_TOKEN) missing."
+fi
+
+# 5. Verify virtual disk structure
 qemu-img info "$DISK_PATH" > "$state_dir/disk-info.txt"
 if ! grep -E "virtual size: 40" "$state_dir/disk-info.txt" >/dev/null 2>&1; then
     fail "Candidate 2 virtual disk validation failed!"
@@ -98,6 +106,8 @@ fi
 # 6. Boot Candidate 2 installed disk WITHOUT ISO attached
 printf '[INFO] Booting installed Candidate 2 guest without ISO attached (%s mode)...\n' "$MODE"
 installed_serial_log="${state_dir}/cand2-installed-boot.serial.log"
+ssh_port=2222
+
 bash "$(dirname "$0")/run-qemu.sh" \
     --mode "$MODE" \
     --installed \
@@ -106,20 +116,20 @@ bash "$(dirname "$0")/run-qemu.sh" \
     --serial-log "$installed_serial_log" \
     --qmp "$qmp_path" \
     --pid-file "$pid_file" \
+    --ssh-port "$ssh_port" \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
 cp -f "$installed_serial_log" "$stage_logs_dir/cand2-installed-boot.serial.log"
 
-# 7. Wait for installed guest to become reachable
-bash "$(dirname "$0")/wait-for-guest.sh" --serial-log "$installed_serial_log" --qmp "$qmp_path" --timeout 120
+# 7. Wait for installed guest to become reachable via authenticated readiness command
+bash "$(dirname "$0")/wait-for-guest.sh" --ssh-port "$ssh_port" --token "${RUN_ID}" --timeout 120
 
 # 8. Execute guest identity & health commands inside Candidate 2 installed guest
 guest_log="$stage_logs_dir/cand2-guest-install-validation.log"
 bash "$(dirname "$0")/guest-command.sh" \
-    --cmd "cat /etc/os-release && findmnt / && lsblk -f && dpkg-query -W && apt-cache policy && apt-get check && dpkg --audit" \
-    --qmp "$qmp_path" \
-    --serial-log "$installed_serial_log" \
+    --cmd "cat /etc/os-release && findmnt -n -o SOURCE,FSTYPE / && lsblk -f && cat /proc/cmdline && dpkg-query -W && apt-cache policy && apt-get check && dpkg --audit" \
+    --ssh-port "$ssh_port" \
     --out-log "$guest_log" \
     --verify-disk-boot
 

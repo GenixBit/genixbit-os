@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Waits for a QEMU guest VM to become reachable and ready to receive commands.
+# Waits for a QEMU guest VM to become ready by executing an authenticated readiness command
+# and matching a run-specific verification token.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
 
 SSH_PORT=""
-SERIAL_LOG=""
-QMP_PATH=""
+SSH_USER="genixbit"
+SSH_KEY=""
+QGA_SOCKET=""
+TOKEN=""
 TIMEOUT_SEC=300
 
 fail() {
@@ -22,14 +25,24 @@ while (($# > 0)); do
             SSH_PORT=$2
             shift 2
             ;;
-        --serial-log)
-            (($# >= 2)) || fail '--serial-log requires a path.'
-            SERIAL_LOG=$2
+        --ssh-user)
+            (($# >= 2)) || fail '--ssh-user requires a username.'
+            SSH_USER=$2
             shift 2
             ;;
-        --qmp)
-            (($# >= 2)) || fail '--qmp requires a path.'
-            QMP_PATH=$2
+        --ssh-key)
+            (($# >= 2)) || fail '--ssh-key requires a path.'
+            SSH_KEY=$2
+            shift 2
+            ;;
+        --guest-agent-socket|--guest-agent)
+            (($# >= 2)) || fail '--guest-agent-socket requires a path.'
+            QGA_SOCKET=$2
+            shift 2
+            ;;
+        --token)
+            (($# >= 2)) || fail '--token requires a string.'
+            TOKEN=$2
             shift 2
             ;;
         --timeout)
@@ -38,40 +51,82 @@ while (($# > 0)); do
             shift 2
             ;;
         *)
-            fail "Unknown argument: $1"
+            # Ignore legacy parameters like --qmp or --serial-log for backward compatibility
+            if [[ "$1" == "--qmp" || "$1" == "--serial-log" ]]; then
+                shift 2
+            else
+                fail "Unknown argument: $1"
+            fi
             ;;
     esac
 done
 
-end_time=$((SECONDS + TIMEOUT_SEC))
+if [[ -z "$TOKEN" ]]; then
+    TOKEN="GENIXBIT_GUEST_READY_$(date +%s)_$$"
+fi
 
-printf '[INFO] Waiting for guest VM readiness (timeout: %ds)...\n' "$TIMEOUT_SEC"
+end_time=$((SECONDS + TIMEOUT_SEC))
+READINESS_CMD="printf 'GENIXBIT_GUEST_READY_%s\n' '$TOKEN' && cat /etc/machine-id 2>/dev/null || true"
+
+printf '[INFO] Waiting for authenticated guest VM readiness (token: %s, timeout: %ds)...\n' "$TOKEN" "$TIMEOUT_SEC"
 
 while ((SECONDS < end_time)); do
-    # Check SSH port if provided
+    # Method 1: Authenticated SSH readiness check
     if [[ -n "$SSH_PORT" ]]; then
-        if nc -z 127.0.0.1 "$SSH_PORT" >/dev/null 2>&1 || (exec 3<"/dev/tcp/127.0.0.1/$SSH_PORT") 2>/dev/null; then
-            exec 3<&- 2>/dev/null || true
-            printf '[PASS] Guest SSH port %s is open and reachable.\n' "$SSH_PORT"
+        SSH_OPTS=(-o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" -o "ConnectTimeout=5" -p "$SSH_PORT")
+        if [[ -n "$SSH_KEY" && -f "$SSH_KEY" ]]; then
+            SSH_OPTS+=(-i "$SSH_KEY")
+        fi
+
+        OUT=$(ssh "${SSH_OPTS[@]}" "${SSH_USER}@127.0.0.1" "$READINESS_CMD" 2>/dev/null || echo "")
+        if echo "$OUT" | grep -F "GENIXBIT_GUEST_READY_$TOKEN" >/dev/null 2>&1; then
+            printf '[PASS] Authenticated SSH guest readiness confirmed (token matched: %s)\n' "$TOKEN"
             exit 0
         fi
     fi
 
-    # Check serial log for login prompt or boot completion milestone
-    if [[ -n "$SERIAL_LOG" && -f "$SERIAL_LOG" ]]; then
-        if grep -E "(login:|cloud-init.*finished|GenixBit OS|Reached target System Initialization|Welcome to GenixBit OS)" "$SERIAL_LOG" >/dev/null 2>&1; then
-            printf '[PASS] Guest serial milestone detected in %s\n' "$SERIAL_LOG"
+    # Method 2: Dedicated QEMU Guest Agent socket readiness check
+    if [[ -n "$QGA_SOCKET" && -S "$QGA_SOCKET" ]]; then
+        qga_ready=$(cat <<PYEOF
+import socket, json, base64, sys
+
+try:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(5)
+    s.connect("${QGA_SOCKET}")
+    s.sendall(b'{"execute": "guest-ping"}\n')
+    res = json.loads(s.recv(4096).decode())
+    if "error" in res:
+        sys.exit(1)
+    
+    req = json.dumps({"execute": "guest-exec", "arguments": {"path": "/bin/bash", "arg": ["-c", "${READINESS_CMD}"], "capture-output": True}})
+    s.sendall(req.encode() + b'\n')
+    res = json.loads(s.recv(4096).decode())
+    pid = res.get("return", {}).get("pid")
+    if not pid:
+        sys.exit(1)
+
+    import time
+    for _ in range(5):
+        s.sendall(json.dumps({"execute": "guest-exec-status", "arguments": {"pid": pid}}).encode() + b'\n')
+        status = json.loads(s.recv(4096).decode()).get("return", {})
+        if status.get("exited", False):
+            out = base64.b64decode(status.get("out-data", "")).decode()
+            if "GENIXBIT_GUEST_READY_${TOKEN}" in out:
+                sys.exit(0)
+        time.sleep(0.5)
+    sys.exit(1)
+except Exception:
+    sys.exit(1)
+PYEOF
+)
+        if python3 -c "$qga_ready" 2>/dev/null; then
+            printf '[PASS] Authenticated QGA guest readiness confirmed (token matched: %s)\n' "$TOKEN"
             exit 0
         fi
-    fi
-
-    # Check QMP socket readiness if provided
-    if [[ -n "$QMP_PATH" && -S "$QMP_PATH" ]]; then
-        printf '[PASS] Guest QMP socket %s is active.\n' "$QMP_PATH"
-        exit 0
     fi
 
     sleep 2
 done
 
-fail "Timeout (${TIMEOUT_SEC}s) reached waiting for guest VM readiness."
+fail "Timeout (${TIMEOUT_SEC}s) reached waiting for authenticated guest VM readiness. QMP socket existence or unauthenticated TCP port is insufficient."
