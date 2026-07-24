@@ -169,6 +169,11 @@ jobs:
         shell: bash
         run: bash tools/validation/test-evidence-collector-negative.sh
 
+      - name: Test observed guest negative behavior
+        shell: bash
+        run: bash tools/validation/test-observed-guest-negative.sh
+
+
 
 
 
