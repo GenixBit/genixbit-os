@@ -80,9 +80,12 @@ def inspect_deb(deb_path):
         "provides": fields.get("Provides", "none"),
         "conflicts": fields.get("Conflicts", "none"),
         "installed_files": installed_files,
+        "dpkg_deb_info_output": info_text,
+        "dpkg_deb_contents_output": res_cnt.stdout,
         "lintian": "PASS",
         "dpkg_deb_validation": "PASS"
     }
+
 
 def verify_iso_structure(repo_root, iso_path):
     checker_script = os.path.join(repo_root, "tools/validation/check-iso-structure.sh")

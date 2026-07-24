@@ -93,15 +93,28 @@ done
 grep -q "AnduinOS" "$REPO_ROOT/UPSTREAM.md" || fail "UPSTREAM.md missing required AnduinOS attribution"
 pass "Check 7 PASS: Legal attribution files verified."
 
-# Check 8: Release tag integrity (Explicitly fetch tag for shallow checkout environments like Actions)
-info "Check 8: Verifying release tag commit pointer..."
+# Check 8: Release tag & candidate branch integrity (Explicitly fetch refs for shallow checkout environments like Actions)
+info "Check 8: Verifying release tag and candidate branch commit pointers..."
 git -C "$REPO_ROOT" fetch origin refs/tags/v0.2.0-alpha:refs/tags/v0.2.0-alpha --force 2>/dev/null || true
-tag_commit=$(git -C "$REPO_ROOT" rev-parse "v0.2.0-alpha^{commit}" 2>/dev/null || echo "")
+git -C "$REPO_ROOT" fetch origin validation/0.2.0-alpha-candidate-2:refs/remotes/origin/validation/0.2.0-alpha-candidate-2 --force 2>/dev/null || true
+git -C "$REPO_ROOT" fetch origin validation/0.3.0-alpha-candidate-1:refs/remotes/origin/validation/0.3.0-alpha-candidate-1 --force 2>/dev/null || true
 
+tag_commit=$(git -C "$REPO_ROOT" rev-parse "v0.2.0-alpha^{commit}" 2>/dev/null || echo "")
 if [[ "$tag_commit" != "88a1550a9129a80ffd2c4cf73838122020a782cb" ]]; then
     fail "Release tag v0.2.0-alpha was modified! Expected 88a1550a9129a80ffd2c4cf73838122020a782cb, got '$tag_commit'"
 fi
-pass "Check 8 PASS: Release tag v0.2.0-alpha integrity confirmed."
+
+cand2_commit=$(git -C "$REPO_ROOT" rev-parse "refs/remotes/origin/validation/0.2.0-alpha-candidate-2^{commit}" 2>/dev/null || git -C "$REPO_ROOT" rev-parse "validation/0.2.0-alpha-candidate-2^{commit}" 2>/dev/null || echo "")
+if [[ "$cand2_commit" != "88a1550a9129a80ffd2c4cf73838122020a782cb" ]]; then
+    fail "Candidate branch validation/0.2.0-alpha-candidate-2 was modified! Expected 88a1550a9129a80ffd2c4cf73838122020a782cb, got '$cand2_commit'"
+fi
+
+cand1_commit=$(git -C "$REPO_ROOT" rev-parse "refs/remotes/origin/validation/0.3.0-alpha-candidate-1^{commit}" 2>/dev/null || git -C "$REPO_ROOT" rev-parse "validation/0.3.0-alpha-candidate-1^{commit}" 2>/dev/null || echo "")
+if [[ "$cand1_commit" != "26fb243ab1e54552bb3ba211c49b382ae4547562" ]]; then
+    fail "Candidate branch validation/0.3.0-alpha-candidate-1 was modified! Expected 26fb243ab1e54552bb3ba211c49b382ae4547562, got '$cand1_commit'"
+fi
+pass "Check 8 PASS: Immutable release tag and candidate branch pointers confirmed."
+
 
 # Check 9: Verify migration validation matrix fail-closed enforcement when ISO is missing
 info "Check 9: Verifying package migration validation fail-closed enforcement..."
