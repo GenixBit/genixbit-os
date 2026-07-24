@@ -150,6 +150,15 @@ if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/nu
 fi
 pass "Test 9 PASS: Mismatched Candidate 2 ISO SHA correctly rejected."
 
+# Test 10: APT dry-run / simulate flag rejection
+info "Test 10: Testing rejection of apt-get install --dry-run command..."
+setup_valid_logs
+echo '{"command": "apt-get install -y --dry-run genixbit-os-desktop", "exit_code": 0, "status": "PASS", "observations": {"captured_apt_output": "Reading package lists..."}}' > "$STAGE_LOGS_DIR/stage-clean-install.json"
+if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+    fail "Collector failed to reject apt-get --dry-run command!"
+fi
+pass "Test 10 PASS: APT --dry-run flag in command string correctly rejected."
+
 # Restore valid execution if a real ISO is present
 ISO_FILE=$(find "$REPO_ROOT/dist" -maxdepth 1 -name "*.iso" 2>/dev/null | head -n 1 || echo "")
 if [[ -n "$ISO_FILE" && -f "$ISO_FILE" ]]; then

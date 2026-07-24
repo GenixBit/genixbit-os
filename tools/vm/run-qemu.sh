@@ -19,6 +19,14 @@ VGA_DEVICE="std"
 STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/genixbit-os-vm"
 OVMF_CODE=""
 OVMF_VARS_TEMPLATE=""
+SERIAL_LOG=""
+TIMEOUT_SEC=""
+QMP_PATH=""
+SCREENSHOT_PATH=""
+MONITOR_PATH=""
+PID_FILE=""
+GUEST_AGENT_PATH=""
+SSH_PORT=""
 
 usage() {
     cat <<EOF
@@ -183,6 +191,21 @@ while (($# > 0)); do
         --monitor)
             (($# >= 2)) || die '--monitor requires a path.'
             MONITOR_PATH=$2
+            shift 2
+            ;;
+        --pid-file)
+            (($# >= 2)) || die '--pid-file requires a path.'
+            PID_FILE=$2
+            shift 2
+            ;;
+        --guest-agent)
+            (($# >= 2)) || die '--guest-agent requires a path.'
+            GUEST_AGENT_PATH=$2
+            shift 2
+            ;;
+        --ssh-port)
+            (($# >= 2)) || die '--ssh-port requires a port number.'
+            SSH_PORT=$2
             shift 2
             ;;
         --vnc)
@@ -360,6 +383,20 @@ fi
 if [[ -n "$MONITOR_PATH" ]]; then
     mkdir -p "$(dirname "$MONITOR_PATH")"
     qemu_command+=(-monitor "unix:${MONITOR_PATH},server,nowait")
+fi
+
+if [[ -n "$PID_FILE" ]]; then
+    mkdir -p "$(dirname "$PID_FILE")"
+    qemu_command+=(-pidfile "$PID_FILE")
+fi
+
+if [[ -n "$GUEST_AGENT_PATH" ]]; then
+    mkdir -p "$(dirname "$GUEST_AGENT_PATH")"
+    qemu_command+=(-chardev "socket,path=${GUEST_AGENT_PATH},server=on,wait=off,id=qga0" -device "virtio-serial" -device "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0")
+fi
+
+if [[ -n "$SSH_PORT" ]]; then
+    qemu_command+=(-netdev "user,id=net0,hostfwd=tcp::${SSH_PORT}-:22")
 fi
 
 if [[ -n "$VNC_ENDPOINT" ]]; then
