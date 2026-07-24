@@ -49,7 +49,7 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 if command -v gpg >/dev/null 2>&1; then
     info "Generating passphrase-protected isolated test GPG key pair..."
-    export KEY_PASSPHRASE="genixbit-staging-key-passphrase-2026"
+    export KEY_PASSPHRASE="${STAGING_SIGNING_PASSPHRASE:-genixbit-staging-key-passphrase-2026}"
     gpg --batch --pinentry-mode loopback --passphrase "$KEY_PASSPHRASE" --quick-generate-key "migration-test@genixbit.com" rsa2048 sign,cert 1d >/dev/null 2>&1 || \
     gpg --batch --full-generate-key <<EOF >/dev/null 2>&1
 Key-Type: RSA
@@ -58,7 +58,7 @@ Key-Usage: sign,cert
 Name-Real: GenixBit Package Migration Test Key
 Name-Email: migration-test@genixbit.com
 Expire-Date: 1d
-Passphrase: genixbit-staging-key-passphrase-2026
+Passphrase: $KEY_PASSPHRASE
 EOF
 
     FPR=$(gpg --list-secret-keys --with-colons "migration-test@genixbit.com" 2>/dev/null | grep fpr | head -n1 | cut -d':' -f10 || echo "")
@@ -68,15 +68,10 @@ EOF
         HAS_GPG_KEY=1
         info "Generated passphrase-protected GPG key: $FPR"
     else
-        PUB_KEYRING="$REPO_ROOT/packages/genixbit-os-archive-keyring/keyring/genixbit-os-archive-keyring.pgp"
-        FPR=$(sha256sum "$PUB_KEYRING" 2>/dev/null | awk '{print $1}' | tr 'a-f' 'A-F' | cut -c 1-40 || shasum -a 256 "$PUB_KEYRING" 2>/dev/null | awk '{print $1}' | tr 'a-f' 'A-F' | cut -c 1-40)
-        HAS_GPG_KEY=0
+        fail "GPG key generation failed! Real secret key fingerprint required."
     fi
 else
-    PUB_KEYRING="$REPO_ROOT/packages/genixbit-os-archive-keyring/keyring/genixbit-os-archive-keyring.pgp"
-    FPR=$(sha256sum "$PUB_KEYRING" 2>/dev/null | awk '{print $1}' | tr 'a-f' 'A-F' | cut -c 1-40 || shasum -a 256 "$PUB_KEYRING" 2>/dev/null | awk '{print $1}' | tr 'a-f' 'A-F' | cut -c 1-40)
-    HAS_GPG_KEY=0
-    info "GPG binary not found on local workstation; calculated dynamic keyring digest: $FPR"
+    fail "GPG binary not found! Staging package signing requires GPG."
 fi
 
 STAGING_HOST="${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}"
@@ -192,13 +187,16 @@ if [[ "${EXECUTE_REAL_CLIENT_INSTALL:-false}" == "true" ]]; then
     info "Executing real disposable APT client container installation..."
     CLEAN_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     
-    # Run APT commands inside isolated client container / disposable environment
-    apt-get update -o Dir::Etc::sourcelist="$TMP_REPO/dists/resolute-alpha/Release" > "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
-    apt-cache policy >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
-    apt-get install -y --dry-run "${pkgs[@]}" >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
-    apt-get check >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
-    dpkg --audit >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
-    dpkg-query -W "${pkgs[@]}" >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
+    # Run APT commands inside isolated client container / rootfs environment
+    client_root="$TMP_DIR/clean-client-rootfs"
+    mkdir -p "$client_root/etc/apt" "$client_root/var/lib/dpkg" "$client_root/var/lib/apt"
+    touch "$client_root/var/lib/dpkg/status"
+
+    apt-get update -o Dir="$client_root" -o Dir::Etc::sourcelist="$TMP_REPO/dists/resolute-alpha/Release" > "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log" || true
+    apt-cache policy -o Dir="$client_root" >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log" || true
+    dpkg -i --root="$client_root" "${built_list[@]}" >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
+    dpkg --root="$client_root" --audit >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
+    dpkg-query --root="$client_root" -W "${pkgs[@]}" >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
     CLEAN_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     cat <<EOF > "$STAGE_LOGS_DIR/stage-clean-install.json"
@@ -236,26 +234,32 @@ fi
 if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
     info "Executing real Candidate 2 system migration..."
     CAND2_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    CAND2_ISO=$(find "$REPO_ROOT/dist" -name "GenixBitOS-0.2.0-alpha-2607220558.iso" 2>/dev/null | head -n 1 || echo "")
+    CAND2_ISO=$(find "$REPO_ROOT/dist" "$TMP_DIR" -name "GenixBitOS-0.2.0-alpha-2607220558.iso" 2>/dev/null | head -n 1 || echo "")
     if [[ -z "$CAND2_ISO" || ! -f "$CAND2_ISO" ]]; then
-        fail "Candidate 2 ISO GenixBitOS-0.2.0-alpha-2607220558.iso missing for real migration validation!"
+        cand2_url="${CANDIDATE2_ISO_URL:-${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso}"
+        info "Candidate 2 ISO missing locally, downloading from $cand2_url..."
+        CAND2_ISO="$TMP_DIR/GenixBitOS-0.2.0-alpha-2607220558.iso"
+        curl --silent --fail --location --retry 3 "$cand2_url" -o "$CAND2_ISO" || fail "Failed to download Candidate 2 ISO from $cand2_url"
     fi
+
     CAND2_ACTUAL_SHA=$(sha256sum "$CAND2_ISO" | awk '{print $1}')
+    CAND2_ACTUAL_SHA512=$(sha512sum "$CAND2_ISO" 2>/dev/null | awk '{print $1}' || echo "uncalculated")
     if [[ "$CAND2_ACTUAL_SHA" != "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" ]]; then
         fail "Candidate 2 ISO SHA-256 mismatch! Expected d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228, got $CAND2_ACTUAL_SHA"
     fi
 
-    # Record guest migration execution
-    echo "Candidate 2 ISO SHA-256 verified: $CAND2_ACTUAL_SHA" > "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log"
-    echo "Pre-upgrade state: anduinos-* packages installed from commit $CANDIDATE2_SHA" >> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log"
-    echo "Migration execution: genixbit-os-* replacement packages installed" >> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log"
-    echo "" > "$STAGE_LOGS_DIR/stage-candidate-upgrade.stderr.log"
+    # 1. Install Candidate 2 ISO in VM
+    bash "$REPO_ROOT/tools/vm/install-candidate2.sh" --iso "$CAND2_ISO" --disk "$TMP_DIR/cand2-uefi.qcow2" --mode uefi > "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log" 2> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stderr.log"
+
+    # 2. Execute migration inside guest
+    bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" --disk "$TMP_DIR/cand2-uefi.qcow2" --mode uefi --staging-url "$STAGING_HOST" >> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stderr.log"
+
     CAND2_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     cat <<EOF > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
 {
   "source_commit": "$CURRENT_COMMIT",
-  "command": "./tools/vm/run-qemu.sh --iso GenixBitOS-0.2.0-alpha-2607220558.iso --installed && apt-get update && apt-get dist-upgrade",
+  "command": "./tools/vm/install-candidate2.sh && ./tools/vm/migrate-candidate2.sh",
   "start_timestamp": "$CAND2_START",
   "completion_timestamp": "$CAND2_END",
   "exit_code": 0,
@@ -264,13 +268,14 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
   "stderr_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stderr.log",
   "artifact_paths": ["/etc/os-release"],
   "artifact_hashes": {
-    "candidate2_iso_sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"
+    "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
+    "candidate2_iso_sha512": "$CAND2_ACTUAL_SHA512"
   },
   "assertions": [
     {
       "assertion": "candidate2_migration_completed",
       "status": "PASS",
-      "candidate2_iso_sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228",
+      "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
       "pre_upgrade_commit": "$CANDIDATE2_SHA",
       "replaced_legacy_packages": true
     }
@@ -457,19 +462,16 @@ if [[ "${EXECUTE_REAL_VM_TESTS:-false}" == "true" ]]; then
     info "Executing real QEMU VM UEFI and Legacy BIOS boot & installation matrix..."
     VM_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-    VM_UEFI_LOG="$STAGE_LOGS_DIR/uefi-installed-boot.serial.log"
-    VM_BIOS_LOG="$STAGE_LOGS_DIR/bios-installed-boot.serial.log"
-
-    # Separate UEFI and BIOS runs WITHOUT || true
-    bash "$REPO_ROOT/tools/vm/run-qemu.sh" --mode uefi --iso "$ISO_FILE_PATH" --headless --serial-log "$VM_UEFI_LOG" > "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" 2> "$STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log"
-    bash "$REPO_ROOT/tools/vm/run-qemu.sh" --mode bios --iso "$ISO_FILE_PATH" --headless --serial-log "$VM_BIOS_LOG" >> "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log"
+    # Separate UEFI and BIOS runs with separate QCOW2 target disks and full installation
+    bash "$REPO_ROOT/tools/vm/install-current-iso.sh" --mode uefi --iso "$ISO_FILE_PATH" --disk "$TMP_DIR/genixbit-0.3.0-uefi.qcow2" > "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" 2> "$STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log"
+    bash "$REPO_ROOT/tools/vm/install-current-iso.sh" --mode bios --iso "$ISO_FILE_PATH" --disk "$TMP_DIR/genixbit-0.3.0-bios.qcow2" >> "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log"
 
     VM_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
 {
   "source_commit": "$CURRENT_COMMIT",
-  "command": "./tools/vm/run-qemu.sh --mode uefi --iso $ISO_FILE_PATH && ./tools/vm/run-qemu.sh --mode bios --iso $ISO_FILE_PATH",
+  "command": "./tools/vm/install-current-iso.sh --mode uefi && ./tools/vm/install-current-iso.sh --mode bios",
   "start_timestamp": "$VM_START",
   "completion_timestamp": "$VM_END",
   "exit_code": 0,
