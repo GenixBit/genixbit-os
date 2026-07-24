@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Executes guest package migration, rollback, and re-upgrade on an installed Candidate 2 QCOW2 disk image.
+# Executes guest package migration, snapshot rollback, and re-upgrade on an installed Candidate 2 QCOW2 disk image
+# using authenticated guest command execution without error suppression.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -51,6 +52,7 @@ serial_log="${state_dir}/migration-serial.log"
 qmp_path="${state_dir}/qmp.sock"
 pid_file="${state_dir}/qemu.pid"
 snap_name="pre-migration-snap"
+ssh_port=2223
 stage_logs_dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/infra/package-staging/results/stage-logs"
 
 mkdir -p "$state_dir" "$stage_logs_dir"
@@ -65,16 +67,16 @@ bash "$(dirname "$0")/run-qemu.sh" \
     --serial-log "$serial_log" \
     --qmp "$qmp_path" \
     --pid-file "$pid_file" \
+    --ssh-port "$ssh_port" \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
-bash "$(dirname "$0")/wait-for-guest.sh" --serial-log "$serial_log" --qmp "$qmp_path" --timeout 120
+bash "$(dirname "$0")/wait-for-guest.sh" --ssh-port "$ssh_port" --timeout 120
 
 # 2. Run pre-migration checks inside Candidate 2 guest
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "cat /etc/os-release && dpkg-query -W && apt-cache policy && apt-get check && dpkg --audit && find /etc/apt -maxdepth 3 -type f -print && grep -R . /etc/apt 2>/dev/null" \
-    --qmp "$qmp_path" \
-    --serial-log "$serial_log" \
+    --ssh-port "$ssh_port" \
     --out-log "$stage_logs_dir/cand2-pre-migration-guest.log" \
     --verify-disk-boot
 
@@ -84,17 +86,16 @@ if ! qemu-img snapshot -c "$snap_name" "$DISK_PATH"; then
 fi
 printf '[INFO] Created pre-migration snapshot "%s" on %s\n' "$snap_name" "$DISK_PATH"
 
-# 4. Execute package migration commands inside guest
+# 4. Configure staging repo and execute package migration commands inside guest
 MIGRATION_CMD="apt-get update && apt-get install -y genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config && apt-get check && dpkg --audit && dpkg-query -W"
 
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "$MIGRATION_CMD" \
-    --qmp "$qmp_path" \
-    --serial-log "$serial_log" \
+    --ssh-port "$ssh_port" \
     --out-log "$stage_logs_dir/cand2-migration-exec.log"
 
-# 5. Reboot guest post-migration
-bash "$(dirname "$0")/guest-command.sh" --reboot --qmp "$qmp_path" --serial-log "$serial_log" || true
+# 5. Reboot guest post-migration (NO || true)
+bash "$(dirname "$0")/guest-command.sh" --reboot --ssh-port "$ssh_port"
 
 # Boot migrated guest
 bash "$(dirname "$0")/run-qemu.sh" \
@@ -105,16 +106,16 @@ bash "$(dirname "$0")/run-qemu.sh" \
     --serial-log "$serial_log" \
     --qmp "$qmp_path" \
     --pid-file "$pid_file" \
+    --ssh-port "$ssh_port" \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
-bash "$(dirname "$0")/wait-for-guest.sh" --serial-log "$serial_log" --qmp "$qmp_path" --timeout 120
+bash "$(dirname "$0")/wait-for-guest.sh" --ssh-port "$ssh_port" --timeout 120
 
 # 6. Verify post-migration identity & package health
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "cat /etc/os-release && dpkg-query -W genixbit-os-desktop && apt-get check && dpkg --audit" \
-    --qmp "$qmp_path" \
-    --serial-log "$serial_log" \
+    --ssh-port "$ssh_port" \
     --out-log "$stage_logs_dir/cand2-post-migration-guest.log" \
     --verify-disk-boot
 
@@ -133,16 +134,16 @@ bash "$(dirname "$0")/run-qemu.sh" \
     --serial-log "$serial_log" \
     --qmp "$qmp_path" \
     --pid-file "$pid_file" \
+    --ssh-port "$ssh_port" \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
-bash "$(dirname "$0")/wait-for-guest.sh" --serial-log "$serial_log" --qmp "$qmp_path" --timeout 120
+bash "$(dirname "$0")/wait-for-guest.sh" --ssh-port "$ssh_port" --timeout 120
 
 # Verify original package state after rollback
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "cat /etc/os-release && apt-get check && dpkg --audit" \
-    --qmp "$qmp_path" \
-    --serial-log "$serial_log" \
+    --ssh-port "$ssh_port" \
     --out-log "$stage_logs_dir/cand2-rollback-guest.log" \
     --verify-disk-boot
 
@@ -150,11 +151,10 @@ bash "$(dirname "$0")/guest-command.sh" \
 printf '[INFO] Re-executing migration after rollback (%s mode)...\n' "$MODE"
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "$MIGRATION_CMD" \
-    --qmp "$qmp_path" \
-    --serial-log "$serial_log" \
+    --ssh-port "$ssh_port" \
     --out-log "$stage_logs_dir/cand2-reupgrade-exec.log"
 
-bash "$(dirname "$0")/guest-command.sh" --reboot --qmp "$qmp_path" --serial-log "$serial_log" || true
+bash "$(dirname "$0")/guest-command.sh" --reboot --ssh-port "$ssh_port"
 
 # Boot re-upgraded guest
 bash "$(dirname "$0")/run-qemu.sh" \
@@ -165,16 +165,16 @@ bash "$(dirname "$0")/run-qemu.sh" \
     --serial-log "$serial_log" \
     --qmp "$qmp_path" \
     --pid-file "$pid_file" \
+    --ssh-port "$ssh_port" \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
-bash "$(dirname "$0")/wait-for-guest.sh" --serial-log "$serial_log" --qmp "$qmp_path" --timeout 120
+bash "$(dirname "$0")/wait-for-guest.sh" --ssh-port "$ssh_port" --timeout 120
 
 # Verify final package state after re-upgrade
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "cat /etc/os-release && dpkg-query -W genixbit-os-desktop && apt-get check && dpkg --audit" \
-    --qmp "$qmp_path" \
-    --serial-log "$serial_log" \
+    --ssh-port "$ssh_port" \
     --out-log "$stage_logs_dir/cand2-reupgrade-guest.log" \
     --verify-disk-boot
 

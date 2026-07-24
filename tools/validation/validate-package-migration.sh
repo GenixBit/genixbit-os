@@ -237,7 +237,7 @@ apt-cache policy
 apt-get install -y genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config
 apt-get check
 dpkg --audit
-dpkg-query -W genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config
+dpkg-query -W -f='${binary:Package}\t${Version}\t${db:Status-Abbrev}\n' genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config
 CLIENT_EOF
     chmod +x "$CONTAINER_SCRIPT"
 
@@ -255,8 +255,12 @@ CLIENT_EOF
 
     CLEAN_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-    # Parse actual installed package count from dpkg-query output
-    INST_COUNT=$(grep -c -E "^genixbit-os-" "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" || echo "7")
+    # Strict package count parsing from dpkg-query without fallback
+    INST_COUNT=$(grep -E '^genixbit-os-[a-z-]+' "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" | grep -c -E 'ii$' || true)
+    if (( INST_COUNT != 7 )); then
+        fail "Clean client package parsing failed! Expected 7 installed packages with 'ii' status, parsed ${INST_COUNT}."
+    fi
+
 
     cat <<EOF > "$STAGE_LOGS_DIR/stage-clean-install.json"
 {

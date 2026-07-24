@@ -178,8 +178,8 @@ while (($# > 0)); do
             TIMEOUT_SEC=$2
             shift 2
             ;;
-        --qmp)
-            (($# >= 2)) || die '--qmp requires a path.'
+        --qmp|--qmp-socket)
+            (($# >= 2)) || die '--qmp/--qmp-socket requires a path.'
             QMP_PATH=$2
             shift 2
             ;;
@@ -198,8 +198,8 @@ while (($# > 0)); do
             PID_FILE=$2
             shift 2
             ;;
-        --guest-agent)
-            (($# >= 2)) || die '--guest-agent requires a path.'
+        --guest-agent|--guest-agent-socket)
+            (($# >= 2)) || die '--guest-agent/--guest-agent-socket requires a path.'
             GUEST_AGENT_PATH=$2
             shift 2
             ;;
