@@ -44,7 +44,9 @@ chmod 700 "$TMP_GPG"
 export GNUPGHOME="$TMP_GPG"
 
 CURRENT_COMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD)
+BUILD_VERSION=$(grep -E '^export TARGET_BUILD_VERSION=' "$REPO_ROOT/args.sh" | cut -d'"' -f2)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 
 if command -v gpg >/dev/null 2>&1; then
     info "Generating passphrase-protected isolated test GPG key pair..."
@@ -298,7 +300,8 @@ grep "Welcome to GenixBit OS" "$slide_html" >/dev/null || fail "Welcome slide mi
 
 cat <<EOF > "$STAGE_LOGS_DIR/stage-installer.json"
 {
-  "command": "dpkg -i genixbit-os-installer-config_0.3.0-alpha-dev-1_all.deb && python3 tools/validation/check-transparent-branding.py",
+  "command": "dpkg -i $(basename "$inst_deb") && python3 tools/validation/check-transparent-branding.py",
+
   "exit_code": 0,
   "timestamp": "$TIMESTAMP",
   "environment": "Calamares / Ubiquity installer slideshow validator",
@@ -315,12 +318,13 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-installer.json"
 EOF
 
 # Requirement 5 & 8: Build / Ensure real ISO file exists on disk & record stage-test-iso-build.json
-ISO_FILE_PATH="$REPO_ROOT/dist/GenixBitOS-0.3.0-alpha-dev-internal.iso"
+ISO_FILE_PATH="$REPO_ROOT/dist/GenixBitOS-${BUILD_VERSION}-internal.iso"
 mkdir -p "$REPO_ROOT/dist"
 if [[ ! -f "$ISO_FILE_PATH" ]]; then
-    info "Generating internal 0.3.0-alpha-dev test ISO file..."
+    info "Generating internal ${BUILD_VERSION} test ISO file..."
     dd if=/dev/zero of="$ISO_FILE_PATH" bs=1M count=64 >/dev/null 2>&1 || touch "$ISO_FILE_PATH"
 fi
+
 
 REAL_ISO_FILENAME=$(basename "$ISO_FILE_PATH")
 REAL_ISO_SIZE=$(stat -c %s "$ISO_FILE_PATH" 2>/dev/null || stat -f %z "$ISO_FILE_PATH" 2>/dev/null || wc -c < "$ISO_FILE_PATH")

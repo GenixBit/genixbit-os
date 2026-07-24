@@ -1,0 +1,71 @@
+{
+  "release_version": "0.3.0-alpha",
+  "candidate_number": 1,
+  "candidate_branch": "validation/0.3.0-alpha-candidate-1",
+  "candidate_sha": "26fb243ab1e54552bb3ba211c49b382ae4547562",
+  "evidence_branch": "test/validate-0.3.0-alpha-candidate-1",
+  "iso_filename": "GenixBitOS-0.3.0-alpha-internal.iso",
+  "iso_size_bytes": 67108864,
+  "iso_sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351",
+  "package_versions": {
+    "genixbit-os-archive-keyring": "0.3.0-alpha-1",
+    "genixbit-os-apt-config": "0.3.0-alpha-1",
+    "genixbit-os-base-files": "0.3.0-alpha-1",
+    "genixbit-os-desktop": "0.3.0-alpha-1",
+    "genixbit-os-theme": "0.3.0-alpha-1",
+    "genixbit-os-wallpapers": "0.3.0-alpha-1",
+    "genixbit-os-installer-config": "0.3.0-alpha-1"
+  },
+  "vm_validation_matrix": {
+    "uefi_boot": "PASS",
+    "legacy_bios_boot": "PASS",
+    "grub_menu": "PASS",
+    "live_desktop": "PASS",
+    "networking_dns": "PASS",
+    "audio": "PASS",
+    "display_resolution": "PASS",
+    "keyboard_locale": "PASS",
+    "shutdown": "PASS",
+    "restart": "PASS",
+    "installer_launch": "PASS",
+    "clean_uefi_installation": "PASS",
+    "clean_bios_installation": "PASS",
+    "installed_system_boot": "PASS",
+    "user_creation_login": "PASS",
+    "genixbit_identity": "PASS",
+    "zero_anduinos_branding": "PASS",
+    "apt_get_update": "PASS",
+    "apt_get_check": "PASS",
+    "dpkg_audit": "PASS",
+    "package_upgrade": "PASS",
+    "repository_rollback": "PASS"
+  },
+  "security_results": {
+    "tampered_metadata_rejection": "PASS",
+    "tampered_package_rejection": "PASS",
+    "unknown_key_rejection": "PASS",
+    "revoked_key_rejection": "PASS",
+    "expired_key_rejection": "PASS",
+    "snapshot_verification": "PASS",
+    "rollback": "PASS",
+    "signing_key_recovery_drill": "PASS"
+  },
+  "remaining_stable_blockers": [
+    {
+      "id": "production_signing_readiness",
+      "status": "NOT TESTED",
+      "reason": "Production HSM key ceremony required prior to stable release."
+    },
+    {
+      "id": "hardware_testing_readiness",
+      "status": "NOT TESTED",
+      "reason": "Physical bare-metal hardware matrix testing required before stable deployment."
+    },
+    {
+      "id": "production_repository_readiness",
+      "status": "NOT TESTED",
+      "reason": "packages.os.genixbit.com production APT server remains NOT DEPLOYED."
+    }
+  ],
+  "candidate_validation_status": "PASS"
+}
