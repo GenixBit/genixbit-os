@@ -149,6 +149,11 @@ jobs:
         shell: bash
         run: bash tools/validation/test-upstream-branding-audit.sh
 
+      - name: Test candidate retirement and ISO validation negative behavior
+        shell: bash
+        run: bash tools/validation/test-candidate-retirement-negative.sh
+
+
 
       - name: Enforce completed candidate validation
         if: >-

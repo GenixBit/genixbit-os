@@ -147,8 +147,19 @@ fi
 # 8. EVIDENCE_PR is a positive integer
 [[ "$EVIDENCE_PR" =~ ^[1-9][0-9]*$ ]] || fail "EVIDENCE_PR must be a positive integer: $EVIDENCE_PR"
 
-# 9. VALIDATION_STATUS is PASS
-[[ "$VALIDATION_STATUS" == "PASS" ]] || fail "VALIDATION_STATUS must be PASS (found: $VALIDATION_STATUS)."
+# 9. VALIDATION_STATUS check & Candidate 1 retirement enforcement
+if [[ "$CANDIDATE_BRANCH" == "validation/0.3.0-alpha-candidate-1" ]]; then
+    if [[ "$VALIDATION_STATUS" == "PASS" ]]; then
+        fail "Candidate 1 (validation/0.3.0-alpha-candidate-1) is RETIRED due to INVALID_ZERO_FILLED_ISO and MUST NOT be marked PASS."
+    fi
+    pass "Manifest $MANIFEST_FILE records retired Candidate 1 status: $VALIDATION_STATUS"
+else
+    if [[ "$VALIDATION_STATUS" != "PASS" ]]; then
+        fail "VALIDATION_STATUS must be PASS (found: $VALIDATION_STATUS)."
+    fi
+fi
+
+
 
 # 10. docs/VALIDATION-STATUS.env matches manifest candidate branch, SHA and version
 STATUS_VERSION=$(get_key_val "$STATUS_FILE" "VALIDATION_VERSION")
