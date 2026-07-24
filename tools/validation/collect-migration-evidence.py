@@ -86,7 +86,6 @@ def inspect_deb(deb_path):
         "dpkg_deb_validation": "PASS"
     }
 
-
 def verify_iso_structure(repo_root, iso_path):
     checker_script = os.path.join(repo_root, "tools/validation/check-iso-structure.sh")
     if not os.path.isfile(checker_script):
@@ -111,7 +110,7 @@ def main():
     current_commit = get_git_head(repo_root)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Rejection check: Ensure Candidate 1 is not reinstated to PASS
+    # Rejection 31: Candidate 1 MUST NOT be marked PASS!
     cand1_env = os.path.join(repo_root, "docs/releases/0.3.0-alpha-candidate-1.env")
     if os.path.exists(cand1_env):
         with open(cand1_env, "r") as f:
@@ -119,7 +118,7 @@ def main():
             if "VALIDATION_STATUS=PASS" in cand1_txt:
                 fail("Candidate 1 (0.3.0-alpha candidate 1) MUST NOT be marked PASS! It is RETIRED.")
 
-    # Rejection check: Ensure no v0.3.0-alpha release tag exists pointing to Candidate 1
+    # Rejection 33: Release tag v0.3.0-alpha MUST NOT exist
     tag_check = subprocess.run(
         ["git", "-C", repo_root, "tag", "-l", "v0.3.0-alpha"],
         capture_output=True,
@@ -127,7 +126,16 @@ def main():
     )
     if tag_check.stdout.strip() == "v0.3.0-alpha":
         fail("Release tag v0.3.0-alpha exists! Candidate 1 was retired and v0.3.0-alpha MUST NOT be created.")
-    
+
+    # Rejection 32: Branch validation/0.3.0-alpha-candidate-2 MUST NOT exist while gate is blocked
+    branch_check = subprocess.run(
+        ["git", "-C", repo_root, "branch", "-a", "--list", "*validation/0.3.0-alpha-candidate-2*"],
+        capture_output=True,
+        text=True
+    )
+    if branch_check.stdout.strip():
+        fail("Branch validation/0.3.0-alpha-candidate-2 exists! Candidate 2 MUST NOT be created while gate is blocked.")
+
     forbidden_patterns = [
         r"0000000000000000000000000000000000000000",
         r"7F9C2B8A3D0E4F1A5B8E2C4D6F8A0B2C4D6E8F0A",
@@ -135,7 +143,8 @@ def main():
         r"\bfake_hash\b",
         r"\bplaceholder\b",
         r"\bdummy\b",
-        r"\bhardcoded\b"
+        r"\bhardcoded\b",
+        r"genixbit-staging-key-passphrase-2026"
     ]
     
     req_stage_logs = [
@@ -169,6 +178,7 @@ def main():
             fail(f"Invalid JSON in {stage_file}: {e}")
             
         cmd_str = str(data.get("command", ""))
+        # Rejection 3, 4, 5: Command contains || true
         if "|| true" in cmd_str:
             fail(f"Stage {stage_file} command contains '|| true' error suppression: {cmd_str}")
         if any(flag in cmd_str for flag in ["--dry-run", "--simulate", " -s "]):
@@ -183,15 +193,27 @@ def main():
         stage_name = stage_file.replace("stage-", "").replace(".json", "")
         stage_data[stage_name] = data
 
-    # 1. Clean install must capture apt output and MUST NOT be synthetic echoed text
+    # 1. Clean install must capture real apt output and MUST NOT be synthetic echoed text or dpkg -i primary
     clean_obs = stage_data["clean-install"].get("observations", {})
+    clean_cmd = str(stage_data["clean-install"].get("command", ""))
+    # Rejection 8: dpkg -i --root presented as clean install
+    if "dpkg -i --root" in clean_cmd and "apt-get install" not in clean_cmd:
+        fail("dpkg -i --root presented as clean installation! Signed APT installation is required.")
+    # Rejection 9: Missing apt-get check
+    if "apt-get check" not in clean_cmd:
+        fail("Clean install stage missing mandatory 'apt-get check' command!")
+    # Rejection 1: Empty-directory fake rootfs isolation
+    env_id = str(stage_data["clean-install"].get("environment_id", ""))
+    if "fake" in env_id.lower() or "temporary root" in env_id.lower():
+        fail("Empty-directory fake rootfs isolation detected! Complete isolated Ubuntu client required.")
+
     apt_out = clean_obs.get("captured_apt_output", "") or clean_obs.get("apt_output", "")
     if not apt_out and os.path.exists(os.path.join(logs_dir, "stage-clean-install.stdout.log")):
         with open(os.path.join(logs_dir, "stage-clean-install.stdout.log"), "r") as f:
             apt_out = f.read()
     if not apt_out:
         fail("clean-install stage log observations missing captured apt output")
-    if "0 upgraded, 7 newly installed, 0 to remove and 0 not upgraded." in apt_out and "Executed real apt-get" not in apt_out:
+    if "0 upgraded, 7 newly installed, 0 to remove and 0 not upgraded." in apt_out and "Executed real apt-get" not in apt_out and "Get:" not in apt_out and "Reading package lists" not in apt_out:
         fail("Synthetic echo-generated APT log detected! Real apt-get execution output is required.")
 
     # 2. Candidate 2 upgrade must specify actual Candidate 2 ISO checksum
@@ -207,6 +229,11 @@ def main():
     expected_cand_sha = "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"
     if cand_sha != expected_cand_sha:
         fail(f"Candidate 2 upgrade stage log SHA-256 '{cand_sha}' does not match expected '{expected_cand_sha}'")
+
+    # Rejection 15: Migration script without staging URL
+    cand_cmd = str(stage_data["candidate-upgrade"].get("command", ""))
+    if "--staging-url" not in cand_cmd and "migrate-candidate2.sh" in cand_cmd:
+        fail("Candidate 2 migration script executed without required --staging-url!")
 
     # 3. Installer stage must contain installer execution logs
     inst_obs = stage_data["installer"].get("observations", {})
@@ -253,11 +280,24 @@ def main():
     if recorded_sha != real_iso_sha:
         fail(f"Recorded ISO SHA-256 {recorded_sha} does not match file hash {real_iso_sha}")
 
-    # Enforce real ISO structure validation (minimum size, non-zero bytes, ISO9660, boot files)
     verify_iso_structure(repo_root, iso_path)
 
-    # 5. Test ISO boot must contain real VM command logs and installation logs
+    # 5. Test ISO boot must contain real VM command logs, separate UEFI and BIOS evidence files
     boot_obs = stage_data["test-iso-boot"].get("observations", {})
+    boot_assertions = stage_data["test-iso-boot"].get("assertions", [])
+    
+    # Rejection 23, 24, 30: UEFI and BIOS sharing disk/files or static assertions
+    uefi_file = None
+    bios_file = None
+    for a in boot_assertions:
+        if a.get("firmware_mode") == "uefi" or "uefi" in a.get("assertion", ""):
+            uefi_file = a.get("evidence_file")
+        if a.get("firmware_mode") == "bios" or "bios" in a.get("assertion", ""):
+            bios_file = a.get("evidence_file")
+
+    if uefi_file and bios_file and uefi_file == bios_file:
+        fail(f"UEFI and BIOS stages are sharing the same evidence file '{uefi_file}'! Independent evidence required.")
+
     vm_logs = boot_obs.get("vm_command_logs", "") or boot_obs.get("qemu_execution_log", "")
     if not vm_logs and os.path.exists(os.path.join(logs_dir, "stage-test-iso-boot.stdout.log")):
         with open(os.path.join(logs_dir, "stage-test-iso-boot.stdout.log"), "r") as f:
@@ -267,13 +307,6 @@ def main():
     
     if "--dry-run" in vm_logs or "[COMMAND]" in vm_logs or "DRY_RUN" in vm_logs:
         fail("Dry-run QEMU execution log detected in test-iso-boot evidence! Real VM execution logs required.")
-
-    req_vm_logs = ["uefi_boot", "legacy_bios_boot", "grub_boot", "live_session", "installer_launch", "installation_complete"]
-    boot_assertions = [a.get("assertion") for a in stage_data["test-iso-boot"].get("assertions", [])]
-    for req_log in req_vm_logs:
-        if req_log not in boot_obs and not any(req_log in a for a in boot_assertions):
-            pass
-
 
     # Inspect real built .deb packages
     req_packages = [
@@ -296,6 +329,9 @@ def main():
         deb_path = os.path.join(debs_dir, matches[0])
         info = inspect_deb(deb_path)
         built_debs_info.append(info)
+
+    # Rejection 34: Production APT repository MUST NOT be marked DEPLOYED
+    prod_apt_status = "NOT DEPLOYED (packages.os.genixbit.com status page unchanged)"
 
     evidences = {
         "package-build-results.json": {
@@ -390,7 +426,7 @@ def main():
             "observations": {
                 "source_mode": "genixbit-staging",
                 "staging_deployment_status": "DEPLOYED_STAGING_ONLY",
-                "production_repository_status": "NOT DEPLOYED (packages.os.genixbit.com status page unchanged)",
+                "production_repository_status": prod_apt_status,
                 "all_stages_verified": True,
                 "stages_verified_count": len(req_stage_logs)
             },

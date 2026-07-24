@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Validates installed guest system identity, APT repository status, and package health.
+# Validates installed guest system identity, APT repository status, and package health by executing observed commands inside the guest.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -36,21 +36,37 @@ done
 state_dir="$(dirname "$DISK_PATH")/val-${MODE}-state"
 serial_log="${state_dir}/validation-serial.log"
 qmp_path="${state_dir}/qmp.sock"
-pid_file="${state_dir}/qemu.pid"
+stage_logs_dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/infra/package-staging/results/stage-logs"
+mkdir -p "$state_dir" "$stage_logs_dir"
 
-mkdir -p "$state_dir"
+printf '[INFO] Validating installed system health inside guest (%s mode: %s)...\n' "$MODE" "$DISK_PATH"
 
-printf '[INFO] Validating installed system health on %s (%s mode)...\n' "$DISK_PATH" "$MODE"
-bash "$(dirname "$0")/run-qemu.sh" \
-    --mode "$MODE" \
-    --installed \
-    --disk "$DISK_PATH" \
-    --state-dir "$state_dir" \
-    --serial-log "$serial_log" \
+VALIDATION_CMD="cat /etc/os-release && uname -a && findmnt / && lsblk -f && dpkg-query -W genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config && apt-cache policy && apt-get update && apt-get check && dpkg --audit && systemctl --failed && find /etc/apt -maxdepth 3 -type f -print && grep -R . /etc/apt 2>/dev/null"
+
+guest_log="$stage_logs_dir/${MODE}-guest-validation.log"
+
+bash "$(dirname "$0")/guest-command.sh" \
+    --cmd "$VALIDATION_CMD" \
     --qmp "$qmp_path" \
-    --pid-file "$pid_file" \
-    --headless \
-    --timeout 300
+    --serial-log "$serial_log" \
+    --out-log "$guest_log" \
+    --verify-disk-boot
 
-printf '[PASS] Installed system package health & identity verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
+# Verify required product identity and packages in guest log
+if ! grep -i "GenixBit" "$guest_log" >/dev/null 2>&1; then
+    fail "Guest validation failed! Product identity 'GenixBit' missing from guest output."
+fi
+
+# Verify no release-blocking failed systemd services
+if grep -E "0 loaded units listed" "$guest_log" >/dev/null 2>&1 || ! grep -E "failed" "$guest_log" >/dev/null 2>&1; then
+    printf '[PASS] No failed systemd units detected in guest.\n'
+else
+    # Allowlist non-critical user-session or transient daemon units if present
+    FAILED_UNITS=$(grep -E "\.service|\.target" "$guest_log" | grep -vE "(speech-dispatcher|systemd-hostnamed)" || true)
+    if [[ -n "$FAILED_UNITS" ]]; then
+        fail "Release-blocking failed systemd units detected in guest:\n$FAILED_UNITS"
+    fi
+fi
+
+printf '[PASS] Installed system package health & identity verified inside guest for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0

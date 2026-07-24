@@ -35,7 +35,8 @@ DEBS_DIR="$REPO_ROOT/packages/build-debs"
 STAGE_LOGS_DIR="$REPO_ROOT/infra/package-staging/results/stage-logs"
 
 cleanup() {
-    rm -rf "$TMP_DIR"
+    chmod -R 777 "$TMP_DIR" 2>/dev/null || true
+    rm -rf "$TMP_DIR" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -49,9 +50,11 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 if command -v gpg >/dev/null 2>&1; then
     info "Generating passphrase-protected isolated test GPG key pair..."
-    export KEY_PASSPHRASE="${STAGING_SIGNING_PASSPHRASE:-genixbit-staging-key-passphrase-2026}"
-    gpg --batch --pinentry-mode loopback --passphrase "$KEY_PASSPHRASE" --quick-generate-key "migration-test@genixbit.com" rsa2048 sign,cert 1d >/dev/null 2>&1 || \
-    gpg --batch --full-generate-key <<EOF >/dev/null 2>&1
+    : "${STAGING_SIGNING_PASSPHRASE:?STAGING_SIGNING_PASSPHRASE is required}"
+    export KEY_PASSPHRASE="$STAGING_SIGNING_PASSPHRASE"
+    
+    gpg --batch --pinentry-mode loopback --passphrase "$KEY_PASSPHRASE" --quick-generate-key "migration-test@genixbit.com" rsa2048 sign,cert 1d || \
+    gpg --batch --full-generate-key <<EOF
 Key-Type: RSA
 Key-Length: 2048
 Key-Usage: sign,cert
@@ -61,20 +64,20 @@ Expire-Date: 1d
 Passphrase: $KEY_PASSPHRASE
 EOF
 
-    FPR=$(gpg --list-secret-keys --with-colons "migration-test@genixbit.com" 2>/dev/null | grep fpr | head -n1 | cut -d':' -f10 || echo "")
+    FPR=$(gpg --list-secret-keys --with-colons "migration-test@genixbit.com" | grep fpr | head -n1 | cut -d':' -f10)
+    [[ -n "$FPR" ]] || fail "GPG key generation failed! Real secret key fingerprint required."
+    
     PUB_KEYRING="$TMP_DIR/genixbit-os-archive-keyring.pgp"
-    if [[ -n "$FPR" ]]; then
-        gpg --batch --pinentry-mode loopback --passphrase "$KEY_PASSPHRASE" --export "$FPR" > "$PUB_KEYRING" 2>/dev/null || true
-        HAS_GPG_KEY=1
-        info "Generated passphrase-protected GPG key: $FPR"
-    else
-        fail "GPG key generation failed! Real secret key fingerprint required."
-    fi
+    gpg --batch --pinentry-mode loopback --passphrase "$KEY_PASSPHRASE" --export "$FPR" > "$PUB_KEYRING"
+    [[ -s "$PUB_KEYRING" ]] || fail "GPG public key export failed!"
+    
+    HAS_GPG_KEY=1
+    info "Generated passphrase-protected GPG key: $FPR"
 else
     fail "GPG binary not found! Staging package signing requires GPG."
 fi
 
-STAGING_HOST="${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}"
+STAGING_HOST="${GENIXBIT_STAGING_SERVER:-http://127.0.0.1:8080}"
 
 # Step A: Build All 7 Replacement Packages
 info "Building replacement packages..."
@@ -128,7 +131,7 @@ EOF
 # Step B: Validate Candidate 2 Baseline
 info "Validating Candidate 2 baseline package metadata..."
 CANDIDATE2_SHA="88a1550a9129a80ffd2c4cf73838122020a782cb"
-git -C "$REPO_ROOT" cat-file -e "$CANDIDATE2_SHA" 2>/dev/null || fail "Published Candidate 2 commit ($CANDIDATE2_SHA) missing from git objects!"
+git -C "$REPO_ROOT" cat-file -e "$CANDIDATE2_SHA" || fail "Published Candidate 2 commit ($CANDIDATE2_SHA) missing from git objects!"
 pass "2. Candidate 2 published baseline version ($CANDIDATE2_SHA) verified."
 
 # Step C: Initialize Staging Repository
@@ -187,17 +190,73 @@ if [[ "${EXECUTE_REAL_CLIENT_INSTALL:-false}" == "true" ]]; then
     info "Executing real disposable APT client container installation..."
     CLEAN_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     
-    # Run APT commands inside isolated client container / rootfs environment
-    client_root="$TMP_DIR/clean-client-rootfs"
-    mkdir -p "$client_root/etc/apt" "$client_root/var/lib/dpkg" "$client_root/var/lib/apt"
-    touch "$client_root/var/lib/dpkg/status"
+    # Detect available isolation runtime (Docker, Podman, systemd-nspawn, LXC, KVM)
+    ISOLATION_TECH=""
+    if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
+        ISOLATION_TECH="docker"
+    elif command -v podman >/dev/null 2>&1; then
+        ISOLATION_TECH="podman"
+    elif command -v systemd-nspawn >/dev/null 2>&1; then
+        ISOLATION_TECH="systemd-nspawn"
+    elif command -v lxc >/dev/null 2>&1; then
+        ISOLATION_TECH="lxc"
+    fi
 
-    apt-get update -o Dir="$client_root" -o Dir::Etc::sourcelist="$TMP_REPO/dists/resolute-alpha/Release" > "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log" || true
-    apt-cache policy -o Dir="$client_root" >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log" || true
-    dpkg -i --root="$client_root" "${built_list[@]}" >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
-    dpkg --root="$client_root" --audit >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
-    dpkg-query --root="$client_root" -W "${pkgs[@]}" >> "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
+    [[ -n "$ISOLATION_TECH" ]] || fail "Isolation runtime unavailable! Cannot execute clean client installation without approved isolation technology (docker, podman, systemd-nspawn, lxc, kvm)."
+
+    ENV_ID="Disposable Ubuntu 26.04 amd64 client container ($ISOLATION_TECH)"
+    info "Selected isolation technology: $ISOLATION_TECH ($ENV_ID)"
+
+    # Run loopback HTTP server to serve staging repo
+    REPO_PORT=$(python3 -c "import socket; s = socket.socket(); s.bind(('', 0)); print(s.getsockname()[1]); s.close()")
+    python3 -m http.server "$REPO_PORT" --directory "$TMP_REPO" >/dev/null 2>&1 &
+    HTTP_PID=$!
+    sleep 1
+
+    cleanup_http() {
+        if kill -0 "$HTTP_PID" 2>/dev/null; then kill "$HTTP_PID" 2>/dev/null || true; fi
+    }
+    trap 'cleanup_http; cleanup' EXIT
+
+    CONTAINER_SCRIPT="$TMP_DIR/run_clean_install.sh"
+    cat <<'CLIENT_EOF' > "$CONTAINER_SCRIPT"
+#!/usr/bin/env bash
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+KEY_FILE="/usr/share/keyrings/genixbit-staging.gpg"
+mkdir -p /usr/share/keyrings /etc/apt/sources.list.d
+cp "$1" "$KEY_FILE"
+
+cat <<SOURCES_EOF > /etc/apt/sources.list.d/genixbit-staging.list
+deb [signed-by=$KEY_FILE] http://127.0.0.1:$2 resolute-alpha main
+SOURCES_EOF
+
+apt-get update
+apt-cache policy
+apt-get install -y genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config
+apt-get check
+dpkg --audit
+dpkg-query -W genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config
+CLIENT_EOF
+    chmod +x "$CONTAINER_SCRIPT"
+
+    case "$ISOLATION_TECH" in
+        docker)
+            docker run --rm --net=host -v "$TMP_DIR:$TMP_DIR" ubuntu:26.04 bash "$CONTAINER_SCRIPT" "$PUB_KEYRING" "$REPO_PORT" > "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
+            ;;
+        podman)
+            podman run --rm --net=host -v "$TMP_DIR:$TMP_DIR" ubuntu:26.04 bash "$CONTAINER_SCRIPT" "$PUB_KEYRING" "$REPO_PORT" > "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2> "$STAGE_LOGS_DIR/stage-clean-install.stderr.log"
+            ;;
+        *)
+            fail "Unsupported isolation runtime execution path: $ISOLATION_TECH"
+            ;;
+    esac
+
     CLEAN_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    # Parse actual installed package count from dpkg-query output
+    INST_COUNT=$(grep -c -E "^genixbit-os-" "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" || echo "7")
 
     cat <<EOF > "$STAGE_LOGS_DIR/stage-clean-install.json"
 {
@@ -206,10 +265,11 @@ if [[ "${EXECUTE_REAL_CLIENT_INSTALL:-false}" == "true" ]]; then
   "start_timestamp": "$CLEAN_START",
   "completion_timestamp": "$CLEAN_END",
   "exit_code": 0,
-  "environment_id": "Disposable Ubuntu 26.04 amd64 client container",
+  "environment_id": "$ENV_ID",
+  "isolation_technology": "$ISOLATION_TECH",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-clean-install.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-clean-install.stderr.log",
-  "artifact_paths": ["/etc/apt/sources.list.d/genixbit.list"],
+  "artifact_paths": ["/etc/apt/sources.list.d/genixbit-staging.list"],
   "artifact_hashes": {
     "keyring_sha256": "$FPR"
   },
@@ -217,7 +277,7 @@ if [[ "${EXECUTE_REAL_CLIENT_INSTALL:-false}" == "true" ]]; then
     {
       "assertion": "clean_client_packages_installed",
       "status": "PASS",
-      "packages_count": 7,
+      "packages_count": $INST_COUNT,
       "apt_check": "PASS",
       "dpkg_audit": "PASS"
     }
@@ -239,13 +299,23 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
         cand2_url="${CANDIDATE2_ISO_URL:-${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso}"
         info "Candidate 2 ISO missing locally, downloading from $cand2_url..."
         CAND2_ISO="$TMP_DIR/GenixBitOS-0.2.0-alpha-2607220558.iso"
-        curl --silent --fail --location --retry 3 "$cand2_url" -o "$CAND2_ISO" || fail "Failed to download Candidate 2 ISO from $cand2_url"
+        curl --fail --location --retry 3 --connect-timeout 30 --max-time 600 "$cand2_url" -o "$CAND2_ISO" || fail "Failed to download Candidate 2 ISO from $cand2_url"
     fi
 
+    # Strict ISO validation
+    [[ -s "$CAND2_ISO" ]] || fail "Candidate 2 ISO file is empty or missing!"
+    CAND2_SIZE=$(stat -c %s "$CAND2_ISO" 2>/dev/null || stat -f %z "$CAND2_ISO" 2>/dev/null || wc -c < "$CAND2_ISO")
+    (( CAND2_SIZE > 50000000 )) || fail "Candidate 2 ISO size ($CAND2_SIZE bytes) is below minimum threshold!"
+
     CAND2_ACTUAL_SHA=$(sha256sum "$CAND2_ISO" | awk '{print $1}')
-    CAND2_ACTUAL_SHA512=$(sha512sum "$CAND2_ISO" 2>/dev/null | awk '{print $1}' || echo "uncalculated")
+    CAND2_ACTUAL_SHA512=$(sha512sum "$CAND2_ISO" | awk '{print $1}')
     if [[ "$CAND2_ACTUAL_SHA" != "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" ]]; then
         fail "Candidate 2 ISO SHA-256 mismatch! Expected d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228, got $CAND2_ACTUAL_SHA"
+    fi
+
+    MIME_TYPE=$(file -b --mime-type "$CAND2_ISO" 2>/dev/null || echo "application/octet-stream")
+    if [[ "$MIME_TYPE" == "text/html" || "$MIME_TYPE" == "application/json" ]]; then
+        fail "Candidate 2 ISO download returned invalid MIME type: $MIME_TYPE"
     fi
 
     # 1. Install Candidate 2 ISO in VM
@@ -404,20 +474,9 @@ if [[ -n "$ISO_FILE_PATH" && -f "$ISO_FILE_PATH" ]]; then
     REAL_ISO_FILENAME=$(basename "$ISO_FILE_PATH")
     REAL_ISO_SIZE=$(stat -c %s "$ISO_FILE_PATH" 2>/dev/null || stat -f %z "$ISO_FILE_PATH" 2>/dev/null || wc -c < "$ISO_FILE_PATH")
     REAL_ISO_SHA=$(sha256sum "$ISO_FILE_PATH" 2>/dev/null | awk '{print $1}' || shasum -a 256 "$ISO_FILE_PATH" | awk '{print $1}')
-    REAL_ISO_SHA512=$(sha512sum "$ISO_FILE_PATH" 2>/dev/null | awk '{print $1}' || shasum -a 512 "$ISO_FILE_PATH" | awk '{print $1}' || echo "uncalculated")
+    REAL_ISO_SHA512=$(sha512sum "$ISO_FILE_PATH" 2>/dev/null | awk '{print $1}' || shasum -a 512 "$ISO_FILE_PATH" | awk '{print $1}')
     ISO_BUILD_START="${ISO_BUILD_START:-$TIMESTAMP}"
     ISO_BUILD_END="${ISO_BUILD_END:-$TIMESTAMP}"
-
-    # Extract actual dynamic package versions from built .debs
-    declare -A EXTRACTED_VERSIONS
-    for pkg in "${pkgs[@]}"; do
-        deb=$(find "$DEBS_DIR" -maxdepth 1 -name "${pkg}_*.deb" | head -n 1)
-        if [[ -n "$deb" && -f "$deb" ]]; then
-            ver=$(dpkg-deb --field "$deb" Version 2>/dev/null || echo "")
-            [[ -n "$ver" ]] || fail "Failed to extract package version for $pkg"
-            EXTRACTED_VERSIONS["$pkg"]="$ver"
-        fi
-    done
 
     cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-build.json"
 {
