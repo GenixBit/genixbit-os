@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -e
 set -o pipefail
 set -u
@@ -9,7 +10,8 @@ if [ -z "${SUPPORTED_LOCALES:-}" ]; then
     exit 1
 fi
 
-> /etc/locale.gen
+true > /etc/locale.gen
+
 while IFS="|" read -r code _; do
     # trim whitespace that may trail the locale code
     code=$(printf '%s' "$code" | xargs)

@@ -60,3 +60,8 @@ infra/package-staging/build/
 transcripts/
 *.transcript.json
 
+# Python Compiled Caches
+__pycache__/
+*.pyc
+
+

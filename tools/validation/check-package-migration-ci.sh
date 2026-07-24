@@ -96,7 +96,8 @@ pass "Check 7 PASS: Legal attribution files verified."
 # Check 8: Release tag integrity (Explicitly fetch tag for shallow checkout environments like Actions)
 info "Check 8: Verifying release tag commit pointer..."
 git -C "$REPO_ROOT" fetch origin refs/tags/v0.2.0-alpha:refs/tags/v0.2.0-alpha --force 2>/dev/null || true
-tag_commit=$(git -C "$REPO_ROOT" rev-parse v0.2.0-alpha^{commit} 2>/dev/null || echo "")
+tag_commit=$(git -C "$REPO_ROOT" rev-parse "v0.2.0-alpha^{commit}" 2>/dev/null || echo "")
+
 if [[ "$tag_commit" != "88a1550a9129a80ffd2c4cf73838122020a782cb" ]]; then
     fail "Release tag v0.2.0-alpha was modified! Expected 88a1550a9129a80ffd2c4cf73838122020a782cb, got '$tag_commit'"
 fi

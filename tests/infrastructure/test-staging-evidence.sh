@@ -118,15 +118,15 @@ SIM_DIR="$TMP_TEST_DIR/sim_results"
 mkdir -p "$SIM_DIR"
 write_stage_result "$SIM_DIR" "https" "SIMULATED" "$TEST_RUN_ID" "$TEST_COMMIT" '[{"command_id":"c1","command":"getent hosts foo","observer":"client","exit_code":0,"transcript_sha256":"abc","started_at":"t","completed_at":"t"}]' '[{"name":"dns","expected":"10.0.0.1","actual":"10.0.0.1","verification_command":"getent hosts foo","verification_exit_code":0,"observed_at":"t","observer":"client","observation_sha256":"def"}]' '{}' '{}'
 
-if collect_out=$(INFRA_DIR="$TMP_TEST_DIR" bash "$REPO_ROOT/infra/package-staging/scripts/collect-evidence.sh" "genixbit-test" 2>&1); then
+if INFRA_DIR="$TMP_TEST_DIR" bash "$REPO_ROOT/infra/package-staging/scripts/collect-evidence.sh" "genixbit-test" >/dev/null 2>&1; then
     echo "[FAIL] collect-evidence.sh should fail when consuming SIMULATED stage result without --allow-simulated!" >&2
     exit 1
 fi
 echo "[PASS] collect-evidence.sh correctly rejected SIMULATED stage result in real mode."
 
 echo "[INFO] Test 7: Verifying rejection of zero artifact hashes..."
-BAD_STAGE4="$TMP_TEST_DIR/zero_hash-result.json"
 if write_stage_result "$TMP_TEST_DIR" "test-zero" "PASS" "$TEST_RUN_ID" "$TEST_COMMIT" '[{"command_id":"c1","command":"cmd","observer":"client","exit_code":0,"transcript_sha256":"a","started_at":"t","completed_at":"t"}]' '[{"name":"n","expected":"e","actual":"e","verification_command":"cmd","verification_exit_code":0,"observed_at":"t","observer":"client","observation_sha256":"b"}]' '{}' '{"file": "0000000000000000000000000000000000000000000000000000000000000000"}' 2>/dev/null; then
+
     echo "[FAIL] write_stage_result should reject zero hashes!" >&2
     exit 1
 fi
