@@ -332,13 +332,19 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
     [[ "$STATE_PERMS" == "600" || "$STATE_PERMS" == "0600" ]] || fail "Candidate 2 state file permissions ($STATE_PERMS) must be 0600!"
 
     # 2. Execute migration using installation state file, staging public key, and signing fingerprint
-    bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" \
+    MIG_OUT=$(bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" \
         --installation-state-json "$CAND2_STATE_FILE" \
         --staging-url "$STAGING_HOST" \
         --staging-key "$PUB_KEYRING" \
-        --staging-fingerprint "$FPR" >> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-candidate-upgrade.stderr.log"
+        --staging-fingerprint "$FPR" 2>&1 | tee -a "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
 
     CAND2_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    MIG_RESULT_FILE=$(echo "$MIG_OUT" | grep "recorded in " | awk '{print $9}' || echo "")
+
+    CAND2_STATUS="FAIL"
+    if [[ -n "$CAND2_STATE_FILE" && -f "$CAND2_STATE_FILE" ]]; then
+        CAND2_STATUS=$(python3 -c "import sys, json; print(json.load(open('$CAND2_STATE_FILE')).get('status', 'FAIL'))")
+    fi
 
     cat <<EOF > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
 {
@@ -358,13 +364,13 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
   "assertions": [
     {
       "assertion": "candidate2_migration_completed",
-      "status": "PASS",
+      "status": "$CAND2_STATUS",
       "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
       "pre_upgrade_commit": "$CANDIDATE2_SHA",
       "replaced_legacy_packages": true
     }
   ],
-  "status": "PASS"
+  "status": "$CAND2_STATUS"
 }
 EOF
 else

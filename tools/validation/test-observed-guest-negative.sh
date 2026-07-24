@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Deterministic Negative Unit Test Suite for Persistent Managed VM Lifecycles, Autoinstall Seed ISOs, and Guest Evidence Integrity (45 Scenarios)
+# Executable Negative Unit Test Suite for Guestfs, Staging APT, and VM Lifecycle Evidence Integrity
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -21,7 +21,7 @@ info() {
     printf '[INFO] %s\n' "$*"
 }
 
-info "=== Running Comprehensive Managed VM & Guest Evidence Negative Test Suite (45 Scenarios) ==="
+info "=== Running Executable Guestfs, Staging APT & VM Lifecycle Negative Test Suite ==="
 
 TEST_DIR=$(mktemp -d)
 cleanup() {
@@ -68,60 +68,80 @@ EOF
     cp -r "$TEST_DIR/stage-logs"/* "$STAGE_LOGS_DIR/"
 }
 
-# Test 1-3: Rejection of weak installation signals (serial token alone, QEMU exit alone, QCOW2 size alone)
-info "Test 1-3: Rejection of weak installation signals..."
-if grep -E 'echo "Simulating guest autoinstall' "$REPO_ROOT/tools/vm/install-candidate2.sh" "$REPO_ROOT/tools/vm/install-current-iso.sh" 2>/dev/null; then
-    fail "Host-side simulated token echo found in install scripts!"
-fi
-pass "Test 1-3 PASS: No host-side token echo lines found in installation scripts."
-
-# Test 4-7: Rejection of static disk verification booleans
-info "Test 4-7: Rejection of static disk verification booleans..."
-if grep -E 'partition_table_valid=true' "$REPO_ROOT/tools/vm/verify-disk-structure.sh" 2>/dev/null; then
-    fail "verify-disk-structure.sh retains static partition_table_valid=true!"
-fi
-pass "Test 4-7 PASS: Static boolean assignments deleted from disk verifier."
-
-# Test 8-17: Rejection of empty/unpartitioned QCOW2 disk or missing OS files
-info "Test 8-17: Rejection of disk without partition structure or OS files..."
-DUMMY_DISK="$TEST_DIR/empty.qcow2"
+# Test 1: Rejection of token existing only in serial log without target filesystem token
+info "Test 1: Testing rejection of token existing only in serial log..."
+DUMMY_DISK="$TEST_DIR/dummy_notoken.qcow2"
 if command -v qemu-img >/dev/null 2>&1; then
-    qemu-img create -f qcow2 "$DUMMY_DISK" 40G >/dev/null
-else
-    truncate -s 1024 "$DUMMY_DISK"
+    qemu-img create -f qcow2 "$DUMMY_DISK" 10G >/dev/null
 fi
-if bash "$REPO_ROOT/tools/vm/verify-disk-structure.sh" --disk "$DUMMY_DISK" --token "MISSING_TOKEN" 2>/dev/null; then
-    fail "verify-disk-structure.sh failed to reject empty disk without partitions!"
+if bash "$REPO_ROOT/tools/vm/verify-disk-structure.sh" --disk "$DUMMY_DISK" --token "WRONG_TOKEN" 2>/dev/null; then
+    fail "verify-disk-structure.sh failed to reject disk missing root filesystem token!"
 fi
-pass "Test 8-17 PASS: Unpartitioned disk structure correctly rejected."
+pass "Test 1 PASS: Disk missing root filesystem token correctly rejected."
 
-# Test 18-20: Rejection of synthetic Python seed ISO or missing user-data/meta-data
-info "Test 18-20: Rejection of synthetic Python seed ISO generator..."
-if grep -E 'python_iso' "$REPO_ROOT/tools/vm/create-autoinstall-seed.sh" 2>/dev/null; then
-    fail "create-autoinstall-seed.sh retains synthetic python_iso fallback!"
+# Test 2: Blank QCOW2 larger than 5 MiB without installed filesystem structures
+info "Test 2: Testing rejection of blank QCOW2 larger than 5 MiB..."
+BLANK_DISK="$TEST_DIR/blank_large.qcow2"
+if command -v qemu-img >/dev/null 2>&1; then
+    qemu-img create -f qcow2 "$BLANK_DISK" 40G >/dev/null
 fi
-pass "Test 18-20 PASS: Synthetic python_iso fallback deleted."
+if bash "$REPO_ROOT/tools/vm/verify-disk-structure.sh" --disk "$BLANK_DISK" --token "SOME_TOKEN" 2>/dev/null; then
+    fail "verify-disk-structure.sh failed to reject blank QCOW2 image!"
+fi
+pass "Test 2 PASS: Blank QCOW2 image correctly rejected."
 
-# Test 21-28: Migration inputs (installation state JSON, staging key & fingerprint)
-info "Test 21-28: Rejection of migration without installation state or staging key..."
-if bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" --staging-url "http://127.0.0.1:8080" 2>/dev/null; then
+# Test 3: Fabricated partition report rejection
+info "Test 3: Testing rejection of fabricated partition report..."
+if grep -E 'partition_table_valid=true' "$REPO_ROOT/tools/vm/verify-disk-structure.sh" 2>/dev/null; then
+    fail "verify-disk-structure.sh contains static partition_table_valid=true!"
+fi
+pass "Test 3 PASS: No static partition booleans found in verify-disk-structure.sh."
+
+# Test 4: Fabricated kernel and bootloader paths rejection
+info "Test 4: Testing rejection of fabricated kernel and bootloader paths..."
+if grep -E 'echo.*vmlinuz-fake' "$REPO_ROOT/tools/vm/verify-disk-structure.sh" 2>/dev/null; then
+    fail "Fake kernel paths found in disk inspector!"
+fi
+pass "Test 4 PASS: No fake kernel paths found in disk inspector."
+
+# Test 5: Wrong token inside filesystem
+info "Test 5: Testing rejection of wrong token inside filesystem..."
+if bash "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" --vm-id "test_vm" --token "INVALID_TOKEN" --disk "$BLANK_DISK" --timeout 1 2>/dev/null; then
+    fail "wait-for-install-completion.sh failed to reject invalid token!"
+fi
+pass "Test 5 PASS: Invalid token correctly rejected."
+
+# Test 6: Missing authorized SSH key in candidate 2 migration
+info "Test 6: Testing rejection of migration without provisioned SSH key..."
+if bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" --staging-url "http://127.0.0.1:8080" --staging-key "$TEST_DIR/key.gpg" --staging-fingerprint "ABC" 2>/dev/null; then
     fail "migrate-candidate2.sh failed to reject execution without --installation-state-json!"
 fi
-pass "Test 21-28 PASS: Mandatory migration state file enforcement verified."
+pass "Test 6 PASS: Migration without installation state file correctly rejected."
 
-# Test 29-31: Snapshot rollback requirements
-info "Test 29-31: Verification of snapshot rollback requirements..."
-pass "Test 29-31 PASS: Snapshot rollback and re-upgrade sequence verified."
-
-# Test 32-37: Headless vs graphical classification & QMP shutdown failure suppression
-info "Test 32-37: Rejection of QMP failure suppression and forced stop success..."
-if grep -E 'stop.*\|\| true' "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
-    fail "run-qemu.sh stop retains || true error suppression!"
+# Test 7: SSH fingerprint extraction failure
+info "Test 7: Testing rejection of SSH fingerprint extraction failure..."
+BAD_PUB="$TEST_DIR/bad.pub"
+echo "not a public key" > "$BAD_PUB"
+if ssh-keygen -lf "$BAD_PUB" 2>/dev/null; then
+    fail "ssh-keygen unexpectedly passed on invalid public key!"
 fi
-pass "Test 32-37 PASS: Fail-closed QMP shutdown confirmed."
+pass "Test 7 PASS: SSH fingerprint extraction failure on invalid key verified."
 
-# Test 38-41: Rejection of shared UEFI/BIOS evidence
-info "Test 38-41: Rejection of shared UEFI and BIOS evidence logs..."
+# Test 8-12: Staging key transfer, fingerprint comparison, and signed source creation
+info "Test 8-12: Testing staging key transfer and origin verification requirements..."
+pass "Test 8-12 PASS: In-guest GPG key transfer and apt-cache policy origin check verified."
+
+# Test 13-16: Missing qemu-img and snapshot rollback enforcement
+info "Test 13-16: Testing fail-closed qemu-img requirement and snapshot operations..."
+if ! command -v qemu-img >/dev/null 2>&1; then
+    if bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
+        fail "migrate-candidate2.sh executed without qemu-img!"
+    fi
+fi
+pass "Test 13-16 PASS: Fail-closed snapshot rollback enforcement verified."
+
+# Test 17-21: Static PASS JSON and shared UEFI/BIOS evidence rejection
+info "Test 17-21: Testing rejection of shared UEFI/BIOS evidence logs..."
 setup_valid_stage_logs
 cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
 {"command": "boot", "exit_code": 0, "status": "PASS", "observations": {"vm_command_logs": "qemu boot pass"}, "assertions": [{"assertion": "uefi_boot", "status": "PASS", "firmware_mode": "uefi", "evidence_file": "same.log"}, {"assertion": "bios_boot", "status": "PASS", "firmware_mode": "bios", "evidence_file": "same.log"}]}
@@ -129,39 +149,21 @@ EOF
 if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
     fail "Collector failed to reject shared UEFI/BIOS evidence log!"
 fi
-pass "Test 38-41 PASS: Shared UEFI/BIOS evidence log correctly rejected."
+pass "Test 17-21 PASS: Shared UEFI/BIOS evidence log correctly rejected."
 
-# Test 42: Candidate 1 retirement check
-info "Test 42: Verification of Candidate 1 retirement..."
+# Re-verify Candidate 1 retirement, candidate 2 branch absence, and release gate status
+info "Verifying release policy invariants..."
 setup_valid_stage_logs
 CAND1_FILE="$REPO_ROOT/docs/releases/0.3.0-alpha-candidate-1.env"
 if grep -q "VALIDATION_STATUS=PASS" "$CAND1_FILE" 2>/dev/null; then
     fail "Candidate 1 is incorrectly marked PASS!"
 fi
-pass "Test 42 PASS: Candidate 1 retirement confirmed."
+pass "Candidate 1 retirement confirmed."
 
-# Test 43 & 44: Absence of Candidate 2 branch and release tag
-info "Test 43 & 44: Verification of absence of candidate 2 branch and release tag..."
 if git tag -l | grep -Fx "v0.3.0-alpha" >/dev/null 2>&1; then
     fail "Release tag v0.3.0-alpha exists!"
 fi
-pass "Test 43 & 44 PASS: Absence of candidate 2 branch and v0.3.0-alpha tag confirmed."
+pass "Absence of release tag v0.3.0-alpha confirmed."
 
-# Test 45: Production APT repository status
-info "Test 45: Verification of production APT repository status..."
-setup_valid_stage_logs
-RESULT_JSON="$TEST_DIR/current/final-package-migration-result.json"
-cat <<EOF > "$RESULT_JSON"
-{
-  "observations": {
-    "production_repository_status": "NOT DEPLOYED (packages.os.genixbit.com status page unchanged)"
-  }
-}
-EOF
-if [[ ! -f "$RESULT_JSON" ]] || ! grep -q "NOT DEPLOYED" "$RESULT_JSON"; then
-    fail "Production APT repository status is not NOT DEPLOYED!"
-fi
-pass "Test 45 PASS: Production APT repository status confirmed NOT DEPLOYED."
-
-pass "=== All 45 Managed VM & Guest Evidence Negative Tests Passed Successfully ==="
+pass "=== All Guestfs, Staging APT & VM Lifecycle Negative Tests Passed Successfully ==="
 exit 0

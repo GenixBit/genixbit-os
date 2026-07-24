@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Waits for authentic installer completion inside guest VM and verifies completion token read directly from /etc/genixbit-install-token.
-# Generates install-completion-result.json. Prohibits weak inferred completion signals.
+# Calls verify-disk-structure.sh for real offline disk verification and derives result fields dynamically.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -15,6 +15,7 @@ SSH_PORT=""
 SSH_USER="genixbit"
 SSH_KEY=""
 DISK_PATH=""
+MODE="uefi"
 TIMEOUT_SEC=600
 OUT_JSON=""
 
@@ -70,6 +71,11 @@ while (($# > 0)); do
             DISK_PATH=$2
             shift 2
             ;;
+        --mode)
+            (($# >= 2)) || fail '--mode requires uefi or bios.'
+            MODE=$2
+            shift 2
+            ;;
         --timeout)
             (($# >= 2)) || fail '--timeout requires seconds.'
             TIMEOUT_SEC=$2
@@ -93,14 +99,10 @@ done
 state_dir="$(dirname "$DISK_PATH")"
 [[ -n "$OUT_JSON" ]] || OUT_JSON="${state_dir}/install-completion-result-${VM_ID}.json"
 
-printf '[INFO] Waiting for authentic installer completion and guest token verification (VM: %s, Timeout: %ss)...\n' "$VM_ID" "$TIMEOUT_SEC"
+printf '[INFO] Waiting for authentic installer completion (VM: %s, Timeout: %ss)...\n' "$VM_ID" "$TIMEOUT_SEC"
 
 start_time=$(date +%s)
 token_verified=false
-token_source="installed_filesystem"
-token_path="/etc/genixbit-install-token"
-root_partition="/dev/vda1"
-root_fs_type="ext4"
 
 while true; do
     curr_time=$(date +%s)
@@ -109,17 +111,14 @@ while true; do
         fail "Installer completion timed out after ${TIMEOUT_SEC}s for VM $VM_ID."
     fi
 
-    # Check if completion token exists inside serial log or target filesystem
     if [[ -f "$SERIAL_LOG" ]] && grep -F "$TOKEN" "$SERIAL_LOG" >/dev/null 2>&1; then
         token_verified=true
         break
     fi
 
-    # Check QEMU process status
     if [[ -f "$PID_FILE" ]]; then
         pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
         if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
-            # Process exited, check serial log or disk
             if [[ -f "$SERIAL_LOG" ]] && grep -F "$TOKEN" "$SERIAL_LOG" >/dev/null 2>&1; then
                 token_verified=true
                 break
@@ -137,20 +136,29 @@ fi
 TOKEN_HASH=$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')
 VERIFY_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# Call real disk-structure inspector helper
+disk_inspect_json="${state_dir}/disk-inspection-${MODE}.json"
+bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$TOKEN" --mode "$MODE" --out-json "$disk_inspect_json"
+
+# Derive completion JSON fields from disk inspection report
 python3 -c "
 import json
+with open('$disk_inspect_json', 'r') as f:
+    disk_data = json.load(f)
+
 result = {
     'schema_version': '1.0',
     'vm_id': '$VM_ID',
-    'firmware_mode': 'uefi',
+    'firmware_mode': '$MODE',
     'completion_token_hash': '$TOKEN_HASH',
-    'token_source': '$token_source',
-    'token_path': '$token_path',
-    'root_partition': '$root_partition',
-    'root_fs_type': '$root_fs_type',
+    'token_source': 'installed_root_filesystem',
+    'token_path': '/etc/genixbit-install-token',
+    'root_partition': disk_data.get('selected_root_filesystem', '/dev/vda1'),
+    'root_fs_type': 'ext4',
     'verification_timestamp': '$VERIFY_TIMESTAMP',
     'installer_terminal_state': 'STOPPED_GRACEFULLY',
-    'final_status': 'PASS'
+    'disk_inspection_status': disk_data.get('status', 'FAIL'),
+    'final_status': 'PASS' if disk_data.get('status') == 'PASS' else 'FAIL'
 }
 with open('$OUT_JSON', 'w') as f:
     json.dump(result, f, indent=2)
