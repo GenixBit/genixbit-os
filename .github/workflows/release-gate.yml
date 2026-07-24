@@ -1,0 +1,56 @@
+name: Operator-Controlled Release Gate Execution
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: 'Target Release Version (e.g. 0.3.0-alpha)'
+        required: true
+        default: '0.3.0-alpha'
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate-validation:
+    name: Operator-Controlled Release Gate Execution
+    runs-on: ubuntu-latest
+    environment: release-validation
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify KVM and Virtualization Hardware Availability
+        run: |
+          set -euo pipefail
+          if [[ ! -e /dev/kvm ]]; then
+            echo "Error: KVM acceleration (/dev/kvm) is required for operator-controlled release gate execution." >&2
+            echo "Execution halted fail-closed." >&2
+            exit 1
+          fi
+
+      - name: Install ShellCheck, GnuPG, Packaging & QEMU dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y shellcheck jq gnupg gpgv apt-utils dpkg-dev devscripts lintian qemu-system-x86 ovmf xorriso squashfs-tools python3-jsonschema
+
+      - name: Verify Staging Signing Credentials Availability
+        run: |
+          set -euo pipefail
+          if [[ -z "${STAGING_SIGNING_PASSPHRASE:-}" ]]; then
+            echo "Error: STAGING_SIGNING_PASSPHRASE is unavailable in protected environment!" >&2
+            echo "Execution halted fail-closed." >&2
+            exit 1
+          fi
+
+      - name: Execute Full Package Migration & Staging Validation Suite
+        run: |
+          set -euo pipefail
+          EXECUTE_REAL_ISO_BUILD=true EXECUTE_REAL_VM_TESTS=true bash tools/validation/validate-package-migration.sh
+
+      - name: Validate Release Gate Integrity
+        run: |
+          bash tools/validation/check-release-gate.sh

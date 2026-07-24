@@ -153,6 +153,10 @@ jobs:
         shell: bash
         run: bash tools/validation/test-candidate-retirement-negative.sh
 
+      - name: Test immutable reference pointers negative behavior
+        shell: bash
+        run: bash tools/validation/test-immutable-pointers-negative.sh
+
       - name: Validate 0.3.0 release gate JSON
         shell: bash
         run: bash tools/validation/check-release-gate.sh

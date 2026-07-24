@@ -93,41 +93,105 @@ done
 grep -q "AnduinOS" "$REPO_ROOT/UPSTREAM.md" || fail "UPSTREAM.md missing required AnduinOS attribution"
 pass "Check 7 PASS: Legal attribution files verified."
 
-# Check 8: Release tag & candidate branch integrity (Explicitly fetch refs for shallow checkout environments like Actions)
+# Check 8: Release tag & candidate branch integrity via remote pointer checks
 info "Check 8: Verifying release tag and candidate branch commit pointers..."
-git -C "$REPO_ROOT" fetch origin refs/tags/v0.2.0-alpha:refs/tags/v0.2.0-alpha --force 2>/dev/null || true
-git -C "$REPO_ROOT" fetch origin validation/0.2.0-alpha-candidate-2:refs/remotes/origin/validation/0.2.0-alpha-candidate-2 --force 2>/dev/null || true
-git -C "$REPO_ROOT" fetch origin validation/0.3.0-alpha-candidate-1:refs/remotes/origin/validation/0.3.0-alpha-candidate-1 --force 2>/dev/null || true
 
-tag_commit=$(git -C "$REPO_ROOT" rev-parse "v0.2.0-alpha^{commit}" 2>/dev/null || echo "")
+REMOTE_NAME="${GIT_REMOTE:-origin}"
+
+resolve_remote_tag() {
+    local remote="$1"
+    local tag="$2"
+    local ls_out
+    if ! ls_out=$(git ls-remote --tags "$remote" "$tag" "refs/tags/$tag^{}" 2>&1); then
+        fail "Remote '$remote' is unavailable: $ls_out"
+    fi
+    if [[ -z "$ls_out" ]]; then
+        fail "Release tag '$tag' missing on remote '$remote'."
+    fi
+
+    local peeled_sha
+    peeled_sha=$(echo "$ls_out" | grep -F "refs/tags/$tag^{}" | awk '{print $1}' | tr -d ' \t\r\n' || true)
+    if [[ -n "$peeled_sha" ]]; then
+        if [[ ! "$peeled_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            fail "Resolved SHA for tag '$tag' is empty or invalid format: '$peeled_sha'"
+        fi
+        echo "$peeled_sha"
+        return 0
+    fi
+
+    local direct_sha
+    direct_sha=$(echo "$ls_out" | grep -F "refs/tags/$tag" | awk '{print $1}' | tr -d ' \t\r\n' || true)
+    if [[ -z "$direct_sha" ]]; then
+        fail "Release tag '$tag' ref not found on remote '$remote'."
+    fi
+
+    # Fetch exact named tag ref to confirm commit object resolution
+    if ! git -C "$REPO_ROOT" fetch "$remote" "refs/tags/$tag:refs/tags/$tag" --force >/dev/null 2>&1; then
+        fail "Failed to fetch exact named tag ref '$tag' from remote '$remote'."
+    fi
+
+    local commit_sha
+    commit_sha=$(git -C "$REPO_ROOT" rev-parse --verify "refs/tags/$tag^{commit}" 2>/dev/null || echo "")
+    if [[ -z "$commit_sha" || ! "$commit_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+        fail "Tag '$tag' cannot be peeled to a commit."
+    fi
+
+    echo "$commit_sha"
+}
+
+resolve_remote_branch() {
+    local remote="$1"
+    local branch="$2"
+    local ls_out
+    if ! ls_out=$(git ls-remote --heads "$remote" "$branch" 2>&1); then
+        fail "Remote '$remote' is unavailable: $ls_out"
+    fi
+    if [[ -z "$ls_out" ]]; then
+        fail "Candidate branch '$branch' missing on remote '$remote'."
+    fi
+
+    local branch_sha
+    branch_sha=$(echo "$ls_out" | awk '{print $1}' | tr -d ' \t\r\n')
+    if [[ -z "$branch_sha" || ! "$branch_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+        fail "Resolved SHA for candidate branch '$branch' is empty or invalid format."
+    fi
+
+    echo "$branch_sha"
+}
+
+tag_commit=$(resolve_remote_tag "$REMOTE_NAME" "v0.2.0-alpha")
+cand2_commit=$(resolve_remote_branch "$REMOTE_NAME" "validation/0.2.0-alpha-candidate-2")
+cand1_commit=$(resolve_remote_branch "$REMOTE_NAME" "validation/0.3.0-alpha-candidate-1")
+
+info "Sanitized resolved pointers:"
+info "  v0.2.0-alpha: $tag_commit"
+info "  validation/0.2.0-alpha-candidate-2: $cand2_commit"
+info "  validation/0.3.0-alpha-candidate-1: $cand1_commit"
+
 if [[ "$tag_commit" != "88a1550a9129a80ffd2c4cf73838122020a782cb" ]]; then
-    fail "Release tag v0.2.0-alpha was modified! Expected 88a1550a9129a80ffd2c4cf73838122020a782cb, got '$tag_commit'"
+    fail "Release tag v0.2.0-alpha pointer differs from approved SHA! Expected 88a1550a9129a80ffd2c4cf73838122020a782cb, got '$tag_commit'"
 fi
 
-cand2_commit=$(git -C "$REPO_ROOT" rev-parse "refs/remotes/origin/validation/0.2.0-alpha-candidate-2^{commit}" 2>/dev/null || git -C "$REPO_ROOT" rev-parse "validation/0.2.0-alpha-candidate-2^{commit}" 2>/dev/null || echo "")
 if [[ "$cand2_commit" != "88a1550a9129a80ffd2c4cf73838122020a782cb" ]]; then
-    fail "Candidate branch validation/0.2.0-alpha-candidate-2 was modified! Expected 88a1550a9129a80ffd2c4cf73838122020a782cb, got '$cand2_commit'"
+    fail "Candidate branch validation/0.2.0-alpha-candidate-2 pointer differs from approved SHA! Expected 88a1550a9129a80ffd2c4cf73838122020a782cb, got '$cand2_commit'"
 fi
 
-cand1_commit=$(git -C "$REPO_ROOT" rev-parse "refs/remotes/origin/validation/0.3.0-alpha-candidate-1^{commit}" 2>/dev/null || git -C "$REPO_ROOT" rev-parse "validation/0.3.0-alpha-candidate-1^{commit}" 2>/dev/null || echo "")
 if [[ "$cand1_commit" != "26fb243ab1e54552bb3ba211c49b382ae4547562" ]]; then
-    fail "Candidate branch validation/0.3.0-alpha-candidate-1 was modified! Expected 26fb243ab1e54552bb3ba211c49b382ae4547562, got '$cand1_commit'"
+    fail "Candidate branch validation/0.3.0-alpha-candidate-1 pointer differs from approved SHA! Expected 26fb243ab1e54552bb3ba211c49b382ae4547562, got '$cand1_commit'"
 fi
 pass "Check 8 PASS: Immutable release tag and candidate branch pointers confirmed."
 
 
 # Check 9: Verify migration validation matrix fail-closed enforcement when ISO is missing
 info "Check 9: Verifying package migration validation fail-closed enforcement..."
-ISO_FILE=$(find "$REPO_ROOT/dist" -maxdepth 1 -name "*.iso" 2>/dev/null | head -n 1 || echo "")
-if [[ -n "$ISO_FILE" && -f "$ISO_FILE" ]]; then
-    bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" >/dev/null
-    pass "Check 9 PASS: Migration validation suite passed against real ISO."
-else
-    if bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" >/dev/null 2>&1; then
-        fail "validate-package-migration.sh MUST fail when real ISO build output is missing!"
-    fi
-    pass "Check 9 PASS: Migration validation correctly failed closed when real ISO is missing."
+TMP_CHECK9_DIR=$(mktemp -d)
+MISSING_ISO_FIXTURE="$TMP_CHECK9_DIR/nonexistent.iso"
+if bash "$REPO_ROOT/tools/validation/check-iso-structure.sh" --iso "$MISSING_ISO_FIXTURE" >/dev/null 2>&1; then
+    rm -rf "$TMP_CHECK9_DIR"
+    fail "check-iso-structure.sh MUST fail when real ISO build output is missing!"
 fi
+rm -rf "$TMP_CHECK9_DIR"
+pass "Check 9 PASS: Migration validation correctly failed closed when real ISO is missing."
 
 # Check 10: Machine-readable JSON evidence files completeness (if evidence exists)
 info "Check 10: Verifying machine-readable JSON evidence integrity..."
