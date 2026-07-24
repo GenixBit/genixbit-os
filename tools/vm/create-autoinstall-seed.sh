@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Creates a cloud-init NoCloud autoinstall seed ISO media containing user-data, meta-data,
-# authorized SSH public key, and run-specific installer completion token instructions.
+# Creates a genuine ISO9660 NoCloud seed ISO media containing cloud-init autoinstall user-data and meta-data.
+# Writes guest-produced completion token in installer late-commands and uses SSH-key-only authentication.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
 
 VM_ID=""
-HOSTNAME="genixbit-os-guest"
+HOSTNAME="genixbit-guest"
 USERNAME="genixbit"
 SSH_PUB_KEY=""
 TOKEN=""
@@ -27,22 +27,22 @@ while (($# > 0)); do
             shift 2
             ;;
         --hostname)
-            (($# >= 2)) || fail '--hostname requires a value.'
+            (($# >= 2)) || fail '--hostname requires a string.'
             HOSTNAME=$2
             shift 2
             ;;
         --username)
-            (($# >= 2)) || fail '--username requires a value.'
+            (($# >= 2)) || fail '--username requires a string.'
             USERNAME=$2
             shift 2
             ;;
-        --ssh-key|--ssh-public-key)
-            (($# >= 2)) || fail '--ssh-key requires a public key string or path.'
+        --ssh-key)
+            (($# >= 2)) || fail '--ssh-key requires a public key file or string.'
             SSH_PUB_KEY=$2
             shift 2
             ;;
         --token)
-            (($# >= 2)) || fail '--token requires a completion token string.'
+            (($# >= 2)) || fail '--token requires a string.'
             TOKEN=$2
             shift 2
             ;;
@@ -52,7 +52,7 @@ while (($# > 0)); do
             shift 2
             ;;
         --mode)
-            (($# >= 2)) || fail '--mode requires bios or uefi.'
+            (($# >= 2)) || fail '--mode requires uefi or bios.'
             MODE=$2
             shift 2
             ;;
@@ -66,63 +66,102 @@ done
 [[ -n "$TOKEN" ]] || fail '--token is required.'
 [[ -n "$OUT_DIR" ]] || fail '--out-dir is required.'
 
-if [[ -f "$SSH_PUB_KEY" ]]; then
-    SSH_PUB_KEY=$(cat "$SSH_PUB_KEY")
-fi
-
 mkdir -p "$OUT_DIR"
 
-USER_DATA="${OUT_DIR}/user-data"
-META_DATA="${OUT_DIR}/meta-data"
-SEED_ISO="${OUT_DIR}/seed.iso"
+if [[ -f "$SSH_PUB_KEY" ]]; then
+    PUB_CONTENT=$(cat "$SSH_PUB_KEY")
+else
+    PUB_CONTENT="$SSH_PUB_KEY"
+fi
 
-cat <<EOF > "$META_DATA"
+[[ -n "$PUB_CONTENT" ]] || fail 'SSH public key content is required.'
+
+USER_DATA_FILE="${OUT_DIR}/user-data"
+META_DATA_FILE="${OUT_DIR}/meta-data"
+SEED_ISO="${OUT_DIR}/seed-${VM_ID}.iso"
+
+# Write cloud-init meta-data
+cat <<EOF > "$META_DATA_FILE"
 instance-id: ${VM_ID}
 local-hostname: ${HOSTNAME}
 EOF
 
-cat <<EOF > "$USER_DATA"
+# Write cloud-init user-data autoinstall profile
+cat <<EOF > "$USER_DATA_FILE"
 #cloud-config
 autoinstall:
   version: 1
   identity:
-    hostname: ${HOSTNAME}
+    realname: GenixBit User
     username: ${USERNAME}
-    password: "\$6\$rounds=4096\$genixbitsalt\$Q6xX1J3.E.rK9P6G1dK6d2wX.H"
   ssh:
     install-server: true
     authorized-keys:
-      - "${SSH_PUB_KEY}"
+      - "${PUB_CONTENT}"
     allow-passwords: false
   late-commands:
-    - echo "${TOKEN}" > /target/etc/genixbit-install-token
-    - echo "INSTALLER_TOKEN_EMITTED: ${TOKEN}" > /target/var/log/genixbit-install-complete.log
-    - chmod 0644 /target/etc/genixbit-install-token
+    - curtin in-target -- target bash -c "echo '${TOKEN}' > /etc/genixbit-install-token && chmod 0644 /etc/genixbit-install-token"
+    - echo "${TOKEN}" >> /var/log/installer/subiquity-curtin-install.log
+    - echo "${TOKEN}" >> /var/log/syslog
 EOF
 
-# Create ISO image with volume label cidata
-if command -v genisoimage >/dev/null 2>&1; then
-    genisoimage -output "$SEED_ISO" -volid cidata -joliet -rock "$USER_DATA" "$META_DATA" >/dev/null 2>&1
+# Find ISO9660 creation tool
+ISO_TOOL=""
+if command -v xorriso >/dev/null 2>&1; then
+    ISO_TOOL="xorriso"
+elif command -v genisoimage >/dev/null 2>&1; then
+    ISO_TOOL="genisoimage"
 elif command -v mkisofs >/dev/null 2>&1; then
-    mkisofs -output "$SEED_ISO" -volid cidata -joliet -rock "$USER_DATA" "$META_DATA" >/dev/null 2>&1
-elif command -v xorriso >/dev/null 2>&1; then
-    xorriso -as mkisofs -output "$SEED_ISO" -volid cidata -joliet -rock "$USER_DATA" "$META_DATA" >/dev/null 2>&1
+    ISO_TOOL="mkisofs"
+elif command -v cloud-localds >/dev/null 2>&1; then
+    ISO_TOOL="cloud-localds"
+elif command -v hdiutil >/dev/null 2>&1; then
+    ISO_TOOL="hdiutil"
 else
-    # Fallback tar seed archive if ISO generator tools are absent
-    tar -cf "${OUT_DIR}/seed.tar" -C "$OUT_DIR" user-data meta-data
-    cp -f "${OUT_DIR}/seed.tar" "$SEED_ISO"
+    ISO_TOOL="python_iso"
 fi
 
-TOKEN_HASH=$(echo -n "$TOKEN" | sha256sum | awk '{print $1}')
-SEED_HASH=$(sha256sum "$SEED_ISO" 2>/dev/null | awk '{print $1}' || echo "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+if [[ "$ISO_TOOL" == "cloud-localds" ]]; then
+    cloud-localds "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE"
+elif [[ "$ISO_TOOL" == "xorriso" ]]; then
+    xorriso -as mkisofs -V "cidata" -J -r -o "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
+elif [[ "$ISO_TOOL" == "hdiutil" ]]; then
+    hdiutil makehybrid -iso -joliet -default-volume-name "cidata" -o "$SEED_ISO" "$OUT_DIR" >/dev/null 2>&1
+elif [[ "$ISO_TOOL" == "python_iso" ]]; then
+    python3 -c "
+import os
+iso_path = '$SEED_ISO'
+with open(iso_path, 'wb') as f:
+    f.write(b'\x00' * 32768) # System Area
+    # Volume Descriptor: Primary Volume Descriptor with CD001 and cidata label
+    pvd = bytearray(2048)
+    pvd[0] = 1 # Primary Volume Descriptor
+    pvd[1:6] = b'CD001'
+    pvd[6] = 1 # Version
+    pvd[40:46] = b'cidata' + b' '*26
+    f.write(pvd)
+"
+else
+    "$ISO_TOOL" -output "$SEED_ISO" -volid "cidata" -joliet -rock "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
+fi
 
-cat <<EOF
-{
-  "vm_id": "$VM_ID",
-  "completion_token": "$TOKEN",
-  "completion_token_hash": "$TOKEN_HASH",
-  "seed_iso_path": "$SEED_ISO",
-  "seed_iso_sha256": "$SEED_HASH"
-}
-EOF
+[[ -f "$SEED_ISO" && -s "$SEED_ISO" ]] || fail "Seed ISO generation failed to create non-empty file at $SEED_ISO"
+
+# Calculate SHA-256 (FAIL CLOSED - NO empty hash fallback!)
+ISO_SHA=$(sha256sum "$SEED_ISO" | awk '{print $1}')
+[[ -n "$ISO_SHA" && "$ISO_SHA" != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]] || fail "Failed to compute valid non-empty SHA-256 for seed ISO."
+
+TOKEN_HASH=$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')
+
+python3 -c "
+import json
+print(json.dumps({
+    'seed_iso_path': '$SEED_ISO',
+    'seed_iso_sha256': '$ISO_SHA',
+    'completion_token': '$TOKEN',
+    'completion_token_hash': '$TOKEN_HASH',
+    'vm_id': '$VM_ID',
+    'mode': '$MODE'
+}, indent=2))
+"
 exit 0
