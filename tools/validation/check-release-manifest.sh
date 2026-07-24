@@ -59,9 +59,17 @@ done
 
 if [[ -z "$MANIFEST_FILE" ]]; then
     ARGS_VER=$(grep -E '^export TARGET_BUILD_VERSION=' "$ARGS_FILE" 2>/dev/null | cut -d'"' -f2 || echo "")
-    if [[ -n "$ARGS_VER" && -f "docs/releases/${ARGS_VER}.env" ]]; then
-        MANIFEST_FILE="docs/releases/${ARGS_VER}.env"
-    else
+    if [[ -n "$ARGS_VER" ]]; then
+        if [[ -f "docs/releases/${ARGS_VER}.env" ]]; then
+            MANIFEST_FILE="docs/releases/${ARGS_VER}.env"
+        else
+            matched=(docs/releases/${ARGS_VER}*.env)
+            if [[ ${#matched[@]} -gt 0 && -f "${matched[0]}" ]]; then
+                MANIFEST_FILE="${matched[0]}"
+            fi
+        fi
+    fi
+    if [[ -z "$MANIFEST_FILE" ]]; then
         manifests=(docs/releases/*.env)
         if [[ ${#manifests[@]} -eq 0 || ! -f "${manifests[0]}" ]]; then
             fail 'No release manifest found in docs/releases/*.env.'
@@ -69,6 +77,7 @@ if [[ -z "$MANIFEST_FILE" ]]; then
         MANIFEST_FILE="${manifests[0]}"
     fi
 fi
+
 
 
 [[ -f "$MANIFEST_FILE" ]] || fail "Manifest file not found: $MANIFEST_FILE"
