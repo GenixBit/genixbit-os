@@ -168,9 +168,13 @@ def main():
         except Exception as e:
             fail(f"Invalid JSON in {stage_file}: {e}")
             
+        cmd_str = str(data.get("command", ""))
+        if "|| true" in cmd_str:
+            fail(f"Stage {stage_file} command contains '|| true' error suppression: {cmd_str}")
+
         if data.get("exit_code") != 0:
             fail(f"Stage {stage_file} failed with exit code {data.get('exit_code')}")
-            
+
         if data.get("status") != "PASS":
             fail(f"Stage {stage_file} status is '{data.get('status')}', expected 'PASS'")
             
