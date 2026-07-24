@@ -1,8 +1,8 @@
-genixbit-os-theme (0.3.0-alpha-dev-1) resolute; urgency=medium
+genixbit-os-theme (0.3.0-alpha-1) resolute; urgency=medium
 
-  * Update package for GenixBit OS 0.3.0-alpha-dev release gate cycle.
+  * Scaffolding and release candidate build for GenixBit OS 0.3.0-alpha Candidate 1.
 
- -- GenixBit OS Maintainers <ftpmaster@genixbit.com>  Fri, 24 Jul 2026 08:30:00 +0000
+ -- GenixBit OS Maintainers <ftpmaster@genixbit.com>  Fri, 24 Jul 2026 09:00:00 +0000
 
 genixbit-os-theme (0.2.0-alpha-1) resolute; urgency=medium
 
