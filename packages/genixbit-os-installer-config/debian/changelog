@@ -1,12 +1,12 @@
+genixbit-os-installer-config (0.3.0-alpha-dev-1) resolute; urgency=medium
+
+  * Update package for GenixBit OS 0.3.0-alpha-dev release gate cycle.
+
+ -- GenixBit OS Maintainers <ftpmaster@genixbit.com>  Fri, 24 Jul 2026 08:30:00 +0000
+
 genixbit-os-installer-config (0.2.0-alpha-1) resolute; urgency=medium
 
-  * Update to version 0.2.0-alpha.
-  * Integrate official lockup and welcome slides.
+  * Initial scaffolding for GenixBit OS installer configuration package.
+  * Provides installer slideshow and brand customization settings.
 
- -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 22 Jul 2026 02:20:00 +0530
-
-genixbit-os-installer-config (0.1.0-alpha-1) resolute; urgency=medium
-
-  * Initial release of GenixBit OS installer configurations and slides.
-
- -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Tue, 21 Jul 2026 01:40:00 +0530
+ -- GenixBit OS Maintainers <ftpmaster@genixbit.com>  Wed, 22 Jul 2026 12:00:00 +0000

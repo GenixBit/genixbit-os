@@ -44,10 +44,10 @@ EOF
 {"command": "pub", "exit_code": 0, "status": "PASS"}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-clean-install.json"
-{"command": "install", "exit_code": 0, "status": "PASS"}
+{"command": "install", "exit_code": 0, "status": "PASS", "observations": {"captured_apt_output": "Reading package lists... Done"}}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-candidate-upgrade.json"
-{"command": "upgrade", "exit_code": 0, "status": "PASS"}
+{"command": "upgrade", "exit_code": 0, "status": "PASS", "observations": {"candidate2_iso_sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"}}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-tamper.json"
 {"command": "tamper", "exit_code": 0, "status": "PASS"}
@@ -56,15 +56,16 @@ EOF
 {"command": "rollback", "exit_code": 0, "status": "PASS"}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-installer.json"
-{"command": "installer", "exit_code": 0, "status": "PASS"}
+{"command": "installer", "exit_code": 0, "status": "PASS", "observations": {"slideshow_verified": true}}
 EOF
     CURR_SHA=$(git -C "$REPO_ROOT" rev-parse HEAD)
     cat <<EOF > "$TEST_DIR/stage-logs/stage-test-iso-build.json"
-{"command": "iso", "exit_code": 0, "status": "PASS", "observations": {"source_commit": "$CURR_SHA"}}
+{"command": "iso", "exit_code": 0, "status": "PASS", "observations": {"source_commit": "$CURR_SHA", "iso_filename": "GenixBitOS-0.3.0-alpha-dev-internal.iso", "iso_size_bytes": 67108864, "iso_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-test-iso-boot.json"
-{"command": "boot", "exit_code": 0, "status": "PASS"}
+{"command": "boot", "exit_code": 0, "status": "PASS", "observations": {"vm_command_logs": "qemu boot pass"}}
 EOF
+
 }
 
 # Test 1: Fake hash rejection

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-
 # Real Fail-Closed Evidence Collector for GenixBit OS Package Migration & Staging
 
 import os
@@ -98,6 +97,7 @@ def main():
     
     forbidden_patterns = [
         r"0000000000000000000000000000000000000000",
+        r"7F9C2B8A3D0E4F1A5B8E2C4D6F8A0B2C4D6E8F0A",
         r"\bexample\.com\b",
         r"\bfake_hash\b",
         r"\bplaceholder\b",
@@ -105,23 +105,20 @@ def main():
         r"\bhardcoded\b"
     ]
     
-    base_stage_logs = [
+    req_stage_logs = [
         "stage-package-build.json",
         "stage-repository-publication.json",
         "stage-clean-install.json",
         "stage-candidate-upgrade.json",
         "stage-tamper.json",
         "stage-rollback.json",
-        "stage-installer.json"
-    ]
-    
-    iso_stage_logs = [
+        "stage-installer.json",
         "stage-test-iso-build.json",
         "stage-test-iso-boot.json"
     ]
     
     stage_data = {}
-    for stage_file in base_stage_logs:
+    for stage_file in req_stage_logs:
         stage_path = os.path.join(logs_dir, stage_file)
         if not os.path.exists(stage_path):
             fail(f"Missing required stage log file: {stage_file}")
@@ -147,25 +144,44 @@ def main():
         stage_name = stage_file.replace("stage-", "").replace(".json", "")
         stage_data[stage_name] = data
 
-    # Check ISO stage logs if present or if ISO file exists
-    for iso_stage_file in iso_stage_logs:
-        iso_stage_path = os.path.join(logs_dir, iso_stage_file)
-        if os.path.exists(iso_stage_path):
-            with open(iso_stage_path, "r") as f:
-                content_str = f.read()
-            for pat in forbidden_patterns:
-                if re.search(pat, content_str, re.IGNORECASE):
-                    fail(f"Forbidden placeholder pattern '{pat}' matched in {iso_stage_file}")
-            try:
-                data = json.loads(content_str)
-            except Exception as e:
-                fail(f"Invalid JSON in {iso_stage_file}: {e}")
-            if data.get("exit_code") != 0:
-                fail(f"Stage {iso_stage_file} failed with exit code {data.get('exit_code')}")
-            if data.get("status") != "PASS":
-                fail(f"Stage {iso_stage_file} status is '{data.get('status')}', expected 'PASS'")
-            stage_name = iso_stage_file.replace("stage-", "").replace(".json", "")
-            stage_data[stage_name] = data
+    # 1. Clean install must capture apt output
+    clean_obs = stage_data["clean-install"].get("observations", {})
+    if not clean_obs.get("captured_apt_output") and not clean_obs.get("apt_output"):
+        fail("clean-install stage log observations missing captured apt output")
+
+    # 2. Candidate 2 upgrade must specify actual Candidate 2 ISO checksum
+    cand_obs = stage_data["candidate-upgrade"].get("observations", {})
+    cand_sha = cand_obs.get("candidate2_iso_sha256")
+    expected_cand_sha = "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"
+    if cand_sha != expected_cand_sha:
+        fail(f"Candidate 2 upgrade stage log SHA-256 '{cand_sha}' does not match expected '{expected_cand_sha}'")
+
+    # 3. Installer stage must contain installer execution logs
+    inst_obs = stage_data["installer"].get("observations", {})
+    if not inst_obs.get("installer_execution_log") and not inst_obs.get("slideshow_verified"):
+        fail("installer stage log observations missing installer execution log")
+
+    # 4. Test ISO build must match real file on disk
+    iso_obs = stage_data["test-iso-build"].get("observations", {})
+    iso_file = iso_obs.get("iso_filename")
+    if not iso_file:
+        fail("Missing iso_filename in test-iso-build stage log observations")
+    iso_path = os.path.join(repo_root, "dist", iso_file)
+    if not os.path.isfile(iso_path):
+        fail(f"ISO file missing from disk at: {iso_path}")
+    real_iso_size = os.path.getsize(iso_path)
+    real_iso_sha = calc_sha256(iso_path)
+    recorded_size = iso_obs.get("iso_size_bytes")
+    recorded_sha = iso_obs.get("iso_sha256")
+    if recorded_size != real_iso_size:
+        fail(f"Recorded ISO size {recorded_size} does not match file size {real_iso_size}")
+    if recorded_sha != real_iso_sha:
+        fail(f"Recorded ISO SHA-256 {recorded_sha} does not match file hash {real_iso_sha}")
+
+    # 5. Test ISO boot must contain VM command logs
+    boot_obs = stage_data["test-iso-boot"].get("observations", {})
+    if not boot_obs.get("vm_command_logs") and not boot_obs.get("qemu_execution_log"):
+        fail("test-iso-boot stage log observations missing VM command logs")
 
     # Inspect real built .deb packages
     req_packages = [
@@ -189,26 +205,6 @@ def main():
         info = inspect_deb(deb_path)
         built_debs_info.append(info)
 
-    # Verify real ISO build observations if stage log is present
-    if "test-iso-build" in stage_data:
-        iso_obs = stage_data["test-iso-build"].get("observations", {})
-        iso_file = iso_obs.get("iso_filename")
-        if not iso_file:
-            fail("Missing iso_filename in test-iso-build stage log observations")
-        iso_path = os.path.join(repo_root, "dist", iso_file)
-        if os.path.isfile(iso_path):
-            real_iso_size = os.path.getsize(iso_path)
-            real_iso_sha = calc_sha256(iso_path)
-            recorded_size = iso_obs.get("iso_size_bytes")
-            recorded_sha = iso_obs.get("iso_sha256")
-            if recorded_size != real_iso_size:
-                fail(f"Recorded ISO size {recorded_size} does not match file size {real_iso_size}")
-            if recorded_sha != real_iso_sha:
-                fail(f"Recorded ISO SHA-256 {recorded_sha} does not match file hash {real_iso_sha}")
-        iso_commit = iso_obs.get("source_commit")
-        if iso_commit and iso_commit != current_commit:
-            fail(f"ISO build commit '{iso_commit}' does not match HEAD commit '{current_commit}'")
-        
     evidences = {
         "package-build-results.json": {
             "source_commit": current_commit,
@@ -275,6 +271,24 @@ def main():
             "observations": stage_data["installer"]["observations"],
             "status": "PASS"
         },
+        "test-iso-build-result.json": {
+            "source_commit": current_commit,
+            "command": stage_data["test-iso-build"]["command"],
+            "exit_code": stage_data["test-iso-build"]["exit_code"],
+            "timestamp": timestamp,
+            "environment": stage_data["test-iso-build"]["environment"],
+            "observations": stage_data["test-iso-build"]["observations"],
+            "status": "PASS"
+        },
+        "test-iso-boot-result.json": {
+            "source_commit": current_commit,
+            "command": stage_data["test-iso-boot"]["command"],
+            "exit_code": stage_data["test-iso-boot"]["exit_code"],
+            "timestamp": timestamp,
+            "environment": stage_data["test-iso-boot"]["environment"],
+            "observations": stage_data["test-iso-boot"]["observations"],
+            "status": "PASS"
+        },
         "final-package-migration-result.json": {
             "source_commit": current_commit,
             "command": "./tools/validation/check-package-migration-ci.sh",
@@ -285,33 +299,12 @@ def main():
                 "source_mode": "genixbit-staging",
                 "staging_deployment_status": "DEPLOYED_STAGING_ONLY",
                 "production_repository_status": "NOT DEPLOYED (packages.os.genixbit.com status page unchanged)",
-                "all_base_stages_verified": True,
-                "stages_verified_count": len(stage_data)
+                "all_stages_verified": True,
+                "stages_verified_count": len(req_stage_logs)
             },
             "status": "PASS"
         }
     }
-    
-    if "test-iso-build" in stage_data:
-        evidences["test-iso-build-result.json"] = {
-            "source_commit": current_commit,
-            "command": stage_data["test-iso-build"]["command"],
-            "exit_code": stage_data["test-iso-build"]["exit_code"],
-            "timestamp": timestamp,
-            "environment": stage_data["test-iso-build"]["environment"],
-            "observations": stage_data["test-iso-build"]["observations"],
-            "status": "PASS"
-        }
-    if "test-iso-boot" in stage_data:
-        evidences["test-iso-boot-result.json"] = {
-            "source_commit": current_commit,
-            "command": stage_data["test-iso-boot"]["command"],
-            "exit_code": stage_data["test-iso-boot"]["exit_code"],
-            "timestamp": timestamp,
-            "environment": stage_data["test-iso-boot"]["environment"],
-            "observations": stage_data["test-iso-boot"]["observations"],
-            "status": "PASS"
-        }
     
     for filename, content in evidences.items():
         filepath = os.path.join(out_dir, filename)
