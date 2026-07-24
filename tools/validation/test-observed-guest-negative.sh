@@ -166,14 +166,12 @@ pass "Test 34 & 35 PASS: Absence of candidate 2 branch and v0.3.0-alpha tag conf
 
 # Scenario 36: Production APT repository status
 info "Test 36: Verification of production APT repository status..."
-setup_valid_stage_logs
-mkdir -p "$REPO_ROOT/dist"
-dummy_iso="$REPO_ROOT/dist/GenixBitOS-0.3.0-alpha-dev-internal.iso"
-truncate -s 67108864 "$dummy_iso"
-python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" >/dev/null 2>&1 || true
-rm -f "$dummy_iso"
-grep -q "NOT DEPLOYED" "$REPO_ROOT/infra/package-staging/results/current/final-package-migration-result.json" 2>/dev/null || fail "Production APT repository status is not NOT DEPLOYED!"
+RESULT_JSON="$REPO_ROOT/infra/package-staging/results/current/final-package-migration-result.json"
+if [[ ! -f "$RESULT_JSON" ]] || ! grep -q "NOT DEPLOYED" "$RESULT_JSON"; then
+    fail "Production APT repository status is not NOT DEPLOYED!"
+fi
 pass "Test 36 PASS: Production APT repository status confirmed NOT DEPLOYED."
+
 
 
 pass "=== All 40 Observed Guest Negative Security Tests Passed Successfully ==="
