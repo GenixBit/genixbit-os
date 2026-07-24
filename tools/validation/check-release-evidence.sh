@@ -153,52 +153,30 @@ pass "Release-evidence schema is valid for $CANDIDATE_BRANCH at $CANDIDATE_SHA."
 if [[ "$VERIFY_GIT_CANDIDATE" == true ]]; then
     branch="$CANDIDATE_BRANCH"
     sha="$CANDIDATE_SHA"
-    
+
     [[ -n "$branch" ]] || fail "CANDIDATE_BRANCH is missing or empty."
     [[ -n "$sha" ]] || fail "CANDIDATE_SHA is missing or empty."
-    
-    # Try resolving candidate SHA locally first
-    resolved_sha=""
-    if git rev-parse --quiet --verify "${sha}^{commit}" >/dev/null 2>&1; then
-        resolved_sha="$sha"
-    else
-        # If not present locally, try to fetch it
-        echo "Candidate SHA not found locally. Fetching branch $branch from origin..." >&2
-        git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" --force >/dev/null 2>&1 || true
-        git fetch origin "$sha" >/dev/null 2>&1 || true
-        if git rev-parse --quiet --verify "${sha}^{commit}" >/dev/null 2>&1; then
-            resolved_sha="$sha"
-        fi
 
+    REMOTE_NAME="${GIT_REMOTE:-origin}"
+
+    # Query remote branch via git ls-remote
+    if ! remote_out=$(git ls-remote --heads "$REMOTE_NAME" "$branch" 2>&1); then
+        fail "Remote '$REMOTE_NAME' is unavailable: $remote_out"
     fi
-    
-    [[ -n "$resolved_sha" ]] || fail "CANDIDATE_SHA $sha does not resolve to a commit."
-    
-    # Verify candidate branch head
-    branch_head=""
-    # 1. Check local branch
-    if git rev-parse --quiet --verify "refs/heads/$branch" >/dev/null 2>&1; then
-        branch_head=$(git rev-parse --verify "refs/heads/$branch")
-    # 2. Check origin remote branch
-    elif git rev-parse --quiet --verify "refs/remotes/origin/$branch" >/dev/null 2>&1; then
-        branch_head=$(git rev-parse --verify "refs/remotes/origin/$branch")
+
+    if [[ -z "$remote_out" ]]; then
+        fail "Candidate branch '$branch' is missing on remote '$REMOTE_NAME'."
     fi
-    
-    # If not found or if we want to be sure, check remote using ls-remote
-    if [[ -z "$branch_head" ]]; then
-        echo "Branch $branch not found locally. Checking remote origin..." >&2
-        remote_out=$(git ls-remote origin "refs/heads/$branch" 2>/dev/null || true)
-        if [[ -n "$remote_out" ]]; then
-            branch_head=$(echo "$remote_out" | awk '{print $1}')
-        fi
+
+    branch_head=$(echo "$remote_out" | awk '{print $1}' | tr -d ' \t\r\n')
+    if [[ -z "$branch_head" || ! "$branch_head" =~ ^[0-9a-fA-F]{40}$ ]]; then
+        fail "Candidate branch '$branch' HEAD SHA is empty or invalid on remote '$REMOTE_NAME'."
     fi
-    
-    [[ -n "$branch_head" ]] || fail "Candidate branch $branch is missing (not found locally or on origin)."
-    
+
     if [[ "$branch_head" != "$sha" ]]; then
         fail "Candidate branch $branch HEAD ($branch_head) differs from CANDIDATE_SHA ($sha)."
     fi
-    
+
     pass "Candidate branch $branch exactly matches CANDIDATE_SHA ($sha)."
 fi
 
