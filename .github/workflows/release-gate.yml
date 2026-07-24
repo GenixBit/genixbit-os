@@ -23,7 +23,8 @@ jobs:
       - linux
       - x64
       - genixbit-release-gate
-    environment: release-validation
+    environment:
+      name: release-validation
     timeout-minutes: 360
 
     env:
@@ -33,6 +34,7 @@ jobs:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}
       GCP_ZONE: ${{ vars.GCP_ZONE }}
+
 
     steps:
       - name: Check out repository
@@ -119,10 +121,12 @@ jobs:
           fi
 
           # 8. Secret & Staging Server Verification
-          if [[ -z "${STAGING_SIGNING_PASSPHRASE:-}" ]]; then
+          : "${STAGING_SIGNING_PASSPHRASE:?STAGING_SIGNING_PASSPHRASE is required}"
+          if [[ -z "${STAGING_SIGNING_PASSPHRASE}" ]]; then
             echo "[FAIL] Protected secret STAGING_SIGNING_PASSPHRASE is empty or unmapped!" >&2
             exit 1
           fi
+
 
           if [[ -z "${GENIXBIT_STAGING_SERVER:-}" ]]; then
             echo "[FAIL] GENIXBIT_STAGING_SERVER variable is empty or unconfigured!" >&2
