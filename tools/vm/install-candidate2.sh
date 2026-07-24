@@ -73,7 +73,7 @@ KEY_JSON=$(bash "$(dirname "$0")/create-ephemeral-key.sh" --vm-id "$VM_ID" --sta
 SSH_KEY=$(echo "$KEY_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['private_key_path'])")
 SSH_PUB=$(echo "$KEY_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['public_key_path'])")
 
-# 5. Allocate unique loopback SSH port
+# 5. Allocate unique loopback SSH port (NO 2222 fallback!)
 SSH_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
 
 # 6. Build autoinstall seed media with guest-produced completion token
@@ -113,23 +113,49 @@ if [[ -S "$qmp_path" ]]; then
     bash "$(dirname "$0")/capture-screenshot.sh" --socket "$qmp_path" --output "$screenshot_path" || true
 fi
 
-# 9. Wait for guest autoinstall completion (NO host token echo!)
-echo "Simulating guest autoinstall completion milestone for test ISO build" >> "$serial_log"
-echo "$INSTALL_TOKEN" >> "$serial_log"
+# 9. Wait for genuine installer completion (NO host token echo!)
+bash "$(dirname "$0")/wait-for-install-completion.sh" \
+    --vm-id "$VM_ID" \
+    --token "$INSTALL_TOKEN" \
+    --pid-file "$pid_file" \
+    --qmp-socket "$qmp_path" \
+    --serial-log "$serial_log" \
+    --ssh-port "$SSH_PORT" \
+    --ssh-user "genixbit" \
+    --ssh-key "$SSH_KEY" \
+    --disk "$DISK_PATH" \
+    --timeout "$TIMEOUT_SEC"
+
 cp -f "$serial_log" "$stage_logs_dir/cand2-install-serial.log"
 
-# Verify token produced by installer/guest
-if ! grep -F "$INSTALL_TOKEN" "$serial_log" >/dev/null 2>&1; then
-    fail "Candidate 2 installation failed! Required installer-produced completion token ($INSTALL_TOKEN) missing."
-fi
-
 # 10. Stop installer VM
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" || true
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
 
 # 11. Inspect target virtual disk structure (partitions, filesystems, OS files)
 bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE"
 
-# 12. Boot Candidate 2 installed disk WITHOUT ISO attached as managed background process
+# 12. Save private Candidate 2 installation state JSON for migration stage key reuse
+INSTALL_STATE_FILE="${state_dir}/cand2-install-state.json"
+TOKEN_HASH=$(printf '%s' "$INSTALL_TOKEN" | sha256sum | awk '{print $1}')
+
+python3 -c "
+import json
+state = {
+    'vm_id': '$VM_ID',
+    'firmware_mode': '$MODE',
+    'installed_disk_path': '$DISK_PATH',
+    'ssh_user': 'genixbit',
+    'ssh_private_key_path': '$SSH_KEY',
+    'ssh_public_key_path': '$SSH_PUB',
+    'ssh_port': $SSH_PORT,
+    'completion_token_hash': '$TOKEN_HASH',
+    'installation_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")'
+}
+with open('$INSTALL_STATE_FILE', 'w') as f:
+    json.dump(state, f, indent=2)
+"
+
+# 13. Boot Candidate 2 installed disk WITHOUT ISO attached as managed background process
 printf '[INFO] Booting installed Candidate 2 guest without ISO attached (%s mode)...\n' "$MODE"
 installed_serial_log="${state_dir}/cand2-installed-boot.serial.log"
 INSTALLED_VM_ID="${VM_ID}_inst"
@@ -150,7 +176,7 @@ bash "$(dirname "$0")/run-qemu.sh" start \
 
 cp -f "$installed_serial_log" "$stage_logs_dir/cand2-installed-boot.serial.log"
 
-# 13. Wait for installed guest SSH readiness with ephemeral key
+# 14. Wait for installed guest SSH readiness with provisioned key
 bash "$(dirname "$0")/wait-for-guest.sh" \
     --ssh-port "$INSTALLED_PORT" \
     --ssh-user "genixbit" \
@@ -160,7 +186,7 @@ bash "$(dirname "$0")/wait-for-guest.sh" \
     --qmp-socket "$qmp_path" \
     --timeout 120
 
-# 14. Execute guest identity & health commands inside Candidate 2 installed guest
+# 15. Execute guest identity & health commands inside Candidate 2 installed guest
 guest_log="$stage_logs_dir/cand2-guest-install-validation.log"
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "cat /etc/os-release && findmnt -n -o SOURCE,FSTYPE / && lsblk -f && cat /proc/cmdline && dpkg-query -W && apt-cache policy && apt-get check && dpkg --audit" \
@@ -172,8 +198,8 @@ bash "$(dirname "$0")/guest-command.sh" \
     --out-log "$guest_log" \
     --verify-disk-boot
 
-# 15. Stop installed guest VM cleanly
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" || true
+# 16. Stop installed guest VM cleanly
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
 
 printf '[PASS] Candidate 2 guest installation and installed-boot verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0

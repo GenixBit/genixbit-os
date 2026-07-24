@@ -102,23 +102,28 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
-# Wait for autoinstall completion (NO host token echo!)
-echo "Simulating guest autoinstall completion milestone for test ISO build" >> "$serial_log"
-echo "$INSTALL_TOKEN" >> "$serial_log"
+# Wait for genuine installer completion (NO host token echo!)
+bash "$(dirname "$0")/wait-for-install-completion.sh" \
+    --vm-id "$VM_ID" \
+    --token "$INSTALL_TOKEN" \
+    --pid-file "$pid_file" \
+    --qmp-socket "$qmp_path" \
+    --serial-log "$serial_log" \
+    --ssh-port "$SSH_PORT" \
+    --ssh-user "genixbit" \
+    --ssh-key "$SSH_KEY" \
+    --disk "$DISK_PATH" \
+    --timeout "$TIMEOUT_SEC"
+
 cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
 
-# 6. Verify unique run-specific installation token
-if ! grep -F "$INSTALL_TOKEN" "$serial_log" >/dev/null 2>&1; then
-    fail "Installer completion token ($INSTALL_TOKEN) missing from serial log for ${MODE} mode!"
-fi
+# 6. Stop installer VM cleanly
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
 
-# 7. Stop installer VM cleanly
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" || true
-
-# 8. Verify disk partitions, filesystems, and token
+# 7. Verify disk partitions, filesystems, and token
 bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE"
 
-# 9. Boot installed system WITHOUT ISO attached (First Boot)
+# 8. Boot installed system WITHOUT ISO attached (First Boot)
 printf '[INFO] Booting installed 0.3.0 system without ISO attached (%s mode - 1st boot)...\n' "$MODE"
 INSTALLED_VM_ID="${VM_ID}_inst"
 INSTALLED_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
@@ -138,7 +143,7 @@ bash "$(dirname "$0")/run-qemu.sh" start \
 
 cp -f "$installed_serial_log" "$stage_logs_dir/${MODE}-installed-boot.serial.log"
 
-# 10. Wait for authenticated guest control channel
+# 9. Wait for authenticated guest control channel
 bash "$(dirname "$0")/wait-for-guest.sh" \
     --ssh-port "$INSTALLED_PORT" \
     --ssh-user "genixbit" \
@@ -148,7 +153,7 @@ bash "$(dirname "$0")/wait-for-guest.sh" \
     --qmp-socket "$qmp_path" \
     --timeout 120
 
-# 11. Execute installed system validation inside guest
+# 10. Execute installed system validation inside guest
 bash "$(dirname "$0")/validate-installed-system.sh" \
     --mode "$MODE" \
     --disk "$DISK_PATH" \
@@ -157,7 +162,7 @@ bash "$(dirname "$0")/validate-installed-system.sh" \
     --vm-id "$INSTALLED_VM_ID" \
     --pid-file "$pid_file"
 
-# 12. Restart VM and verify a SECOND successful installed-system boot (Second Boot)
+# 11. Restart VM and verify a SECOND successful installed-system boot (Second Boot)
 printf '[INFO] Rebooting installed 0.3.0 system without ISO attached (%s mode - 2nd boot)...\n' "$MODE"
 bash "$(dirname "$0")/guest-command.sh" \
     --reboot \
@@ -177,8 +182,8 @@ bash "$(dirname "$0")/guest-command.sh" \
     --out-log "$stage_logs_dir/${MODE}-second-boot-validation.log" \
     --verify-disk-boot
 
-# 13. Stop installed VM cleanly
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" || true
+# 12. Stop installed VM cleanly
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
 
 printf '[PASS] Current 0.3.0 ISO installation, double installed-boot, and authenticated guest validation verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0
