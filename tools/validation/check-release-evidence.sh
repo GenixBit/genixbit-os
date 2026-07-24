@@ -164,10 +164,12 @@ if [[ "$VERIFY_GIT_CANDIDATE" == true ]]; then
     else
         # If not present locally, try to fetch it
         echo "Candidate SHA not found locally. Fetching branch $branch from origin..." >&2
-        git fetch origin "$branch" >/dev/null 2>&1 || true
+        git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" --force >/dev/null 2>&1 || true
+        git fetch origin "$sha" >/dev/null 2>&1 || true
         if git rev-parse --quiet --verify "${sha}^{commit}" >/dev/null 2>&1; then
             resolved_sha="$sha"
         fi
+
     fi
     
     [[ -n "$resolved_sha" ]] || fail "CANDIDATE_SHA $sha does not resolve to a commit."
