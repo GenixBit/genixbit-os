@@ -80,8 +80,9 @@ def check_png_transparency(img, file_path, is_light=False):
 
     # Rule 6: White logo variants mean white glyphs on transparent canvas
     if is_light:
-        data = img.getdata()
+        data = img.get_flattened_data() if hasattr(img, "get_flattened_data") else img.getdata()
         for i, pixel in enumerate(data):
+
             if pixel[3] > 0: # Non-transparent
                 # Must be white or near white
                 if pixel[0] < 235 or pixel[1] < 235 or pixel[2] < 235:

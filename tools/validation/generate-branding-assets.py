@@ -22,7 +22,8 @@ def create_dirs():
 def remove_background(img, threshold=240):
     # Convert image to RGBA
     rgba = img.convert("RGBA")
-    data = rgba.getdata()
+    data = rgba.get_flattened_data() if hasattr(rgba, "get_flattened_data") else rgba.getdata()
+
     
     new_data = []
     for item in data:
@@ -41,7 +42,8 @@ def remove_background(img, threshold=240):
 def make_monochrome(img, color=(255, 255, 255)):
     # Converts all non-transparent pixels to a single solid color
     rgba = img.convert("RGBA")
-    data = rgba.getdata()
+    data = rgba.get_flattened_data() if hasattr(rgba, "get_flattened_data") else rgba.getdata()
+
     
     new_data = []
     for item in data:
@@ -110,7 +112,8 @@ def zero_borders(img):
     # Forces all border pixels of an image to be completely transparent
     w, h = img.size
     rgba = img.convert("RGBA")
-    pixels = list(rgba.getdata())
+    pixels = list(rgba.get_flattened_data() if hasattr(rgba, "get_flattened_data") else rgba.getdata())
+
     for y in range(h):
         for x in range(w):
             if x == 0 or x == w - 1 or y == 0 or y == h - 1:
