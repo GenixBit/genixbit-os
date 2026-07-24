@@ -1,7 +1,7 @@
 {
   "gate_target": "GenixBit OS 0.3.0 Pre-Release Validation Gate",
   "version": "0.3.0-alpha-dev",
-  "timestamp_utc": "2026-07-24T08:30:00Z",
+  "timestamp_utc": "2026-07-24T11:00:00Z",
   "source_mode": "genixbit-staging",
   "pinned_references": {
     "v0.2.0-alpha": "88a1550a9129a80ffd2c4cf73838122020a782cb",
@@ -31,8 +31,8 @@
       "details": "Calamares/Ubiquity installer slideshow updated with transparent GenixBit OS branding."
     },
     "vm_readiness": {
-      "status": "PASS",
-      "details": "QEMU virtual machine UEFI and Legacy BIOS boot, live session, installer launch, clean disk install, and installed system boot verified."
+      "status": "FAIL",
+      "details": "Candidate 1 generated a 64 MiB zero-filled ISO without executing QEMU VM validation and was retired (INVALID_ZERO_FILLED_ISO, VM_VALIDATION_NOT_EXECUTED, CANDIDATE_RETIRED)."
     },
     "hardware_testing_readiness": {
       "status": "NOT TESTED",
@@ -56,11 +56,11 @@
     }
   },
   "summary": {
-    "pass_count": 8,
-    "fail_count": 0,
+    "pass_count": 7,
+    "fail_count": 1,
     "blocked_count": 0,
     "not_tested_count": 3,
     "stable_ready": false,
-    "overall_gate_status": "PASS_STAGING_GATED"
+    "overall_gate_status": "FAIL_CANDIDATE_RETIRED"
   }
 }

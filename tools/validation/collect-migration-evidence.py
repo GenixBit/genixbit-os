@@ -174,10 +174,13 @@ def main():
         stage_name = stage_file.replace("stage-", "").replace(".json", "")
         stage_data[stage_name] = data
 
-    # 1. Clean install must capture apt output
+    # 1. Clean install must capture apt output and MUST NOT be synthetic echoed text
     clean_obs = stage_data["clean-install"].get("observations", {})
-    if not clean_obs.get("captured_apt_output") and not clean_obs.get("apt_output"):
+    apt_out = clean_obs.get("captured_apt_output", "") or clean_obs.get("apt_output", "")
+    if not apt_out:
         fail("clean-install stage log observations missing captured apt output")
+    if "0 upgraded, 7 newly installed, 0 to remove and 0 not upgraded." in apt_out and "Executed real apt-get" not in apt_out:
+        fail("Synthetic echo-generated APT log detected! Real apt-get execution output is required.")
 
     # 2. Candidate 2 upgrade must specify actual Candidate 2 ISO checksum
     cand_obs = stage_data["candidate-upgrade"].get("observations", {})
@@ -223,13 +226,18 @@ def main():
 
     # 5. Test ISO boot must contain real VM command logs and installation logs
     boot_obs = stage_data["test-iso-boot"].get("observations", {})
-    if not boot_obs.get("vm_command_logs") and not boot_obs.get("qemu_execution_log"):
+    vm_logs = boot_obs.get("vm_command_logs", "") or boot_obs.get("qemu_execution_log", "")
+    if not vm_logs:
         fail("test-iso-boot stage log observations missing VM command logs")
     
+    if "--dry-run" in vm_logs or "[COMMAND]" in vm_logs or "DRY_RUN" in vm_logs:
+        fail("Dry-run QEMU execution log detected in test-iso-boot evidence! Real VM execution logs required.")
+
     req_vm_logs = ["uefi_boot", "legacy_bios_boot", "grub_boot", "live_session", "installer_launch", "installation_complete"]
     for req_log in req_vm_logs:
         if req_log not in boot_obs:
             fail(f"test-iso-boot missing required VM log check: {req_log}")
+
 
     # Inspect real built .deb packages
     req_packages = [
