@@ -160,6 +160,31 @@ while (($# > 0)); do
             OVMF_VARS_TEMPLATE=$2
             shift 2
             ;;
+        --serial-log)
+            (($# >= 2)) || die '--serial-log requires a path.'
+            SERIAL_LOG=$2
+            shift 2
+            ;;
+        --timeout)
+            (($# >= 2)) || die '--timeout requires seconds.'
+            TIMEOUT_SEC=$2
+            shift 2
+            ;;
+        --qmp)
+            (($# >= 2)) || die '--qmp requires a path.'
+            QMP_PATH=$2
+            shift 2
+            ;;
+        --screenshot)
+            (($# >= 2)) || die '--screenshot requires a path.'
+            SCREENSHOT_PATH=$2
+            shift 2
+            ;;
+        --monitor)
+            (($# >= 2)) || die '--monitor requires a path.'
+            MONITOR_PATH=$2
+            shift 2
+            ;;
         --vnc)
             (($# >= 2)) || die '--vnc requires an endpoint.'
             VNC_ENDPOINT=$2
@@ -322,11 +347,28 @@ else
 fi
 
 
+if [[ -n "$SERIAL_LOG" ]]; then
+    mkdir -p "$(dirname "$SERIAL_LOG")"
+    qemu_command+=(-serial "file:${SERIAL_LOG}")
+fi
+
+if [[ -n "$QMP_PATH" ]]; then
+    mkdir -p "$(dirname "$QMP_PATH")"
+    qemu_command+=(-qmp "unix:${QMP_PATH},server,nowait")
+fi
+
+if [[ -n "$MONITOR_PATH" ]]; then
+    mkdir -p "$(dirname "$MONITOR_PATH")"
+    qemu_command+=(-monitor "unix:${MONITOR_PATH},server,nowait")
+fi
+
 if [[ -n "$VNC_ENDPOINT" ]]; then
     qemu_command+=(-display none -vnc "$VNC_ENDPOINT")
 elif [[ "$HEADLESS" == true ]]; then
     printf '[WARN] Headless mode cannot prove that the graphical live desktop or installer works.\n' >&2
-    qemu_command+=(-nographic)
+    if [[ -z "$SERIAL_LOG" ]]; then
+        qemu_command+=(-nographic)
+    fi
 fi
 
 printf '[INFO] Firmware mode: %s\n' "$MODE"
@@ -338,4 +380,8 @@ if [[ "$DRY_RUN" == true ]]; then
     exit 0
 fi
 
-exec "${qemu_command[@]}"
+if [[ -n "${TIMEOUT_SEC:-}" ]]; then
+    exec timeout "$TIMEOUT_SEC" "${qemu_command[@]}"
+else
+    exec "${qemu_command[@]}"
+fi

@@ -61,6 +61,6 @@
     "blocked_count": 0,
     "not_tested_count": 3,
     "stable_ready": false,
-    "overall_gate_status": "FAIL_CANDIDATE_RETIRED"
+    "overall_gate_status": "BLOCKED_AWAITING_EXECUTED_RELEASE_GATE"
   }
 }

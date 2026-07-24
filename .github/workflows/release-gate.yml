@@ -39,14 +39,14 @@ jobs:
           set -euo pipefail
           echo "=== Executing Operator Release Gate Preflight Checks ==="
 
-          # 1. Hardware Virtualization (/dev/kvm)
+          # 1. Hardware Virtualization (/dev/kvm rw)
           if [[ ! -e /dev/kvm || ! -r /dev/kvm || ! -w /dev/kvm ]]; then
-            echo "[FAIL] Hardware virtualization /dev/kvm is missing or inaccessible." >&2
+            echo "[FAIL] Hardware virtualization /dev/kvm is missing or not readable/writable." >&2
             exit 1
           fi
 
-          # 2. Required Binaries (QEMU, OVMF/SeaBIOS, xorriso, squashfs-tools, GPG)
-          req_binaries=(qemu-system-x86_64 xorriso mksquashfs gpg)
+          # 2. Required Command Binaries
+          req_binaries=(qemu-system-x86_64 qemu-img xorriso mksquashfs unsquashfs gpg gpgv jq curl)
           for b in "${req_binaries[@]}"; do
             if ! command -v "$b" >/dev/null 2>&1; then
               echo "[FAIL] Required preflight binary missing: $b" >&2
@@ -54,23 +54,33 @@ jobs:
             fi
           done
 
-          # 3. Firmware check (OVMF / SeaBIOS)
-          if [[ ! -f /usr/share/OVMF/OVMF_CODE.fd && ! -f /usr/share/ovmf/OVMF.fd && ! -f /usr/share/qemu/ovmf-x86_64-code.bin ]]; then
+          # isoinfo (optional check where available)
+          if command -v isoinfo >/dev/null 2>&1; then
+            echo "[PASS] isoinfo binary available."
+          fi
+
+          # 3. Firmware check (OVMF & SeaBIOS)
+          if [[ ! -f /usr/share/OVMF/OVMF_CODE.fd && ! -f /usr/share/ovmf/OVMF.fd && ! -f /usr/share/qemu/ovmf-x86_64-code.bin && ! -f /usr/share/OVMF/OVMF_CODE_4M.fd ]]; then
             echo "[FAIL] OVMF UEFI firmware image missing!" >&2
             exit 1
           fi
 
-          # 4. Available Disk Space (Minimum 20 GB)
-          avail_kb=$(df -k . | awk 'NR==2 {print $4}')
-          if (( avail_kb < 20971520 )); then
-            echo "[FAIL] Insufficient disk space for ISO build & VM testing (found ${avail_kb} KB, required >= 20GB)." >&2
+          if [[ ! -f /usr/share/seabios/bios.bin && ! -f /usr/share/qemu/bios-256k.bin && ! -f /usr/share/seabios/bios-256k.bin ]]; then
+            echo "[FAIL] SeaBIOS legacy firmware image missing!" >&2
             exit 1
           fi
 
-          # 5. Available Memory (Minimum 4 GB)
+          # 4. Available Disk Space (Minimum 40 GB = 41,943,040 KB)
+          avail_kb=$(df -k . | awk 'NR==2 {print $4}')
+          if (( avail_kb < 41943040 )); then
+            echo "[FAIL] Insufficient disk space for ISO build & VM testing (found ${avail_kb} KB, required >= 40GB)." >&2
+            exit 1
+          fi
+
+          # 5. Available Memory (Minimum 8 GB = 8,388,608 KB)
           free_mem_kb=$(grep MemAvailable /proc/meminfo | awk '{print $2}' || awk 'NR==2 {print $4}' <(free -k))
-          if (( free_mem_kb < 4194304 )); then
-            echo "[FAIL] Insufficient available RAM (found ${free_mem_kb} KB, required >= 4GB)." >&2
+          if (( free_mem_kb < 8388608 )); then
+            echo "[FAIL] Insufficient available RAM (found ${free_mem_kb} KB, required >= 8GB)." >&2
             exit 1
           fi
 
@@ -80,14 +90,33 @@ jobs:
             exit 1
           fi
 
-          # 7. Staging Connectivity Verification (if staging server specified)
-          if [[ -n "${GENIXBIT_STAGING_SERVER:-}" ]]; then
-            if ! curl --silent --head --fail "$GENIXBIT_STAGING_SERVER" >/dev/null 2>&1; then
-              echo "[WARN] Staging server $GENIXBIT_STAGING_SERVER ping check returned non-200, continuing preflight validation..."
-            fi
+          # 7. Staging Hostname and Connectivity Verification (Fatal on failure)
+          if [[ -z "${GENIXBIT_STAGING_SERVER:-}" ]]; then
+            echo "[FAIL] GENIXBIT_STAGING_SERVER variable is empty or unconfigured!" >&2
+            exit 1
           fi
 
-          echo "[PASS] All preflight system & hardware requirements verified."
+          echo "Pinging staging server: $GENIXBIT_STAGING_SERVER"
+          if ! curl --silent --head --fail "$GENIXBIT_STAGING_SERVER" >/dev/null 2>&1; then
+            echo "[FAIL] Staging server $GENIXBIT_STAGING_SERVER is unreachable or returned non-200 status!" >&2
+            exit 1
+          fi
+
+          staging_meta_url="${GENIXBIT_STAGING_SERVER}/dists/resolute-alpha/Release"
+          if ! curl --silent --head --fail "$staging_meta_url" >/dev/null 2>&1; then
+            echo "[FAIL] Staging repository metadata endpoint $staging_meta_url is unreachable!" >&2
+            exit 1
+          fi
+
+          # 8. Candidate 2 ISO Source Verification
+          cand2_url="${GENIXBIT_STAGING_SERVER}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso"
+          cand2_local="dist/GenixBitOS-0.2.0-alpha-2607220558.iso"
+          if ! [[ -f "$cand2_local" ]] && ! curl --silent --head --fail "$cand2_url" >/dev/null 2>&1; then
+            echo "[FAIL] Candidate 2 ISO source is unconfigured or unreachable!" >&2
+            exit 1
+          fi
+
+          echo "[PASS] All preflight system, hardware, network, and secret requirements verified."
 
       - name: Execute Full Package Migration & Staging Validation Suite
         run: |
