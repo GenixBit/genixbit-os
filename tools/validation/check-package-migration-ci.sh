@@ -90,10 +90,22 @@ done
 grep -q "AnduinOS" "$REPO_ROOT/UPSTREAM.md" || fail "UPSTREAM.md missing required AnduinOS attribution"
 pass "Check 7 PASS: Legal attribution files verified."
 
-# Check 8: Machine-readable JSON evidence files completeness
-info "Check 8: Verifying machine-readable JSON evidence completeness..."
-python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" >/dev/null
+# Check 8: Release tag integrity (Explicitly fetch tag for shallow checkout environments like Actions)
+info "Check 8: Verifying release tag commit pointer..."
+git -C "$REPO_ROOT" fetch origin refs/tags/v0.2.0-alpha:refs/tags/v0.2.0-alpha --force 2>/dev/null || true
+tag_commit=$(git -C "$REPO_ROOT" rev-parse v0.2.0-alpha^{commit} 2>/dev/null || echo "")
+if [[ "$tag_commit" != "88a1550a9129a80ffd2c4cf73838122020a782cb" ]]; then
+    fail "Release tag v0.2.0-alpha was modified! Expected 88a1550a9129a80ffd2c4cf73838122020a782cb, got '$tag_commit'"
+fi
+pass "Check 8 PASS: Release tag v0.2.0-alpha integrity confirmed."
 
+# Check 9: Run migration validation matrix (builds packages & stage logs)
+info "Check 9: Running full migration validation matrix..."
+bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" >/dev/null
+pass "Check 9 PASS: Migration validation suite passed."
+
+# Check 10: Machine-readable JSON evidence files completeness
+info "Check 10: Verifying machine-readable JSON evidence completeness..."
 req_json=(
     "package-build-results.json"
     "repository-publication-result.json"
@@ -116,26 +128,12 @@ for jf in "${req_json[@]}"; do
     fi
     grep -q '"status": "PASS"' "$jpath" || fail "Evidence file $jf missing PASS status!"
 done
-pass "Check 8 PASS: Machine-readable JSON evidence files verified."
+pass "Check 10 PASS: Machine-readable JSON evidence files verified."
 
-# Check 9: Release tag integrity (Explicitly fetch tag for shallow checkout environments like Actions)
-info "Check 9: Verifying release tag commit pointer..."
-git -C "$REPO_ROOT" fetch origin refs/tags/v0.2.0-alpha:refs/tags/v0.2.0-alpha --force 2>/dev/null || true
-tag_commit=$(git -C "$REPO_ROOT" rev-parse v0.2.0-alpha^{commit} 2>/dev/null || echo "")
-if [[ "$tag_commit" != "88a1550a9129a80ffd2c4cf73838122020a782cb" ]]; then
-    fail "Release tag v0.2.0-alpha was modified! Expected 88a1550a9129a80ffd2c4cf73838122020a782cb, got '$tag_commit'"
-fi
-pass "Check 9 PASS: Release tag v0.2.0-alpha integrity confirmed."
-
-# Check 10: Negative unit tests for evidence collector
-info "Check 10: Running evidence collector negative unit tests..."
+# Check 11: Negative unit tests for evidence collector
+info "Check 11: Running evidence collector negative unit tests..."
 bash "$REPO_ROOT/tools/validation/test-evidence-collector-negative.sh" >/dev/null
-pass "Check 10 PASS: Evidence collector negative unit tests passed."
-
-# Check 11: Run migration validation matrix
-info "Check 11: Running full migration validation matrix..."
-bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" >/dev/null
-pass "Check 11 PASS: Migration validation suite passed."
+pass "Check 11 PASS: Evidence collector negative unit tests passed."
 
 pass "=== Package Migration & Staging CI Validation Passed ==="
 exit 0
