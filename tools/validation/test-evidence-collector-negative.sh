@@ -114,6 +114,24 @@ if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/nu
 fi
 pass "Test 5 PASS: Incorrect source commit SHA correctly rejected."
 
+# Test 6: Dry-run QEMU VM execution log rejection
+info "Test 6: Testing rejection of dry-run QEMU execution log..."
+setup_valid_logs
+echo '{"command": "boot", "exit_code": 0, "status": "PASS", "observations": {"vm_command_logs": "[COMMAND] qemu-system-x86_64 --mode uefi --dry-run"}}' > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
+if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+    fail "Collector failed to reject dry-run QEMU VM log!"
+fi
+pass "Test 6 PASS: Dry-run QEMU VM execution log correctly rejected."
+
+# Test 7: Synthetic echo-generated APT log rejection
+info "Test 7: Testing rejection of synthetic echo-generated APT log..."
+setup_valid_logs
+echo '{"command": "install", "exit_code": 0, "status": "PASS", "observations": {"captured_apt_output": "0 upgraded, 7 newly installed, 0 to remove and 0 not upgraded."}}' > "$STAGE_LOGS_DIR/stage-clean-install.json"
+if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+    fail "Collector failed to reject synthetic echo-generated APT log!"
+fi
+pass "Test 7 PASS: Synthetic echo-generated APT log correctly rejected."
+
 # Restore valid execution if a real ISO is present
 ISO_FILE=$(find "$REPO_ROOT/dist" -maxdepth 1 -name "*.iso" 2>/dev/null | head -n 1 || echo "")
 if [[ -n "$ISO_FILE" && -f "$ISO_FILE" ]]; then
@@ -123,3 +141,4 @@ fi
 
 pass "=== All Evidence Collector Negative Security Tests Passed ==="
 exit 0
+
