@@ -14,8 +14,19 @@ permissions:
 jobs:
   release-gate-validation:
     name: Operator-Controlled Release Gate Execution
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - genixbit-release-gate
     environment: release-validation
+
+    env:
+      STAGING_SIGNING_PASSPHRASE: ${{ secrets.STAGING_SIGNING_PASSPHRASE }}
+      GENIXBIT_STAGING_SERVER: ${{ vars.GENIXBIT_STAGING_SERVER }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      GCP_ZONE: ${{ vars.GCP_ZONE }}
 
     steps:
       - name: Check out repository
@@ -23,33 +34,65 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify KVM and Virtualization Hardware Availability
+      - name: Preflight System & Hardware Environment Verification
         run: |
           set -euo pipefail
-          if [[ ! -e /dev/kvm ]]; then
-            echo "Error: KVM acceleration (/dev/kvm) is required for operator-controlled release gate execution." >&2
-            echo "Execution halted fail-closed." >&2
+          echo "=== Executing Operator Release Gate Preflight Checks ==="
+
+          # 1. Hardware Virtualization (/dev/kvm)
+          if [[ ! -e /dev/kvm || ! -r /dev/kvm || ! -w /dev/kvm ]]; then
+            echo "[FAIL] Hardware virtualization /dev/kvm is missing or inaccessible." >&2
             exit 1
           fi
 
-      - name: Install ShellCheck, GnuPG, Packaging & QEMU dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y shellcheck jq gnupg gpgv apt-utils dpkg-dev devscripts lintian qemu-system-x86 ovmf xorriso squashfs-tools python3-jsonschema
+          # 2. Required Binaries (QEMU, OVMF/SeaBIOS, xorriso, squashfs-tools, GPG)
+          req_binaries=(qemu-system-x86_64 xorriso mksquashfs gpg)
+          for b in "${req_binaries[@]}"; do
+            if ! command -v "$b" >/dev/null 2>&1; then
+              echo "[FAIL] Required preflight binary missing: $b" >&2
+              exit 1
+            fi
+          done
 
-      - name: Verify Staging Signing Credentials Availability
-        run: |
-          set -euo pipefail
+          # 3. Firmware check (OVMF / SeaBIOS)
+          if [[ ! -f /usr/share/OVMF/OVMF_CODE.fd && ! -f /usr/share/ovmf/OVMF.fd && ! -f /usr/share/qemu/ovmf-x86_64-code.bin ]]; then
+            echo "[FAIL] OVMF UEFI firmware image missing!" >&2
+            exit 1
+          fi
+
+          # 4. Available Disk Space (Minimum 20 GB)
+          avail_kb=$(df -k . | awk 'NR==2 {print $4}')
+          if (( avail_kb < 20971520 )); then
+            echo "[FAIL] Insufficient disk space for ISO build & VM testing (found ${avail_kb} KB, required >= 20GB)." >&2
+            exit 1
+          fi
+
+          # 5. Available Memory (Minimum 4 GB)
+          free_mem_kb=$(grep MemAvailable /proc/meminfo | awk '{print $2}' || awk 'NR==2 {print $4}' <(free -k))
+          if (( free_mem_kb < 4194304 )); then
+            echo "[FAIL] Insufficient available RAM (found ${free_mem_kb} KB, required >= 4GB)." >&2
+            exit 1
+          fi
+
+          # 6. Protected Secrets Verification
           if [[ -z "${STAGING_SIGNING_PASSPHRASE:-}" ]]; then
-            echo "Error: STAGING_SIGNING_PASSPHRASE is unavailable in protected environment!" >&2
-            echo "Execution halted fail-closed." >&2
+            echo "[FAIL] Protected secret STAGING_SIGNING_PASSPHRASE is empty or unmapped!" >&2
             exit 1
           fi
+
+          # 7. Staging Connectivity Verification (if staging server specified)
+          if [[ -n "${GENIXBIT_STAGING_SERVER:-}" ]]; then
+            if ! curl --silent --head --fail "$GENIXBIT_STAGING_SERVER" >/dev/null 2>&1; then
+              echo "[WARN] Staging server $GENIXBIT_STAGING_SERVER ping check returned non-200, continuing preflight validation..."
+            fi
+          fi
+
+          echo "[PASS] All preflight system & hardware requirements verified."
 
       - name: Execute Full Package Migration & Staging Validation Suite
         run: |
           set -euo pipefail
-          EXECUTE_REAL_ISO_BUILD=true EXECUTE_REAL_VM_TESTS=true bash tools/validation/validate-package-migration.sh
+          EXECUTE_REAL_ISO_BUILD=true EXECUTE_REAL_VM_TESTS=true EXECUTE_REAL_CLIENT_INSTALL=true EXECUTE_REAL_MIGRATION=true bash tools/validation/validate-package-migration.sh
 
       - name: Validate Release Gate Integrity
         run: |

@@ -132,6 +132,24 @@ if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/nu
 fi
 pass "Test 7 PASS: Synthetic echo-generated APT log correctly rejected."
 
+# Test 8: Command containing || true rejection
+info "Test 8: Testing rejection of command containing || true..."
+setup_valid_logs
+echo '{"command": "run-qemu.sh --mode uefi || true", "exit_code": 0, "status": "PASS", "observations": {"vm_command_logs": "qemu boot pass"}}' > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
+if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+    fail "Collector failed to reject command containing || true!"
+fi
+pass "Test 8 PASS: Command containing || true correctly rejected."
+
+# Test 9: Candidate 2 ISO SHA mismatch rejection
+info "Test 9: Testing rejection of mismatched Candidate 2 ISO SHA-256..."
+setup_valid_logs
+echo '{"command": "upgrade", "exit_code": 0, "status": "PASS", "observations": {"candidate2_iso_sha256": "0000000000000000000000000000000000000000000000000000000000000000"}}' > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
+if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+    fail "Collector failed to reject mismatched Candidate 2 ISO SHA!"
+fi
+pass "Test 9 PASS: Mismatched Candidate 2 ISO SHA correctly rejected."
+
 # Restore valid execution if a real ISO is present
 ISO_FILE=$(find "$REPO_ROOT/dist" -maxdepth 1 -name "*.iso" 2>/dev/null | head -n 1 || echo "")
 if [[ -n "$ISO_FILE" && -f "$ISO_FILE" ]]; then
