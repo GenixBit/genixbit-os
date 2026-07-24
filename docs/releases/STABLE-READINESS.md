@@ -20,7 +20,7 @@ This report documents the status of the 11 mandatory release gate categories req
 | **Clean-Install Readiness** | `PASS` | Clean client `apt-get install` from signed staging repository verified. |
 | **Upgrade Readiness** | `PASS` | Migration from Candidate 2 legacy packages (`88a1550`) verified with zero dependency loops. |
 | **Installer Readiness** | `PASS` | Calamares/Ubiquity installer slideshow updated with GenixBit branding. |
-| **VM Readiness** | `PASS` | QEMU UEFI and Legacy BIOS boot, live session, installer, and installed boot verified. |
+| **VM Readiness** | `FAIL` | Candidate 1 generated a 64 MiB zero-filled ISO without QEMU VM validation and was retired. |
 | **Hardware-Testing Readiness**| `NOT TESTED` | Physical bare-metal hardware matrix validation scheduled for RC candidate phase. |
 | **Security Readiness** | `PASS` | Negative security tests (tampered payload/metadata rejection, key revocation) verified. |
 | **Documentation Readiness** | `PASS` | Legal attribution (`UPSTREAM.md`, `LICENSE`, `OSS.md`) and version consistency verified. |
@@ -60,15 +60,11 @@ This report documents the status of the 11 mandatory release gate categories req
   - `privacy_security.html`: Contains GenixBit telemetry disclosure.
   - Zero user-visible legacy branding remnants.
 
-### 2.6 VM Readiness (`PASS`)
-- QEMU virtual machine test matrix executed:
-  1. UEFI boot (`OVMF`) -> PASS
-  2. Legacy BIOS boot (`SeaBIOS`) -> PASS
-  3. GRUB boot menu -> PASS
-  4. Live desktop session -> PASS
-  5. Calamares installer launch -> PASS
-  6. Clean disk partition & installation -> PASS
-  7. Target system boot & login -> PASS
+### 2.6 VM Readiness (`FAIL` — CANDIDATE RETIRED)
+- Candidate 1 was marked FAIL and RETIRED (`INVALID_ZERO_FILLED_ISO`, `VM_VALIDATION_NOT_EXECUTED`, `CANDIDATE_RETIRED`).
+- The Candidate 1 validation process generated a 64 MiB zero-filled dummy ISO without executing QEMU VM validation.
+- Real ISO build (`PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh`), strict ISO structural validation (`check-iso-structure.sh`), and real QEMU VM execution logging are required before `vm_readiness` can be marked PASS.
+
 
 ### 2.7 Hardware-Testing Readiness (`NOT TESTED`)
 - Bare-metal hardware validation matrix (Intel/AMD iGPU, NVIDIA GPU, Broadcom Wi-Fi) pending hardware lab execution.
