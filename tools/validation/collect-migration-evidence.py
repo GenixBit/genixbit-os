@@ -171,6 +171,8 @@ def main():
         cmd_str = str(data.get("command", ""))
         if "|| true" in cmd_str:
             fail(f"Stage {stage_file} command contains '|| true' error suppression: {cmd_str}")
+        if any(flag in cmd_str for flag in ["--dry-run", "--simulate", " -s "]):
+            fail(f"Stage {stage_file} command contains dry-run/simulation flags: {cmd_str}")
 
         if data.get("exit_code") != 0:
             fail(f"Stage {stage_file} failed with exit code {data.get('exit_code')}")

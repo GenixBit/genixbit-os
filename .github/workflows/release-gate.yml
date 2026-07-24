@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: genixbit-0.3.0-release-gate
+  cancel-in-progress: false
+
 jobs:
   release-gate-validation:
     name: Operator-Controlled Release Gate Execution
@@ -20,10 +24,12 @@ jobs:
       - x64
       - genixbit-release-gate
     environment: release-validation
+    timeout-minutes: 360
 
     env:
       STAGING_SIGNING_PASSPHRASE: ${{ secrets.STAGING_SIGNING_PASSPHRASE }}
       GENIXBIT_STAGING_SERVER: ${{ vars.GENIXBIT_STAGING_SERVER }}
+      CANDIDATE2_ISO_URL: ${{ vars.CANDIDATE2_ISO_URL }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}
       GCP_ZONE: ${{ vars.GCP_ZONE }}
@@ -34,19 +40,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Preflight System & Hardware Environment Verification
+      - name: Preflight System, Hardware, & Dependency Verification
         run: |
           set -euo pipefail
-          echo "=== Executing Operator Release Gate Preflight Checks ==="
+          echo "=== Executing Operator Release Gate Strict Preflight Checks ==="
+          PREFLIGHT_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          # 1. Hardware Virtualization (/dev/kvm rw)
+          # 1. Architecture Check (Linux x86_64)
+          arch=$(uname -m)
+          if [[ "$arch" != "x86_64" ]]; then
+            echo "[FAIL] Runner architecture is $arch, required x86_64." >&2
+            exit 1
+          fi
+
+          # 2. Hardware Virtualization (/dev/kvm rw)
           if [[ ! -e /dev/kvm || ! -r /dev/kvm || ! -w /dev/kvm ]]; then
             echo "[FAIL] Hardware virtualization /dev/kvm is missing or not readable/writable." >&2
             exit 1
           fi
 
-          # 2. Required Command Binaries
-          req_binaries=(qemu-system-x86_64 qemu-img xorriso mksquashfs unsquashfs gpg gpgv jq curl)
+          # 3. Required Binaries
+          req_binaries=(qemu-system-x86_64 qemu-img timeout socat jq curl sha256sum sha512sum xorriso isoinfo mksquashfs unsquashfs gpg gpgv dpkg-deb apt-get python3)
           for b in "${req_binaries[@]}"; do
             if ! command -v "$b" >/dev/null 2>&1; then
               echo "[FAIL] Required preflight binary missing: $b" >&2
@@ -54,67 +68,112 @@ jobs:
             fi
           done
 
-          # isoinfo (optional check where available)
-          if command -v isoinfo >/dev/null 2>&1; then
-            echo "[PASS] isoinfo binary available."
-          fi
-
-          # 3. Firmware check (OVMF & SeaBIOS)
-          if [[ ! -f /usr/share/OVMF/OVMF_CODE.fd && ! -f /usr/share/ovmf/OVMF.fd && ! -f /usr/share/qemu/ovmf-x86_64-code.bin && ! -f /usr/share/OVMF/OVMF_CODE_4M.fd ]]; then
-            echo "[FAIL] OVMF UEFI firmware image missing!" >&2
+          # Python jsonschema module
+          if ! python3 -c "import jsonschema" >/dev/null 2>&1; then
+            echo "[FAIL] Required python module jsonschema is missing." >&2
             exit 1
           fi
 
-          if [[ ! -f /usr/share/seabios/bios.bin && ! -f /usr/share/qemu/bios-256k.bin && ! -f /usr/share/seabios/bios-256k.bin ]]; then
+          # 4. Firmware Check (OVMF & SeaBIOS)
+          ovmf_code=""
+          ovmf_vars=""
+          for f in "/usr/share/OVMF/OVMF_CODE_4M.fd" "/usr/share/OVMF/OVMF_CODE.fd" "/usr/share/ovmf/OVMF.fd" "/usr/share/edk2/ovmf/OVMF_CODE.fd"; do
+            if [[ -f "$f" ]]; then ovmf_code="$f"; break; fi
+          done
+          for f in "/usr/share/OVMF/OVMF_VARS_4M.fd" "/usr/share/OVMF/OVMF_VARS.fd" "/usr/share/ovmf/OVMF_VARS.fd" "/usr/share/edk2/ovmf/OVMF_VARS.fd"; do
+            if [[ -f "$f" ]]; then ovmf_vars="$f"; break; fi
+          done
+          if [[ -z "$ovmf_code" || -z "$ovmf_vars" ]]; then
+            echo "[FAIL] OVMF UEFI firmware image or vars missing!" >&2
+            exit 1
+          fi
+
+          seabios=""
+          for f in "/usr/share/seabios/bios-256k.bin" "/usr/share/seabios/bios.bin" "/usr/share/qemu/bios-256k.bin"; do
+            if [[ -f "$f" ]]; then seabios="$f"; break; fi
+          done
+          if [[ -z "$seabios" ]]; then
             echo "[FAIL] SeaBIOS legacy firmware image missing!" >&2
             exit 1
           fi
 
-          # 4. Available Disk Space (Minimum 40 GB = 41,943,040 KB)
+          # 5. Disk Space (>= 80 GB = 83,886,080 KB)
           avail_kb=$(df -k . | awk 'NR==2 {print $4}')
-          if (( avail_kb < 41943040 )); then
-            echo "[FAIL] Insufficient disk space for ISO build & VM testing (found ${avail_kb} KB, required >= 40GB)." >&2
+          if (( avail_kb < 83886080 )); then
+            echo "[FAIL] Insufficient disk space for ISO build & VM testing (found ${avail_kb} KB, required >= 80GB)." >&2
             exit 1
           fi
 
-          # 5. Available Memory (Minimum 8 GB = 8,388,608 KB)
+          # 6. Memory (>= 16 GB = 16,777,216 KB)
           free_mem_kb=$(grep MemAvailable /proc/meminfo | awk '{print $2}' || awk 'NR==2 {print $4}' <(free -k))
-          if (( free_mem_kb < 8388608 )); then
-            echo "[FAIL] Insufficient available RAM (found ${free_mem_kb} KB, required >= 8GB)." >&2
+          if (( free_mem_kb < 16777216 )); then
+            echo "[FAIL] Insufficient available RAM (found ${free_mem_kb} KB, required >= 16GB)." >&2
             exit 1
           fi
 
-          # 6. Protected Secrets Verification
+          # 7. CPU Threads (>= 4)
+          cpu_threads=$(nproc || echo 1)
+          if (( cpu_threads < 4 )); then
+            echo "[FAIL] Insufficient CPU threads (found ${cpu_threads}, required >= 4)." >&2
+            exit 1
+          fi
+
+          # 8. Secret & Staging Server Verification
           if [[ -z "${STAGING_SIGNING_PASSPHRASE:-}" ]]; then
             echo "[FAIL] Protected secret STAGING_SIGNING_PASSPHRASE is empty or unmapped!" >&2
             exit 1
           fi
 
-          # 7. Staging Hostname and Connectivity Verification (Fatal on failure)
           if [[ -z "${GENIXBIT_STAGING_SERVER:-}" ]]; then
             echo "[FAIL] GENIXBIT_STAGING_SERVER variable is empty or unconfigured!" >&2
             exit 1
           fi
 
-          echo "Pinging staging server: $GENIXBIT_STAGING_SERVER"
           if ! curl --silent --head --fail "$GENIXBIT_STAGING_SERVER" >/dev/null 2>&1; then
-            echo "[FAIL] Staging server $GENIXBIT_STAGING_SERVER is unreachable or returned non-200 status!" >&2
+            echo "[FAIL] Staging server $GENIXBIT_STAGING_SERVER is unreachable!" >&2
             exit 1
           fi
 
-          staging_meta_url="${GENIXBIT_STAGING_SERVER}/dists/resolute-alpha/Release"
-          if ! curl --silent --head --fail "$staging_meta_url" >/dev/null 2>&1; then
-            echo "[FAIL] Staging repository metadata endpoint $staging_meta_url is unreachable!" >&2
+          staging_meta="${GENIXBIT_STAGING_SERVER}/dists/resolute-alpha/Release"
+          if ! curl --silent --head --fail "$staging_meta" >/dev/null 2>&1; then
+            echo "[FAIL] Staging metadata endpoint $staging_meta is unreachable!" >&2
             exit 1
           fi
 
-          # 8. Candidate 2 ISO Source Verification
-          cand2_url="${GENIXBIT_STAGING_SERVER}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso"
+          # 9. Candidate 2 ISO URL Verification
+          cand2_url="${CANDIDATE2_ISO_URL:-${GENIXBIT_STAGING_SERVER}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso}"
           cand2_local="dist/GenixBitOS-0.2.0-alpha-2607220558.iso"
           if ! [[ -f "$cand2_local" ]] && ! curl --silent --head --fail "$cand2_url" >/dev/null 2>&1; then
-            echo "[FAIL] Candidate 2 ISO source is unconfigured or unreachable!" >&2
+            echo "[FAIL] Candidate 2 ISO URL $cand2_url is unconfigured or unreachable!" >&2
             exit 1
           fi
+
+          PREFLIGHT_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          CURR_COMMIT=$(git rev-parse HEAD)
+          mkdir -p infra/package-staging/results/stage-logs
+
+          cat <<EOF > infra/package-staging/results/stage-logs/preflight-results.json
+          {
+            "source_commit": "$CURR_COMMIT",
+            "runner_name": "${RUNNER_NAME:-self-hosted}",
+            "architecture": "$arch",
+            "cpu_threads": $cpu_threads,
+            "available_memory_kb": $free_mem_kb,
+            "available_disk_kb": $avail_kb,
+            "kvm_available": true,
+            "firmware_paths": {
+              "ovmf_code": "$ovmf_code",
+              "ovmf_vars": "$ovmf_vars",
+              "seabios": "$seabios"
+            },
+            "staging_status": "REACHABLE",
+            "candidate2_source_status": "REACHABLE",
+            "start_timestamp": "$PREFLIGHT_START",
+            "completion_timestamp": "$PREFLIGHT_END",
+            "exit_code": 0,
+            "status": "PASS"
+          }
+          EOF
 
           echo "[PASS] All preflight system, hardware, network, and secret requirements verified."
 
@@ -126,3 +185,14 @@ jobs:
       - name: Validate Release Gate Integrity
         run: |
           bash tools/validation/check-release-gate.sh
+
+      - name: Upload Private Release Gate Validation Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genixbit-release-gate-evidence
+          path: |
+            infra/package-staging/results/stage-logs/*
+            infra/package-staging/results/current/*
+            docs/releases/0.3.0-release-gate.json
+          retention-days: 90

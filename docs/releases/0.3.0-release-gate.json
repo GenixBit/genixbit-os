@@ -19,16 +19,16 @@
       "details": "Production HSM/KMS production signing key ceremony not executed yet. Ephemeral passphrase-protected GPG signing key used for staging isolation."
     },
     "clean_install_readiness": {
-      "status": "PASS",
-      "details": "Clean installation of replacement packages verified from signed staging repository."
+      "status": "BLOCKED",
+      "details": "Clean installation of replacement packages blocked awaiting real isolated client container execution."
     },
     "upgrade_readiness": {
-      "status": "PASS",
-      "details": "Migration from Candidate 2 legacy packages to GenixBit replacement packages verified with zero dependency loops and clean APT sources."
+      "status": "BLOCKED",
+      "details": "Migration from Candidate 2 legacy packages to GenixBit replacement packages blocked awaiting real Candidate 2 guest migration execution."
     },
     "installer_readiness": {
-      "status": "PASS",
-      "details": "Calamares/Ubiquity installer slideshow updated with transparent GenixBit OS branding."
+      "status": "BLOCKED",
+      "details": "Installer slideshow branding verified in source; live installer execution blocked awaiting QEMU guest VM run."
     },
     "vm_readiness": {
       "status": "FAIL",
@@ -56,9 +56,9 @@
     }
   },
   "summary": {
-    "pass_count": 7,
+    "pass_count": 4,
     "fail_count": 1,
-    "blocked_count": 0,
+    "blocked_count": 3,
     "not_tested_count": 3,
     "stable_ready": false,
     "overall_gate_status": "BLOCKED_AWAITING_EXECUTED_RELEASE_GATE"
