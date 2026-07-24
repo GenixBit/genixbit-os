@@ -1,3 +1,9 @@
+genixbit-os-apt-config (0.3.0-alpha-dev-1) resolute; urgency=medium
+
+  * Update package for GenixBit OS 0.3.0-alpha-dev release gate cycle.
+
+ -- GenixBit OS Maintainers <ftpmaster@genixbit.com>  Fri, 24 Jul 2026 08:30:00 +0000
+
 genixbit-os-apt-config (0.2.0-alpha-1) resolute; urgency=medium
 
   * Initial scaffolding for GenixBit OS APT source repository configuration package.

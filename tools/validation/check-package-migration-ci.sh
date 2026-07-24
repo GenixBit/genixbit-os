@@ -67,15 +67,18 @@ if grep -r "packages.anduinos.com/artifacts/anduinos/pool/genixbit-os" "$REPO_RO
 fi
 pass "Check 4 PASS: Package source mode & server isolation verified."
 
-# Check 5: No trusted=yes configuration
-info "Check 5: Verifying absence of trusted=yes or allow-insecure configuration..."
+# Check 5: No trusted=yes or fallback fingerprint configuration
+info "Check 5: Verifying absence of trusted=yes or hardcoded fallback fingerprints..."
 if grep -r "trusted=yes" "$REPO_ROOT/packages" "$REPO_ROOT/build.sh" "$REPO_ROOT/args.sh" 2>/dev/null; then
     fail "Insecure trusted=yes configuration detected!"
 fi
 if grep -r "allow-insecure=yes" "$REPO_ROOT/packages" "$REPO_ROOT/build.sh" "$REPO_ROOT/args.sh" 2>/dev/null; then
     fail "Insecure allow-insecure=yes configuration detected!"
 fi
-pass "Check 5 PASS: Security options enforced."
+if grep -r "7F9C2B8A3D0E4F1A5B8E2C4D6F8A0B2C4D6E8F0A" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    fail "Fixed fallback signing fingerprint detected in validate-package-migration.sh!"
+fi
+pass "Check 5 PASS: Security options and dynamic signing enforced."
 
 # Check 6: Production repository remains undeployed
 info "Check 6: Verifying production APT server status..."
@@ -104,7 +107,7 @@ info "Check 9: Running full migration validation matrix..."
 bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" >/dev/null
 pass "Check 9 PASS: Migration validation suite passed."
 
-# Check 10: Machine-readable JSON evidence files completeness
+# Check 10: Machine-readable JSON evidence files completeness (All 10 required)
 info "Check 10: Verifying machine-readable JSON evidence completeness..."
 req_json=(
     "package-build-results.json"
@@ -114,6 +117,8 @@ req_json=(
     "tamper-result.json"
     "rollback-result.json"
     "installer-result.json"
+    "test-iso-build-result.json"
+    "test-iso-boot-result.json"
     "final-package-migration-result.json"
 )
 
@@ -126,8 +131,7 @@ for jf in "${req_json[@]}"; do
     fi
     grep -q '"status": "PASS"' "$jpath" || fail "Evidence file $jf missing PASS status!"
 done
-pass "Check 10 PASS: Machine-readable JSON evidence files verified."
-
+pass "Check 10 PASS: All 10 machine-readable JSON evidence files verified."
 
 # Check 11: Negative unit tests for evidence collector
 info "Check 11: Running evidence collector negative unit tests..."

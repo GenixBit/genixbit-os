@@ -58,12 +58,18 @@ while (($# > 0)); do
 done
 
 if [[ -z "$MANIFEST_FILE" ]]; then
-    manifests=(docs/releases/*.env)
-    if [[ ${#manifests[@]} -eq 0 || ! -f "${manifests[0]}" ]]; then
-        fail 'No release manifest found in docs/releases/*.env.'
+    ARGS_VER=$(grep -E '^export TARGET_BUILD_VERSION=' "$ARGS_FILE" 2>/dev/null | cut -d'"' -f2 || echo "")
+    if [[ -n "$ARGS_VER" && -f "docs/releases/${ARGS_VER}.env" ]]; then
+        MANIFEST_FILE="docs/releases/${ARGS_VER}.env"
+    else
+        manifests=(docs/releases/*.env)
+        if [[ ${#manifests[@]} -eq 0 || ! -f "${manifests[0]}" ]]; then
+            fail 'No release manifest found in docs/releases/*.env.'
+        fi
+        MANIFEST_FILE="${manifests[0]}"
     fi
-    MANIFEST_FILE="${manifests[0]}"
 fi
+
 
 [[ -f "$MANIFEST_FILE" ]] || fail "Manifest file not found: $MANIFEST_FILE"
 [[ -f "$ARGS_FILE" ]] || fail "Args file not found: $ARGS_FILE"

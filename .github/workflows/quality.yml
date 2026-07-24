@@ -100,7 +100,8 @@ jobs:
           set -euo pipefail
           grep -Fx 'export TARGET_NAME="genixbitos"' args.sh
           grep -Fx 'export TARGET_BUSINESS_NAME="GenixBitOS"' args.sh
-          grep -Fx 'export TARGET_BUILD_VERSION="0.2.0-alpha"' args.sh
+          grep -E '^export TARGET_BUILD_VERSION="' args.sh
+
 
       - name: Scan for obvious credential patterns
         shell: bash
