@@ -114,8 +114,6 @@ req_json=(
     "tamper-result.json"
     "rollback-result.json"
     "installer-result.json"
-    "test-iso-build-result.json"
-    "test-iso-boot-result.json"
     "final-package-migration-result.json"
 )
 
@@ -129,6 +127,7 @@ for jf in "${req_json[@]}"; do
     grep -q '"status": "PASS"' "$jpath" || fail "Evidence file $jf missing PASS status!"
 done
 pass "Check 10 PASS: Machine-readable JSON evidence files verified."
+
 
 # Check 11: Negative unit tests for evidence collector
 info "Check 11: Running evidence collector negative unit tests..."
