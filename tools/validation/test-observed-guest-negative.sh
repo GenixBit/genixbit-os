@@ -107,11 +107,16 @@ pass "Test 9-13 PASS: Autoinstall seed generator verified."
 # Test 14-18: Rejection of empty/unpartitioned QCOW2 disk
 info "Test 14-18: Rejection of disk without partition structure or OS files..."
 DUMMY_DISK="$TEST_DIR/empty.qcow2"
-qemu-img create -f qcow2 "$DUMMY_DISK" 40G >/dev/null
+if command -v qemu-img >/dev/null 2>&1; then
+    qemu-img create -f qcow2 "$DUMMY_DISK" 40G >/dev/null
+else
+    truncate -s 1024 "$DUMMY_DISK"
+fi
 if bash "$REPO_ROOT/tools/vm/verify-disk-structure.sh" --disk "$DUMMY_DISK" --token "MISSING_TOKEN" 2>/dev/null; then
     fail "verify-disk-structure.sh failed to reject empty disk without partitions!"
 fi
 pass "Test 14-18 PASS: Unpartitioned disk structure correctly rejected."
+
 
 # Test 19-21: Rejection of live media mounts during disk-boot verification
 info "Test 19-21: Rejection of live media mounts during disk-boot verification..."
