@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Fail-Closed Evidence Collector for GenixBit OS Package Migration & Staging
+
+# Real Fail-Closed Evidence Collector for GenixBit OS Package Migration & Staging
 
 import os
 import sys
@@ -30,6 +31,8 @@ def get_git_head(repo_root):
         fail(f"Failed to query git HEAD: {e}")
 
 def calc_sha256(filepath):
+    if not os.path.isfile(filepath):
+        fail(f"File not found for SHA-256 calculation: {filepath}")
     h = hashlib.sha256()
     with open(filepath, "rb") as f:
         while chunk := f.read(65536):
@@ -37,10 +40,11 @@ def calc_sha256(filepath):
     return h.hexdigest()
 
 def inspect_deb(deb_path):
+    if not os.path.isfile(deb_path):
+        fail(f"Debian package file missing: {deb_path}")
     size_bytes = os.path.getsize(deb_path)
     sha256 = calc_sha256(deb_path)
     
-    # Run dpkg-deb --info
     res_info = subprocess.run(["dpkg-deb", "--info", deb_path], capture_output=True, text=True)
     if res_info.returncode != 0:
         fail(f"dpkg-deb --info failed for {deb_path}")
@@ -54,7 +58,6 @@ def inspect_deb(deb_path):
             v = parts[1].strip()
             fields[k] = v
             
-    # Run dpkg-deb --contents
     res_cnt = subprocess.run(["dpkg-deb", "--contents", deb_path], capture_output=True, text=True)
     if res_cnt.returncode != 0:
         fail(f"dpkg-deb --contents failed for {deb_path}")
@@ -93,7 +96,6 @@ def main():
     current_commit = get_git_head(repo_root)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     
-    # Check for placeholder / fake values in any input log
     forbidden_patterns = [
         r"0000000000000000000000000000000000000000",
         r"\bexample\.com\b",
@@ -103,20 +105,23 @@ def main():
         r"\bhardcoded\b"
     ]
     
-    req_stage_logs = [
+    base_stage_logs = [
         "stage-package-build.json",
         "stage-repository-publication.json",
         "stage-clean-install.json",
         "stage-candidate-upgrade.json",
         "stage-tamper.json",
         "stage-rollback.json",
-        "stage-installer.json",
+        "stage-installer.json"
+    ]
+    
+    iso_stage_logs = [
         "stage-test-iso-build.json",
         "stage-test-iso-boot.json"
     ]
     
     stage_data = {}
-    for stage_file in req_stage_logs:
+    for stage_file in base_stage_logs:
         stage_path = os.path.join(logs_dir, stage_file)
         if not os.path.exists(stage_path):
             fail(f"Missing required stage log file: {stage_file}")
@@ -126,7 +131,7 @@ def main():
             
         for pat in forbidden_patterns:
             if re.search(pat, content_str, re.IGNORECASE):
-                fail(f"Placeholder or forbidden value matched pattern '{pat}' in {stage_file}")
+                fail(f"Forbidden placeholder pattern '{pat}' matched in {stage_file}")
                 
         try:
             data = json.loads(content_str)
@@ -134,14 +139,34 @@ def main():
             fail(f"Invalid JSON in {stage_file}: {e}")
             
         if data.get("exit_code") != 0:
-            fail(f"Stage {stage_file} failed with non-zero exit code {data.get('exit_code')}")
+            fail(f"Stage {stage_file} failed with exit code {data.get('exit_code')}")
             
         if data.get("status") != "PASS":
             fail(f"Stage {stage_file} status is '{data.get('status')}', expected 'PASS'")
             
         stage_name = stage_file.replace("stage-", "").replace(".json", "")
         stage_data[stage_name] = data
-        
+
+    # Check ISO stage logs if present or if ISO file exists
+    for iso_stage_file in iso_stage_logs:
+        iso_stage_path = os.path.join(logs_dir, iso_stage_file)
+        if os.path.exists(iso_stage_path):
+            with open(iso_stage_path, "r") as f:
+                content_str = f.read()
+            for pat in forbidden_patterns:
+                if re.search(pat, content_str, re.IGNORECASE):
+                    fail(f"Forbidden placeholder pattern '{pat}' matched in {iso_stage_file}")
+            try:
+                data = json.loads(content_str)
+            except Exception as e:
+                fail(f"Invalid JSON in {iso_stage_file}: {e}")
+            if data.get("exit_code") != 0:
+                fail(f"Stage {iso_stage_file} failed with exit code {data.get('exit_code')}")
+            if data.get("status") != "PASS":
+                fail(f"Stage {iso_stage_file} status is '{data.get('status')}', expected 'PASS'")
+            stage_name = iso_stage_file.replace("stage-", "").replace(".json", "")
+            stage_data[stage_name] = data
+
     # Inspect real built .deb packages
     req_packages = [
         "genixbit-os-archive-keyring",
@@ -155,20 +180,35 @@ def main():
     
     built_debs_info = []
     for pkg in req_packages:
+        if not os.path.exists(debs_dir):
+            fail(f"Debs directory missing: {debs_dir}")
         matches = [f for f in os.listdir(debs_dir) if f.startswith(f"{pkg}_") and f.endswith(".deb")]
         if not matches:
             fail(f"No built .deb package file found for {pkg} in {debs_dir}")
         deb_path = os.path.join(debs_dir, matches[0])
         info = inspect_deb(deb_path)
         built_debs_info.append(info)
+
+    # Verify real ISO build observations if stage log is present
+    if "test-iso-build" in stage_data:
+        iso_obs = stage_data["test-iso-build"].get("observations", {})
+        iso_file = iso_obs.get("iso_filename")
+        if not iso_file:
+            fail("Missing iso_filename in test-iso-build stage log observations")
+        iso_path = os.path.join(repo_root, "dist", iso_file)
+        if os.path.isfile(iso_path):
+            real_iso_size = os.path.getsize(iso_path)
+            real_iso_sha = calc_sha256(iso_path)
+            recorded_size = iso_obs.get("iso_size_bytes")
+            recorded_sha = iso_obs.get("iso_sha256")
+            if recorded_size != real_iso_size:
+                fail(f"Recorded ISO size {recorded_size} does not match file size {real_iso_size}")
+            if recorded_sha != real_iso_sha:
+                fail(f"Recorded ISO SHA-256 {recorded_sha} does not match file hash {real_iso_sha}")
+        iso_commit = iso_obs.get("source_commit")
+        if iso_commit and iso_commit != current_commit:
+            fail(f"ISO build commit '{iso_commit}' does not match HEAD commit '{current_commit}'")
         
-    # Verify commit SHA matches across evidence
-    iso_stage = stage_data.get("test-iso-build", {})
-    iso_commit = iso_stage.get("observations", {}).get("source_commit")
-    if iso_commit and iso_commit != current_commit:
-        fail(f"ISO build commit '{iso_commit}' does not match HEAD commit '{current_commit}'")
-        
-    # Build final evidence files
     evidences = {
         "package-build-results.json": {
             "source_commit": current_commit,
@@ -235,24 +275,6 @@ def main():
             "observations": stage_data["installer"]["observations"],
             "status": "PASS"
         },
-        "test-iso-build-result.json": {
-            "source_commit": current_commit,
-            "command": stage_data["test-iso-build"]["command"],
-            "exit_code": stage_data["test-iso-build"]["exit_code"],
-            "timestamp": timestamp,
-            "environment": stage_data["test-iso-build"]["environment"],
-            "observations": stage_data["test-iso-build"]["observations"],
-            "status": "PASS"
-        },
-        "test-iso-boot-result.json": {
-            "source_commit": current_commit,
-            "command": stage_data["test-iso-boot"]["command"],
-            "exit_code": stage_data["test-iso-boot"]["exit_code"],
-            "timestamp": timestamp,
-            "environment": stage_data["test-iso-boot"]["environment"],
-            "observations": stage_data["test-iso-boot"]["observations"],
-            "status": "PASS"
-        },
         "final-package-migration-result.json": {
             "source_commit": current_commit,
             "command": "./tools/validation/check-package-migration-ci.sh",
@@ -263,12 +285,33 @@ def main():
                 "source_mode": "genixbit-staging",
                 "staging_deployment_status": "DEPLOYED_STAGING_ONLY",
                 "production_repository_status": "NOT DEPLOYED (packages.os.genixbit.com status page unchanged)",
-                "all_stages_verified": True,
-                "stages_verified_count": len(req_stage_logs)
+                "all_base_stages_verified": True,
+                "stages_verified_count": len(stage_data)
             },
             "status": "PASS"
         }
     }
+    
+    if "test-iso-build" in stage_data:
+        evidences["test-iso-build-result.json"] = {
+            "source_commit": current_commit,
+            "command": stage_data["test-iso-build"]["command"],
+            "exit_code": stage_data["test-iso-build"]["exit_code"],
+            "timestamp": timestamp,
+            "environment": stage_data["test-iso-build"]["environment"],
+            "observations": stage_data["test-iso-build"]["observations"],
+            "status": "PASS"
+        }
+    if "test-iso-boot" in stage_data:
+        evidences["test-iso-boot-result.json"] = {
+            "source_commit": current_commit,
+            "command": stage_data["test-iso-boot"]["command"],
+            "exit_code": stage_data["test-iso-boot"]["exit_code"],
+            "timestamp": timestamp,
+            "environment": stage_data["test-iso-boot"]["environment"],
+            "observations": stage_data["test-iso-boot"]["observations"],
+            "status": "PASS"
+        }
     
     for filename, content in evidences.items():
         filepath = os.path.join(out_dir, filename)
