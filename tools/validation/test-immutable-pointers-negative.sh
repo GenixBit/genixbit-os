@@ -105,10 +105,10 @@ pass "Test 6 PASS: Candidate 1 branch correctly resolved via git ls-remote."
 # Test 7: Verify shallow checkout compatibility
 info "Test 7: Verifying shallow checkout resolution..."
 SHALLOW_DIR="$TMP_DIR/shallow_repo"
-git clone --depth 1 file://"$REPO_ROOT" "$SHALLOW_DIR" >/dev/null 2>&1
+ORIGIN_URL=$(git -C "$REPO_ROOT" config remote.origin.url || echo "https://github.com/GenixBit/genixbit-os.git")
+git clone --depth 1 "$ORIGIN_URL" "$SHALLOW_DIR" >/dev/null 2>&1
 (
     cd "$SHALLOW_DIR"
-    git remote set-url origin "$REPO_ROOT"
     GIT_REMOTE="origin" bash tools/validation/check-package-migration-ci.sh >/dev/null 2>&1 || exit 1
 )
 pass "Test 7 PASS: Immutable pointers successfully verified in a shallow checkout environment."
