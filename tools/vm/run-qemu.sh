@@ -275,7 +275,7 @@ qemu_command=(
     -m "$MEMORY_MB"
     -smp "$CPU_COUNT"
     -drive "file=${DISK_PATH},if=virtio,format=qcow2"
-    -nic user,model=virtio-net-pci
+    -nic "user,model=virtio-net-pci"
     -rtc base=utc
     -vga "$VGA_DEVICE"
 )
@@ -316,10 +316,11 @@ else
 fi
 
 if [[ "$BOOT_INSTALLED" == true ]]; then
-    qemu_command+=(-boot order=c,menu=on)
+    qemu_command+=(-boot "order=c,menu=on")
 else
-    qemu_command+=(-cdrom "$ISO_PATH" -boot order=d,menu=on)
+    qemu_command+=(-cdrom "$ISO_PATH" -boot "order=d,menu=on")
 fi
+
 
 if [[ -n "$VNC_ENDPOINT" ]]; then
     qemu_command+=(-display none -vnc "$VNC_ENDPOINT")

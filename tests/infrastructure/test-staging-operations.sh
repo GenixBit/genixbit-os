@@ -94,7 +94,8 @@ echo "[PASS] validate-key-revocation.sh verified."
 
 # 11. Test Collect Evidence in simulation mode with --allow-simulated
 echo "[INFO] Testing collect-evidence.sh with --allow-simulated..."
-EVID_OUT=$(INFRA_DIR="$TMP_DIR" bash "$INFRA_DIR/scripts/collect-evidence.sh" "$GCP_PROJECT_ID" --allow-simulated 2>&1)
+EVID_OUT=$(INFRA_DIR="$TMP_DIR" bash "$REPO_ROOT/infra/package-staging/scripts/collect-evidence.sh" "$GCP_PROJECT_ID" --allow-simulated 2>&1)
+
 echo "$EVID_OUT" | grep -q "OVERALL_STATUS=OPERATIONS_IMPLEMENTED_NOT_DEPLOYED"
 echo "[PASS] collect-evidence.sh verified."
 

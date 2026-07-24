@@ -34,6 +34,8 @@ fi
 MAIN_TF="$INFRA_DIR/main.tf"
 VARS_TF="$INFRA_DIR/variables.tf"
 OUT_TF="$INFRA_DIR/outputs.tf"
+[[ -f "$MAIN_TF" && -f "$VARS_TF" && -f "$OUT_TF" ]] || exit 1
+
 
 # 3. Verify No Public IP Access Config Blocks
 echo "[INFO] 3. Verifying zero public IP access_config blocks..."

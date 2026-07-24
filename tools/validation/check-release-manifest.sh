@@ -63,7 +63,8 @@ if [[ -z "$MANIFEST_FILE" ]]; then
         if [[ -f "docs/releases/${ARGS_VER}.env" ]]; then
             MANIFEST_FILE="docs/releases/${ARGS_VER}.env"
         else
-            matched=(docs/releases/${ARGS_VER}*.env)
+            matched=("docs/releases/${ARGS_VER}"*.env)
+
             if [[ ${#matched[@]} -gt 0 && -f "${matched[0]}" ]]; then
                 MANIFEST_FILE="${matched[0]}"
             fi
