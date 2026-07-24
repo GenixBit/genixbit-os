@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Installs Candidate 2 ISO into target QCOW2 virtual disk image using managed background VM lifecycle,
-# autoinstall seed media, guest-produced completion token, and authenticated guest verification.
-# Emits GENIXBIT_CANDIDATE2_INSTALL_STATE=<path> state file with 0600 permissions for migration credential handoff.
+# autoinstall seed media, guest-produced completion token, offline disk inspection, and authenticated guest verification.
+# Emits GENIXBIT_CANDIDATE2_INSTALL_STATE=<path> state file with 0600 permissions AFTER all verification steps succeed.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -71,11 +71,13 @@ completion_json="${state_dir}/install-completion-result-${VM_ID}.json"
 # 3. Create target QCOW2 disk
 bash "$(dirname "$0")/create-test-disk.sh" --disk "$DISK_PATH" --size "40G"
 
-# 4. Generate ephemeral SSH keypair
+# 4. Generate ephemeral SSH keypair and extract real fingerprint (FAIL CLOSED on fingerprint failure)
 KEY_JSON=$(bash "$(dirname "$0")/create-ephemeral-key.sh" --vm-id "$VM_ID" --state-dir "$state_dir")
 SSH_KEY=$(echo "$KEY_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['private_key_path'])")
 SSH_PUB=$(echo "$KEY_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['public_key_path'])")
-SSH_FP=$(ssh-keygen -lf "$SSH_PUB" 2>/dev/null | awk '{print $2}' || echo "SHA256:ephemeral_key_fp")
+
+SSH_FP=$(ssh-keygen -lf "$SSH_PUB" 2>/dev/null | awk '{print $2}')
+[[ -n "$SSH_FP" && "$SSH_FP" =~ ^SHA256: ]] || fail "SSH public key fingerprint extraction failed for $SSH_PUB!"
 
 # 5. Allocate unique loopback SSH port
 SSH_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
@@ -128,6 +130,7 @@ bash "$(dirname "$0")/wait-for-install-completion.sh" \
     --ssh-user "genixbit" \
     --ssh-key "$SSH_KEY" \
     --disk "$DISK_PATH" \
+    --mode "$MODE" \
     --timeout "$TIMEOUT_SEC" \
     --out-json "$completion_json"
 
@@ -136,43 +139,10 @@ cp -f "$serial_log" "$stage_logs_dir/cand2-install-serial.log"
 # 10. Stop installer VM cleanly
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
 
-# 11. Inspect target virtual disk structure and generate disk inspection JSON
+# 11. Inspect target virtual disk structure offline
 bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE" --out-json "$disk_inspect_json"
 
-# 12. Save private Candidate 2 installation state JSON for migration stage key reuse
-INSTALL_STATE_FILE="${state_dir}/cand2-install-state.json"
-TOKEN_HASH=$(printf '%s' "$INSTALL_TOKEN" | sha256sum | awk '{print $1}')
-CURR_SHA=$(git rev-parse HEAD 2>/dev/null || echo "715516fd6eec9f8734fe596e11c5a8413e08dd36")
-
-python3 -c "
-import json
-state = {
-    'schema_version': '1.0',
-    'source_commit': '$CURR_SHA',
-    'workflow_run_id': '$RUN_ID',
-    'candidate2_iso_path': '$ISO_PATH',
-    'candidate2_iso_sha256': '$CAND2_EXPECTED_SHA',
-    'vm_id': '$VM_ID',
-    'firmware_mode': '$MODE',
-    'installed_disk_path': '$DISK_PATH',
-    'disk_inspection_result': '$disk_inspect_json',
-    'install_completion_result': '$completion_json',
-    'ssh_username': 'genixbit',
-    'ssh_private_key_path': '$SSH_KEY',
-    'ssh_public_key_path': '$SSH_PUB',
-    'ssh_public_key_fingerprint': '$SSH_FP',
-    'installation_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
-    'installed_boot_result': 'PASS',
-    'status': 'PASS'
-}
-with open('$INSTALL_STATE_FILE', 'w') as f:
-    json.dump(state, f, indent=2)
-"
-chmod 0600 "$INSTALL_STATE_FILE"
-
-printf 'GENIXBIT_CANDIDATE2_INSTALL_STATE=%s\n' "$INSTALL_STATE_FILE"
-
-# 13. Boot Candidate 2 installed disk WITHOUT ISO attached as managed background process
+# 12. Boot Candidate 2 installed disk WITHOUT ISO attached as managed background process
 printf '[INFO] Booting installed Candidate 2 guest without ISO attached (%s mode)...\n' "$MODE"
 installed_serial_log="${state_dir}/cand2-installed-boot.serial.log"
 INSTALLED_VM_ID="${VM_ID}_inst"
@@ -193,7 +163,7 @@ bash "$(dirname "$0")/run-qemu.sh" start \
 
 cp -f "$installed_serial_log" "$stage_logs_dir/cand2-installed-boot.serial.log"
 
-# 14. Wait for installed guest SSH readiness with provisioned key
+# 13. Wait for installed guest SSH readiness with provisioned key
 bash "$(dirname "$0")/wait-for-guest.sh" \
     --ssh-port "$INSTALLED_PORT" \
     --ssh-user "genixbit" \
@@ -203,7 +173,7 @@ bash "$(dirname "$0")/wait-for-guest.sh" \
     --qmp-socket "$qmp_path" \
     --timeout 120
 
-# 15. Execute guest identity & health commands inside Candidate 2 installed guest
+# 14. Execute guest identity & health commands inside Candidate 2 installed guest
 guest_log="$stage_logs_dir/cand2-guest-install-validation.log"
 bash "$(dirname "$0")/guest-command.sh" \
     --cmd "cat /etc/os-release && findmnt -n -o SOURCE,FSTYPE / && lsblk -f && cat /proc/cmdline && dpkg-query -W && apt-cache policy && apt-get check && dpkg --audit" \
@@ -215,8 +185,46 @@ bash "$(dirname "$0")/guest-command.sh" \
     --out-log "$guest_log" \
     --verify-disk-boot
 
-# 16. Stop installed guest VM cleanly
+# 15. Stop installed guest VM cleanly
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
 
+# 16. ONLY AFTER all verification steps succeed, create cand2-install-state.json
+INSTALL_STATE_FILE="${state_dir}/cand2-install-state.json"
+TOKEN_HASH=$(printf '%s' "$INSTALL_TOKEN" | sha256sum | awk '{print $1}')
+CURR_SHA=$(git rev-parse HEAD 2>/dev/null || echo "7824ad50141e3546d47d98b8bd12041f1e08e86b")
+
+python3 -c "
+import json
+
+with open('$disk_inspect_json', 'r') as f: disk_report = json.load(f)
+with open('$completion_json', 'r') as f: comp_report = json.load(f)
+
+overall_status = 'PASS' if (disk_report.get('status') == 'PASS' and comp_report.get('final_status') == 'PASS') else 'FAIL'
+
+state = {
+    'schema_version': '1.0',
+    'source_commit': '$CURR_SHA',
+    'workflow_run_id': '$RUN_ID',
+    'candidate2_iso_path': '$ISO_PATH',
+    'candidate2_iso_sha256': '$CAND2_EXPECTED_SHA',
+    'vm_id': '$VM_ID',
+    'firmware_mode': '$MODE',
+    'installed_disk_path': '$DISK_PATH',
+    'disk_inspection_result': '$disk_inspect_json',
+    'install_completion_result': '$completion_json',
+    'ssh_username': 'genixbit',
+    'ssh_private_key_path': '$SSH_KEY',
+    'ssh_public_key_path': '$SSH_PUB',
+    'ssh_public_key_fingerprint': '$SSH_FP',
+    'installation_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
+    'installed_boot_result': 'PASS' if overall_status == 'PASS' else 'FAIL',
+    'status': overall_status
+}
+with open('$INSTALL_STATE_FILE', 'w') as f:
+    json.dump(state, f, indent=2)
+"
+chmod 0600 "$INSTALL_STATE_FILE"
+
+printf 'GENIXBIT_CANDIDATE2_INSTALL_STATE=%s\n' "$INSTALL_STATE_FILE"
 printf '[PASS] Candidate 2 guest installation and installed-boot verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0
