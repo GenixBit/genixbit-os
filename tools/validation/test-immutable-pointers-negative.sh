@@ -107,6 +107,7 @@ info "Test 7: Verifying shallow checkout resolution..."
 SHALLOW_DIR="$TMP_DIR/shallow_repo"
 ORIGIN_URL=$(git -C "$REPO_ROOT" config remote.origin.url || echo "https://github.com/GenixBit/genixbit-os.git")
 git clone --depth 1 "$ORIGIN_URL" "$SHALLOW_DIR" >/dev/null 2>&1
+cp "$REPO_ROOT/tools/validation/check-package-migration-ci.sh" "$SHALLOW_DIR/tools/validation/check-package-migration-ci.sh"
 (
     cd "$SHALLOW_DIR"
     GIT_REMOTE="origin" bash tools/validation/check-package-migration-ci.sh >/dev/null 2>&1 || exit 1
