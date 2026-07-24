@@ -7,6 +7,12 @@
   "iso_filename": "GenixBitOS-0.3.0-alpha-internal.iso",
   "iso_size_bytes": 67108864,
   "iso_sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351",
+  "candidate_retired": true,
+  "retirement_reasons": [
+    "INVALID_ZERO_FILLED_ISO",
+    "VM_VALIDATION_NOT_EXECUTED",
+    "CANDIDATE_RETIRED"
+  ],
   "package_versions": {
     "genixbit-os-archive-keyring": "0.3.0-alpha-1",
     "genixbit-os-apt-config": "0.3.0-alpha-1",
@@ -17,40 +23,45 @@
     "genixbit-os-installer-config": "0.3.0-alpha-1"
   },
   "vm_validation_matrix": {
-    "uefi_boot": "PASS",
-    "legacy_bios_boot": "PASS",
-    "grub_menu": "PASS",
-    "live_desktop": "PASS",
-    "networking_dns": "PASS",
-    "audio": "PASS",
-    "display_resolution": "PASS",
-    "keyboard_locale": "PASS",
-    "shutdown": "PASS",
-    "restart": "PASS",
-    "installer_launch": "PASS",
-    "clean_uefi_installation": "PASS",
-    "clean_bios_installation": "PASS",
-    "installed_system_boot": "PASS",
-    "user_creation_login": "PASS",
-    "genixbit_identity": "PASS",
-    "zero_anduinos_branding": "PASS",
-    "apt_get_update": "PASS",
-    "apt_get_check": "PASS",
-    "dpkg_audit": "PASS",
-    "package_upgrade": "PASS",
-    "repository_rollback": "PASS"
+    "uefi_boot": "FAIL",
+    "legacy_bios_boot": "FAIL",
+    "grub_menu": "FAIL",
+    "live_desktop": "FAIL",
+    "networking_dns": "FAIL",
+    "audio": "FAIL",
+    "display_resolution": "FAIL",
+    "keyboard_locale": "FAIL",
+    "shutdown": "FAIL",
+    "restart": "FAIL",
+    "installer_launch": "FAIL",
+    "clean_uefi_installation": "FAIL",
+    "clean_bios_installation": "FAIL",
+    "installed_system_boot": "FAIL",
+    "user_creation_login": "FAIL",
+    "genixbit_identity": "FAIL",
+    "zero_anduinos_branding": "FAIL",
+    "apt_get_update": "FAIL",
+    "apt_get_check": "FAIL",
+    "dpkg_audit": "FAIL",
+    "package_upgrade": "FAIL",
+    "repository_rollback": "FAIL"
   },
   "security_results": {
-    "tampered_metadata_rejection": "PASS",
-    "tampered_package_rejection": "PASS",
-    "unknown_key_rejection": "PASS",
-    "revoked_key_rejection": "PASS",
-    "expired_key_rejection": "PASS",
-    "snapshot_verification": "PASS",
-    "rollback": "PASS",
-    "signing_key_recovery_drill": "PASS"
+    "tampered_metadata_rejection": "FAIL",
+    "tampered_package_rejection": "FAIL",
+    "unknown_key_rejection": "FAIL",
+    "revoked_key_rejection": "FAIL",
+    "expired_key_rejection": "FAIL",
+    "snapshot_verification": "FAIL",
+    "rollback": "FAIL",
+    "signing_key_recovery_drill": "FAIL"
   },
   "remaining_stable_blockers": [
+    {
+      "id": "candidate_1_retirement",
+      "status": "RETIRED",
+      "reason": "Candidate 1 generated a 64 MiB zero-filled ISO without executing VM validation and was retired."
+    },
     {
       "id": "production_signing_readiness",
       "status": "NOT TESTED",
@@ -67,5 +78,5 @@
       "reason": "packages.os.genixbit.com production APT server remains NOT DEPLOYED."
     }
   ],
-  "candidate_validation_status": "PASS"
+  "candidate_validation_status": "FAIL"
 }

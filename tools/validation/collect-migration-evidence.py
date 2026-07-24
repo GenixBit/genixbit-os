@@ -84,6 +84,19 @@ def inspect_deb(deb_path):
         "dpkg_deb_validation": "PASS"
     }
 
+def verify_iso_structure(repo_root, iso_path):
+    checker_script = os.path.join(repo_root, "tools/validation/check-iso-structure.sh")
+    if not os.path.isfile(checker_script):
+        fail(f"ISO structure validator missing: {checker_script}")
+    
+    res = subprocess.run(
+        ["bash", checker_script, "--iso", iso_path],
+        capture_output=True,
+        text=True
+    )
+    if res.returncode != 0:
+        fail(f"ISO structure check failed for {iso_path}:\n{res.stderr}\n{res.stdout}")
+
 def main():
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     logs_dir = os.path.join(repo_root, "infra/package-staging/results/stage-logs")
@@ -94,6 +107,23 @@ def main():
     
     current_commit = get_git_head(repo_root)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Rejection check: Ensure Candidate 1 is not reinstated to PASS
+    cand1_env = os.path.join(repo_root, "docs/releases/0.3.0-alpha-candidate-1.env")
+    if os.path.exists(cand1_env):
+        with open(cand1_env, "r") as f:
+            cand1_txt = f.read()
+            if "VALIDATION_STATUS=PASS" in cand1_txt:
+                fail("Candidate 1 (0.3.0-alpha candidate 1) MUST NOT be marked PASS! It is RETIRED.")
+
+    # Rejection check: Ensure no v0.3.0-alpha release tag exists pointing to Candidate 1
+    tag_check = subprocess.run(
+        ["git", "-C", repo_root, "tag", "-l", "v0.3.0-alpha"],
+        capture_output=True,
+        text=True
+    )
+    if tag_check.stdout.strip() == "v0.3.0-alpha":
+        fail("Release tag v0.3.0-alpha exists! Candidate 1 was retired and v0.3.0-alpha MUST NOT be created.")
     
     forbidden_patterns = [
         r"0000000000000000000000000000000000000000",
@@ -161,27 +191,45 @@ def main():
     if not inst_obs.get("installer_execution_log") and not inst_obs.get("slideshow_verified"):
         fail("installer stage log observations missing installer execution log")
 
-    # 4. Test ISO build must match real file on disk
+    # 4. Test ISO build must execute build.sh, match current commit, and pass structural validation
+    iso_cmd = stage_data["test-iso-build"].get("command", "")
+    if "build.sh" not in iso_cmd:
+        fail(f"test-iso-build command '{iso_cmd}' must execute build.sh!")
+
     iso_obs = stage_data["test-iso-build"].get("observations", {})
+    iso_src_commit = iso_obs.get("source_commit")
+    if iso_src_commit != current_commit:
+        fail(f"test-iso-build source commit '{iso_src_commit}' does not match current commit '{current_commit}'!")
+
     iso_file = iso_obs.get("iso_filename")
     if not iso_file:
         fail("Missing iso_filename in test-iso-build stage log observations")
     iso_path = os.path.join(repo_root, "dist", iso_file)
     if not os.path.isfile(iso_path):
         fail(f"ISO file missing from disk at: {iso_path}")
+        
     real_iso_size = os.path.getsize(iso_path)
     real_iso_sha = calc_sha256(iso_path)
     recorded_size = iso_obs.get("iso_size_bytes")
     recorded_sha = iso_obs.get("iso_sha256")
+    
     if recorded_size != real_iso_size:
         fail(f"Recorded ISO size {recorded_size} does not match file size {real_iso_size}")
     if recorded_sha != real_iso_sha:
         fail(f"Recorded ISO SHA-256 {recorded_sha} does not match file hash {real_iso_sha}")
 
-    # 5. Test ISO boot must contain VM command logs
+    # Enforce real ISO structure validation (minimum size, non-zero bytes, ISO9660, boot files)
+    verify_iso_structure(repo_root, iso_path)
+
+    # 5. Test ISO boot must contain real VM command logs and installation logs
     boot_obs = stage_data["test-iso-boot"].get("observations", {})
     if not boot_obs.get("vm_command_logs") and not boot_obs.get("qemu_execution_log"):
         fail("test-iso-boot stage log observations missing VM command logs")
+    
+    req_vm_logs = ["uefi_boot", "legacy_bios_boot", "grub_boot", "live_session", "installer_launch", "installation_complete"]
+    for req_log in req_vm_logs:
+        if req_log not in boot_obs:
+            fail(f"test-iso-boot missing required VM log check: {req_log}")
 
     # Inspect real built .deb packages
     req_packages = [

@@ -114,8 +114,12 @@ if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/nu
 fi
 pass "Test 5 PASS: Incorrect source commit SHA correctly rejected."
 
-# Restore valid execution
-bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" >/dev/null
+# Restore valid execution if a real ISO is present
+ISO_FILE=$(find "$REPO_ROOT/dist" -maxdepth 1 -name "*.iso" 2>/dev/null | head -n 1 || echo "")
+if [[ -n "$ISO_FILE" && -f "$ISO_FILE" ]]; then
+    bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" >/dev/null
+fi
+
 
 pass "=== All Evidence Collector Negative Security Tests Passed ==="
 exit 0
