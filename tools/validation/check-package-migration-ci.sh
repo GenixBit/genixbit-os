@@ -140,6 +140,17 @@ info "Check 12: Running candidate 1 retirement & ISO validation fail-closed nega
 bash "$REPO_ROOT/tools/validation/test-candidate-retirement-negative.sh" >/dev/null
 pass "Check 12 PASS: Candidate 1 retirement & ISO validation negative tests passed."
 
+# Check 13: Release gate JSON integrity check
+info "Check 13: Validating 0.3.0 release gate JSON integrity..."
+bash "$REPO_ROOT/tools/validation/check-release-gate.sh" >/dev/null
+pass "Check 13 PASS: 0.3.0 release gate JSON integrity verified."
+
+# Check 14: Release gate negative unit tests
+info "Check 14: Running release gate negative unit tests..."
+bash "$REPO_ROOT/tools/validation/test-release-gate-negative.sh" >/dev/null
+pass "Check 14 PASS: Release gate negative unit tests passed."
+
 pass "=== Package Migration & Staging CI Validation Passed ==="
 exit 0
+
 
