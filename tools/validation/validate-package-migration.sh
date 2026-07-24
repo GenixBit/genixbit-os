@@ -48,8 +48,9 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 if command -v gpg >/dev/null 2>&1; then
     info "Generating passphrase-protected isolated test GPG key pair..."
-    KEY_PASSPHRASE="genixbit-staging-key-passphrase-2026"
-    gpg --batch --passphrase "$KEY_PASSPHRASE" --quick-generate-key "migration-test@genixbit.com" rsa2048 sign,cert 1d >/dev/null 2>&1 || \
+    export KEY_PASSPHRASE="genixbit-staging-key-passphrase-2026"
+    gpg --batch --pinentry-mode loopback --passphrase "$KEY_PASSPHRASE" --quick-generate-key "migration-test@genixbit.com" rsa2048 sign,cert 1d >/dev/null 2>&1 || \
+
     gpg --batch --full-generate-key <<EOF
 Key-Type: RSA
 Key-Length: 2048

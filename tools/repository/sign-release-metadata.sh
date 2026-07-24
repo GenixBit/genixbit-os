@@ -109,10 +109,18 @@ rm -f "$INRELEASE_FILE" "$RELEASE_GPG_FILE"
 
 echo "[INFO] Signing $RELEASE_FILE with key $FINGERPRINT..."
 
+GPG_OPTS=(--batch --no-tty --yes --pinentry-mode loopback --digest-algo SHA512 --local-user "$FINGERPRINT")
+if [[ -n "${KEY_PASSPHRASE:-}" ]]; then
+    GPG_OPTS+=(--passphrase "$KEY_PASSPHRASE")
+elif [[ -n "${GPG_PASSPHRASE:-}" ]]; then
+    GPG_OPTS+=(--passphrase "$GPG_PASSPHRASE")
+fi
+
 # Generate InRelease (clearsigned)
-gpg --batch --yes --digest-algo SHA512 --local-user "$FINGERPRINT" --clearsign --output "$INRELEASE_FILE" "$RELEASE_FILE"
+gpg "${GPG_OPTS[@]}" --clearsign --output "$INRELEASE_FILE" "$RELEASE_FILE"
 
 # Generate Release.gpg (detached signature)
-gpg --batch --yes --digest-algo SHA512 --local-user "$FINGERPRINT" --detach-sign --output "$RELEASE_GPG_FILE" "$RELEASE_FILE"
+gpg "${GPG_OPTS[@]}" --detach-sign --output "$RELEASE_GPG_FILE" "$RELEASE_FILE"
+
 
 echo "[PASS] Generated signed InRelease and Release.gpg for channel '$CHANNEL'."
