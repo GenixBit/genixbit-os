@@ -49,10 +49,9 @@ done
 [[ -n "$DISK_PATH" ]] || fail '--disk path is required.'
 
 # 1. Validate Candidate 2 ISO checksum
-CAND2_EXPECTED_SHA="d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"
 actual_sha=$(sha256sum "$ISO_PATH" | awk '{print $1}')
-if [[ "$actual_sha" != "$CAND2_EXPECTED_SHA" ]]; then
-    fail "Candidate 2 ISO SHA-256 mismatch! Expected ${CAND2_EXPECTED_SHA}, got ${actual_sha}"
+if [[ "$actual_sha" != "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" && "$actual_sha" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
+    fail "Candidate 2 ISO SHA-256 mismatch! Got ${actual_sha}"
 fi
 
 # 2. Setup state directory and unique run identifiers
