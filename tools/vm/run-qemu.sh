@@ -151,13 +151,21 @@ case "$ACTION" in
         fi
 
         if [[ "$MODE" == "uefi" ]]; then
-            OVMF_CODE="/usr/share/OVMF/OVMF_CODE.fd"
-            OVMF_VARS_TEMPLATE="/usr/share/OVMF/OVMF_VARS.fd"
-            VARS_COPY="${STATE_DIR}/ovmf-vars-${VM_ID}.fd"
+            OVMF_CODE=""
+            OVMF_VARS_TEMPLATE=""
+            for f in "/usr/share/OVMF/OVMF_CODE_4M.fd" "/usr/share/OVMF/OVMF_CODE.fd" "/usr/share/ovmf/OVMF.fd" "/usr/share/edk2/ovmf/OVMF_CODE.fd"; do
+                if [[ -f "$f" ]]; then OVMF_CODE="$f"; break; fi
+            done
+            for f in "/usr/share/OVMF/OVMF_VARS_4M.fd" "/usr/share/OVMF/OVMF_VARS.fd" "/usr/share/ovmf/OVMF_VARS.fd" "/usr/share/edk2/ovmf/OVMF_VARS.fd"; do
+                if [[ -f "$f" ]]; then OVMF_VARS_TEMPLATE="$f"; break; fi
+            done
 
-            if [[ -f "$OVMF_CODE" && -f "$OVMF_VARS_TEMPLATE" ]]; then
+            if [[ -n "$OVMF_CODE" && -n "$OVMF_VARS_TEMPLATE" ]]; then
+                VARS_COPY="${STATE_DIR}/ovmf-vars-${VM_ID}.fd"
                 cp -f "$OVMF_VARS_TEMPLATE" "$VARS_COPY"
                 qemu_args+=("-drive" "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" "-drive" "if=pflash,format=raw,file=$VARS_COPY")
+            else
+                fail "UEFI mode requested but OVMF firmware images not found!"
             fi
         fi
 
