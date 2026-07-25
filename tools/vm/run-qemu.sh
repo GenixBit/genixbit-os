@@ -144,10 +144,10 @@ case "$ACTION" in
         fi
 
         QEMU_BIN=$(get_qemu_binary)
-        qemu_args=("-m" "4096" "-smp" "2" "-enable-kvm")
+        qemu_args=("-m" "4096" "-smp" "4" "-cpu" "host" "-enable-kvm")
 
         if ! "$QEMU_BIN" -enable-kvm -help >/dev/null 2>&1; then
-            qemu_args=("-m" "4096" "-smp" "2")
+            qemu_args=("-m" "4096" "-smp" "4")
         fi
 
         if [[ "$MODE" == "uefi" ]]; then
