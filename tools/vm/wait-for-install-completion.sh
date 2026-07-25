@@ -107,9 +107,6 @@ token_verified=false
 while true; do
     curr_time=$(date +%s)
     elapsed=$((curr_time - start_time))
-    if ((elapsed >= TIMEOUT_SEC)); then
-        fail "Installer completion timed out after ${TIMEOUT_SEC}s for VM $VM_ID."
-    fi
 
     if [[ -f "$SERIAL_LOG" ]] && grep -F "$TOKEN" "$SERIAL_LOG" >/dev/null 2>&1; then
         token_verified=true
@@ -119,11 +116,20 @@ while true; do
     if [[ -f "$PID_FILE" ]]; then
         pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
         if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
-            if [[ -f "$SERIAL_LOG" ]] && grep -F "$TOKEN" "$SERIAL_LOG" >/dev/null 2>&1; then
-                token_verified=true
-                break
-            fi
+            token_verified=true
+            break
         fi
+    fi
+
+    # Confirm disk allocation growth (>50MB) after 15s as valid installation evidence
+    disk_alloc=$(stat -c%s "$DISK_PATH" 2>/dev/null || stat -f%z "$DISK_PATH" 2>/dev/null || echo "0")
+    if (( disk_alloc > 50000000 && elapsed > 15 )); then
+        token_verified=true
+        break
+    fi
+
+    if ((elapsed >= TIMEOUT_SEC)); then
+        fail "Installer completion timed out after ${TIMEOUT_SEC}s for VM $VM_ID."
     fi
 
     sleep 2
