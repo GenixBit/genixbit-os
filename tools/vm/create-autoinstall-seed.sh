@@ -100,9 +100,11 @@ autoinstall:
       - "${PUB_CONTENT}"
     allow-passwords: false
   late-commands:
-    - curtin in-target -- target bash -c "echo '${TOKEN}' > /etc/genixbit-install-token && chmod 0644 /etc/genixbit-install-token"
-    - echo "${TOKEN}" >> /var/log/installer/subiquity-curtin-install.log
-    - echo "${TOKEN}" >> /var/log/syslog
+    - curtin in-target -- bash -c "echo '${TOKEN}' > /etc/genixbit-install-token && chmod 0644 /etc/genixbit-install-token"
+    - bash -c "echo '${TOKEN}' > /dev/ttyS0 || true"
+    - bash -c "echo '${TOKEN}' > /dev/console || true"
+    - bash -c "echo '${TOKEN}' >> /var/log/installer/subiquity-curtin-install.log || true"
+    - bash -c "echo '${TOKEN}' >> /var/log/syslog || true"
 EOF
 
 # Find ISO9660 creation tool (FAIL CLOSED - NO synthetic Python or tar fallbacks!)
