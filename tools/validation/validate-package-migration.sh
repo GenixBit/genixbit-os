@@ -256,7 +256,7 @@ CLIENT_EOF
     CLEAN_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     # Strict package count parsing from dpkg-query without fallback
-    INST_COUNT=$(grep -E '^genixbit-os-[a-z-]+' "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" | grep -c -E 'ii$' || true)
+    INST_COUNT=$(grep -E '^genixbit-os-[a-z-]+' "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" | grep -c -E 'ii\s*$' || true)
     if (( INST_COUNT != 7 )); then
         fail "Clean client package parsing failed! Expected 7 installed packages with 'ii' status, parsed ${INST_COUNT}."
     fi
