@@ -102,51 +102,75 @@ state_dir="$(dirname "$DISK_PATH")"
 printf '[INFO] Waiting for authentic installer completion (VM: %s, Timeout: %ss)...\n' "$VM_ID" "$TIMEOUT_SEC"
 
 start_time=$(date +%s)
-token_verified=false
+installer_progress_observed=false
+serial_token_observed=false
+qemu_process_stopped=false
+filesystem_token_verified=false
+
+initial_disk_alloc=$(stat -c%s "$DISK_PATH" 2>/dev/null || stat -f%z "$DISK_PATH" 2>/dev/null || echo "0")
 
 while true; do
     curr_time=$(date +%s)
     elapsed=$((curr_time - start_time))
 
+    # Track disk allocation growth as progress evidence (never as completion)
+    disk_alloc=$(stat -c%s "$DISK_PATH" 2>/dev/null || stat -f%z "$DISK_PATH" 2>/dev/null || echo "0")
+    if (( disk_alloc > initial_disk_alloc + 50000000 )); then
+        installer_progress_observed=true
+    fi
+
+    # Check serial token signal
     if [[ -f "$SERIAL_LOG" ]] && grep -F "$TOKEN" "$SERIAL_LOG" >/dev/null 2>&1; then
-        token_verified=true
+        serial_token_observed=true
         break
     fi
 
+    # Check QEMU process status
     if [[ -f "$PID_FILE" ]]; then
         pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
         if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
-            token_verified=true
+            qemu_process_stopped=true
             break
         fi
     fi
 
-    # Confirm disk allocation growth (>50MB) after 15s as valid installation evidence
-    disk_alloc=$(stat -c%s "$DISK_PATH" 2>/dev/null || stat -f%z "$DISK_PATH" 2>/dev/null || echo "0")
-    if (( disk_alloc > 50000000 && elapsed > 15 )); then
-        token_verified=true
-        break
-    fi
-
     if ((elapsed >= TIMEOUT_SEC)); then
-        fail "Installer completion timed out after ${TIMEOUT_SEC}s for VM $VM_ID."
+        printf '[WARN] Installer wait loop reached timeout (%ss) for VM %s\n' "$TIMEOUT_SEC" "$VM_ID" >&2
+        break
     fi
 
     sleep 2
 done
 
-if [[ "$token_verified" != "true" ]]; then
-    fail "Installer completion token ($TOKEN) not verified in target guest environment for VM $VM_ID!"
+# Ensure VM process is stopped safely before offline disk inspection
+if [[ -f "$PID_FILE" ]]; then
+    pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+        bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$PID_FILE" --qmp-socket "$QMP_SOCKET" || kill -9 "$pid" 2>/dev/null || true
+    fi
 fi
+qemu_process_stopped=true
 
 TOKEN_HASH=$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')
 VERIFY_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Call real disk-structure inspector helper
+# Call real offline disk-structure inspector helper
 disk_inspect_json="${state_dir}/disk-inspection-${MODE}.json"
-bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$TOKEN" --mode "$MODE" --out-json "$disk_inspect_json"
+disk_inspect_status="FAIL"
+if bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$TOKEN" --mode "$MODE" --out-json "$disk_inspect_json"; then
+    disk_inspect_status="PASS"
+fi
 
-# Derive completion JSON fields from disk inspection report
+# Offline target filesystem token verification
+if [[ "$disk_inspect_status" == "PASS" ]]; then
+    filesystem_token_verified=true
+fi
+
+final_status="FAIL"
+if [[ "$filesystem_token_verified" == "true" ]]; then
+    final_status="PASS"
+fi
+
 python3 -c "
 import json
 with open('$disk_inspect_json', 'r') as f:
@@ -156,6 +180,10 @@ result = {
     'schema_version': '1.0',
     'vm_id': '$VM_ID',
     'firmware_mode': '$MODE',
+    'installer_progress_observed': $( [ "$installer_progress_observed" = "true" ] && echo "True" || echo "False" ),
+    'serial_token_observed': $( [ "$serial_token_observed" = "true" ] && echo "True" || echo "False" ),
+    'qemu_process_stopped': $( [ "$qemu_process_stopped" = "true" ] && echo "True" || echo "False" ),
+    'filesystem_token_verified': $( [ "$filesystem_token_verified" = "true" ] && echo "True" || echo "False" ),
     'completion_token_hash': '$TOKEN_HASH',
     'token_source': 'installed_root_filesystem',
     'token_path': '/etc/genixbit-install-token',
@@ -164,11 +192,15 @@ result = {
     'verification_timestamp': '$VERIFY_TIMESTAMP',
     'installer_terminal_state': 'STOPPED_GRACEFULLY',
     'disk_inspection_status': disk_data.get('status', 'FAIL'),
-    'final_status': 'PASS' if disk_data.get('status') == 'PASS' else 'FAIL'
+    'final_status': '$final_status'
 }
 with open('$OUT_JSON', 'w') as f:
     json.dump(result, f, indent=2)
 "
 
-printf '[PASS] Installer completion verified and recorded in %s\n' "$OUT_JSON"
+if [[ "$final_status" != "PASS" ]]; then
+    fail "Installer completion token ($TOKEN) not verified in target root filesystem for VM $VM_ID! (final_status: FAIL)"
+fi
+
+printf '[PASS] Installer completion verified in root filesystem and recorded in %s\n' "$OUT_JSON"
 exit 0

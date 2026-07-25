@@ -104,12 +104,71 @@ if grep -E 'echo.*vmlinuz-fake' "$REPO_ROOT/tools/vm/verify-disk-structure.sh" 2
 fi
 pass "Test 4 PASS: No fake kernel paths found in disk inspector."
 
-# Test 5: Wrong token inside filesystem
+# Test 5: Wrong token inside filesystem or token missing from root filesystem
 info "Test 5: Testing rejection of wrong token inside filesystem..."
 if bash "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" --vm-id "test_vm" --token "INVALID_TOKEN" --disk "$BLANK_DISK" --timeout 1 2>/dev/null; then
     fail "wait-for-install-completion.sh failed to reject invalid token!"
 fi
 pass "Test 5 PASS: Invalid token correctly rejected."
+
+# Test 5a: QCOW2 file larger than 50MB without target token must fail (Disk growth != completion)
+info "Test 5a: Testing QCOW2 larger than 50MB without target token fails..."
+LARGE_DISK="$TEST_DIR/large_notoken.qcow2"
+if command -v qemu-img >/dev/null 2>&1; then
+    qemu-img create -f qcow2 "$LARGE_DISK" 40G >/dev/null
+    # Write 60MB to simulate disk allocation growth
+    dd if=/dev/zero of="$TEST_DIR/junk" bs=1M count=60 2>/dev/null || true
+    qemu-img convert -f raw -O qcow2 "$TEST_DIR/junk" "$LARGE_DISK" 2>/dev/null || true
+    rm -f "$TEST_DIR/junk"
+fi
+OUT_JSON_5A="$TEST_DIR/completion_5a.json"
+if bash "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" --vm-id "test_5a" --token "TOKEN_5A" --disk "$LARGE_DISK" --timeout 1 --out-json "$OUT_JSON_5A" 2>/dev/null; then
+    fail "wait-for-install-completion.sh passed on large QCOW2 without target filesystem token!"
+fi
+if [[ -f "$OUT_JSON_5A" ]]; then
+    FS_VERIFIED=$(python3 -c "import json; print(json.load(open('$OUT_JSON_5A')).get('filesystem_token_verified', False))")
+    [[ "$FS_VERIFIED" == "False" ]] || fail "filesystem_token_verified set to True on disk allocation growth alone!"
+fi
+pass "Test 5a PASS: QCOW2 > 50MB without target filesystem token correctly rejected."
+
+# Test 5b: Stopped QEMU process without target token must fail
+info "Test 5b: Testing stopped QEMU process without target token fails..."
+STOPPED_PID_FILE="$TEST_DIR/stopped.pid"
+echo "999999" > "$STOPPED_PID_FILE"
+OUT_JSON_5B="$TEST_DIR/completion_5b.json"
+if bash "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" --vm-id "test_5b" --token "TOKEN_5B" --disk "$BLANK_DISK" --pid-file "$STOPPED_PID_FILE" --timeout 1 --out-json "$OUT_JSON_5B" 2>/dev/null; then
+    fail "wait-for-install-completion.sh passed on stopped QEMU process without target filesystem token!"
+fi
+pass "Test 5b PASS: Stopped QEMU process without target token correctly rejected."
+
+# Test 5c: Serial token without target-filesystem token must fail
+info "Test 5c: Testing serial token without target-filesystem token fails..."
+SERIAL_LOG_5C="$TEST_DIR/serial_5c.log"
+echo "GENIXBIT_INSTALL_COMPLETE_TOKEN_5C" > "$SERIAL_LOG_5C"
+OUT_JSON_5C="$TEST_DIR/completion_5c.json"
+if bash "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" --vm-id "test_5c" --token "GENIXBIT_INSTALL_COMPLETE_TOKEN_5C" --disk "$BLANK_DISK" --serial-log "$SERIAL_LOG_5C" --timeout 1 --out-json "$OUT_JSON_5C" 2>/dev/null; then
+    fail "wait-for-install-completion.sh passed on serial token alone without target filesystem token!"
+fi
+if [[ -f "$OUT_JSON_5C" ]]; then
+    SERIAL_OBS=$(python3 -c "import json; print(json.load(open('$OUT_JSON_5C')).get('serial_token_observed', False))")
+    FS_VERIFIED=$(python3 -c "import json; print(json.load(open('$OUT_JSON_5C')).get('filesystem_token_verified', False))")
+    [[ "$SERIAL_OBS" == "True" && "$FS_VERIFIED" == "False" ]] || fail "serial_token_observed/filesystem_token_verified state separation failed!"
+fi
+pass "Test 5c PASS: Serial token without target-filesystem token correctly rejected."
+
+# Test 5d: Candidate 2 state generation does not reference undefined shell variable
+info "Test 5d: Testing Candidate 2 script does not reference undefined CAND2_EXPECTED_SHA..."
+if grep -F '$CAND2_EXPECTED_SHA' "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    fail "install-candidate2.sh still references undefined variable CAND2_EXPECTED_SHA!"
+fi
+pass "Test 5d PASS: install-candidate2.sh uses verified CAND2_VERIFIED_SHA variable."
+
+# Test 5e: Completion JSON token_source verification
+info "Test 5e: Verifying token_source schema field in wait-for-install-completion.sh..."
+if ! grep -F "'token_source': 'installed_root_filesystem'" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" >/dev/null 2>&1; then
+    fail "wait-for-install-completion.sh missing token_source=installed_root_filesystem field!"
+fi
+pass "Test 5e PASS: token_source=installed_root_filesystem verified in completion JSON schema."
 
 # Test 6: Missing authorized SSH key in candidate 2 migration
 info "Test 6: Testing rejection of migration without provisioned SSH key..."

@@ -49,9 +49,9 @@ done
 [[ -n "$DISK_PATH" ]] || fail '--disk path is required.'
 
 # 1. Validate Candidate 2 ISO checksum
-actual_sha=$(sha256sum "$ISO_PATH" | awk '{print $1}')
-if [[ "$actual_sha" != "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" && "$actual_sha" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
-    fail "Candidate 2 ISO SHA-256 mismatch! Got ${actual_sha}"
+CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
+if [[ "$CAND2_VERIFIED_SHA" != "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" && "$CAND2_VERIFIED_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
+    fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA}"
 fi
 
 # 2. Setup state directory and unique run identifiers
@@ -193,19 +193,22 @@ TOKEN_HASH=$(printf '%s' "$INSTALL_TOKEN" | sha256sum | awk '{print $1}')
 CURR_SHA=$(git rev-parse HEAD 2>/dev/null || echo "7824ad50141e3546d47d98b8bd12041f1e08e86b")
 
 python3 -c "
-import json
+import json, sys
 
 with open('$disk_inspect_json', 'r') as f: disk_report = json.load(f)
 with open('$completion_json', 'r') as f: comp_report = json.load(f)
 
 overall_status = 'PASS' if (disk_report.get('status') == 'PASS' and comp_report.get('final_status') == 'PASS') else 'FAIL'
+if overall_status != 'PASS':
+    sys.stderr.write('Candidate 2 verification failed! disk_report=' + str(disk_report.get('status')) + ', comp_report=' + str(comp_report.get('final_status')) + '\n')
+    sys.exit(1)
 
 state = {
     'schema_version': '1.0',
     'source_commit': '$CURR_SHA',
     'workflow_run_id': '$RUN_ID',
     'candidate2_iso_path': '$ISO_PATH',
-    'candidate2_iso_sha256': '$CAND2_EXPECTED_SHA',
+    'candidate2_iso_sha256': '$CAND2_VERIFIED_SHA',
     'vm_id': '$VM_ID',
     'firmware_mode': '$MODE',
     'installed_disk_path': '$DISK_PATH',
@@ -216,8 +219,8 @@ state = {
     'ssh_public_key_path': '$SSH_PUB',
     'ssh_public_key_fingerprint': '$SSH_FP',
     'installation_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
-    'installed_boot_result': 'PASS' if overall_status == 'PASS' else 'FAIL',
-    'status': overall_status
+    'installed_boot_result': 'PASS',
+    'status': 'PASS'
 }
 with open('$INSTALL_STATE_FILE', 'w') as f:
     json.dump(state, f, indent=2)
