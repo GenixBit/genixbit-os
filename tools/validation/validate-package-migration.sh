@@ -323,7 +323,7 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
     fi
 
     # 1. Install Candidate 2 ISO in VM
-    CAND2_INSTALL_OUT=$(bash "$REPO_ROOT/tools/vm/install-candidate2.sh" --iso "$CAND2_ISO" --disk "$TMP_DIR/cand2-bios.qcow2" --mode bios 2>&1 | tee "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
+    CAND2_INSTALL_OUT=$(bash "$REPO_ROOT/tools/vm/install-candidate2.sh" --iso "$CAND2_ISO" --disk "$TMP_DIR/cand2-uefi.qcow2" --mode uefi 2>&1 | tee "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
 
     CAND2_STATE_FILE=$(echo "$CAND2_INSTALL_OUT" | grep "GENIXBIT_CANDIDATE2_INSTALL_STATE=" | cut -d'=' -f2- || echo "")
     [[ -n "$CAND2_STATE_FILE" && -f "$CAND2_STATE_FILE" ]] || fail "Candidate 2 installation state file missing from install-candidate2.sh output!"
