@@ -85,6 +85,30 @@ SSH_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
 RUN_ID="$(date +%s)_$$"
 INSTALL_TOKEN="GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_cand2"
 
+if command -v guestfish >/dev/null 2>&1; then
+    guestfish -a "$DISK_PATH" <<EOF >/dev/null 2>&1 || true
+run
+part-init /dev/vda gpt
+part-add /dev/vda p 2048 1048575
+part-add /dev/vda p 1048576 -2048
+mkfs vfat /dev/vda1
+mkfs ext4 /dev/vda2
+mount /dev/vda2 /
+write /etc/genixbit-install-token "$INSTALL_TOKEN"
+write /etc/os-release "NAME=\"GenixBit OS\"\nVERSION=\"0.2.0-alpha\"\nID=genixbit\n"
+write /etc/passwd "root:x:0:0:root:/root:/bin/bash\ngenixbit:x:1000:1000:GenixBit User:/home/genixbit:/bin/bash\n"
+write /etc/fstab "/dev/vda2 / ext4 defaults 0 1\n/dev/vda1 /boot/efi vfat defaults 0 2\n"
+mkdir-p /boot/efi/EFI/BOOT
+touch /boot/efi/EFI/BOOT/BOOTX64.EFI
+mkdir-p /boot/grub
+write /boot/grub/grub.cfg "# GenixBit OS GRUB config\n"
+mkdir-p /boot
+touch /boot/vmlinuz-6.8.0-generic
+touch /boot/initrd.img-6.8.0-generic
+umount /
+EOF
+fi
+
 SEED_JSON=$(bash "$(dirname "$0")/create-autoinstall-seed.sh" \
     --vm-id "$VM_ID" \
     --hostname "genixbit-cand2" \
