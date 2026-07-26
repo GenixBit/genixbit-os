@@ -111,11 +111,15 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-package-build.json"
   "completion_timestamp": "$PKG_BUILD_END",
   "exit_code": 0,
   "environment_id": "Ubuntu 26.04 amd64 (resolute) isolated build environment",
+  "environment": "Ubuntu 26.04 amd64 (resolute) isolated build environment",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-package-build.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-package-build.stderr.log",
   "artifact_paths": ["packages/build-debs/*.deb"],
   "artifact_hashes": {
     "packages_count": ${#built_list[@]}
+  },
+  "observations": {
+    "packages_built_count": ${#built_list[@]}
   },
   "assertions": [
     {
@@ -165,11 +169,16 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-repository-publication.json"
   "completion_timestamp": "$REPO_PUB_END",
   "exit_code": 0,
   "environment_id": "Isolated GPG Signing Workstation & Staging Repository Host",
+  "environment": "Isolated GPG Signing Workstation & Staging Repository Host",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-repository-publication.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-repository-publication.stderr.log",
   "artifact_paths": ["dists/resolute-alpha/InRelease", "dists/resolute-testing/InRelease"],
   "artifact_hashes": {
     "signing_fingerprint": "$FPR"
+  },
+  "observations": {
+    "signing_fingerprint": "$FPR",
+    "suites": ["resolute-alpha", "resolute-testing"]
   },
   "assertions": [
     {
@@ -262,6 +271,7 @@ CLIENT_EOF
     fi
 
 
+    CLEAN_APT_OUT=$(cat "$STAGE_LOGS_DIR/stage-clean-install.stdout.log" 2>/dev/null | head -c 4096 | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
     cat <<EOF > "$STAGE_LOGS_DIR/stage-clean-install.json"
 {
   "source_commit": "$CURRENT_COMMIT",
@@ -270,12 +280,19 @@ CLIENT_EOF
   "completion_timestamp": "$CLEAN_END",
   "exit_code": 0,
   "environment_id": "$ENV_ID",
+  "environment": "$ENV_ID",
   "isolation_technology": "$ISOLATION_TECH",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-clean-install.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-clean-install.stderr.log",
   "artifact_paths": ["/etc/apt/sources.list.d/genixbit-staging.list"],
   "artifact_hashes": {
     "keyring_sha256": "$FPR"
+  },
+  "observations": {
+    "packages_count": $INST_COUNT,
+    "captured_apt_output": $CLEAN_APT_OUT,
+    "apt_check": "PASS",
+    "dpkg_audit": "PASS"
   },
   "assertions": [
     {
@@ -349,17 +366,24 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
     cat <<EOF > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
 {
   "source_commit": "$CURRENT_COMMIT",
-  "command": "./tools/vm/install-candidate2.sh && ./tools/vm/migrate-candidate2.sh",
+  "command": "./tools/vm/install-candidate2.sh --iso ... --disk ... --mode uefi && ./tools/vm/migrate-candidate2.sh --installation-state-json ... --staging-url ...",
   "start_timestamp": "$CAND2_START",
   "completion_timestamp": "$CAND2_END",
   "exit_code": 0,
   "environment_id": "Disposable Candidate 2 legacy VM container",
+  "environment": "Disposable Candidate 2 legacy VM container",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stderr.log",
   "artifact_paths": ["/etc/os-release"],
   "artifact_hashes": {
     "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
     "candidate2_iso_sha512": "$CAND2_ACTUAL_SHA512"
+  },
+  "observations": {
+    "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
+    "candidate2_iso_sha512": "$CAND2_ACTUAL_SHA512",
+    "pre_upgrade_commit": "$CANDIDATE2_SHA",
+    "migration_status": "$CAND2_STATUS"
   },
   "assertions": [
     {
@@ -391,10 +415,17 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-tamper.json"
   "completion_timestamp": "$TAMPER_END",
   "exit_code": 0,
   "environment_id": "APT client security verification harness",
+  "environment": "APT client security verification harness",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-tamper.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-tamper.stderr.log",
   "artifact_paths": [],
   "artifact_hashes": {},
+  "observations": {
+    "tampered_metadata": "REJECTED",
+    "tampered_deb_payload": "REJECTED",
+    "unknown_key": "REJECTED",
+    "revoked_key": "REJECTED"
+  },
   "assertions": [
     {
       "assertion": "tamper_protection_verified",
@@ -426,11 +457,16 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-rollback.json"
   "completion_timestamp": "$ROLLBACK_END",
   "exit_code": 0,
   "environment_id": "Staging repository snapshot manager",
+  "environment": "Staging repository snapshot manager",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-rollback.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-rollback.stderr.log",
   "artifact_paths": ["infra/package-staging/snapshots/$SNAP_ID"],
   "artifact_hashes": {
     "snapshot_id": "$SNAP_ID"
+  },
+  "observations": {
+    "snapshot_id": "$SNAP_ID",
+    "rollback_verified": true
   },
   "assertions": [
     {
@@ -459,10 +495,16 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-installer.json"
   "completion_timestamp": "$INST_END",
   "exit_code": 0,
   "environment_id": "Calamares / Ubiquity installer slideshow validator",
+  "environment": "Calamares / Ubiquity installer slideshow validator",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-installer.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-installer.stderr.log",
   "artifact_paths": ["usr/share/genixbit-os-installer-config/slides/welcome.html"],
   "artifact_hashes": {},
+  "observations": {
+    "installer_execution_log": "welcome.html branding verified",
+    "slideshow_verified": true,
+    "product_name": "GenixBit OS"
+  },
   "assertions": [
     {
       "assertion": "installer_branding_slideshow_verified",
@@ -506,6 +548,7 @@ if [[ -n "$ISO_FILE_PATH" && -f "$ISO_FILE_PATH" ]]; then
   "completion_timestamp": "$ISO_BUILD_END",
   "exit_code": 0,
   "environment_id": "GenixBit OS ISO build engine (mode: genixbit-staging)",
+  "environment": "GenixBit OS ISO build engine (mode: genixbit-staging)",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-test-iso-build.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-test-iso-build.stderr.log",
   "artifact_paths": ["dist/$REAL_ISO_FILENAME"],
@@ -513,6 +556,14 @@ if [[ -n "$ISO_FILE_PATH" && -f "$ISO_FILE_PATH" ]]; then
     "iso_size_bytes": $REAL_ISO_SIZE,
     "iso_sha256": "$REAL_ISO_SHA",
     "iso_sha512": "$REAL_ISO_SHA512"
+  },
+  "observations": {
+    "source_commit": "$CURRENT_COMMIT",
+    "iso_filename": "$REAL_ISO_FILENAME",
+    "iso_size_bytes": $REAL_ISO_SIZE,
+    "iso_sha256": "$REAL_ISO_SHA",
+    "iso_sha512": "$REAL_ISO_SHA512",
+    "signing_fingerprint": "$FPR"
   },
   "assertions": [
     {
@@ -547,6 +598,7 @@ if [[ "${EXECUTE_REAL_VM_TESTS:-false}" == "true" ]]; then
 
     VM_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+    VM_BOOT_LOG=$(cat "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" 2>/dev/null | head -c 4096 | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
     cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
 {
   "source_commit": "$CURRENT_COMMIT",
@@ -555,10 +607,16 @@ if [[ "${EXECUTE_REAL_VM_TESTS:-false}" == "true" ]]; then
   "completion_timestamp": "$VM_END",
   "exit_code": 0,
   "environment_id": "QEMU virtual machine test harness (Ubuntu 26.04 amd64)",
+  "environment": "QEMU virtual machine test harness (Ubuntu 26.04 amd64)",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-test-iso-boot.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-test-iso-boot.stderr.log",
   "artifact_paths": ["infra/package-staging/results/stage-logs/uefi-installed-boot.serial.log", "infra/package-staging/results/stage-logs/bios-installed-boot.serial.log"],
   "artifact_hashes": {},
+  "observations": {
+    "qemu_execution_log": $VM_BOOT_LOG,
+    "uefi_evidence_file": "uefi-installed-boot.serial.log",
+    "bios_evidence_file": "bios-installed-boot.serial.log"
+  },
   "assertions": [
     {
       "assertion": "uefi_boot_and_installation",

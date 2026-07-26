@@ -250,7 +250,11 @@ with open('$STATE_FILE', 'w') as f:
         ;;
 
     stop)
-        [[ -n "$PID_FILE" && -f "$PID_FILE" ]] || fail '--pid-file is required for stop.'
+        # Gracefully no-op if the pid-file is missing — VM may already be stopped
+        if [[ -z "$PID_FILE" || ! -f "$PID_FILE" ]]; then
+            printf '[INFO] run-qemu.sh (stop): pid-file absent or missing for VM %s — already stopped, skipping.\n' "$VM_ID" >&2
+            exit 0
+        fi
         [[ -n "$QMP_SOCKET" ]] || QMP_SOCKET="${STATE_DIR}/qmp-${VM_ID}.sock"
 
         QEMU_PID=$(cat "$PID_FILE" 2>/dev/null || echo "")

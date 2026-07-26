@@ -186,6 +186,9 @@ installed_serial_log="${state_dir}/cand2-installed-boot.serial.log"
 INSTALLED_VM_ID="${VM_ID}_inst"
 INSTALLED_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
 
+installed_pid_file="${state_dir}/qemu-${INSTALLED_VM_ID}.pid"
+installed_qmp_path="${state_dir}/qmp-${INSTALLED_VM_ID}.sock"
+
 bash "$(dirname "$0")/run-qemu.sh" start \
     --vm-id "$INSTALLED_VM_ID" \
     --mode "$MODE" \
@@ -193,8 +196,8 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --disk "$DISK_PATH" \
     --state-dir "$state_dir" \
     --serial-log "$installed_serial_log" \
-    --qmp-socket "$qmp_path" \
-    --pid-file "$pid_file" \
+    --qmp-socket "$installed_qmp_path" \
+    --pid-file "$installed_pid_file" \
     --ssh-port "$INSTALLED_PORT" \
     --headless \
     --timeout "$TIMEOUT_SEC"
@@ -207,8 +210,8 @@ bash "$(dirname "$0")/wait-for-guest.sh" \
     --ssh-user "genixbit" \
     --ssh-key "$SSH_KEY" \
     --token "${RUN_ID}" \
-    --pid-file "$pid_file" \
-    --qmp-socket "$qmp_path" \
+    --pid-file "$installed_pid_file" \
+    --qmp-socket "$installed_qmp_path" \
     --timeout 120
 
 # 14. Execute guest identity & health commands inside Candidate 2 installed guest
@@ -219,12 +222,12 @@ bash "$(dirname "$0")/guest-command.sh" \
     --ssh-user "genixbit" \
     --ssh-key "$SSH_KEY" \
     --vm-id "$INSTALLED_VM_ID" \
-    --pid-file "$pid_file" \
+    --pid-file "$installed_pid_file" \
     --out-log "$guest_log" \
     --verify-disk-boot
 
 # 15. Stop installed guest VM cleanly
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$installed_pid_file" --qmp-socket "$installed_qmp_path"
 
 # 16. ONLY AFTER all verification steps succeed, create cand2-install-state.json
 INSTALL_STATE_FILE="${state_dir}/cand2-install-state.json"
