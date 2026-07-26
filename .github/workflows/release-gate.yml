@@ -42,6 +42,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Build Dependencies (debootstrap + ISO tools)
+        run: |
+          set -euo pipefail
+          echo "=== Installing ISO build dependencies ==="
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            debootstrap \
+            squashfs-tools \
+            xorriso \
+            grub-efi-amd64-bin \
+            grub-pc-bin \
+            mtools \
+            dosfstools 2>&1 | tail -5
+          echo "[PASS] Build dependencies installed."
+
       - name: Preflight System, Hardware, & Dependency Verification
         run: |
           set -euo pipefail
@@ -62,7 +77,7 @@ jobs:
           fi
 
           # 3. Required Binaries
-          req_binaries=(qemu-system-x86_64 qemu-img timeout socat jq curl sha256sum sha512sum xorriso isoinfo mksquashfs unsquashfs gpg gpgv dpkg-deb apt-get python3)
+          req_binaries=(qemu-system-x86_64 qemu-img timeout socat jq curl sha256sum sha512sum xorriso isoinfo mksquashfs unsquashfs gpg gpgv dpkg-deb apt-get python3 debootstrap)
           for b in "${req_binaries[@]}"; do
             if ! command -v "$b" >/dev/null 2>&1; then
               echo "[FAIL] Required preflight binary missing: $b" >&2
