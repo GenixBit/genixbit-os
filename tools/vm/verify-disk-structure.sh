@@ -70,6 +70,15 @@ if (( disk_allocated_bytes < 5242880 )); then
 fi
 
 # 3. Observe partitions, filesystems, and OS files
+if command -v guestfish >/dev/null 2>&1; then
+    root_dev="/dev/vda1"
+    if [[ "$MODE" == "uefi" ]]; then root_dev="/dev/vda2"; fi
+    OBSERVED_TOKEN=$(guestfish --ro -a "$DISK_PATH" -m "$root_dev" cat /etc/genixbit-install-token 2>/dev/null | tr -d '\r\n' || echo "")
+    if [[ -n "$OBSERVED_TOKEN" && "$OBSERVED_TOKEN" != "$TOKEN" ]]; then
+        fail "Observed token inside filesystem ($OBSERVED_TOKEN) does not match expected token ($TOKEN)!"
+    fi
+fi
+
 TOKEN_HASH=$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')
 INSPECT_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
