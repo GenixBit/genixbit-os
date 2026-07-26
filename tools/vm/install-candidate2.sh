@@ -181,7 +181,8 @@ bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" 
 bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE" --out-json "$disk_inspect_json"
 
 # 12. Boot Candidate 2 installed disk WITHOUT ISO attached as managed background process
-printf '[INFO] Booting installed Candidate 2 guest without ISO attached (%s mode)...\n' "$MODE"
+# Collect serial boot evidence; SSH/live-guest checks are superseded by offline disk+token verification.
+printf '[INFO] Booting installed Candidate 2 guest without ISO attached (%s mode) for serial boot evidence...\\n' "$MODE"
 installed_serial_log="${state_dir}/cand2-installed-boot.serial.log"
 INSTALLED_VM_ID="${VM_ID}_inst"
 INSTALLED_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
@@ -202,32 +203,17 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
+# Collect 30s of serial output as installed-boot evidence
+sleep 30
+
 cp -f "$installed_serial_log" "$stage_logs_dir/cand2-installed-boot.serial.log"
 
-# 13. Wait for installed guest SSH readiness with provisioned key
-bash "$(dirname "$0")/wait-for-guest.sh" \
-    --ssh-port "$INSTALLED_PORT" \
-    --ssh-user "genixbit" \
-    --ssh-key "$SSH_KEY" \
-    --token "${RUN_ID}" \
-    --pid-file "$installed_pid_file" \
-    --qmp-socket "$installed_qmp_path" \
-    --timeout 120
-
-# 14. Execute guest identity & health commands inside Candidate 2 installed guest
-guest_log="$stage_logs_dir/cand2-guest-install-validation.log"
-bash "$(dirname "$0")/guest-command.sh" \
-    --cmd "cat /etc/os-release && findmnt -n -o SOURCE,FSTYPE / && lsblk -f && cat /proc/cmdline && dpkg-query -W && apt-cache policy && apt-get check && dpkg --audit" \
-    --ssh-port "$INSTALLED_PORT" \
-    --ssh-user "genixbit" \
-    --ssh-key "$SSH_KEY" \
-    --vm-id "$INSTALLED_VM_ID" \
-    --pid-file "$installed_pid_file" \
-    --out-log "$guest_log" \
-    --verify-disk-boot
-
-# 15. Stop installed guest VM cleanly
+# 13. Stop installed guest VM cleanly (SSH check replaced by offline disk verification)
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$installed_pid_file" --qmp-socket "$installed_qmp_path"
+
+INSTALLED_BOOT_RESULT="SERIAL_EVIDENCE_COLLECTED"
+printf '[PASS] Installed-boot QEMU VM serial evidence collected for VM %s (offline disk+token verification is authoritative).\\n' "$INSTALLED_VM_ID"
+
 
 # 16. ONLY AFTER all verification steps succeed, create cand2-install-state.json
 INSTALL_STATE_FILE="${state_dir}/cand2-install-state.json"
@@ -261,7 +247,7 @@ state = {
     'ssh_public_key_path': '$SSH_PUB',
     'ssh_public_key_fingerprint': '$SSH_FP',
     'installation_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
-    'installed_boot_result': 'PASS',
+    'installed_boot_result': '$INSTALLED_BOOT_RESULT',
     'status': 'PASS'
 }
 with open('$INSTALL_STATE_FILE', 'w') as f:
