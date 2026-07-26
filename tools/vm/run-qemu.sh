@@ -180,7 +180,7 @@ case "$ACTION" in
         )
 
         if [[ "$INSTALLED" == "false" && -n "$ISO_PATH" ]]; then
-            qemu_args+=("-cdrom" "$ISO_PATH" "-boot" "d")
+            qemu_args+=("-drive" "file=$ISO_PATH,format=raw,media=cdrom,readonly=on" "-boot" "d")
         fi
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
