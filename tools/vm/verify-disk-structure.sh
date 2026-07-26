@@ -73,7 +73,19 @@ fi
 if command -v guestfish >/dev/null 2>&1; then
     root_dev="/dev/vda1"
     if [[ "$MODE" == "uefi" ]]; then root_dev="/dev/vda2"; fi
-    OBSERVED_TOKEN=$(guestfish --ro -a "$DISK_PATH" -m "$root_dev" cat /etc/genixbit-install-token 2>/dev/null | tr -d '\r\n' || echo "")
+    # Detect kernel version so supermin can find it on GCE runners where non-root fails
+    _KVER="$(uname -r)"
+    _KPATH="/boot/vmlinuz-${_KVER}"
+    [[ -f "$_KPATH" ]] || _KPATH="/boot/vmlinuz"
+    _GF_CMD=( guestfish )
+    if [[ "$(id -u)" -ne 0 ]] && sudo -n guestfish --version >/dev/null 2>&1; then
+        _GF_CMD=( sudo
+            SUPERMIN_KERNEL="$_KPATH"
+            SUPERMIN_KERNEL_VERSION="$_KVER"
+            SUPERMIN_MODULES="/lib/modules/${_KVER}"
+            guestfish )
+    fi
+    OBSERVED_TOKEN=$("${_GF_CMD[@]}" --ro -a "$DISK_PATH" -m "$root_dev" cat /etc/genixbit-install-token 2>/dev/null | tr -d '\r\n' || echo "")
     if [[ -n "$OBSERVED_TOKEN" && "$OBSERVED_TOKEN" != "$TOKEN" ]]; then
         fail "Observed token inside filesystem ($OBSERVED_TOKEN) does not match expected token ($TOKEN)!"
     fi

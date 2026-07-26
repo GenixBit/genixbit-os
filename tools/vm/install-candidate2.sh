@@ -85,8 +85,23 @@ SSH_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
 RUN_ID="$(date +%s)_$$"
 INSTALL_TOKEN="GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_cand2"
 
-if command -v guestfish >/dev/null 2>&1; then
-    guestfish -a "$DISK_PATH" <<EOF >/dev/null 2>&1 || true
+if command -v guestfish > /dev/null 2>&1; then
+    # Detect kernel version for supermin on GCE runners where non-root cannot auto-detect it
+    _KVER="$(uname -r)"
+    _KPATH="/boot/vmlinuz-${_KVER}"
+    [[ -f "$_KPATH" ]] || _KPATH="/boot/vmlinuz"
+    _GUESTFISH_CMD=( guestfish )
+    # On runners where guestfish needs root for supermin appliance build, elevate via sudo
+    if ! guestfish --version > /dev/null 2>&1 || [[ "$(id -u)" -ne 0 ]]; then
+        if sudo -n guestfish --version > /dev/null 2>&1; then
+            _GUESTFISH_CMD=( sudo
+                SUPERMIN_KERNEL="$_KPATH"
+                SUPERMIN_KERNEL_VERSION="$_KVER"
+                SUPERMIN_MODULES="/lib/modules/${_KVER}"
+                guestfish )
+        fi
+    fi
+    "${_GUESTFISH_CMD[@]}" -a "$DISK_PATH" <<EOF > /dev/null 2>&1 || true
 run
 part-init /dev/vda gpt
 part-add /dev/vda p 2048 1048575
