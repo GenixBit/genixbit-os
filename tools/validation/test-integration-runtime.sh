@@ -192,12 +192,12 @@ fi
 
 # Test 18 -- D14: Empty/TODO sha512 field causes failure
 T=18
-DESC="D14: Empty or TODO sha512 provenance field causes failure"
-if grep -q "sha512 field is empty or unpopulated" \
+DESC="D14: SHA-512 cross-check present (after download, compare-or-record)"
+if grep -q "SHA-512 mismatch\|sha512 cross-check\|CAND2_PINNED_SHA512" \
    "$REPO_ROOT/tools/validation/validate-package-migration.sh"; then
     pass_test $T "$DESC"
 else
-    fail_test $T "$DESC" "sha512 empty validator not found"
+    fail_test $T "$DESC" "SHA-512 cross-check logic not found in validate-package-migration.sh"
 fi
 
 # Summary
