@@ -203,6 +203,17 @@ CAND2_PINNED_SHA=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENA
 [[ -n "$CAND2_PINNED_SHA" ]] || fail "Candidate 2 provenance file sha256 field is empty!"
 info "Candidate 2 canonical SHA-256 (from provenance): $CAND2_PINNED_SHA"
 
+# D14: Validate sha512 and immutable_url are complete — gate cannot pass with incomplete provenance
+CAND2_PINNED_SHA512=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENANCE_FILE')).get('sha512',''))")
+if [[ -z "$CAND2_PINNED_SHA512" || "$CAND2_PINNED_SHA512" == "TODO:"* ]]; then
+    fail "Candidate 2 provenance file sha512 field is empty or unpopulated! Operator must populate docs/releases/0.2.0-alpha-artifact.json sha512 from a verified ISO download before the gate can pass."
+fi
+CAND2_IMMUTABLE_URL=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENANCE_FILE')).get('immutable_url',''))")
+if [[ "$CAND2_IMMUTABLE_URL" != *"?generation="* ]]; then
+    fail "Candidate 2 provenance immutable_url is mutable (no ?generation= pin): $CAND2_IMMUTABLE_URL"
+fi
+info "Candidate 2 provenance validated: sha512 present, URL generation-pinned"
+
 # Clean Client Installation (mandatory)
 info "Executing real disposable APT client container installation..."
 CLEAN_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -225,16 +236,26 @@ CLEAN_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     ENV_ID="Disposable Ubuntu 26.04 amd64 client container ($ISOLATION_TECH)"
     info "Selected isolation technology: $ISOLATION_TECH ($ENV_ID)"
 
-    # Run loopback HTTP server to serve staging repo
-    REPO_PORT=$(python3 -c "import socket; s = socket.socket(); s.bind(('', 0)); print(s.getsockname()[1]); s.close()")
-    python3 -m http.server "$REPO_PORT" --directory "$TMP_REPO" >/dev/null 2>&1 &
-    HTTP_PID=$!
-    sleep 1
+# D2: Single HTTP server bound to 0.0.0.0 so both host and QEMU guests can reach it.
+# HOST_STAGING_URL is for Docker/Podman containers and build.sh (127.0.0.1 is fine).
+# GUEST_STAGING_URL is for QEMU VMs (10.0.2.2 is the host address from QEMU SLIRP network).
+REPO_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('0.0.0.0',0)); print(s.getsockname()[1]); s.close()")
+python3 -m http.server "$REPO_PORT" --bind 0.0.0.0 --directory "$TMP_REPO" \
+    >"$STAGE_LOGS_DIR/staging-http.stdout.log" 2>"$STAGE_LOGS_DIR/staging-http.stderr.log" &
+HTTP_PID=$!
+HOST_STAGING_URL="http://127.0.0.1:${REPO_PORT}"
+GUEST_STAGING_URL="http://10.0.2.2:${REPO_PORT}"
 
-    cleanup_http() {
-        if kill -0 "$HTTP_PID" 2>/dev/null; then kill "$HTTP_PID" 2>/dev/null || true; fi
-    }
-    trap 'cleanup_http; cleanup' EXIT
+# Verify server is reachable before proceeding
+sleep 1
+curl --fail --silent --show-error "${HOST_STAGING_URL}/dists/resolute-alpha/InRelease" > /dev/null \
+    || fail "Staging HTTP server not reachable at $HOST_STAGING_URL — check python http.server output"
+info "Staging HTTP server up at $HOST_STAGING_URL (QEMU: $GUEST_STAGING_URL)"
+
+cleanup_http() {
+    if kill -0 "$HTTP_PID" 2>/dev/null; then kill "$HTTP_PID" 2>/dev/null || true; fi
+}
+trap 'cleanup_http; cleanup' EXIT
 
     CONTAINER_SCRIPT="$TMP_DIR/run_clean_install.sh"
     cat <<'CLIENT_EOF' > "$CONTAINER_SCRIPT"
@@ -354,9 +375,10 @@ fi
     [[ "$STATE_PERMS" == "600" || "$STATE_PERMS" == "0600" ]] || fail "Candidate 2 state file permissions ($STATE_PERMS) must be 0600!"
 
     # 2. Execute migration using installation state file, staging public key, and signing fingerprint
+    # D3: Use GUEST_STAGING_URL (10.0.2.2:PORT) so QEMU VMs can reach the staging repo
     MIG_OUT=$(bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" \
         --installation-state-json "$CAND2_STATE_FILE" \
-        --staging-url "$STAGING_HOST" \
+        --staging-url "$GUEST_STAGING_URL" \
         --staging-key "$PUB_KEYRING" \
         --staging-fingerprint "$FPR" 2>&1 | tee -a "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
 
@@ -523,10 +545,18 @@ EOF
 # Real ISO Build — PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh
 # The Candidate 2 ISO MUST NOT be renamed or reused as the current release ISO.
 # The ISO must come from the current source commit via a real build.sh execution.
+# D14: dist/ is cleared before build so the ISO selector finds only the new artifact.
 # ─────────────────────────────────────────────────────────────────────────────
 ISO_BUILD_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+info "Clearing dist/ to ensure ISO selector finds only freshly-built artifact..."
+sudo rm -rf "$REPO_ROOT/dist"
+mkdir -p "$REPO_ROOT/dist"
+
 info "Executing real ISO build: PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh"
-PACKAGE_SOURCE_MODE=genixbit-staging bash "$REPO_ROOT/build.sh" \
+PACKAGE_SOURCE_MODE=genixbit-staging \
+    GENIXBIT_STAGING_SERVER="$HOST_STAGING_URL" \
+    GENIXBIT_STAGING_KEYRING="$PUB_KEYRING" \
+    bash "$REPO_ROOT/build.sh" \
     > "$STAGE_LOGS_DIR/stage-test-iso-build.stdout.log" \
     2> "$STAGE_LOGS_DIR/stage-test-iso-build.stderr.log" \
     || fail "ISO build failed. See $STAGE_LOGS_DIR/stage-test-iso-build.stderr.log"
@@ -618,6 +648,9 @@ VM_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # MANDATORY: Verify UEFI and BIOS evidence files are distinct (from independent VM runs)
 UEFI_SERIAL="$STAGE_LOGS_DIR/uefi-installed-boot.serial.log"
 BIOS_SERIAL="$STAGE_LOGS_DIR/bios-installed-boot.serial.log"
+# D13: Evidence files must exist and be non-empty (copied after full boot cycle)
+[[ -s "$UEFI_SERIAL" ]] || fail "UEFI installed-boot evidence missing or empty: $UEFI_SERIAL"
+[[ -s "$BIOS_SERIAL" ]] || fail "BIOS installed-boot evidence missing or empty: $BIOS_SERIAL"
 if [[ -f "$UEFI_SERIAL" && -f "$BIOS_SERIAL" ]]; then
     UEFI_HASH=$(sha256sum "$UEFI_SERIAL" | awk '{print $1}')
     BIOS_HASH=$(sha256sum "$BIOS_SERIAL" | awk '{print $1}')

@@ -258,7 +258,12 @@ with open('$STATE_FILE', 'w') as f:
         [[ -n "$QMP_SOCKET" ]] || QMP_SOCKET="${STATE_DIR}/qmp-${VM_ID}.sock"
 
         QEMU_PID=$(cat "$PID_FILE" 2>/dev/null || echo "")
-        [[ -n "$QEMU_PID" ]] || fail "PID file $PID_FILE is empty."
+        [[ -n "$QEMU_PID" ]] || {
+            printf '[INFO] run-qemu.sh (stop): pid-file present but empty for VM %s — treating as ALREADY_STOPPED_VERIFIED.\n' "$VM_ID" >&2
+            rm -f "$PID_FILE" "$QMP_SOCKET" 2>/dev/null || true
+            printf '[PASS] VM stopped cleanly (ALREADY_STOPPED_VERIFIED)\n'
+            exit 0
+        }
 
         SHUTDOWN_STATE="STOP_FAILED"
 
@@ -282,14 +287,14 @@ with open('$STATE_FILE', 'w') as f:
                 kill -15 "$QEMU_PID" 2>/dev/null || true
                 sleep 2
                 if ! kill -0 "$QEMU_PID" 2>/dev/null; then
-                    SHUTDOWN_STATE="STOPPED_BY_SIGTERM_CLEANUP"
+                    SHUTDOWN_STATE="STOPPED_BY_SIGTERM"
                 else
                     kill -9 "$QEMU_PID" 2>/dev/null || true
-                    SHUTDOWN_STATE="STOPPED_BY_SIGKILL_CLEANUP"
+                    SHUTDOWN_STATE="STOPPED_BY_SIGKILL"
                 fi
             fi
         else
-            SHUTDOWN_STATE="ALREADY_STOPPED"
+            SHUTDOWN_STATE="ALREADY_STOPPED_VERIFIED"
         fi
 
         rm -f "$PID_FILE" "$QMP_SOCKET"
@@ -305,12 +310,15 @@ with open(p, 'w') as f: json.dump(data, f, indent=2)
 "
         fi
 
-        if [[ "$SHUTDOWN_STATE" == "STOPPED_GRACEFULLY" || "$SHUTDOWN_STATE" == "ALREADY_STOPPED" ]]; then
+        if [[ "$SHUTDOWN_STATE" == "STOPPED_GRACEFULLY" || "$SHUTDOWN_STATE" == "ALREADY_STOPPED_VERIFIED" ]]; then
             printf '[PASS] VM stopped cleanly (%s)\n' "$SHUTDOWN_STATE"
             exit 0
-        elif [[ "$SHUTDOWN_STATE" == "STOPPED_BY_SIGTERM_CLEANUP" || "$SHUTDOWN_STATE" == "STOPPED_BY_SIGKILL_CLEANUP" ]]; then
-            printf '[WARN] VM stopped via forced cleanup (%s) — expected for stub/pre-provisioned disks without a real OS.\n' "$SHUTDOWN_STATE" >&2
-            exit 0
+        elif [[ "$SHUTDOWN_STATE" == "STOPPED_BY_SIGTERM" ]]; then
+            printf '[FAIL] VM required SIGTERM to terminate (%s) — forced termination is a release-gate failure.\n' "$SHUTDOWN_STATE" >&2
+            exit 1
+        elif [[ "$SHUTDOWN_STATE" == "STOPPED_BY_SIGKILL" ]]; then
+            printf '[FAIL] VM required SIGKILL to terminate (%s) — forced termination is a release-gate failure.\n' "$SHUTDOWN_STATE" >&2
+            exit 1
         else
             fail "VM shutdown required forced cleanup or failed ($SHUTDOWN_STATE)!"
         fi

@@ -113,9 +113,10 @@ bash "$(dirname "$0")/wait-for-install-completion.sh" \
     --ssh-user "genixbit" \
     --ssh-key "$SSH_KEY" \
     --disk "$DISK_PATH" \
+    --mode "$MODE" \
     --timeout "$TIMEOUT_SEC"
 
-cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
+# NOTE: installer serial log is copied AFTER completion below — not here.
 
 # 6. Stop installer VM cleanly
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
@@ -140,8 +141,8 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --ssh-port "$INSTALLED_PORT" \
     --headless \
     --timeout "$TIMEOUT_SEC"
+# NOTE: installed-boot serial log is copied AFTER completion below — not here.
 
-cp -f "$installed_serial_log" "$stage_logs_dir/${MODE}-installed-boot.serial.log"
 
 # 9. Wait for authenticated guest control channel
 bash "$(dirname "$0")/wait-for-guest.sh" \
@@ -184,6 +185,10 @@ bash "$(dirname "$0")/guest-command.sh" \
 
 # 12. Stop installed VM cleanly
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
+
+# Copy final serial logs AFTER full boot cycle completes (installer + installed boot)
+cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
+cp -f "$installed_serial_log" "$stage_logs_dir/${MODE}-installed-boot.serial.log"
 
 printf '[PASS] Current 0.3.0 ISO installation, double installed-boot, and authenticated guest validation verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0

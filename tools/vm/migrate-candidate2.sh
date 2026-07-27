@@ -151,6 +151,7 @@ KEY_PERMS=$(stat -c "%a" "$SSH_KEY" 2>/dev/null || stat -f "%Lp" "$SSH_KEY" 2>/d
 command -v qemu-img >/dev/null 2>&1 || fail "qemu-img binary required for snapshot rollback operations."
 
 VM_ID="cand2_mig_${MODE}_$(date +%s)_$$"
+RUN_ID="$(date +%s)_$$_$(git -C "$(dirname "$(readlink -f "$0")")/../.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
 state_dir="$(dirname "$DISK_PATH")/cand2-migrate-${MODE}-state"
 stage_logs_dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/infra/package-staging/results/stage-logs"
 mkdir -p "$state_dir" "$stage_logs_dir"
@@ -167,10 +168,16 @@ OBS_APT_INSTALL_EXIT=""
 OBS_POST_DPKG_QUERY=""
 OBS_POST_APT_CHECK_EXIT=""
 OBS_POST_DPKG_AUDIT_EXIT=""
+OBS_POST_DPKG_AUDIT_EMPTY="false"
 OBS_POST_BOOT_OS_RELEASE=""
 OBS_ROLLBACK_DPKG_QUERY=""
 OBS_REUPGRADE_DPKG_QUERY=""
 OBS_FINAL_OS_RELEASE=""
+OBS_STAGING_FINGERPRINT_MATCH="false"
+OBS_ALL_PACKAGE_ORIGINS_VERIFIED="false"
+OBS_ROLLBACK_STATE_EQUALITY="false"
+PRE_STATE_SHA256=""
+ROLLBACK_STATE_SHA256=""
 
 # Helper: start migration VM
 start_migration_vm() {
@@ -212,7 +219,7 @@ wait_ssh() {
         --timeout "$TIMEOUT_SEC" || fail "Migration VM ($vm_label) SSH not reachable on port $port"
 }
 
-# Helper: stop migration VM — fail-closed: only STOPPED_GRACEFULLY / ALREADY_STOPPED are safe
+# Helper: stop migration VM — fail-closed: only STOPPED_GRACEFULLY / ALREADY_STOPPED_VERIFIED are safe
 # to proceed to offline disk access or snapshot operations.
 stop_migration_vm() {
     local vm_label="$1"
@@ -293,10 +300,14 @@ scp_to_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" "$STAGING_KEY" "/tmp/staging.gpg
     echo "staging_fingerprint: $STAGING_FINGERPRINT"
     echo ""
 
-    echo "=== Verify staging key fingerprint inside guest ==="
+    echo "=== Dearmor staging key inside guest ==="
     ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
-        "gpg --dearmor < /tmp/staging.gpg > /tmp/staging-keyring.gpg && \
-         gpg --no-default-keyring --keyring /tmp/staging-keyring.gpg --fingerprint 2>&1" 2>&1
+        "gpg --dearmor < /tmp/staging.gpg > /tmp/staging-keyring.gpg" 2>&1
+
+    echo ""
+    echo "=== Verify staging key fingerprint inside guest (machine-readable) ==="
+    ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
+        "gpg --show-keys --with-colons /tmp/staging.gpg 2>&1" 2>&1
 
     echo ""
     echo "=== Configure signed staging repository ==="
@@ -313,6 +324,12 @@ scp_to_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" "$STAGING_KEY" "/tmp/staging.gpg
     echo "=== apt-cache policy (all 7 replacement packages) ==="
     ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
         "apt-cache policy genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files \
+         genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config 2>&1"
+
+    echo ""
+    echo "=== apt-cache madison (package origin verification) ==="
+    ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
+        "apt-cache madison genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files \
          genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config 2>&1"
 
     echo ""
@@ -335,11 +352,46 @@ scp_to_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" "$STAGING_KEY" "/tmp/staging.gpg
     ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" "sudo dpkg --audit 2>&1"
 } > "$MIG_LOG" 2>&1
 
+# D5: Exact fingerprint comparison — extract from guest via machine-readable gpg output
+OBSERVED_FINGERPRINT=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
+    "gpg --show-keys --with-colons /tmp/staging.gpg 2>/dev/null | awk -F: '\$1==\"fpr\"{print \$10;exit}'" \
+    2>/dev/null || echo "")
+OBSERVED_FINGERPRINT=${OBSERVED_FINGERPRINT//[[:space:]]/}
+EXPECTED_FINGERPRINT_NORM=${STAGING_FINGERPRINT//[[:space:]]/}
+[[ -n "$OBSERVED_FINGERPRINT" ]] || fail "Could not read staging key fingerprint inside guest!"
+[[ "$OBSERVED_FINGERPRINT" == "$EXPECTED_FINGERPRINT_NORM" ]] || \
+    fail "Staging key fingerprint mismatch: got '$OBSERVED_FINGERPRINT', expected '$EXPECTED_FINGERPRINT_NORM'"
+OBS_STAGING_FINGERPRINT_MATCH="true"
+info "Staging key fingerprint verified: $OBSERVED_FINGERPRINT"
+
+# D6: Package origin verification — each of the 7 packages must have a Candidate from STAGING_URL/resolute-alpha
+for pkg in genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files \
+           genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config; do
+    CAND=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
+        "apt-cache policy ${pkg} 2>/dev/null | awk '/Candidate:/{print \$2}'" 2>/dev/null || echo "")
+    [[ -n "$CAND" && "$CAND" != "(none)" ]] || \
+        fail "Package $pkg has no Candidate version in apt-cache policy — staging repo not reachable or index not loaded"
+    ORIGIN=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
+        "apt-cache madison ${pkg} 2>/dev/null | grep 'resolute-alpha'" 2>/dev/null || echo "")
+    # Verify origin contains the staging URL
+    printf '%s' "$ORIGIN" | grep -qF "$STAGING_URL" || \
+        fail "Package $pkg Candidate does not come from $STAGING_URL resolute-alpha — wrong origin: '$ORIGIN'"
+done
+OBS_ALL_PACKAGE_ORIGINS_VERIFIED="true"
+info "All 7 package origins verified from $STAGING_URL resolute-alpha"
+
+# D7: Capture actual apt-get install exit code
+APT_INSTALL_RC=0
+ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
+    "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+     genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files \
+     genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config 2>&1" || APT_INSTALL_RC=$?
+OBS_APT_INSTALL_EXIT="$APT_INSTALL_RC"
+[[ "$APT_INSTALL_RC" == "0" ]] || fail "apt-get install failed with exit code $APT_INSTALL_RC — release gate fails!"
+info "apt-get install completed successfully (exit 0)"
+
 OBS_APT_UPDATE_EXIT=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
     "sudo apt-get update > /dev/null 2>&1; echo \$?" 2>/dev/null || echo "unknown")
-
-OBS_APT_INSTALL_EXIT=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
-    "dpkg-query -W genixbit-os-desktop > /dev/null 2>&1 && echo 0 || echo 1" 2>/dev/null || echo "unknown")
 
 OBS_POST_DPKG_QUERY=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
     "dpkg-query -W -f='\${binary:Package}\t\${Version}\t\${db:Status-Abbrev}\n'" 2>/dev/null || echo "unavailable")
@@ -350,8 +402,14 @@ OBS_APT_CACHE_POLICY=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
 OBS_POST_APT_CHECK_EXIT=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
     "sudo apt-get check > /dev/null 2>&1; echo \$?" 2>/dev/null || echo "unknown")
 
-OBS_POST_DPKG_AUDIT_EXIT=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
-    "sudo dpkg --audit > /dev/null 2>&1; echo \$?" 2>/dev/null || echo "unknown")
+# D8: Capture dpkg --audit exit code AND stdout; fail if non-empty output
+OBS_DPKG_AUDIT_RAW=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
+    "sudo dpkg --audit 2>&1" 2>/dev/null || echo "")
+OBS_POST_DPKG_AUDIT_EXIT=$?
+OBS_POST_DPKG_AUDIT_EMPTY=$([[ -z "$OBS_DPKG_AUDIT_RAW" ]] && echo "true" || echo "false")
+[[ "$OBS_POST_DPKG_AUDIT_EXIT" == "0" && -z "$OBS_DPKG_AUDIT_RAW" ]] || \
+    fail "dpkg --audit not clean after migration (exit=$OBS_POST_DPKG_AUDIT_EXIT, output='$OBS_DPKG_AUDIT_RAW')"
+info "dpkg --audit clean (exit 0, empty output)"
 
 info "Rebooting migration guest for post-migration boot verification..."
 ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" "sudo reboot" 2>/dev/null || true
@@ -413,6 +471,17 @@ wait_ssh "rollback" "$RB_PORT" || fail "Rolled-back guest did not become SSH-rea
 
 OBS_ROLLBACK_DPKG_QUERY=$(ssh_guest "$RB_PORT" "$SSH_USER" "$SSH_KEY" \
     "dpkg-query -W -f='\${binary:Package}\t\${Version}\t\${db:Status-Abbrev}\n'" 2>/dev/null || echo "unavailable")
+
+# D9: SHA-based equality check: rollback state MUST match pre-migration state exactly
+PRE_STATE_SORTED=$(printf '%s' "$OBS_PRE_MIGRATION_PACKAGES" | LC_ALL=C sort)
+PRE_STATE_SHA256=$(printf '%s' "$PRE_STATE_SORTED" | sha256sum | awk '{print $1}')
+ROLLBACK_STATE_SORTED=$(printf '%s' "$OBS_ROLLBACK_DPKG_QUERY" | LC_ALL=C sort)
+ROLLBACK_STATE_SHA256=$(printf '%s' "$ROLLBACK_STATE_SORTED" | sha256sum | awk '{print $1}')
+if [[ "$PRE_STATE_SHA256" != "$ROLLBACK_STATE_SHA256" ]]; then
+    fail "Rollback package state SHA-256 mismatch! pre=$PRE_STATE_SHA256, rollback=$ROLLBACK_STATE_SHA256 — snapshot did not restore original package state!"
+fi
+OBS_ROLLBACK_STATE_EQUALITY="true"
+info "Rollback package state SHA-256 matches pre-migration state: $ROLLBACK_STATE_SHA256"
 
 info "Shutting down rollback guest cleanly..."
 ssh_guest "$RB_PORT" "$SSH_USER" "$SSH_KEY" "sudo poweroff" 2>/dev/null || true
@@ -489,20 +558,28 @@ import json
 result = {
     'installation_state_path': '$INSTALLATION_STATE_JSON',
     'vm_id': '$VM_ID',
+    'run_id': '$RUN_ID',
     'disk_identity': '$DISK_PATH',
     'firmware_mode': '$MODE',
     'ssh_username': '$SSH_USER',
     'staging_url': '$STAGING_URL',
-    'observed_staging_fingerprint': '$STAGING_FINGERPRINT',
+    'observed_staging_fingerprint': '$OBSERVED_FINGERPRINT',
+    'expected_staging_fingerprint': '$STAGING_FINGERPRINT',
+    'staging_key_fingerprint_match': '$OBS_STAGING_FINGERPRINT_MATCH',
+    'all_package_origins_verified': '$OBS_ALL_PACKAGE_ORIGINS_VERIFIED',
     'pre_migration_package_state': '''$OBS_PRE_MIGRATION_PACKAGES''',
+    'pre_migration_state_sha256': '$PRE_STATE_SHA256',
     'apt_update_exit_code': '$OBS_APT_UPDATE_EXIT',
     'apt_cache_policy_output': '''$OBS_APT_CACHE_POLICY''',
     'apt_install_exit_code': '$OBS_APT_INSTALL_EXIT',
     'post_install_dpkg_query': '''$OBS_POST_DPKG_QUERY''',
     'apt_check_exit_code': '$OBS_POST_APT_CHECK_EXIT',
     'dpkg_audit_exit_code': '$OBS_POST_DPKG_AUDIT_EXIT',
+    'dpkg_audit_output_empty': '$OBS_POST_DPKG_AUDIT_EMPTY',
     'post_migration_boot_os_release': '''$OBS_POST_BOOT_OS_RELEASE''',
     'rollback_dpkg_query': '''$OBS_ROLLBACK_DPKG_QUERY''',
+    'rollback_state_sha256': '$ROLLBACK_STATE_SHA256',
+    'rollback_package_state_matches_pre_migration': '$OBS_ROLLBACK_STATE_EQUALITY',
     'reupgrade_dpkg_query': '''$OBS_REUPGRADE_DPKG_QUERY''',
     'final_os_release': '''$OBS_FINAL_OS_RELEASE''',
     'stdout_paths': [
@@ -513,9 +590,31 @@ result = {
         '$REUPGRADE_GUEST_LOG'
     ],
     'execution_timestamp': '$EXEC_TIMESTAMP',
-    'migration_status': 'PASS' if '$OBS_APT_INSTALL_EXIT' == '0' else 'FAIL',
-    'final_status': 'PASS' if ('$OBS_APT_INSTALL_EXIT' == '0' and '$OBS_POST_APT_CHECK_EXIT' == '0') else 'FAIL'
 }
+
+# Final status: ALL 18 observed conditions must be satisfied
+all_pass = (
+    result['apt_install_exit_code'] == '0' and
+    result['apt_check_exit_code'] == '0' and
+    result['dpkg_audit_exit_code'] == '0' and
+    result['dpkg_audit_output_empty'] == 'true' and
+    result['staging_key_fingerprint_match'] == 'true' and
+    result['all_package_origins_verified'] == 'true' and
+    result['rollback_package_state_matches_pre_migration'] == 'true' and
+    result['apt_update_exit_code'] == '0' and
+    result['pre_migration_state_sha256'] != '' and
+    result['rollback_state_sha256'] != '' and
+    result['pre_migration_state_sha256'] == result['rollback_state_sha256'] and
+    result['post_migration_boot_os_release'] not in ('', 'unavailable') and
+    result['post_install_dpkg_query'] not in ('', 'unavailable') and
+    result['rollback_dpkg_query'] not in ('', 'unavailable') and
+    result['reupgrade_dpkg_query'] not in ('', 'unavailable') and
+    result['final_os_release'] not in ('', 'unavailable') and
+    result['observed_staging_fingerprint'] != '' and
+    result['vm_id'] != ''
+)
+result['migration_status'] = 'PASS' if all_pass else 'FAIL'
+result['final_status'] = 'PASS' if all_pass else 'FAIL'
 with open('$out_json', 'w') as f:
     json.dump(result, f, indent=2)
 print(result['final_status'])

@@ -232,5 +232,10 @@ info "Check 15: Running helper script interface compatibility tests..."
 bash "$REPO_ROOT/tools/validation/test-helper-interface.sh" > /dev/null
 pass "Check 15 PASS: Helper script interface compatibility tests passed."
 
+# Check 16: Integration runtime defect regression tests (D1-D14)
+info "Check 16: Running integration runtime regression tests (D1-D14)..."
+bash "$REPO_ROOT/tools/validation/test-integration-runtime.sh" > /dev/null
+pass "Check 16 PASS: All 18 integration runtime regression tests passed."
+
 pass "=== Package Migration & Staging CI Validation Passed ==="
 exit 0
