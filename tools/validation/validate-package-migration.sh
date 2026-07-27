@@ -193,11 +193,31 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-repository-publication.json"
 EOF
 
 # Step D: Migration Scenarios & Real Execution Validation
+# All four phases are mandatory for the operator release gate.
+# Skipping any phase causes evidence collection to fail with missing stage JSON.
 
-# Clean Client Installation Check
-if [[ "${EXECUTE_REAL_CLIENT_INSTALL:-false}" == "true" ]]; then
-    info "Executing real disposable APT client container installation..."
-    CLEAN_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+# Read canonical Candidate 2 SHA from provenance record (single source of truth)
+CAND2_PROVENANCE_FILE="$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json"
+[[ -f "$CAND2_PROVENANCE_FILE" ]] || fail "Candidate 2 provenance file missing: $CAND2_PROVENANCE_FILE"
+CAND2_PINNED_SHA=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENANCE_FILE'))['sha256'])")
+[[ -n "$CAND2_PINNED_SHA" ]] || fail "Candidate 2 provenance file sha256 field is empty!"
+info "Candidate 2 canonical SHA-256 (from provenance): $CAND2_PINNED_SHA"
+
+# D14: Validate sha512 and immutable_url are complete — gate cannot pass with incomplete provenance
+CAND2_PINNED_SHA512=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENANCE_FILE')).get('sha512',''))")
+if [[ -z "$CAND2_PINNED_SHA512" || "$CAND2_PINNED_SHA512" == "TODO:"* ]]; then
+    fail "Candidate 2 provenance file sha512 field is empty or unpopulated! Operator must populate docs/releases/0.2.0-alpha-artifact.json sha512 from a verified ISO download before the gate can pass."
+fi
+CAND2_IMMUTABLE_URL=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENANCE_FILE')).get('immutable_url',''))")
+if [[ "$CAND2_IMMUTABLE_URL" != *"?generation="* ]]; then
+    fail "Candidate 2 provenance immutable_url is mutable (no ?generation= pin): $CAND2_IMMUTABLE_URL"
+fi
+info "Candidate 2 provenance validated: sha512 present, URL generation-pinned"
+
+# Clean Client Installation (mandatory)
+info "Executing real disposable APT client container installation..."
+CLEAN_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
     
     # Detect available isolation runtime (Docker, Podman, systemd-nspawn, LXC, KVM)
     ISOLATION_TECH=""
@@ -216,16 +236,26 @@ if [[ "${EXECUTE_REAL_CLIENT_INSTALL:-false}" == "true" ]]; then
     ENV_ID="Disposable Ubuntu 26.04 amd64 client container ($ISOLATION_TECH)"
     info "Selected isolation technology: $ISOLATION_TECH ($ENV_ID)"
 
-    # Run loopback HTTP server to serve staging repo
-    REPO_PORT=$(python3 -c "import socket; s = socket.socket(); s.bind(('', 0)); print(s.getsockname()[1]); s.close()")
-    python3 -m http.server "$REPO_PORT" --directory "$TMP_REPO" >/dev/null 2>&1 &
-    HTTP_PID=$!
-    sleep 1
+# D2: Single HTTP server bound to 0.0.0.0 so both host and QEMU guests can reach it.
+# HOST_STAGING_URL is for Docker/Podman containers and build.sh (127.0.0.1 is fine).
+# GUEST_STAGING_URL is for QEMU VMs (10.0.2.2 is the host address from QEMU SLIRP network).
+REPO_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('0.0.0.0',0)); print(s.getsockname()[1]); s.close()")
+python3 -m http.server "$REPO_PORT" --bind 0.0.0.0 --directory "$TMP_REPO" \
+    >"$STAGE_LOGS_DIR/staging-http.stdout.log" 2>"$STAGE_LOGS_DIR/staging-http.stderr.log" &
+HTTP_PID=$!
+HOST_STAGING_URL="http://127.0.0.1:${REPO_PORT}"
+GUEST_STAGING_URL="http://10.0.2.2:${REPO_PORT}"
 
-    cleanup_http() {
-        if kill -0 "$HTTP_PID" 2>/dev/null; then kill "$HTTP_PID" 2>/dev/null || true; fi
-    }
-    trap 'cleanup_http; cleanup' EXIT
+# Verify server is reachable before proceeding
+sleep 1
+curl --fail --silent --show-error "${HOST_STAGING_URL}/dists/resolute-alpha/InRelease" > /dev/null \
+    || fail "Staging HTTP server not reachable at $HOST_STAGING_URL — check python http.server output"
+info "Staging HTTP server up at $HOST_STAGING_URL (QEMU: $GUEST_STAGING_URL)"
+
+cleanup_http() {
+    if kill -0 "$HTTP_PID" 2>/dev/null; then kill "$HTTP_PID" 2>/dev/null || true; fi
+}
+trap 'cleanup_http; cleanup' EXIT
 
     CONTAINER_SCRIPT="$TMP_DIR/run_clean_install.sh"
     cat <<'CLIENT_EOF' > "$CONTAINER_SCRIPT"
@@ -306,32 +336,28 @@ CLIENT_EOF
   "status": "PASS"
 }
 EOF
-else
-    info "Real clean-client APT installation skipped (EXECUTE_REAL_CLIENT_INSTALL!=true)."
-    rm -f "$STAGE_LOGS_DIR/stage-clean-install.json"
+
+
+# Candidate 2 Migration (mandatory)
+info "Executing real Candidate 2 system migration..."
+CAND2_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CAND2_ISO=$(find "$REPO_ROOT/dist" "$TMP_DIR" -name "GenixBitOS-0.2.0-alpha-2607220558.iso" 2>/dev/null | head -n 1 || echo "")
+if [[ -z "$CAND2_ISO" || ! -f "$CAND2_ISO" ]]; then
+    cand2_url="${CANDIDATE2_ISO_URL:-${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso}"
+    info "Candidate 2 ISO missing locally, downloading from $cand2_url..."
+    CAND2_ISO="$TMP_DIR/GenixBitOS-0.2.0-alpha-2607220558.iso"
+    curl --fail --location --retry 3 --connect-timeout 30 --max-time 600 "$cand2_url" -o "$CAND2_ISO" || fail "Failed to download Candidate 2 ISO from $cand2_url"
 fi
 
-# Candidate 2 Migration Check
-if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
-    info "Executing real Candidate 2 system migration..."
-    CAND2_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    CAND2_ISO=$(find "$REPO_ROOT/dist" "$TMP_DIR" -name "GenixBitOS-0.2.0-alpha-2607220558.iso" 2>/dev/null | head -n 1 || echo "")
-    if [[ -z "$CAND2_ISO" || ! -f "$CAND2_ISO" ]]; then
-        cand2_url="${CANDIDATE2_ISO_URL:-${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso}"
-        info "Candidate 2 ISO missing locally, downloading from $cand2_url..."
-        CAND2_ISO="$TMP_DIR/GenixBitOS-0.2.0-alpha-2607220558.iso"
-        curl --fail --location --retry 3 --connect-timeout 30 --max-time 600 "$cand2_url" -o "$CAND2_ISO" || fail "Failed to download Candidate 2 ISO from $cand2_url"
-    fi
-
-    # Strict ISO validation
+    # Strict ISO validation — one canonical SHA only (from provenance record)
     [[ -s "$CAND2_ISO" ]] || fail "Candidate 2 ISO file is empty or missing!"
     CAND2_SIZE=$(stat -c %s "$CAND2_ISO" 2>/dev/null || stat -f %z "$CAND2_ISO" 2>/dev/null || wc -c < "$CAND2_ISO")
     (( CAND2_SIZE > 50000000 )) || fail "Candidate 2 ISO size ($CAND2_SIZE bytes) is below minimum threshold!"
 
     CAND2_ACTUAL_SHA=$(sha256sum "$CAND2_ISO" | awk '{print $1}')
     CAND2_ACTUAL_SHA512=$(sha512sum "$CAND2_ISO" | awk '{print $1}')
-    if [[ "$CAND2_ACTUAL_SHA" != "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" && "$CAND2_ACTUAL_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
-        fail "Candidate 2 ISO SHA-256 mismatch! Got $CAND2_ACTUAL_SHA"
+    if [[ "$CAND2_ACTUAL_SHA" != "$CAND2_PINNED_SHA" ]]; then
+        fail "Candidate 2 ISO SHA-256 mismatch! Got $CAND2_ACTUAL_SHA, expected pinned $CAND2_PINNED_SHA (from docs/releases/0.2.0-alpha-artifact.json)"
     fi
 
     MIME_TYPE=$(file -b --mime-type "$CAND2_ISO" 2>/dev/null || echo "application/octet-stream")
@@ -349,9 +375,10 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
     [[ "$STATE_PERMS" == "600" || "$STATE_PERMS" == "0600" ]] || fail "Candidate 2 state file permissions ($STATE_PERMS) must be 0600!"
 
     # 2. Execute migration using installation state file, staging public key, and signing fingerprint
+    # D3: Use GUEST_STAGING_URL (10.0.2.2:PORT) so QEMU VMs can reach the staging repo
     MIG_OUT=$(bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" \
         --installation-state-json "$CAND2_STATE_FILE" \
-        --staging-url "$STAGING_HOST" \
+        --staging-url "$GUEST_STAGING_URL" \
         --staging-key "$PUB_KEYRING" \
         --staging-fingerprint "$FPR" 2>&1 | tee -a "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
 
@@ -397,10 +424,7 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
   "status": "$CAND2_STATUS"
 }
 EOF
-else
-    info "Real Candidate 2 migration skipped (EXECUTE_REAL_MIGRATION!=true)."
-    rm -f "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
-fi
+
 
 # Security & Tamper Rejection
 TAMPER_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -517,43 +541,44 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-installer.json"
 }
 EOF
 
-# Real ISO Build Check
-# build.sh requires a network-reachable APT repo signed inside the debootstrap chroot,
-# which is not available in the CI environment. Instead, reuse the Candidate 2 ISO that
-# was already downloaded and verified in the preflight step as the real ISO artifact.
-# It is a genuine GenixBit OS ISO — not a placeholder.
+# ─────────────────────────────────────────────────────────────────────────────
+# Real ISO Build — PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh
+# The Candidate 2 ISO MUST NOT be renamed or reused as the current release ISO.
+# The ISO must come from the current source commit via a real build.sh execution.
+# D14: dist/ is cleared before build so the ISO selector finds only the new artifact.
+# ─────────────────────────────────────────────────────────────────────────────
 ISO_BUILD_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+info "Clearing dist/ to ensure ISO selector finds only freshly-built artifact..."
+sudo rm -rf "$REPO_ROOT/dist"
+mkdir -p "$REPO_ROOT/dist"
 
-CAND2_ISO=$(find "$REPO_ROOT/dist" -maxdepth 1 -name "*.iso" 2>/dev/null | head -n 1 || echo "")
-CANONICAL_ISO="$REPO_ROOT/dist/GenixBitOS-0.3.0-alpha-internal.iso"
+info "Executing real ISO build: PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh"
+PACKAGE_SOURCE_MODE=genixbit-staging \
+    GENIXBIT_STAGING_SERVER="$HOST_STAGING_URL" \
+    GENIXBIT_STAGING_KEYRING="$PUB_KEYRING" \
+    bash "$REPO_ROOT/build.sh" \
+    > "$STAGE_LOGS_DIR/stage-test-iso-build.stdout.log" \
+    2> "$STAGE_LOGS_DIR/stage-test-iso-build.stderr.log" \
+    || fail "ISO build failed. See $STAGE_LOGS_DIR/stage-test-iso-build.stderr.log"
 
-if [[ -n "$CAND2_ISO" && -f "$CAND2_ISO" ]]; then
-    # Copy/link the verified Candidate 2 ISO under the 0.3.0-alpha-internal canonical name
-    if [[ "$CAND2_ISO" != "$CANONICAL_ISO" ]]; then
-        cp -f "$CAND2_ISO" "$CANONICAL_ISO"
-    fi
-    ISO_FILE_PATH="$CANONICAL_ISO"
-    info "Using verified Candidate 2 ISO as test ISO artifact: $ISO_FILE_PATH"
-else
-    info "No ISO found in dist/ — ISO build evidence will reflect build attempt only."
-    ISO_FILE_PATH=""
+ISO_BUILD_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+ISO_FILE_PATH=$(find "$REPO_ROOT/dist" -maxdepth 1 -name "*.iso" 2>/dev/null | head -n 1 || echo "")
+[[ -n "$ISO_FILE_PATH" && -f "$ISO_FILE_PATH" ]] || \
+    fail "ISO build completed but no ISO found in dist/. Build did not produce an artifact."
+
+# Validate the built ISO is not the Candidate 2 ISO (different release, different SHA required)
+BUILT_ISO_SHA=$(sha256sum "$ISO_FILE_PATH" | awk '{print $1}')
+if [[ "$BUILT_ISO_SHA" == "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" ]]; then
+    fail "Built ISO has the same SHA-256 as Candidate 2 — the current release must be built fresh, not renamed from Candidate 2."
 fi
 
-# Run ISO structure check if we have a real ISO
-if [[ -n "$ISO_FILE_PATH" && -f "$ISO_FILE_PATH" ]]; then
-    bash "$REPO_ROOT/tools/validation/check-iso-structure.sh" --iso "$ISO_FILE_PATH"
+bash "$REPO_ROOT/tools/validation/check-iso-structure.sh" --iso "$ISO_FILE_PATH"
 
-    REAL_ISO_FILENAME=$(basename "$ISO_FILE_PATH")
-    REAL_ISO_SIZE=$(stat -c %s "$ISO_FILE_PATH" 2>/dev/null || stat -f %z "$ISO_FILE_PATH" 2>/dev/null || wc -c < "$ISO_FILE_PATH")
-    REAL_ISO_SHA=$(sha256sum "$ISO_FILE_PATH" 2>/dev/null | awk '{print $1}' || shasum -a 256 "$ISO_FILE_PATH" | awk '{print $1}')
-    REAL_ISO_SHA512=$(sha512sum "$ISO_FILE_PATH" 2>/dev/null | awk '{print $1}' || shasum -a 512 "$ISO_FILE_PATH" | awk '{print $1}')
-    ISO_BUILD_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+REAL_ISO_FILENAME=$(basename "$ISO_FILE_PATH")
+REAL_ISO_SIZE=$(stat -c %s "$ISO_FILE_PATH" 2>/dev/null || stat -f %z "$ISO_FILE_PATH" 2>/dev/null || wc -c < "$ISO_FILE_PATH")
+REAL_ISO_SHA512=$(sha512sum "$ISO_FILE_PATH" 2>/dev/null | awk '{print $1}' || shasum -a 512 "$ISO_FILE_PATH" | awk '{print $1}')
 
-    # Copy build logs from Candidate 2 download as build evidence
-    cat "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log" 2>/dev/null | head -c 8192 > "$STAGE_LOGS_DIR/stage-test-iso-build.stdout.log" || true
-    printf '' > "$STAGE_LOGS_DIR/stage-test-iso-build.stderr.log"
-
-    cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-build.json"
+cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-build.json"
 {
   "source_commit": "$CURRENT_COMMIT",
   "command": "PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh",
@@ -567,14 +592,14 @@ if [[ -n "$ISO_FILE_PATH" && -f "$ISO_FILE_PATH" ]]; then
   "artifact_paths": ["dist/$REAL_ISO_FILENAME"],
   "artifact_hashes": {
     "iso_size_bytes": $REAL_ISO_SIZE,
-    "iso_sha256": "$REAL_ISO_SHA",
+    "iso_sha256": "$BUILT_ISO_SHA",
     "iso_sha512": "$REAL_ISO_SHA512"
   },
   "observations": {
     "source_commit": "$CURRENT_COMMIT",
     "iso_filename": "$REAL_ISO_FILENAME",
     "iso_size_bytes": $REAL_ISO_SIZE,
-    "iso_sha256": "$REAL_ISO_SHA",
+    "iso_sha256": "$BUILT_ISO_SHA",
     "iso_sha512": "$REAL_ISO_SHA512",
     "signing_fingerprint": "$FPR"
   },
@@ -585,42 +610,55 @@ if [[ -n "$ISO_FILE_PATH" && -f "$ISO_FILE_PATH" ]]; then
       "source_commit": "$CURRENT_COMMIT",
       "iso_filename": "$REAL_ISO_FILENAME",
       "iso_size_bytes": $REAL_ISO_SIZE,
-      "iso_sha256": "$REAL_ISO_SHA",
+      "iso_sha256": "$BUILT_ISO_SHA",
       "signing_fingerprint": "$FPR"
     }
   ],
   "status": "PASS"
 }
 EOF
-    info "stage-test-iso-build.json written (ISO: $REAL_ISO_FILENAME, SHA256: $REAL_ISO_SHA)"
-else
-    info "ISO artifact unavailable; stage-test-iso-build.json will not be generated."
-    rm -f "$STAGE_LOGS_DIR/stage-test-iso-build.json"
-fi
+info "stage-test-iso-build.json written (ISO: $REAL_ISO_FILENAME, SHA256: $BUILT_ISO_SHA)"
 
-
-# Real VM Execution Check — use Candidate 2 QEMU serial log as authentic UEFI boot evidence.
-# Running install-current-iso.sh twice (UEFI+BIOS) would take 30+ additional minutes.
-# The cand2-install-serial.log is a real QEMU serial capture from this run's Candidate 2 boot.
+# ─────────────────────────────────────────────────────────────────────────────
+# Real VM Test Matrix — Two independent QEMU installations (UEFI + BIOS)
+# Each mode must use a separate VM ID, disk, SSH port, QMP socket, and PID file.
+# Serial logs MUST differ — gate fails if UEFI and BIOS evidence are identical.
+# ─────────────────────────────────────────────────────────────────────────────
 VM_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+info "Executing real QEMU VM UEFI installation (current ISO: $REAL_ISO_FILENAME)..."
+bash "$REPO_ROOT/tools/vm/install-current-iso.sh" \
+    --mode uefi \
+    --iso "$ISO_FILE_PATH" \
+    --disk "$TMP_DIR/genixbit-0.3.0-uefi.qcow2" \
+    > "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" \
+    2> "$STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log" \
+    || fail "UEFI ISO installation failed. See $STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log"
+
+info "Executing real QEMU VM BIOS installation (current ISO: $REAL_ISO_FILENAME)..."
+bash "$REPO_ROOT/tools/vm/install-current-iso.sh" \
+    --mode bios \
+    --iso "$ISO_FILE_PATH" \
+    --disk "$TMP_DIR/genixbit-0.3.0-bios.qcow2" \
+    >> "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" \
+    2>> "$STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log" \
+    || fail "BIOS ISO installation failed. See $STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log"
+
 VM_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Copy real serial evidence files with canonical names expected by collect-migration-evidence.py
+# MANDATORY: Verify UEFI and BIOS evidence files are distinct (from independent VM runs)
 UEFI_SERIAL="$STAGE_LOGS_DIR/uefi-installed-boot.serial.log"
 BIOS_SERIAL="$STAGE_LOGS_DIR/bios-installed-boot.serial.log"
-
-if [[ -f "$STAGE_LOGS_DIR/cand2-install-serial.log" ]]; then
-    cp -f "$STAGE_LOGS_DIR/cand2-install-serial.log" "$UEFI_SERIAL"
-    cp -f "$STAGE_LOGS_DIR/cand2-install-serial.log" "$BIOS_SERIAL"
-    info "Copied real Candidate 2 QEMU serial log as UEFI+BIOS boot evidence."
-else
-    printf '[WARN] Candidate 2 serial log not found; creating placeholder boot evidence.\n' >&2
-    printf 'SeaBIOS (version rel-1.16) QEMU BIOS boot evidence\nBoot from QEMU disk (ata0-hd0)\n' > "$BIOS_SERIAL"
-    printf 'OVMF UEFI boot evidence\nGenixBit OS 0.3.0 UEFI QEMU boot captured\n' > "$UEFI_SERIAL"
+# D13: Evidence files must exist and be non-empty (copied after full boot cycle)
+[[ -s "$UEFI_SERIAL" ]] || fail "UEFI installed-boot evidence missing or empty: $UEFI_SERIAL"
+[[ -s "$BIOS_SERIAL" ]] || fail "BIOS installed-boot evidence missing or empty: $BIOS_SERIAL"
+if [[ -f "$UEFI_SERIAL" && -f "$BIOS_SERIAL" ]]; then
+    UEFI_HASH=$(sha256sum "$UEFI_SERIAL" | awk '{print $1}')
+    BIOS_HASH=$(sha256sum "$BIOS_SERIAL" | awk '{print $1}')
+    if [[ "$UEFI_HASH" == "$BIOS_HASH" ]]; then
+        fail "UEFI and BIOS serial evidence files have identical SHA-256 ($UEFI_HASH). Each mode must produce a distinct log from an independent VM run — logs cannot be copied from one mode to the other."
+    fi
+    info "UEFI and BIOS evidence files confirmed distinct."
 fi
-
-# Append to stage-test-iso-boot.stdout.log for collect-migration-evidence.py fallback read
-cat "$UEFI_SERIAL" > "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" 2>/dev/null || true
 
 VM_BOOT_LOG=$(cat "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" 2>/dev/null | head -c 4096 | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
 cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
@@ -635,7 +673,10 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
   "stdout_path": "infra/package-staging/results/stage-logs/stage-test-iso-boot.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-test-iso-boot.stderr.log",
   "artifact_paths": ["infra/package-staging/results/stage-logs/uefi-installed-boot.serial.log", "infra/package-staging/results/stage-logs/bios-installed-boot.serial.log"],
-  "artifact_hashes": {},
+  "artifact_hashes": {
+    "uefi_serial_sha256": "$(sha256sum "$UEFI_SERIAL" 2>/dev/null | awk '{print $1}' || echo "unavailable")",
+    "bios_serial_sha256": "$(sha256sum "$BIOS_SERIAL" 2>/dev/null | awk '{print $1}' || echo "unavailable")"
+  },
   "observations": {
     "qemu_execution_log": $VM_BOOT_LOG,
     "uefi_evidence_file": "uefi-installed-boot.serial.log",
@@ -660,7 +701,7 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
   "status": "PASS"
 }
 EOF
-info "stage-test-iso-boot.json written with real Candidate 2 QEMU serial evidence."
+info "stage-test-iso-boot.json written with independent UEFI and BIOS real execution evidence."
 
 
 # Collect Final Evidence

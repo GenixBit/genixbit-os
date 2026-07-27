@@ -133,8 +133,17 @@ EOF
         print_ok "Setting up GenixBit Signed Staging APT source in chroot (mode: genixbit-staging)..."
         local keyring_dest="new_building_os/usr/share/keyrings/genixbit-os-archive-keyring.pgp"
         sudo mkdir -p new_building_os/usr/share/keyrings
-        sudo cp "$SCRIPT_DIR/packages/genixbit-os-archive-keyring/keyring/genixbit-os-archive-keyring.pgp" "$keyring_dest"
-        judge "Install GenixBit staging keyring"
+
+        # D4: Use workflow-generated signing key (GENIXBIT_STAGING_KEYRING) instead of static source-tree copy.
+        # This ensures the ISO build uses the same key that signed the staging APT repository.
+        : "${GENIXBIT_STAGING_SERVER:?GENIXBIT_STAGING_SERVER env var is required for genixbit-staging mode}"
+        : "${GENIXBIT_STAGING_KEYRING:?GENIXBIT_STAGING_KEYRING env var is required for genixbit-staging mode}"
+        [[ -s "$GENIXBIT_STAGING_KEYRING" ]] || {
+            print_error "GENIXBIT_STAGING_KEYRING file is missing or empty: $GENIXBIT_STAGING_KEYRING"
+            exit 1
+        }
+        sudo cp "$GENIXBIT_STAGING_KEYRING" "$keyring_dest"
+        judge "Install GenixBit staging keyring (from GENIXBIT_STAGING_KEYRING)"
 
         local staging_url="${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}"
         sudo mkdir -p new_building_os/etc/apt/sources.list.d

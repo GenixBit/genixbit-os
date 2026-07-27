@@ -48,6 +48,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Build Dependencies
+        run: |
+          set -euo pipefail
+          echo "=== Installing ISO Build Dependencies ==="
+          sudo apt-get update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            debootstrap \
+            squashfs-tools \
+            xorriso \
+            grub-efi-amd64-bin \
+            grub-pc-bin \
+            grub-common \
+            mtools \
+            python3-jsonschema
+          echo "[PASS] Build dependencies installed."
+
       - name: Preflight System, Hardware, & Dependency Verification
         run: |
           set -euo pipefail
@@ -187,10 +203,28 @@ jobs:
 
           echo "[PASS] All preflight system, hardware, network, and secret requirements verified."
 
-      - name: Execute Full Package Migration & Staging Validation Suite
+      - name: Regression Test — Verify No Fabricated Evidence Patterns
         run: |
           set -euo pipefail
-          EXECUTE_REAL_ISO_BUILD=true EXECUTE_REAL_VM_TESTS=true EXECUTE_REAL_CLIENT_INSTALL=true EXECUTE_REAL_MIGRATION=true bash tools/validation/validate-package-migration.sh
+          bash tools/validation/test-release-evidence-integrity.sh
+          bash tools/validation/test-observed-guest-negative.sh
+          echo "[PASS] Regression tests passed — no fabricated evidence patterns detected."
+
+      - name: Execute Full Package Migration & Staging Validation Suite
+        env:
+          EXECUTE_REAL_ISO_BUILD: "true"
+          EXECUTE_REAL_VM_TESTS: "true"
+          EXECUTE_REAL_CLIENT_INSTALL: "true"
+          EXECUTE_REAL_MIGRATION: "true"
+          GENIXBIT_STAGING_SERVER: "${{ vars.GENIXBIT_STAGING_SERVER || 'http://staging-packages.os.genixbit.internal' }}"
+          STAGING_SIGNING_PASSPHRASE: "${{ secrets.STAGING_SIGNING_PASSPHRASE }}"
+        run: |
+          set -euo pipefail
+          EXECUTE_REAL_ISO_BUILD=true \
+          EXECUTE_REAL_VM_TESTS=true \
+          EXECUTE_REAL_CLIENT_INSTALL=true \
+          EXECUTE_REAL_MIGRATION=true \
+          bash tools/validation/validate-package-migration.sh
 
       - name: Validate Release Gate Integrity
         run: |

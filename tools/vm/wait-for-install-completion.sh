@@ -142,12 +142,31 @@ while true; do
     sleep 2
 done
 
-# Ensure VM process is stopped safely before offline disk inspection
+# Ensure VM process is stopped safely before offline disk inspection.
+# Fail-closed: only STOPPED_GRACEFULLY and ALREADY_STOPPED_VERIFIED may proceed.
 if [[ -f "$PID_FILE" ]]; then
     pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-        bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$PID_FILE" --qmp-socket "$QMP_SOCKET" || kill -9 "$pid" 2>/dev/null || true
+        STOP_OUTPUT=$(bash "$(dirname "$0")/run-qemu.sh" stop \
+            --vm-id "$VM_ID" \
+            --pid-file "$PID_FILE" \
+            --qmp-socket "$QMP_SOCKET" 2>&1) || {
+            fail "Installer VM stop failed: ${STOP_OUTPUT} — cannot proceed to offline disk inspection!"
+        }
+        ACTUAL_STOP_STATE=$(printf '%s' "$STOP_OUTPUT" | \
+            grep -oE '(STOPPED_GRACEFULLY|ALREADY_STOPPED_VERIFIED|STOPPED_BY_SIGTERM|STOPPED_BY_SIGKILL|STOP_FAILED)' | \
+            head -n1 || echo "UNKNOWN")
+        if [[ "$ACTUAL_STOP_STATE" != "STOPPED_GRACEFULLY" && \
+              "$ACTUAL_STOP_STATE" != "ALREADY_STOPPED_VERIFIED" ]]; then
+            fail "Installer VM did not stop gracefully ($ACTUAL_STOP_STATE) — cannot proceed to disk inspection!"
+        fi
+    else
+        # PID not running — already stopped
+        ACTUAL_STOP_STATE="ALREADY_STOPPED_VERIFIED"
     fi
+else
+    # No PID file — already stopped or never started
+    ACTUAL_STOP_STATE="ALREADY_STOPPED_VERIFIED"
 fi
 qemu_process_stopped=true
 
@@ -190,7 +209,7 @@ result = {
     'root_partition': disk_data.get('selected_root_filesystem', '/dev/vda1'),
     'root_fs_type': 'ext4',
     'verification_timestamp': '$VERIFY_TIMESTAMP',
-    'installer_terminal_state': 'STOPPED_GRACEFULLY',
+    'installer_terminal_state': '$ACTUAL_STOP_STATE',
     'disk_inspection_status': disk_data.get('status', 'FAIL'),
     'final_status': '$final_status'
 }
