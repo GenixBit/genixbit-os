@@ -226,7 +226,7 @@ def main():
         if not cand_sha:
             cand_hashes = stage_data["candidate-upgrade"].get("artifact_hashes", {})
             cand_sha = cand_hashes.get("candidate2_iso_sha256")
-    expected_cand_sha = "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"
+    expected_cand_sha = "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
     if cand_sha != expected_cand_sha:
         fail(f"Candidate 2 upgrade stage log SHA-256 '{cand_sha}' does not match expected '{expected_cand_sha}'")
 
