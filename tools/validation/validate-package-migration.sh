@@ -341,8 +341,19 @@ info "Executing real Candidate 2 system migration..."
 CAND2_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CAND2_ISO=$(find "$REPO_ROOT/dist" "$TMP_DIR" -name "GenixBitOS-0.2.0-alpha-2607220558.iso" 2>/dev/null | head -n 1 || echo "")
 if [[ -z "$CAND2_ISO" || ! -f "$CAND2_ISO" ]]; then
-    cand2_url="${CANDIDATE2_ISO_URL:-${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso}"
-    info "Candidate 2 ISO missing locally, downloading from $cand2_url..."
+    # Priority: provenance immutable_url (generation-pinned) > CANDIDATE2_ISO_URL env (operator pre-cache) > staging server fallback
+    # Using the generation-pinned URL ensures the exact GCS object generation is fetched, preventing
+    # the runner from serving a replaced/wrong ISO via a mutable local staging URL.
+    if [[ -n "$CAND2_IMMUTABLE_URL" && "$CAND2_IMMUTABLE_URL" == *"?generation="* ]]; then
+        cand2_url="$CAND2_IMMUTABLE_URL"
+        info "Candidate 2 ISO: using generation-pinned provenance URL: $cand2_url"
+    elif [[ -n "${CANDIDATE2_ISO_URL:-}" ]]; then
+        cand2_url="$CANDIDATE2_ISO_URL"
+        info "Candidate 2 ISO: using CANDIDATE2_ISO_URL env var (ensure this serves the canonical d9aa0d2e ISO): $cand2_url"
+    else
+        cand2_url="${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso"
+        info "Candidate 2 ISO: falling back to staging server URL: $cand2_url"
+    fi
     CAND2_ISO="$TMP_DIR/GenixBitOS-0.2.0-alpha-2607220558.iso"
     curl --fail --location --retry 3 --connect-timeout 30 --max-time 600 "$cand2_url" -o "$CAND2_ISO" || fail "Failed to download Candidate 2 ISO from $cand2_url"
 fi
