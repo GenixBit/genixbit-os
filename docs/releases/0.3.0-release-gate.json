@@ -76,6 +76,7 @@
   "summary": {
     "pass_count": 3,
     "fail_count": 4,
+    "blocked_count": 0,
     "not_verified_count": 1,
     "not_tested_count": 3,
     "stable_ready": false,
