@@ -103,29 +103,53 @@ fi
 pass "Test 6 PASS: Candidate 1 branch correctly resolved via git ls-remote."
 
 # Test 7: Verify shallow checkout compatibility
-# In CI environments with restricted outbound git access, re-cloning the remote
-# may be unavailable or rate-limited. Skip the network clone with a local copy instead.
+# Confirms SHA-pinning resolves correctly in shallow git clone environments.
+# Uses check-release-evidence.sh --verify-git-candidate which exercises the
+# full git ls-remote + tag peeling + branch matching path.
 info "Test 7: Verifying shallow checkout resolution..."
 SHALLOW_DIR="$TMP_DIR/shallow_repo"
 ORIGIN_URL=$(git -C "$REPO_ROOT" config remote.origin.url 2>/dev/null || echo "")
+CLONE_SUCCEEDED=false
 
-if [[ -n "$ORIGIN_URL" ]] && git clone --depth 1 --quiet "$ORIGIN_URL" "$SHALLOW_DIR" > /dev/null 2>&1; then
-    # Clone succeeded — copy our branch's validation scripts and docs into the shallow clone
+if [[ -n "$ORIGIN_URL" ]]; then
+    # Launch clone in background with a portable 10-second timeout.
+    # Works on macOS and Linux without requiring coreutils.
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --quiet --single-branch \
+        "$ORIGIN_URL" "$SHALLOW_DIR" > /dev/null 2>&1 &
+    CLONE_PID=$!
+    ELAPSED=0
+    while kill -0 "$CLONE_PID" 2>/dev/null && (( ELAPSED < 10 )); do
+        sleep 1
+        ELAPSED=$(( ELAPSED + 1 ))
+    done
+    if kill -0 "$CLONE_PID" 2>/dev/null; then
+        # Timed out — kill clone
+        kill "$CLONE_PID" 2>/dev/null || true
+        wait "$CLONE_PID" 2>/dev/null || true
+    else
+        wait "$CLONE_PID" 2>/dev/null && CLONE_SUCCEEDED=true || true
+    fi
+fi
+
+if [[ "$CLONE_SUCCEEDED" == "true" ]]; then
     cp -r "$REPO_ROOT/tools/validation"/* "$SHALLOW_DIR/tools/validation/"
     cp -r "$REPO_ROOT/docs"/* "$SHALLOW_DIR/docs/"
-    (
-        cd "$SHALLOW_DIR"
-        GIT_REMOTE="origin" bash tools/validation/check-package-migration-ci.sh > /dev/null 2>&1 || exit 1
-    )
-    pass "Test 7 PASS: Immutable pointers successfully verified in a shallow checkout environment."
+    if ! (cd "$SHALLOW_DIR" && \
+          GIT_REMOTE="origin" bash tools/validation/check-release-evidence.sh \
+              --verify-git-candidate > /dev/null 2>&1); then
+        fail "check-release-evidence.sh --verify-git-candidate failed in shallow clone!"
+    fi
+    pass "Test 7 PASS: Immutable pointers verified in a shallow checkout environment."
 else
-    # Fallback: simulate shallow checkout by running check-package-migration-ci.sh from repo root
-    # (This covers environments where outbound git clone is blocked / rate-limited)
-    info "Test 7: git clone unavailable in this environment — verifying check-package-migration-ci.sh directly."
-    GIT_REMOTE="origin" bash "$REPO_ROOT/tools/validation/check-package-migration-ci.sh" > /dev/null 2>&1 \
-        || { fail "check-package-migration-ci.sh failed in shallow-clone fallback mode!"; }
-    pass "Test 7 PASS: Immutable pointers verified via direct execution (shallow clone not available in CI)."
+    # Clone unavailable or timed out — verify pointer resolution directly.
+    info "Test 7: git clone unavailable/timed out — verifying immutable pointer check directly."
+    if ! GIT_REMOTE="origin" bash "$REPO_ROOT/tools/validation/check-release-evidence.sh" \
+            --verify-git-candidate > /dev/null 2>&1; then
+        fail "check-release-evidence.sh --verify-git-candidate failed in fallback mode!"
+    fi
+    pass "Test 7 PASS: Immutable pointers verified via direct check-release-evidence.sh (no shallow clone available)."
 fi
+
 
 # Test 8: Empty resolved SHA rejection
 info "Test 8: Testing empty resolved SHA rejection..."
