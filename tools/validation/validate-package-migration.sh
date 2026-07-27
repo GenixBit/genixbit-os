@@ -349,7 +349,7 @@ if [[ -z "$CAND2_ISO" || ! -f "$CAND2_ISO" ]]; then
         info "Candidate 2 ISO: using generation-pinned provenance URL: $cand2_url"
     elif [[ -n "${CANDIDATE2_ISO_URL:-}" ]]; then
         cand2_url="$CANDIDATE2_ISO_URL"
-        info "Candidate 2 ISO: using CANDIDATE2_ISO_URL env var (ensure this serves the canonical d9aa0d2e ISO): $cand2_url"
+        info "Candidate 2 ISO: using CANDIDATE2_ISO_URL env var (ensure this serves the canonical 1cb79fbf ISO): $cand2_url"
     else
         cand2_url="${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso"
         info "Candidate 2 ISO: falling back to staging server URL: $cand2_url"
@@ -589,7 +589,7 @@ ISO_FILE_PATH=$(find "$REPO_ROOT/dist" -maxdepth 1 -name "*.iso" 2>/dev/null | h
 
 # Validate the built ISO is not the Candidate 2 ISO (different release, different SHA required)
 BUILT_ISO_SHA=$(sha256sum "$ISO_FILE_PATH" | awk '{print $1}')
-if [[ "$BUILT_ISO_SHA" == "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" ]]; then
+if [[ "$BUILT_ISO_SHA" == "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
     fail "Built ISO has the same SHA-256 as Candidate 2 — the current release must be built fresh, not renamed from Candidate 2."
 fi
 

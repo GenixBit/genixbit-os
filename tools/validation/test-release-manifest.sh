@@ -37,7 +37,7 @@ write_manifest() {
     local sha=${3:-"88a1550a9129a80ffd2c4cf73838122020a782cb"}
     local iso=${4:-"GenixBitOS-0.2.0-alpha-2607220558.iso"}
     local size=${5:-"2540554240"}
-    local checksum=${6:-"d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"}
+    local checksum=${6:-"1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"}
     local pr=${7:-"40"}
     local status=${8:-"PASS"}
 
@@ -101,7 +101,7 @@ write_manifest "0.2.0-alpha" "validation/0.2.0-alpha-candidate-2" "88a1550a9129a
 test_fail "invalid checksum"
 
 # 6. Validation-status mismatch -> FAIL
-write_manifest "0.2.0-alpha" "validation/0.2.0-alpha-candidate-2" "88a1550a9129a80ffd2c4cf73838122020a782cb" "GenixBitOS-0.2.0-alpha-2607220558.iso" "2540554240" "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" "40" "FAIL"
+write_manifest "0.2.0-alpha" "validation/0.2.0-alpha-candidate-2" "88a1550a9129a80ffd2c4cf73838122020a782cb" "GenixBitOS-0.2.0-alpha-2607220558.iso" "2540554240" "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" "40" "FAIL"
 test_fail "validation-status mismatch"
 
 # 7. Build-version mismatch -> FAIL

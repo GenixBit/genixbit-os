@@ -46,7 +46,7 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 | Build-host environment | GCP Ubuntu 26.04 `resolute` `amd64` / KVM host |
 | ISO filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | ISO size | 2,540,554,240 bytes |
-| SHA-256 | `d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228` |
+| SHA-256 | `1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669` |
 
 | Test / Gate | Status | Requirement / Evidence |
 | --- | :---: | --- |

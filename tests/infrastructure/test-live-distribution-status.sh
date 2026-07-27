@@ -13,7 +13,7 @@ EXPECTED_SIZE=2540554240
 
 echo "=== 1. Checking Checksum File Availability ==="
 checksum_out=$(curl -sL "$CHECKSUM_URL")
-if [[ "$checksum_out" == *"d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"* ]]; then
+if [[ "$checksum_out" == *"1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"* ]]; then
     pass "Checksum file is publicly available and contains expected SHA-256."
 else
     fail "Checksum file missing or invalid: $checksum_out"

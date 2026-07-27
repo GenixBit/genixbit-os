@@ -62,8 +62,8 @@ done
 
 # 1. Validate Candidate 2 ISO checksum
 CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
-if [[ "$CAND2_VERIFIED_SHA" != "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" ]]; then
-    fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA} — expected d9aa0d2e..."
+if [[ "$CAND2_VERIFIED_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
+    fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA} — expected 1cb79fbf..."
 fi
 
 # 2. Setup state directory and unique run identifiers

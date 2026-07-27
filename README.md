@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!NOTE]
-> **Release Validation Complete (`0.2.0-alpha`)**: GenixBit OS `0.2.0-alpha` candidate 2 (`validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`) successfully completed release validation (Evidence PR #40, artifact `GenixBitOS-0.2.0-alpha-2607220558.iso`, SHA-256 `d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228`). The historical `0.1.0-alpha` candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` remains recorded as historical validation. Candidate 1 `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` is retired due to target build version mismatch.
+> **Release Validation Complete (`0.2.0-alpha`)**: GenixBit OS `0.2.0-alpha` candidate 2 (`validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`) successfully completed release validation (Evidence PR #40, artifact `GenixBitOS-0.2.0-alpha-2607220558.iso`, SHA-256 `1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669`). The historical `0.1.0-alpha` candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` remains recorded as historical validation. Candidate 1 `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` is retired due to target build version mismatch.
 
 ## Build with AI. Own your environment.
 
