@@ -180,30 +180,42 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --timeout "$TIMEOUT_SEC"
 
 # Wait for installed guest SSH to become reachable — authentication is mandatory
+INSTALLED_READINESS_TOKEN="CAND2_INSTALLED_BOOT_${RUN_ID}_$(date +%s)"
 bash "$(dirname "$0")/wait-for-guest.sh" \
-    --vm-id "$INSTALLED_VM_ID" \
     --ssh-port "$INSTALLED_PORT" \
     --ssh-user "genixbit" \
     --ssh-key "$SSH_KEY" \
+    --token "$INSTALLED_READINESS_TOKEN" \
     --pid-file "$installed_pid_file" \
     --timeout "$TIMEOUT_SEC" || fail "Installed Candidate 2 guest ($MODE) did not become SSH-reachable. Cannot verify installed-boot."
 
 # Execute verification commands inside the authenticated installed guest
+# systemctl is-system-running may return 'degraded' legitimately; capture state but do not suppress
+# apt-get check, dpkg --audit, dpkg-query, and findmnt must not be hidden with || true
+GUEST_HEALTH_CMD='
+set -e
+cat /etc/os-release
+findmnt -n -o SOURCE,FSTYPE /
+lsblk -f
+cat /proc/cmdline
+SYSRUN=$(systemctl is-system-running 2>&1 || true); echo "systemctl_state=$SYSRUN"
+dpkg-query -W
+apt-cache policy
+apt-get check
+dpkg --audit
+'
 bash "$(dirname "$0")/guest-command.sh" \
+    --cmd "$GUEST_HEALTH_CMD" \
     --ssh-port "$INSTALLED_PORT" \
     --ssh-user "genixbit" \
     --ssh-key "$SSH_KEY" \
+    --vm-id "$INSTALLED_VM_ID" \
+    --pid-file "$installed_pid_file" \
     --out-log "$installed_guest_cmd_log" \
-    --commands \
-        "cat /etc/os-release" \
-        "findmnt -n -o SOURCE,FSTYPE /" \
-        "lsblk -f" \
-        "cat /proc/cmdline" \
-        "systemctl is-system-running --wait || true" \
-        "dpkg-query -W" \
-        "apt-cache policy" \
-        "apt-get check" \
-        "dpkg --audit" || fail "Guest command execution failed for installed Candidate 2 ($MODE). Installed-boot cannot be verified."
+    --result-json "$state_dir/installed-guest-health.json" \
+    --verify-disk-boot \
+    --timeout "$TIMEOUT_SEC" || fail "Guest command execution failed for installed Candidate 2 ($MODE). Installed-boot cannot be verified."
+
 
 cp -f "$installed_serial_log" "$stage_logs_dir/cand2-installed-boot.serial.log"
 cp -f "$installed_guest_cmd_log" "$stage_logs_dir/cand2-installed-guest-commands.log"

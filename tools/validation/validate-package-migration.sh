@@ -193,11 +193,20 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-repository-publication.json"
 EOF
 
 # Step D: Migration Scenarios & Real Execution Validation
+# All four phases are mandatory for the operator release gate.
+# Skipping any phase causes evidence collection to fail with missing stage JSON.
 
-# Clean Client Installation Check
-if [[ "${EXECUTE_REAL_CLIENT_INSTALL:-false}" == "true" ]]; then
-    info "Executing real disposable APT client container installation..."
-    CLEAN_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+# Read canonical Candidate 2 SHA from provenance record (single source of truth)
+CAND2_PROVENANCE_FILE="$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json"
+[[ -f "$CAND2_PROVENANCE_FILE" ]] || fail "Candidate 2 provenance file missing: $CAND2_PROVENANCE_FILE"
+CAND2_PINNED_SHA=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENANCE_FILE'))['sha256'])")
+[[ -n "$CAND2_PINNED_SHA" ]] || fail "Candidate 2 provenance file sha256 field is empty!"
+info "Candidate 2 canonical SHA-256 (from provenance): $CAND2_PINNED_SHA"
+
+# Clean Client Installation (mandatory)
+info "Executing real disposable APT client container installation..."
+CLEAN_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
     
     # Detect available isolation runtime (Docker, Podman, systemd-nspawn, LXC, KVM)
     ISOLATION_TECH=""
@@ -306,32 +315,28 @@ CLIENT_EOF
   "status": "PASS"
 }
 EOF
-else
-    info "Real clean-client APT installation skipped (EXECUTE_REAL_CLIENT_INSTALL!=true)."
-    rm -f "$STAGE_LOGS_DIR/stage-clean-install.json"
+
+
+# Candidate 2 Migration (mandatory)
+info "Executing real Candidate 2 system migration..."
+CAND2_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CAND2_ISO=$(find "$REPO_ROOT/dist" "$TMP_DIR" -name "GenixBitOS-0.2.0-alpha-2607220558.iso" 2>/dev/null | head -n 1 || echo "")
+if [[ -z "$CAND2_ISO" || ! -f "$CAND2_ISO" ]]; then
+    cand2_url="${CANDIDATE2_ISO_URL:-${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso}"
+    info "Candidate 2 ISO missing locally, downloading from $cand2_url..."
+    CAND2_ISO="$TMP_DIR/GenixBitOS-0.2.0-alpha-2607220558.iso"
+    curl --fail --location --retry 3 --connect-timeout 30 --max-time 600 "$cand2_url" -o "$CAND2_ISO" || fail "Failed to download Candidate 2 ISO from $cand2_url"
 fi
 
-# Candidate 2 Migration Check
-if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
-    info "Executing real Candidate 2 system migration..."
-    CAND2_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    CAND2_ISO=$(find "$REPO_ROOT/dist" "$TMP_DIR" -name "GenixBitOS-0.2.0-alpha-2607220558.iso" 2>/dev/null | head -n 1 || echo "")
-    if [[ -z "$CAND2_ISO" || ! -f "$CAND2_ISO" ]]; then
-        cand2_url="${CANDIDATE2_ISO_URL:-${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso}"
-        info "Candidate 2 ISO missing locally, downloading from $cand2_url..."
-        CAND2_ISO="$TMP_DIR/GenixBitOS-0.2.0-alpha-2607220558.iso"
-        curl --fail --location --retry 3 --connect-timeout 30 --max-time 600 "$cand2_url" -o "$CAND2_ISO" || fail "Failed to download Candidate 2 ISO from $cand2_url"
-    fi
-
-    # Strict ISO validation
+    # Strict ISO validation — one canonical SHA only (from provenance record)
     [[ -s "$CAND2_ISO" ]] || fail "Candidate 2 ISO file is empty or missing!"
     CAND2_SIZE=$(stat -c %s "$CAND2_ISO" 2>/dev/null || stat -f %z "$CAND2_ISO" 2>/dev/null || wc -c < "$CAND2_ISO")
     (( CAND2_SIZE > 50000000 )) || fail "Candidate 2 ISO size ($CAND2_SIZE bytes) is below minimum threshold!"
 
     CAND2_ACTUAL_SHA=$(sha256sum "$CAND2_ISO" | awk '{print $1}')
     CAND2_ACTUAL_SHA512=$(sha512sum "$CAND2_ISO" | awk '{print $1}')
-    if [[ "$CAND2_ACTUAL_SHA" != "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" && "$CAND2_ACTUAL_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
-        fail "Candidate 2 ISO SHA-256 mismatch! Got $CAND2_ACTUAL_SHA"
+    if [[ "$CAND2_ACTUAL_SHA" != "$CAND2_PINNED_SHA" ]]; then
+        fail "Candidate 2 ISO SHA-256 mismatch! Got $CAND2_ACTUAL_SHA, expected pinned $CAND2_PINNED_SHA (from docs/releases/0.2.0-alpha-artifact.json)"
     fi
 
     MIME_TYPE=$(file -b --mime-type "$CAND2_ISO" 2>/dev/null || echo "application/octet-stream")
@@ -397,10 +402,7 @@ if [[ "${EXECUTE_REAL_MIGRATION:-false}" == "true" ]]; then
   "status": "$CAND2_STATUS"
 }
 EOF
-else
-    info "Real Candidate 2 migration skipped (EXECUTE_REAL_MIGRATION!=true)."
-    rm -f "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
-fi
+
 
 # Security & Tamper Rejection
 TAMPER_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

@@ -211,8 +211,19 @@ jobs:
           echo "[PASS] Regression tests passed — no fabricated evidence patterns detected."
 
       - name: Execute Full Package Migration & Staging Validation Suite
+        env:
+          EXECUTE_REAL_ISO_BUILD: "true"
+          EXECUTE_REAL_VM_TESTS: "true"
+          EXECUTE_REAL_CLIENT_INSTALL: "true"
+          EXECUTE_REAL_MIGRATION: "true"
+          GENIXBIT_STAGING_SERVER: "${{ vars.GENIXBIT_STAGING_SERVER || 'http://staging-packages.os.genixbit.internal' }}"
+          STAGING_SIGNING_PASSPHRASE: "${{ secrets.STAGING_SIGNING_PASSPHRASE }}"
         run: |
           set -euo pipefail
+          EXECUTE_REAL_ISO_BUILD=true \
+          EXECUTE_REAL_VM_TESTS=true \
+          EXECUTE_REAL_CLIENT_INSTALL=true \
+          EXECUTE_REAL_MIGRATION=true \
           bash tools/validation/validate-package-migration.sh
 
       - name: Validate Release Gate Integrity

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "release_version": "0.2.0-alpha",
+  "filename": "GenixBitOS-0.2.0-alpha-2607220558.iso",
+  "source_commit": "88a1550a9129a80ffd2c4cf73838122020a782cb",
+  "source_branch": "validation/0.2.0-alpha-candidate-2",
+  "release_tag": "v0.2.0-alpha",
+  "build_date": "2026-07-22",
+  "workflow_run_id": "validation/0.2.0-alpha (PR #40)",
+  "artifact_id": "GenixBitOS-0.2.0-alpha-2607220558.iso",
+  "gcp_object_generation": "1784810864397202",
+  "gcp_object_created_utc": "2026-07-23T12:47:44Z",
+  "size_bytes": 2540554240,
+  "sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228",
+  "sha512": "",
+  "gcp_bucket": "genixbit-growth-os-downloads",
+  "gcp_project": "genixbit-growth-os",
+  "immutable_url": "https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso",
+  "verification_status": "PASS",
+  "verification_sources": [
+    "docs/releases/0.2.0-alpha.env",
+    "docs/releases/0.2.0-alpha-distribution-verification.json",
+    "docs/releases/0.2.0-alpha-web-verification.json",
+    "docs/releases/GenixBitOS-0.2.0-alpha-2607220558.iso.sha256",
+    "docs/TESTING.md"
+  ],
+  "note": "This is the single canonical pinned Candidate 2 artifact SHA-256. The value 1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669 was an erroneous alternate introduced in PR #103 and must not be accepted. All validation tooling must pin exclusively to d9aa0d2e."
+}

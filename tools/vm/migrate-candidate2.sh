@@ -196,30 +196,43 @@ start_migration_vm() {
 }
 
 # Helper: wait for SSH on a migration VM
+# Uses a unique per-VM-lifecycle readiness token so each wait is independently verified.
 wait_ssh() {
     local vm_label="$1" port="$2"
     local mig_vm_id="${VM_ID}_${vm_label}"
     local pid_f="${state_dir}/qemu-${mig_vm_id}.pid"
+    local readiness_token="MIG_GUEST_${vm_label}_${RUN_ID}_$(date +%s)"
 
     bash "$SCRIPT_DIR/wait-for-guest.sh" \
-        --vm-id "$mig_vm_id" \
         --ssh-port "$port" \
         --ssh-user "$SSH_USER" \
         --ssh-key "$SSH_KEY" \
+        --token "$readiness_token" \
         --pid-file "$pid_f" \
         --timeout "$TIMEOUT_SEC" || fail "Migration VM ($vm_label) SSH not reachable on port $port"
 }
 
-# Helper: stop migration VM
+# Helper: stop migration VM — fail-closed: only STOPPED_GRACEFULLY / ALREADY_STOPPED are safe
+# to proceed to offline disk access or snapshot operations.
 stop_migration_vm() {
     local vm_label="$1"
     local mig_vm_id="${VM_ID}_${vm_label}"
     local pid_f="${state_dir}/qemu-${mig_vm_id}.pid"
     local qmp_s="${state_dir}/qmp-${mig_vm_id}.sock"
-    bash "$SCRIPT_DIR/run-qemu.sh" stop \
+    local stop_out
+    stop_out=$(bash "$SCRIPT_DIR/run-qemu.sh" stop \
         --vm-id "$mig_vm_id" \
         --pid-file "$pid_f" \
-        --qmp-socket "$qmp_s" || true
+        --qmp-socket "$qmp_s" 2>&1) || {
+        fail "Migration VM stop FAILED for $vm_label (${stop_out}) — cannot proceed to offline disk access!"
+    }
+    # Verify process is truly gone before returning
+    if [[ -f "$pid_f" ]]; then
+        local pid; pid=$(cat "$pid_f" 2>/dev/null || echo "")
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            fail "Migration VM $vm_label PID $pid still alive after stop — cannot proceed to snapshot/offline operations!"
+        fi
+    fi
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
