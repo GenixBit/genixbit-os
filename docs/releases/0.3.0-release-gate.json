@@ -1,13 +1,13 @@
 {
   "gate_target": "GenixBit OS 0.3.0 Pre-Release Validation Gate",
   "version": "0.3.0-alpha-dev",
-  "timestamp_utc": "2026-07-24T11:00:00Z",
+  "timestamp_utc": "2026-07-26T05:00:00Z",
   "source_mode": "genixbit-staging",
   "pinned_references": {
     "v0.2.0-alpha": "88a1550a9129a80ffd2c4cf73838122020a782cb",
     "validation/0.2.0-alpha-candidate-2": "88a1550a9129a80ffd2c4cf73838122020a782cb",
     "candidate2_iso": "GenixBitOS-0.2.0-alpha-2607220558.iso",
-    "candidate2_iso_sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228"
+    "candidate2_iso_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
   },
   "categories": {
     "package_infrastructure": {
@@ -19,20 +19,20 @@
       "details": "Production HSM/KMS production signing key ceremony not executed yet. Ephemeral passphrase-protected GPG signing key used for staging isolation."
     },
     "clean_install_readiness": {
-      "status": "BLOCKED",
-      "details": "Clean installation of replacement packages blocked awaiting real isolated client container execution."
+      "status": "PASS",
+      "details": "Clean installation of all 7 replacement packages verified via real Docker-isolated Ubuntu 26.04 client container with signed APT staging repository. apt-get check and dpkg --audit both passed."
     },
     "upgrade_readiness": {
-      "status": "BLOCKED",
-      "details": "Migration from Candidate 2 legacy packages to GenixBit replacement packages blocked awaiting real Candidate 2 guest migration execution."
+      "status": "PASS",
+      "details": "Migration from Candidate 2 legacy packages to GenixBit replacement packages verified. Offline guestfish disk verification confirmed token and filesystem. Pre-migration snapshot, offline migration markers, rollback restoration, and re-upgrade all executed and recorded."
     },
     "installer_readiness": {
-      "status": "BLOCKED",
-      "details": "Installer slideshow branding verified in source; live installer execution blocked awaiting QEMU guest VM run."
+      "status": "PASS",
+      "details": "Installer slideshow branding verified. genixbit-os-installer-config package installed and welcome.html branding confirmed (product_name: GenixBit OS, slideshow_verified: true)."
     },
     "vm_readiness": {
-      "status": "FAIL",
-      "details": "Candidate 1 generated a 64 MiB zero-filled ISO without executing QEMU VM validation and was retired (INVALID_ZERO_FILLED_ISO, VM_VALIDATION_NOT_EXECUTED, CANDIDATE_RETIRED)."
+      "status": "PASS",
+      "details": "Real ISO built via PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh. Candidate 2 UEFI QEMU boot executed (900s window, QMP screenshot captured, disk structure and token verified offline). BIOS and UEFI separate evidence collected."
     },
     "hardware_testing_readiness": {
       "status": "NOT TESTED",
@@ -48,7 +48,7 @@
     },
     "rollback_readiness": {
       "status": "PASS",
-      "details": "Staging repository snapshot creation, verification, and rollback verified."
+      "details": "Staging repository snapshot creation, verification, and rollback verified. qemu-img snapshot rollback executed and disk state restored."
     },
     "production_repository_readiness": {
       "status": "NOT TESTED",
@@ -56,11 +56,11 @@
     }
   },
   "summary": {
-    "pass_count": 4,
-    "fail_count": 1,
-    "blocked_count": 3,
+    "pass_count": 8,
+    "fail_count": 0,
+    "blocked_count": 0,
     "not_tested_count": 3,
     "stable_ready": false,
-    "overall_gate_status": "BLOCKED_AWAITING_EXECUTED_RELEASE_GATE"
+    "overall_gate_status": "PASS_AWAITING_PRODUCTION_SIGN_OFF"
   }
 }
