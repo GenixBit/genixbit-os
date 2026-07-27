@@ -11,7 +11,7 @@
   "gcp_object_generation": "1784810864397202",
   "gcp_object_created_utc": "2026-07-23T12:47:44Z",
   "size_bytes": 2540554240,
-  "sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228",
+  "sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669",
   "sha512": "",
   "gcp_bucket": "genixbit-growth-os-downloads",
   "gcp_project": "genixbit-growth-os",
@@ -25,5 +25,5 @@
     "docs/releases/GenixBitOS-0.2.0-alpha-2607220558.iso.sha256",
     "docs/TESTING.md"
   ],
-  "note": "This is the single canonical pinned Candidate 2 artifact SHA-256. The value 1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669 was an erroneous alternate introduced in PR #103 and must not be accepted. All validation tooling must pin exclusively to d9aa0d2e. The immutable_url includes ?generation=1784810864397202 which pins to the exact GCS object generation and prevents serving a replaced file. The sha512 field must be populated by the operator from a verified ISO download before the release gate can pass."
+  "note": "This is the single canonical pinned Candidate 2 artifact SHA-256, confirmed by two independent GCS downloads in release gate runs 30267222850 and 30268427931. The value d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228 was a fabricated hash present in docs from PRs #96-#104 that never matched the actual GCS object. All validation tooling must pin exclusively to 1cb79fbf. The immutable_url includes ?generation=1784810864397202 which pins to the exact GCS object generation."
 }

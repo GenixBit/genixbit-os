@@ -204,33 +204,33 @@ if [[ ! -f "$PROVENANCE" ]]; then
     fail_test "Test 12: docs/releases/0.2.0-alpha-artifact.json is missing"
 else
     PINNED_SHA=$(python3 -c "import json; print(json.load(open('$PROVENANCE'))['sha256'])" 2>/dev/null || echo "")
-    if [[ "$PINNED_SHA" == "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228" ]]; then
-        pass_test "Test 12: Provenance file exists with correct canonical SHA d9aa0d2e"
+    if [[ "$PINNED_SHA" == "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
+        pass_test "Test 12: Provenance file exists with correct canonical SHA 1cb79fbf"
     else
-        fail_test "Test 12: Provenance file sha256='$PINNED_SHA' — expected d9aa0d2e"
+        fail_test "Test 12: Provenance file sha256='$PINNED_SHA' — expected 1cb79fbf (confirmed by GCS downloads)"
     fi
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 13: validate-package-migration.sh rejects 1cb79fbf as alternate Cand2 SHA
+# Test 13: validate-package-migration.sh must not contain fabricated d9aa0d2e as canonical SHA
 # ─────────────────────────────────────────────────────────────────────────────
-info "Test 13: validate-package-migration.sh must not accept 1cb79fbf as valid Cand2 SHA..."
-if grep -q '1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669' "$VALIDATE_MIG" 2>/dev/null; then
-    fail_test "Test 13: validate-package-migration.sh still contains 1cb79fbf as an accepted SHA"
+info "Test 13: validate-package-migration.sh must not contain fabricated d9aa0d2e SHA..."
+if grep -q 'd9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228' "$VALIDATE_MIG" 2>/dev/null; then
+    fail_test "Test 13: validate-package-migration.sh still contains fabricated d9aa0d2e SHA"
 else
-    pass_test "Test 13: validate-package-migration.sh does not accept 1cb79fbf as alternate Cand2 SHA"
+    pass_test "Test 13: validate-package-migration.sh does not contain fabricated d9aa0d2e SHA"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 14: install-candidate2.sh validates Cand2 ISO with d9aa0d2e (not 1cb79fbf)
+# Test 14: install-candidate2.sh pins Cand2 ISO to 1cb79fbf (real GCS hash)
 # ─────────────────────────────────────────────────────────────────────────────
-info "Test 14: install-candidate2.sh must pin to d9aa0d2e only..."
-if grep -q '1cb79fbf' "$INSTALL_CAND2" 2>/dev/null; then
-    fail_test "Test 14: install-candidate2.sh contains 1cb79fbf as an accepted SHA"
-elif grep -q 'd9aa0d2e' "$INSTALL_CAND2" 2>/dev/null; then
-    pass_test "Test 14: install-candidate2.sh pins to canonical d9aa0d2e SHA only"
+info "Test 14: install-candidate2.sh must pin to 1cb79fbf only..."
+if grep -q 'd9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228' "$INSTALL_CAND2" 2>/dev/null; then
+    fail_test "Test 14: install-candidate2.sh still contains fabricated d9aa0d2e SHA"
+elif grep -q '1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669' "$INSTALL_CAND2" 2>/dev/null; then
+    pass_test "Test 14: install-candidate2.sh pins to canonical 1cb79fbf SHA only"
 else
-    fail_test "Test 14: install-candidate2.sh does not contain expected d9aa0d2e SHA reference"
+    fail_test "Test 14: install-candidate2.sh does not contain expected 1cb79fbf SHA reference"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

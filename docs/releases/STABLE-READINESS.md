@@ -134,4 +134,4 @@ The following evidence was fabricated or substituted and **must not be used as r
 
 - `v0.2.0-alpha`: `88a1550a9129a80ffd2c4cf73838122020a782cb` (Pinned — unchanged)
 - `validation/0.2.0-alpha-candidate-2`: `88a1550a9129a80ffd2c4cf73838122020a782cb` (Pinned — unchanged)
-- `candidate2_iso_sha256`: `d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228` (Pinned — unchanged)
+- `candidate2_iso_sha256`: `1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669` (Pinned — unchanged)
