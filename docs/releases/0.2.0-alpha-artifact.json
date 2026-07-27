@@ -12,7 +12,7 @@
   "gcp_object_created_utc": "2026-07-23T12:47:44Z",
   "size_bytes": 2540554240,
   "sha256": "d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228",
-  "sha512": "TODO:operator-must-populate-from-verified-download",
+  "sha512": "",
   "gcp_bucket": "genixbit-growth-os-downloads",
   "gcp_project": "genixbit-growth-os",
   "immutable_url": "https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso?generation=1784810864397202",
