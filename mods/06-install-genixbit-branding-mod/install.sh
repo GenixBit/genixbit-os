@@ -21,7 +21,7 @@ for pkg in "${packages[@]}"; do
         exit 1
     fi
     print_ok "Installing package: $pkg ($deb_file)..."
-    dpkg -i --force-confnew "$deb_file"
+    dpkg -i --auto-deconfigure --force-confnew "$deb_file"
     judge "Install package $pkg"
 done
 
@@ -34,4 +34,3 @@ apt-get check
 judge "Verify apt check"
 
 print_ok "GenixBit branding packages installed successfully."
-
