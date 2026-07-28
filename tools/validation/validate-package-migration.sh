@@ -34,13 +34,25 @@ TMP_REPO="$TMP_DIR/repo"
 DEBS_DIR="$REPO_ROOT/packages/build-debs"
 STAGE_LOGS_DIR="$REPO_ROOT/infra/package-staging/results/stage-logs"
 
+# Step 4: Start every real gate with an empty evidence directory.
+# Any stale stage JSON from a previous run must not contaminate this run.
+rm -rf "$STAGE_LOGS_DIR"
+mkdir -p "$STAGE_LOGS_DIR"
+
+# Create a run-specific persistent runtime directory that survives TMP cleanup.
+RELEASE_RUN_ID="${GITHUB_RUN_ID:-local}-$(date +%s)-$$"
+RUNTIME_EVIDENCE_DIR="$REPO_ROOT/infra/package-staging/results/runtime/$RELEASE_RUN_ID"
+mkdir -p "$RUNTIME_EVIDENCE_DIR"
+info "Runtime evidence directory: $RUNTIME_EVIDENCE_DIR"
+
 cleanup() {
     chmod -R 777 "$TMP_DIR" 2>/dev/null || true
     rm -rf "$TMP_DIR" 2>/dev/null || true
+    # RUNTIME_EVIDENCE_DIR is intentionally NOT deleted here.
 }
 trap cleanup EXIT
 
-mkdir -p "$TMP_GPG" "$TMP_REPO" "$DEBS_DIR" "$STAGE_LOGS_DIR"
+mkdir -p "$TMP_GPG" "$TMP_REPO" "$DEBS_DIR"
 chmod 700 "$TMP_GPG"
 export GNUPGHOME="$TMP_GPG"
 
@@ -339,40 +351,87 @@ EOF
 # Candidate 2 Migration (mandatory)
 info "Executing real Candidate 2 system migration..."
 CAND2_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Step 11: Write RUNNING sentinel before any real execution begins.
+# On any failure the sentinel will remain or be replaced by a FAIL JSON.
+# Only after full success (install + migration + rollback + re-upgrade) is PASS written.
+cat <<'RUNNING_EOF' > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
+{"status": "RUNNING", "exit_code": null}
+RUNNING_EOF
+
+write_candidate_stage_failure() {
+    local phase="$1"
+    local exit_code="$2"
+    local reason="$3"
+    local end_ts
+    end_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    python3 -c "
+import json, sys
+d = {
+    'source_commit': '$CURRENT_COMMIT',
+    'start_timestamp': '$CAND2_START',
+    'completion_timestamp': '$end_ts',
+    'status': 'FAIL',
+    'exit_code': $exit_code,
+    'failed_phase': '$phase',
+    'failure_reason': '''$(printf '%s' "$reason" | sed "s/'/\\\\'/g")''',
+    'runtime_evidence_dir': '$RUNTIME_EVIDENCE_DIR',
+    'candidate2_iso_sha256': '${CAND2_ACTUAL_SHA:-unknown}',
+    'candidate2_iso_sha512': '${CAND2_ACTUAL_SHA512:-unknown}'
+}
+with open('$STAGE_LOGS_DIR/stage-candidate-upgrade.json', 'w') as f:
+    json.dump(d, f, indent=2)
+"
+}
+
+CAND2_STDOUT_LOG="$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log"
+CAND2_STDERR_LOG="$STAGE_LOGS_DIR/stage-candidate-upgrade.stderr.log"
+
 CAND2_ISO=$(find "$REPO_ROOT/dist" "$TMP_DIR" -name "GenixBitOS-0.2.0-alpha-2607220558.iso" 2>/dev/null | head -n 1 || echo "")
 if [[ -z "$CAND2_ISO" || ! -f "$CAND2_ISO" ]]; then
-    # Priority: provenance immutable_url (generation-pinned) > CANDIDATE2_ISO_URL env (operator pre-cache) > staging server fallback
-    # Using the generation-pinned URL ensures the exact GCS object generation is fetched, preventing
-    # the runner from serving a replaced/wrong ISO via a mutable local staging URL.
+    cand2_orig_url=""
     if [[ -n "$CAND2_IMMUTABLE_URL" && "$CAND2_IMMUTABLE_URL" == *"?generation="* ]]; then
         cand2_url="$CAND2_IMMUTABLE_URL"
+        cand2_orig_url="$cand2_url"
         info "Candidate 2 ISO: using generation-pinned provenance URL: $cand2_url"
     elif [[ -n "${CANDIDATE2_ISO_URL:-}" ]]; then
         cand2_url="$CANDIDATE2_ISO_URL"
+        cand2_orig_url="$cand2_url"
         info "Candidate 2 ISO: using CANDIDATE2_ISO_URL env var (ensure this serves the canonical 1cb79fbf ISO): $cand2_url"
     else
         cand2_url="${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}/iso/GenixBitOS-0.2.0-alpha-2607220558.iso"
+        cand2_orig_url="$cand2_url"
         info "Candidate 2 ISO: falling back to staging server URL: $cand2_url"
     fi
     CAND2_ISO="$TMP_DIR/GenixBitOS-0.2.0-alpha-2607220558.iso"
-    curl --fail --location --retry 3 --connect-timeout 30 --max-time 600 "$cand2_url" -o "$CAND2_ISO" || fail "Failed to download Candidate 2 ISO from $cand2_url"
+    curl --fail --location --retry 3 --connect-timeout 30 --max-time 600 "$cand2_url" -o "$CAND2_ISO" 2>&1 | tee "$CAND2_STDOUT_LOG" || {
+        write_candidate_stage_failure "iso_download" "$?" "Failed to download Candidate 2 ISO from $cand2_url"
+        fail "Failed to download Candidate 2 ISO from $cand2_url"
+    }
 fi
 
     # Strict ISO validation — one canonical SHA only (from provenance record)
-    [[ -s "$CAND2_ISO" ]] || fail "Candidate 2 ISO file is empty or missing!"
+    [[ -s "$CAND2_ISO" ]] || {
+        write_candidate_stage_failure "iso_validation" "1" "Candidate 2 ISO file is empty or missing"
+        fail "Candidate 2 ISO file is empty or missing!"
+    }
     CAND2_SIZE=$(stat -c %s "$CAND2_ISO" 2>/dev/null || stat -f %z "$CAND2_ISO" 2>/dev/null || wc -c < "$CAND2_ISO")
-    (( CAND2_SIZE > 50000000 )) || fail "Candidate 2 ISO size ($CAND2_SIZE bytes) is below minimum threshold!"
+    if (( CAND2_SIZE <= 50000000 )); then
+        write_candidate_stage_failure "iso_size" "1" "Candidate 2 ISO size ($CAND2_SIZE bytes) is below minimum threshold"
+        fail "Candidate 2 ISO size ($CAND2_SIZE bytes) is below minimum threshold!"
+    fi
 
     CAND2_ACTUAL_SHA=$(sha256sum "$CAND2_ISO" | awk '{print $1}')
     CAND2_ACTUAL_SHA512=$(sha512sum "$CAND2_ISO" | awk '{print $1}')
     if [[ "$CAND2_ACTUAL_SHA" != "$CAND2_PINNED_SHA" ]]; then
+        write_candidate_stage_failure "sha256_mismatch" "1" "Candidate 2 ISO SHA-256 mismatch! Got $CAND2_ACTUAL_SHA, expected pinned $CAND2_PINNED_SHA"
         fail "Candidate 2 ISO SHA-256 mismatch! Got $CAND2_ACTUAL_SHA, expected pinned $CAND2_PINNED_SHA (from docs/releases/0.2.0-alpha-artifact.json)"
     fi
     info "Candidate 2 ISO SHA-256 verified: $CAND2_ACTUAL_SHA"
 
-    # D14: sha512 cross-check — compare against pinned value if present; record observed value either way
     if [[ -n "$CAND2_PINNED_SHA512" && "$CAND2_PINNED_SHA512" != "TODO:"* ]]; then
         if [[ "$CAND2_ACTUAL_SHA512" != "$CAND2_PINNED_SHA512" ]]; then
+            write_candidate_stage_failure "sha512_mismatch" "1" "Candidate 2 ISO SHA-512 mismatch! Got $CAND2_ACTUAL_SHA512, expected pinned $CAND2_PINNED_SHA512"
             fail "Candidate 2 ISO SHA-512 mismatch! Got $CAND2_ACTUAL_SHA512, expected pinned $CAND2_PINNED_SHA512"
         fi
         info "Candidate 2 ISO SHA-512 verified: $CAND2_ACTUAL_SHA512"
@@ -383,46 +442,268 @@ fi
 
     MIME_TYPE=$(file -b --mime-type "$CAND2_ISO" 2>/dev/null || echo "application/octet-stream")
     if [[ "$MIME_TYPE" == "text/html" || "$MIME_TYPE" == "application/json" ]]; then
+        write_candidate_stage_failure "mime_validation" "1" "Candidate 2 ISO download returned invalid MIME type: $MIME_TYPE"
         fail "Candidate 2 ISO download returned invalid MIME type: $MIME_TYPE"
     fi
 
-    # 1. Install Candidate 2 ISO in VM
-    CAND2_INSTALL_OUT=$(bash "$REPO_ROOT/tools/vm/install-candidate2.sh" --iso "$CAND2_ISO" --disk "$TMP_DIR/cand2-uefi.qcow2" --mode uefi 2>&1 | tee "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
+    # 1. Install Candidate 2 ISO in VM (fail-closed: capture actual exit code)
+    set +e
+    bash "$REPO_ROOT/tools/vm/install-candidate2.sh" \
+        --iso "$CAND2_ISO" \
+        --disk "$TMP_DIR/cand2-uefi.qcow2" \
+        --mode uefi \
+        --runtime-evidence-dir "$RUNTIME_EVIDENCE_DIR" \
+        --source-commit "$CURRENT_COMMIT" \
+        > >(tee "$CAND2_STDOUT_LOG") \
+        2> >(tee "$CAND2_STDERR_LOG" >&2)
+    CAND2_INSTALL_EXIT=$?
+    set -e
 
-    CAND2_STATE_FILE=$(echo "$CAND2_INSTALL_OUT" | grep "GENIXBIT_CANDIDATE2_INSTALL_STATE=" | cut -d'=' -f2- || echo "")
-    [[ -n "$CAND2_STATE_FILE" && -f "$CAND2_STATE_FILE" ]] || fail "Candidate 2 installation state file missing from install-candidate2.sh output!"
+    if (( CAND2_INSTALL_EXIT != 0 )); then
+        CAND2_FAIL_REASON=$(grep -E '^\s*\[FAIL\]' "$CAND2_STDERR_LOG" 2>/dev/null | tail -1 || echo "non-zero exit $CAND2_INSTALL_EXIT")
+        write_candidate_stage_failure "candidate2_install" "$CAND2_INSTALL_EXIT" "$CAND2_FAIL_REASON"
+        fail "Candidate 2 installation failed (exit $CAND2_INSTALL_EXIT): $CAND2_FAIL_REASON"
+    fi
+
+    # Verify both log files exist before writing PASS
+    [[ -f "$CAND2_STDOUT_LOG" ]] || write_candidate_stage_failure "install_stdout_missing" "1" "Install stdout log not created"
+    [[ -f "$CAND2_STDERR_LOG" ]] || write_candidate_stage_failure "install_stderr_missing" "1" "Install stderr log not created"
+    [[ -f "$CAND2_STDOUT_LOG" ]] || fail "Install stdout log not created at $CAND2_STDOUT_LOG"
+    [[ -f "$CAND2_STDERR_LOG" ]] || fail "Install stderr log not created at $CAND2_STDERR_LOG"
+
+    CAND2_STATE_FILE=$(grep "GENIXBIT_CANDIDATE2_INSTALL_STATE=" "$CAND2_STDOUT_LOG" | tail -1 | cut -d'=' -f2- || echo "")
+    if [[ -z "$CAND2_STATE_FILE" || ! -f "$CAND2_STATE_FILE" ]]; then
+        write_candidate_stage_failure "missing_install_state" "1" "Candidate 2 installation state file missing from install-candidate2.sh output"
+        fail "Candidate 2 installation state file missing from install-candidate2.sh output!"
+    fi
 
     STATE_PERMS=$(stat -c "%a" "$CAND2_STATE_FILE" 2>/dev/null || stat -f "%Lp" "$CAND2_STATE_FILE" 2>/dev/null || echo "600")
-    [[ "$STATE_PERMS" == "600" || "$STATE_PERMS" == "0600" ]] || fail "Candidate 2 state file permissions ($STATE_PERMS) must be 0600!"
+    if [[ "$STATE_PERMS" != "600" && "$STATE_PERMS" != "0600" ]]; then
+        write_candidate_stage_failure "invalid_state_perms" "1" "Candidate 2 state file permissions ($STATE_PERMS) must be 0600"
+        fail "Candidate 2 state file permissions ($STATE_PERMS) must be 0600!"
+    fi
 
     # 2. Execute migration using installation state file, staging public key, and signing fingerprint
-    # D3: Use GUEST_STAGING_URL (10.0.2.2:PORT) so QEMU VMs can reach the staging repo
-    MIG_OUT=$(bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" \
+    # Capture separate stdout and stderr streams
+    MIG_STDOUT_LOG="$STAGE_LOGS_DIR/stage-candidate-migration.stdout.log"
+    MIG_STDERR_LOG="$STAGE_LOGS_DIR/stage-candidate-migration.stderr.log"
+    set +e
+    bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" \
         --installation-state-json "$CAND2_STATE_FILE" \
         --staging-url "$GUEST_STAGING_URL" \
         --staging-key "$PUB_KEYRING" \
-        --staging-fingerprint "$FPR" 2>&1 | tee -a "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
+        --staging-fingerprint "$FPR" \
+        --runtime-evidence-dir "$RUNTIME_EVIDENCE_DIR" \
+        > >(tee "$MIG_STDOUT_LOG") \
+        2> >(tee "$MIG_STDERR_LOG" >&2)
+    CAND2_MIG_EXIT=$?
+    set -e
+    MIG_OUT=$(cat "$MIG_STDOUT_LOG" 2>/dev/null || echo "")
 
     CAND2_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    MIG_RESULT_FILE=$(echo "$MIG_OUT" | grep "recorded in " | awk '{print $9}' || echo "")
 
-    CAND2_STATUS="FAIL"
-    if [[ -n "$CAND2_STATE_FILE" && -f "$CAND2_STATE_FILE" ]]; then
-        CAND2_STATUS=$(python3 -c "import sys, json; print(json.load(open('$CAND2_STATE_FILE')).get('status', 'FAIL'))")
+    # Parse GENIXBIT_MIGRATION_RESULT marker for exact path
+    MIG_RESULT_FILE=$(
+        printf '%s\n' "$MIG_OUT" |
+        sed -n 's/^GENIXBIT_MIGRATION_RESULT=//p' |
+        tail -1
+    )
+
+    # Require migration result file
+    if [[ -z "$MIG_RESULT_FILE" || ! -f "$MIG_RESULT_FILE" ]]; then
+        CAND2_FAIL_REASON=$(grep '\[FAIL\]' "$CAND2_STDERR_LOG" 2>/dev/null | tail -1 || echo "migration exit $CAND2_MIG_EXIT")
+        write_candidate_stage_failure "missing_migration_result" "$CAND2_MIG_EXIT" "Migration result file not found. $CAND2_FAIL_REASON"
+        fail "Candidate 2 migration result file missing! (exit $CAND2_MIG_EXIT): $CAND2_FAIL_REASON"
     fi
 
+    # Load and validate migration result JSON
+    MIG_FINAL_STATUS=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('final_status','FAIL'))" 2>/dev/null || echo "FAIL")
+    MIG_MIG_STATUS=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('migration_status','FAIL'))" 2>/dev/null || echo "FAIL")
+    MIG_FP_MATCH=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(str(d.get('staging_key_fingerprint_match',False)).lower() if isinstance(d.get('staging_key_fingerprint_match'), bool) else str(d.get('staging_key_fingerprint_match','false')).lower())" 2>/dev/null || echo "false")
+    MIG_ORIGINS=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(str(d.get('all_package_origins_verified',False)).lower() if isinstance(d.get('all_package_origins_verified'), bool) else str(d.get('all_package_origins_verified','false')).lower())" 2>/dev/null || echo "false")
+    MIG_APT_UPDATE_RC=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(str(d.get('apt_update_exit_code','unknown')))" 2>/dev/null || echo "unknown")
+    MIG_APT_INSTALL_RC=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(str(d.get('apt_install_exit_code','unknown')))" 2>/dev/null || echo "unknown")
+    MIG_APT_CHECK_RC=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(str(d.get('apt_check_exit_code','unknown')))" 2>/dev/null || echo "unknown")
+    MIG_DPKG_AUDIT_RC=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(str(d.get('dpkg_audit_exit_code','unknown')))" 2>/dev/null || echo "unknown")
+    MIG_DPKG_AUDIT_EMPTY=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(str(d.get('dpkg_audit_output_empty',False)).lower() if isinstance(d.get('dpkg_audit_output_empty'), bool) else str(d.get('dpkg_audit_output_empty','false')).lower())" 2>/dev/null || echo "false")
+    MIG_ROLLBACK_EQ=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(str(d.get('rollback_package_state_matches_pre_migration',False)).lower() if isinstance(d.get('rollback_package_state_matches_pre_migration'), bool) else str(d.get('rollback_package_state_matches_pre_migration','false')).lower())" 2>/dev/null || echo "false")
+    MIG_PRE_SHA=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('pre_migration_state_sha256',''))" 2>/dev/null || echo "")
+    MIG_ROLLBACK_SHA=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('rollback_state_sha256',''))" 2>/dev/null || echo "")
+
+    # Comprehensive validation
+    MIG_VALIDATION_FAILURES=""
+    if [[ "$MIG_FINAL_STATUS" != "PASS" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} final_status=$MIG_FINAL_STATUS"; fi
+    if [[ "$MIG_MIG_STATUS" != "PASS" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} migration_status=$MIG_MIG_STATUS"; fi
+    if [[ "$MIG_FP_MATCH" != "true" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} fingerprint_match=$MIG_FP_MATCH"; fi
+    if [[ "$MIG_ORIGINS" != "true" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} origins_verified=$MIG_ORIGINS"; fi
+    if [[ "$MIG_APT_UPDATE_RC" != "0" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} apt_update_rc=$MIG_APT_UPDATE_RC"; fi
+    if [[ "$MIG_APT_INSTALL_RC" != "0" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} apt_install_rc=$MIG_APT_INSTALL_RC"; fi
+    if [[ "$MIG_APT_CHECK_RC" != "0" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} apt_check_rc=$MIG_APT_CHECK_RC"; fi
+    if [[ "$MIG_DPKG_AUDIT_RC" != "0" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} dpkg_audit_rc=$MIG_DPKG_AUDIT_RC"; fi
+    if [[ "$MIG_DPKG_AUDIT_EMPTY" != "true" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} dpkg_audit_empty=$MIG_DPKG_AUDIT_EMPTY"; fi
+    if [[ "$MIG_ROLLBACK_EQ" != "true" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} rollback_eq=$MIG_ROLLBACK_EQ"; fi
+    if [[ -z "$MIG_PRE_SHA" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} pre_sha_empty"; fi
+    if [[ "$MIG_PRE_SHA" != "$MIG_ROLLBACK_SHA" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} sha_mismatch"; fi
+
+    # Read binding fields from migration result (using new comprehensive field names)
+    MIG_SOURCE_COMMIT=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('source_commit',''))" 2>/dev/null || echo "")
+    MIG_WORKFLOW_RUN_ID=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('workflow_run_id',''))" 2>/dev/null || echo "")
+    MIG_INSTALL_STATE_SHA256=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_state_sha256',''))" 2>/dev/null || echo "")
+    MIG_SOURCE_ISO_SHA256=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('source_iso_sha256',''))" 2>/dev/null || echo "")
+    MIG_SOURCE_ISO_SHA512=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('source_iso_sha512',''))" 2>/dev/null || echo "")
+    MIG_INSTALLER_VM_ID=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_installer_vm_id',''))" 2>/dev/null || echo "")
+    MIG_INSTALLED_VM_ID=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_installed_vm_id',''))" 2>/dev/null || echo "")
+
+    # Read corresponding fields from installation state for binding validation
+    STATE_SOURCE_COMMIT=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('source_commit',''))" 2>/dev/null || echo "")
+    STATE_WORKFLOW_RUN_ID=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('workflow_run_id',''))" 2>/dev/null || echo "")
+    STATE_ISO_SHA256=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('source_iso_sha256',''))" 2>/dev/null || echo "")
+    STATE_ISO_SHA512=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('source_iso_sha512',''))" 2>/dev/null || echo "")
+    STATE_INSTALLER_VM=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('vm_id',''))" 2>/dev/null || echo "")
+    STATE_INSTALLED_VM=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('installed_vm_id',''))" 2>/dev/null || echo "")
+
+    # Calculate expected values from the current execution context
+    EXPECTED_INSTALLATION_STATE_SHA256=$(sha256sum "$CAND2_STATE_FILE" | awk '{print $1}')
+    EXPECTED_WORKFLOW_RUN_ID="${GITHUB_RUN_ID:-local}"
+
+    # Comprehensive binding validation — every field must match
+    [[ "$MIG_SOURCE_COMMIT" == "$CURRENT_COMMIT" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} mig_source_commit: $MIG_SOURCE_COMMIT != expected $CURRENT_COMMIT"
+    [[ "$STATE_SOURCE_COMMIT" == "$CURRENT_COMMIT" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} state_source_commit: $STATE_SOURCE_COMMIT != expected $CURRENT_COMMIT"
+    [[ "$MIG_WORKFLOW_RUN_ID" == "$EXPECTED_WORKFLOW_RUN_ID" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} mig_workflow_run_id: $MIG_WORKFLOW_RUN_ID != expected $EXPECTED_WORKFLOW_RUN_ID"
+    [[ "$STATE_WORKFLOW_RUN_ID" == "$EXPECTED_WORKFLOW_RUN_ID" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} state_workflow_run_id: $STATE_WORKFLOW_RUN_ID != expected $EXPECTED_WORKFLOW_RUN_ID"
+    [[ "$MIG_INSTALL_STATE_SHA256" == "$EXPECTED_INSTALLATION_STATE_SHA256" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} install_state_sha256: $MIG_INSTALL_STATE_SHA256 != expected $EXPECTED_INSTALLATION_STATE_SHA256"
+    [[ "$MIG_SOURCE_ISO_SHA256" == "$CAND2_ACTUAL_SHA" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} mig_iso_sha256: $MIG_SOURCE_ISO_SHA256 != expected $CAND2_ACTUAL_SHA"
+    [[ "$MIG_SOURCE_ISO_SHA512" == "$CAND2_ACTUAL_SHA512" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} mig_iso_sha512: $MIG_SOURCE_ISO_SHA512 != expected $CAND2_ACTUAL_SHA512"
+    [[ "$STATE_ISO_SHA256" == "$CAND2_ACTUAL_SHA" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} state_iso_sha256: $STATE_ISO_SHA256 != expected $CAND2_ACTUAL_SHA"
+    [[ "$STATE_ISO_SHA512" == "$CAND2_ACTUAL_SHA512" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} state_iso_sha512: $STATE_ISO_SHA512 != expected $CAND2_ACTUAL_SHA512"
+    [[ "$MIG_INSTALLER_VM_ID" == "$STATE_INSTALLER_VM" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} installer_vm: $MIG_INSTALLER_VM_ID != state $STATE_INSTALLER_VM"
+    [[ "$MIG_INSTALLED_VM_ID" == "$STATE_INSTALLED_VM" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} installed_vm: $MIG_INSTALLED_VM_ID != state $STATE_INSTALLED_VM"
+
+    if [[ -n "$MIG_VALIDATION_FAILURES" ]]; then
+        write_candidate_stage_failure "invalid_migration_result" "$CAND2_MIG_EXIT" "Migration result validation failures:${MIG_VALIDATION_FAILURES}"
+        fail "Candidate 2 migration result validation failures:${MIG_VALIDATION_FAILURES}"
+    fi
+
+    # Copy validated migration result into runtime evidence dir
+    cp -f "$MIG_RESULT_FILE" "$RUNTIME_EVIDENCE_DIR/migration-result.json" 2>/dev/null || true
+
+    # === Mandatory evidence validation ===
+    # 1. All mandatory artifacts must exist and be nonempty
+    MANDATORY_EVIDENCE=(
+        "$RUNTIME_EVIDENCE_DIR/install-completion.json"
+        "$RUNTIME_EVIDENCE_DIR/installer.serial.log"
+        "$RUNTIME_EVIDENCE_DIR/kernel-extraction.json"
+        "$RUNTIME_EVIDENCE_DIR/cand2-install-state.json"
+        "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-boot.serial.log"
+        "$RUNTIME_EVIDENCE_DIR/installed-guest-commands.log"
+        "$RUNTIME_EVIDENCE_DIR/migration-result.json"
+    )
+    EVIDENCE_FAILURES=""
+    for ev in "${MANDATORY_EVIDENCE[@]}"; do
+        if [[ ! -f "$ev" ]]; then
+            EVIDENCE_FAILURES="${EVIDENCE_FAILURES} missing:$ev"
+        elif [[ ! -s "$ev" ]]; then
+            EVIDENCE_FAILURES="${EVIDENCE_FAILURES} empty:$ev"
+        fi
+    done
+
+    # 2. Validate every JSON file with json.tool
+    JSON_EVIDENCE=(
+        "$RUNTIME_EVIDENCE_DIR/install-completion.json"
+        "$RUNTIME_EVIDENCE_DIR/kernel-extraction.json"
+        "$RUNTIME_EVIDENCE_DIR/cand2-install-state.json"
+        "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-result.json"
+    )
+    for je in "${JSON_EVIDENCE[@]}"; do
+        if [[ -f "$je" ]]; then
+            python3 -m json.tool "$je" >/dev/null 2>&1 || EVIDENCE_FAILURES="${EVIDENCE_FAILURES} invalid_json:$je"
+        fi
+    done
+
+    # 3. Validate both shutdown results fail-closed
+    validate_shutdown_result() {
+        local shutdown_file="$1"
+        local label="$2"
+        local result=0
+        if [[ ! -f "$shutdown_file" ]]; then
+            EVIDENCE_FAILURES="${EVIDENCE_FAILURES} missing_shutdown:$label"
+            return 1
+        fi
+        local sd_status sd_state sd_alive sd_qmp
+        sd_status=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(d.get('status','missing'))" 2>/dev/null || echo "missing")
+        sd_state=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(d.get('shutdown_state','missing'))" 2>/dev/null || echo "missing")
+        sd_alive=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(str(d.get('process_alive_after_stop','')).lower())" 2>/dev/null || echo "")
+        sd_qmp=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(str(d.get('qmp_socket_present_after_stop','')).lower())" 2>/dev/null || echo "")
+        [[ "$sd_status" == "PASS" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_status=$sd_status"; result=1; }
+        [[ "$sd_state" == "NATURAL_EXIT" || "$sd_state" == "ALREADY_STOPPED_VERIFIED" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_state=$sd_state"; result=1; }
+        [[ "$sd_alive" == "false" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_alive=$sd_alive"; result=1; }
+        [[ "$sd_qmp" == "false" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_qmp=$sd_qmp"; result=1; }
+        return "$result"
+    }
+    validate_shutdown_result "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json" "installer"
+    validate_shutdown_result "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json" "installed"
+
+    # 4. Validate both final VM state files fail-closed
+    validate_vm_state() {
+        local state_file="$1"
+        local label="$2"
+        local result=0
+        if [[ ! -f "$state_file" ]]; then
+            EVIDENCE_FAILURES="${EVIDENCE_FAILURES} missing_vmstate:$label"
+            return 1
+        fi
+        local vm_state vm_sd_status
+        vm_state=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('state','missing'))" 2>/dev/null || echo "missing")
+        vm_sd_status=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('shutdown_status','missing'))" 2>/dev/null || echo "missing")
+        [[ "$vm_state" == "NATURAL_EXIT" || "$vm_state" == "ALREADY_STOPPED_VERIFIED" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_vmstate=$vm_state"; result=1; }
+        [[ "$vm_sd_status" == "PASS" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_sdstatus=$vm_sd_status"; result=1; }
+        return "$result"
+    }
+    validate_vm_state "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json" "installer"
+    validate_vm_state "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json" "installed"
+
+    if [[ -n "$EVIDENCE_FAILURES" ]]; then
+        write_candidate_stage_failure "invalid_evidence" "$CAND2_MIG_EXIT" "Mandatory evidence validation failures:${EVIDENCE_FAILURES}"
+        fail "Mandatory evidence validation failures:${EVIDENCE_FAILURES}"
+    fi
+
+    # Only reached when both installation AND migration succeeded
+    CAND2_EXIT_CODE=0
     cat <<EOF > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
 {
   "source_commit": "$CURRENT_COMMIT",
   "command": "./tools/vm/install-candidate2.sh --iso ... --disk ... --mode uefi && ./tools/vm/migrate-candidate2.sh --installation-state-json ... --staging-url ...",
   "start_timestamp": "$CAND2_START",
   "completion_timestamp": "$CAND2_END",
-  "exit_code": 0,
+  "exit_code": $CAND2_EXIT_CODE,
   "environment_id": "Disposable Candidate 2 legacy VM container",
   "environment": "Disposable Candidate 2 legacy VM container",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stderr.log",
-  "artifact_paths": ["/etc/os-release"],
+  "artifact_paths": [
+    "$RUNTIME_EVIDENCE_DIR/install-completion.json",
+    "$RUNTIME_EVIDENCE_DIR/installer.serial.log",
+    "$RUNTIME_EVIDENCE_DIR/kernel-extraction.json",
+    "$RUNTIME_EVIDENCE_DIR/cand2-install-state.json",
+    "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json",
+    "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json",
+    "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json",
+    "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json",
+    "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json",
+    "$RUNTIME_EVIDENCE_DIR/installed-boot.serial.log",
+    "$RUNTIME_EVIDENCE_DIR/installed-guest-commands.log",
+    "$RUNTIME_EVIDENCE_DIR/migration-result.json"
+  ],
   "artifact_hashes": {
     "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
     "candidate2_iso_sha512": "$CAND2_ACTUAL_SHA512"
@@ -431,18 +712,21 @@ fi
     "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
     "candidate2_iso_sha512": "$CAND2_ACTUAL_SHA512",
     "pre_upgrade_commit": "$CANDIDATE2_SHA",
-    "migration_status": "$CAND2_STATUS"
+    "migration_status": "PASS",
+    "migration_result_file": "$MIG_RESULT_FILE",
+    "runtime_evidence_dir": "$RUNTIME_EVIDENCE_DIR"
   },
   "assertions": [
     {
       "assertion": "candidate2_migration_completed",
-      "status": "$CAND2_STATUS",
+      "status": "PASS",
       "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
       "pre_upgrade_commit": "$CANDIDATE2_SHA",
-      "replaced_legacy_packages": true
+      "replaced_legacy_packages": true,
+      "migration_result_validated": true
     }
   ],
-  "status": "$CAND2_STATUS"
+  "status": "PASS"
 }
 EOF
 

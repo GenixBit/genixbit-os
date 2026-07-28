@@ -173,7 +173,9 @@ jobs:
         shell: bash
         run: bash tools/validation/test-observed-guest-negative.sh
 
-
+      - name: QMP JSON parsing behavioral regression tests
+        shell: bash
+        run: bash tests/infrastructure/test-qmp-json-parsing.sh
 
 
 
