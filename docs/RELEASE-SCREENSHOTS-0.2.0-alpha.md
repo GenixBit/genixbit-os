@@ -134,7 +134,7 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | Cleared terminal prompt history; no private user data visible |
 | Retained Private Evidence | `installed_terminal_open.png` in evidence bundle |
-| Known Limitation | Boots directly from target virtual disk `/dev/vda` without live ISO |
+| Known Limitation | Historical screenshot was labeled as depicting a target-disk session; this attribution is unbound and is not valid boot or installation evidence. |
 
 ---
 
@@ -152,4 +152,4 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | None |
 | Retained Private Evidence | `os_release.png` in evidence bundle |
-| Known Limitation | Confirms `PRETTY_NAME="GenixBit OS 0.2.0-alpha"` and `VERSION_ID="0.2.0-alpha"` |
+| Known Limitation | Historical screenshot is labeled as displaying `PRETTY_NAME="GenixBit OS 0.2.0-alpha"` and `VERSION_ID="0.2.0-alpha"`; this visual attribution remains unbound. |
