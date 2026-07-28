@@ -77,6 +77,7 @@ fi
 
 # 2. Non-Zero Content Sampling (Reject zero-filled or sparse placeholder files)
 info "Performing non-zero content sampling across ISO file..."
+set +e
 python3 - "$ISO_PATH" <<'PYEOF'
 import sys, os
 
@@ -109,8 +110,10 @@ if non_zero_ratio < 0.10:
     print(f"ERROR: File is zero-filled or sparse placeholder (non-zero byte ratio: {non_zero_ratio:.2%}).")
     sys.exit(1)
 PYEOF
+sampling_exit=$?
+set -e
 
-if (($? != 0)); then
+if ((sampling_exit != 0)); then
     fail "ISO failed non-zero content sampling check. Zero-filled/placeholder files are rejected."
 fi
 pass "1. Non-zero file content sampling passed."

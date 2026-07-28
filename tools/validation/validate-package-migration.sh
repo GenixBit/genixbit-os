@@ -458,6 +458,12 @@ fi
         fail "Candidate 2 ISO download returned invalid MIME type: $MIME_TYPE"
     fi
 
+    if ! bash "$REPO_ROOT/tools/validation/check-iso-structure.sh" --iso "$CAND2_ISO" > "$STAGE_LOGS_DIR/stage-candidate-iso-structure.stdout.log" 2> "$STAGE_LOGS_DIR/stage-candidate-iso-structure.stderr.log"; then
+        write_candidate_stage_failure "iso_structure" "1" "Candidate 2 ISO failed structural validation. See $STAGE_LOGS_DIR/stage-candidate-iso-structure.stderr.log"
+        fail "Candidate 2 ISO failed structural validation. See $STAGE_LOGS_DIR/stage-candidate-iso-structure.stderr.log"
+    fi
+    info "Candidate 2 ISO structural validation passed."
+
     # 1. Install Candidate 2 ISO in VM (fail-closed: capture actual exit code)
     set +e
     bash "$REPO_ROOT/tools/vm/install-candidate2.sh" \
