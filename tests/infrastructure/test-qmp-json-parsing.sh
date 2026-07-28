@@ -1,226 +1,272 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Behavioral regression test: QMP JSON parsing via production qmp-client.py
-#
-# Each test creates a fake QMP Unix socket server that simulates various
-# QMP protocol scenarios and invokes the production qmp-client.py helper.
 
 set -Eeuo pipefail
 
 PASS_COUNT=0
 FAIL_COUNT=0
+SERVER_PIDS=()
 
 pass() { PASS_COUNT=$((PASS_COUNT + 1)); printf '[PASS] %s\n' "$*"; }
 fail() { FAIL_COUNT=$((FAIL_COUNT + 1)); printf '[FAIL] %s\n' "$*" >&2; }
-
-TEST_DIR=$(mktemp -d)
-cleanup_rm() {
-    rm -rf "${TEST_DIR:?}"
-    # Clean up any leftover fake server processes
-    pkill -f "qmp-fake-server.py" 2>/dev/null || true
-}
-trap cleanup_rm EXIT
-
-REPO_TOP="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-QMP_CLIENT="$REPO_TOP/tools/vm/qmp-client.py"
-
 info() { printf '[INFO] %s\n' "$*"; }
 
-run_qmp() {
-    local socket="$1"; shift
-    # Wait for socket to appear
-    for i in $(seq 1 20); do
-        if [[ -S "$socket" ]]; then break; fi
-        sleep 0.2
+TEST_DIR=$(mktemp -d)
+REPO_TOP="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+QMP_CLIENT="$REPO_TOP/tools/vm/qmp-client.py"
+FAKE_SERVER="$REPO_TOP/tests/infrastructure/qmp-fake-server.py"
+
+cleanup() {
+    for pid in "${SERVER_PIDS[@]}"; do
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
     done
-    python3 "$QMP_CLIENT" --socket "$socket" --timeout 4 "$@" 2>&1 || true
+
+    rm -rf "${TEST_DIR:?}"
+}
+trap cleanup EXIT
+
+start_server() {
+    python3 "$FAKE_SERVER" "$@" 2>/dev/null &
+    SERVER_PIDS+=("$!")
 }
 
-# -----------------------------------------------------------------------
-# Test 1: Valid 'running' status
-# -----------------------------------------------------------------------
-info "Test 1: Valid 'running' status"
-S1="$TEST_DIR/q1.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" "$S1" "running" 2>/dev/null &
-RESULT=$(run_qmp "$S1" query-status)
-if [[ "$RESULT" == "running" ]]; then
-    pass "Test 1: parsed 'running' correctly"
+wait_sock() {
+    local socket="$1"
+    for _ in $(seq 1 50); do
+        [[ -S "$socket" ]] && return 0
+        sleep 0.1
+    done
+    return 1
+}
+
+run_qmp_capture() {
+    local __out_var="$1"
+    local __rc_var="$2"
+    local socket="$3"
+    shift 3
+
+    wait_sock "$socket" || true
+    local cmd_output=""
+    local cmd_rc=0
+    set +e
+    cmd_output=$(python3 "$QMP_CLIENT" --socket "$socket" --timeout 4 "$@" 2>&1)
+    cmd_rc=$?
+    set -e
+    printf -v "$__out_var" '%s' "$cmd_output"
+    printf -v "$__rc_var" '%s' "$cmd_rc"
+}
+
+qmp_query_active_status_helper() {
+    local socket_path="$1"
+
+    python3 "$QMP_CLIENT" \
+        --socket "$socket_path" \
+        --timeout 5 \
+        query-active-status
+}
+
+run_helper_capture() {
+    local __out_var="$1"
+    local __rc_var="$2"
+    local socket="$3"
+
+    wait_sock "$socket" || true
+    local cmd_output=""
+    local cmd_rc=0
+    set +e
+    cmd_output=$(qmp_query_active_status_helper "$socket" 2>&1)
+    cmd_rc=$?
+    set -e
+    printf -v "$__out_var" '%s' "$cmd_output"
+    printf -v "$__rc_var" '%s' "$cmd_rc"
+}
+
+expect_status() {
+    local name="$1"
+    local scenario="$2"
+    local status="$3"
+    local expected="$4"
+    local socket="$TEST_DIR/${name}.sock"
+    local result=""
+    local rc=0
+
+    info "$name: query-status expects $expected"
+    start_server ${scenario:+--$scenario} "$socket" "$status"
+    run_qmp_capture result rc "$socket" query-status
+    if [[ "$rc" == "0" && "$result" == "$expected" ]]; then
+        pass "$name: query-status returned $expected"
+    else
+        fail "$name: expected rc=0/$expected, got rc=$rc output='$result'"
+    fi
+}
+
+expect_active_accept() {
+    local status="$1"
+    local socket="$TEST_DIR/active-${status}.sock"
+    local result=""
+    local rc=0
+
+    info "Active readiness accepts $status"
+    start_server "$socket" "$status"
+    run_qmp_capture result rc "$socket" query-active-status
+    if [[ "$rc" == "0" && "$result" == "$status" ]]; then
+        pass "$status QMP status accepted"
+    else
+        fail "$status QMP status should be accepted, got rc=$rc output='$result'"
+    fi
+}
+
+expect_active_reject() {
+    local status="$1"
+    local socket="$TEST_DIR/inactive-${status}.sock"
+    local result=""
+    local rc=0
+
+    info "Active readiness rejects $status"
+    start_server "$socket" "$status"
+    run_qmp_capture result rc "$socket" query-active-status
+    if [[ "$rc" != "0" && "$result" == *"not active"* ]]; then
+        pass "$status QMP status rejected"
+    else
+        fail "$status QMP status should be rejected, got rc=$rc output='$result'"
+    fi
+}
+
+expect_active_reject_raw() {
+    local name="$1"
+    local status="$2"
+    local socket="$TEST_DIR/inactive-${name}.sock"
+    local result=""
+    local rc=0
+
+    info "Active readiness rejects $name"
+    start_server "$socket" "$status"
+    run_qmp_capture result rc "$socket" query-active-status
+    if [[ "$rc" != "0" ]]; then
+        pass "$name QMP status rejected"
+    else
+        fail "$name QMP status should be rejected, got rc=$rc output='$result'"
+    fi
+}
+
+expect_status "running-standard" "" "running" "running"
+expect_status "prelaunch-standard" "" "prelaunch" "prelaunch"
+expect_status "greeting-event-one-write" "one-write" "running" "running"
+expect_status "status-split-two-writes" "split" "running" "running"
+expect_status "caps-response-event-one-write" "caps-together" "prelaunch" "prelaunch"
+
+info "Async event before expected response"
+S_ASYNC="$TEST_DIR/async.sock"
+start_server --async-event "$S_ASYNC" "running"
+RESULT=""; RC=0
+run_qmp_capture RESULT RC "$S_ASYNC" query-status
+if [[ "$RC" == "0" && "$RESULT" == "running" ]]; then
+    pass "async event ignored"
 else
-    fail "Test 1: expected 'running', got '$RESULT'"
+    fail "expected running after async event, got rc=$RC output='$RESULT'"
 fi
 
-# -----------------------------------------------------------------------
-# Test 2: Valid 'prelaunch' status
-# -----------------------------------------------------------------------
-info "Test 2: Valid 'prelaunch' status"
-S2="$TEST_DIR/q2.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" "$S2" "prelaunch" 2>/dev/null &
-RESULT=$(run_qmp "$S2" query-status)
-if [[ "$RESULT" == "prelaunch" ]]; then
-    pass "Test 2: parsed 'prelaunch' correctly"
+info "Wrong response ID plus correct response ID in one write"
+S_WRONG="$TEST_DIR/wrong-id.sock"
+start_server --wrong-id "$S_WRONG" "running"
+RESULT=""; RC=0
+run_qmp_capture RESULT RC "$S_WRONG" query-status
+if [[ "$RC" == "0" && "$RESULT" == "running" ]]; then
+    pass "wrong response ID plus correct response ID in one write"
 else
-    fail "Test 2: expected 'prelaunch', got '$RESULT'"
+    fail "expected running after wrong ID, got rc=$RC output='$RESULT'"
 fi
 
-# -----------------------------------------------------------------------
-# Test 3: Greeting and responses in one socket write
-# -----------------------------------------------------------------------
-info "Test 3: Greeting and responses in one write"
-S3="$TEST_DIR/q3.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --one-write "$S3" "running" 2>/dev/null &
-RESULT=$(run_qmp "$S3" query-status)
-if [[ "$RESULT" == "running" ]]; then
-    pass "Test 3: greeting+responses in one write"
+info "Misleading 'running' in greeting metadata"
+S_MISLEAD="$TEST_DIR/misleading.sock"
+start_server --misleading-greeting "$S_MISLEAD" "prelaunch"
+RESULT=""; RC=0
+run_qmp_capture RESULT RC "$S_MISLEAD" query-status
+if [[ "$RC" == "0" && "$RESULT" == "prelaunch" ]]; then
+    pass "misleading greeting ignored"
 else
-    fail "Test 3: expected 'running', got '$RESULT'"
+    fail "expected prelaunch, got rc=$RC output='$RESULT'"
 fi
 
-# -----------------------------------------------------------------------
-# Test 4: Status response split across multiple writes
-# -----------------------------------------------------------------------
-info "Test 4: Status response split across multiple writes"
-S4="$TEST_DIR/q4.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --split "$S4" "running" 2>/dev/null &
-RESULT=$(run_qmp "$S4" query-status)
-if [[ "$RESULT" == "running" ]]; then
-    pass "Test 4: split response reassembled"
+info "QMP error response rejected"
+S_ERR="$TEST_DIR/error.sock"
+start_server --error-response "$S_ERR" "running"
+RESULT=""; RC=0
+run_qmp_capture RESULT RC "$S_ERR" query-status
+if [[ "$RC" != "0" && "$RESULT" == *"QMP query-status failed"* ]]; then
+    pass "QMP error correctly rejected"
 else
-    fail "Test 4: expected 'running', got '$RESULT'"
+    fail "expected QMP error rejection, got rc=$RC output='$RESULT'"
 fi
 
-# -----------------------------------------------------------------------
-# Test 5: Capabilities and status in the same read
-# -----------------------------------------------------------------------
-info "Test 5: Capabilities and status in same read"
-S5="$TEST_DIR/q5.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --caps-together "$S5" "prelaunch" 2>/dev/null &
-RESULT=$(run_qmp "$S5" query-status)
-if [[ "$RESULT" == "prelaunch" ]]; then
-    pass "Test 5: caps+status in same read"
+info "Malformed JSON then valid response"
+S_MALFORMED="$TEST_DIR/malformed.sock"
+start_server --malformed-json "$S_MALFORMED" "running"
+RESULT=""; RC=0
+run_qmp_capture RESULT RC "$S_MALFORMED" query-status
+if [[ "$RC" == "0" && "$RESULT" == "running" ]]; then
+    pass "malformed JSON skipped"
 else
-    fail "Test 5: expected 'prelaunch', got '$RESULT'"
+    fail "expected running after malformed JSON, got rc=$RC output='$RESULT'"
 fi
 
-# -----------------------------------------------------------------------
-# Test 6: Async event before expected response
-# -----------------------------------------------------------------------
-info "Test 6: Async event before expected response"
-S6="$TEST_DIR/q6.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --async-event "$S6" "running" 2>/dev/null &
-RESULT=$(run_qmp "$S6" query-status)
-if [[ "$RESULT" == "running" ]]; then
-    pass "Test 6: async event ignored"
+info "Premature EOF handled"
+S_EOF="$TEST_DIR/eof.sock"
+start_server --premature-eof "$S_EOF"
+RESULT=""; RC=0
+run_qmp_capture RESULT RC "$S_EOF" query-status
+if [[ "$RC" != "0" && "$RESULT" == *"closed"* ]]; then
+    pass "premature EOF handled"
 else
-    fail "Test 6: expected 'running', got '$RESULT'"
+    fail "expected EOF failure, got rc=$RC output='$RESULT'"
 fi
 
-# -----------------------------------------------------------------------
-# Test 7: Wrong response ID before correct
-# -----------------------------------------------------------------------
-info "Test 7: Wrong response ID before correct"
-S7="$TEST_DIR/q7.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --wrong-id "$S7" "running" 2>/dev/null &
-RESULT=$(run_qmp "$S7" query-status)
-if [[ "$RESULT" == "running" ]]; then
-    pass "Test 7: wrong ID ignored"
+info "Socket timeout handled"
+S_TIMEOUT="$TEST_DIR/timeout.sock"
+start_server --timeout "$S_TIMEOUT"
+RESULT=""; RC=0
+run_qmp_capture RESULT RC "$S_TIMEOUT" query-status
+if [[ "$RC" != "0" && ( "$RESULT" == *"timeout"* || "$RESULT" == *"Timeout"* || "$RESULT" == *"timed out"* ) ]]; then
+    pass "socket timeout handled"
 else
-    fail "Test 7: expected 'running', got '$RESULT'"
+    fail "expected timeout failure, got rc=$RC output='$RESULT'"
 fi
 
-# -----------------------------------------------------------------------
-# Test 8: Misleading 'running' in greeting metadata
-# -----------------------------------------------------------------------
-info "Test 8: Misleading 'running' in greeting metadata"
-S8="$TEST_DIR/q8.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --misleading-greeting "$S8" "prelaunch" 2>/dev/null &
-RESULT=$(run_qmp "$S8" query-status)
-if [[ "$RESULT" == "prelaunch" ]]; then
-    pass "Test 8: misleading greeting ignored"
+info "system-powerdown command"
+S_POWER="$TEST_DIR/power.sock"
+start_server --powerdown "$S_POWER"
+RESULT=""; RC=0
+run_qmp_capture RESULT RC "$S_POWER" system-powerdown
+if [[ "$RC" == "0" && "$RESULT" == "OK" ]]; then
+    pass "system-powerdown verified"
 else
-    fail "Test 8: expected 'prelaunch', got '$RESULT'"
+    fail "expected OK, got rc=$RC output='$RESULT'"
 fi
 
-# -----------------------------------------------------------------------
-# Test 9: 'running' in error description
-# -----------------------------------------------------------------------
-info "Test 9: 'running' in error text not mistaken"
-S9="$TEST_DIR/q9.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --error-desc "$S9" "running" 2>/dev/null &
-RESULT=$(run_qmp "$S9" query-status)
-if [[ -z "$RESULT" || "$RESULT" == *"Error"* || "$RESULT" == *"error"* ]]; then
-    pass "Test 9: error response rejected"
+expect_active_accept "running"
+expect_active_accept "prelaunch"
+expect_active_reject "shutdown"
+expect_active_reject "stop"
+expect_active_reject "guest-panicked"
+expect_active_reject "inmigrate"
+expect_active_reject "postmigrate"
+expect_active_reject_raw "colo" "colo"
+expect_active_reject_raw "unknown" "unknown"
+expect_active_reject_raw "empty" ""
+
+info "Exact run-qemu active readiness helper accepts running"
+S_HELPER="$TEST_DIR/helper.sock"
+start_server "$S_HELPER" "running"
+RESULT=""; RC=0
+run_helper_capture RESULT RC "$S_HELPER"
+if [[ "$RC" == "0" && "$RESULT" == "running" ]]; then
+    pass "run-qemu readiness helper accepted running"
 else
-    fail "Test 9: expected error, got '$RESULT'"
+    fail "run-qemu readiness helper failed, rc=$RC output='$RESULT'"
 fi
 
-# -----------------------------------------------------------------------
-# Test 10: QMP error response
-# -----------------------------------------------------------------------
-info "Test 10: QMP error response"
-S10="$TEST_DIR/q10.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --error-response "$S10" 2>/dev/null &
-RESULT=$(run_qmp "$S10" query-status)
-if [[ -z "$RESULT" || "$RESULT" == *"Error"* || "$RESULT" == *"error"* ]]; then
-    pass "Test 10: QMP error correctly rejected"
-else
-    fail "Test 10: expected error, got '$RESULT'"
-fi
-
-# -----------------------------------------------------------------------
-# Test 11: Malformed JSON then valid
-# -----------------------------------------------------------------------
-info "Test 11: Malformed JSON then valid response"
-S11="$TEST_DIR/q11.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --malformed-json "$S11" "running" 2>/dev/null &
-RESULT=$(run_qmp "$S11" query-status)
-if [[ "$RESULT" == "running" ]]; then
-    pass "Test 11: malformed JSON skipped"
-else
-    fail "Test 11: expected 'running', got '$RESULT'"
-fi
-
-# -----------------------------------------------------------------------
-# Test 12: Premature EOF
-# -----------------------------------------------------------------------
-info "Test 12: Premature EOF"
-S12="$TEST_DIR/q12.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --premature-eof "$S12" 2>/dev/null &
-RESULT=$(run_qmp "$S12" query-status)
-if [[ -z "$RESULT" || "$RESULT" == *"Error"* || "$RESULT" == *"closed"* ]]; then
-    pass "Test 12: premature EOF handled"
-else
-    fail "Test 12: expected failure on EOF, got '$RESULT'"
-fi
-
-# -----------------------------------------------------------------------
-# Test 13: Socket timeout
-# -----------------------------------------------------------------------
-info "Test 13: Socket timeout"
-S13="$TEST_DIR/q13.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --timeout "$S13" 2>/dev/null &
-RESULT=$(run_qmp "$S13" query-status)
-if [[ -z "$RESULT" || "$RESULT" == *"timeout"* || "$RESULT" == *"Timeout"* ]]; then
-    pass "Test 13: socket timeout handled"
-else
-    fail "Test 13: expected timeout, got '$RESULT'"
-fi
-
-# -----------------------------------------------------------------------
-# Test 14: system-powerdown command
-# -----------------------------------------------------------------------
-info "Test 14: system-powerdown command"
-S14="$TEST_DIR/q14.sock"
-python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --powerdown "$S14" 2>/dev/null &
-RESULT=$(run_qmp "$S14" system-powerdown)
-if [[ "$RESULT" == "OK" ]]; then
-    pass "Test 14: system-powerdown verified"
-else
-    fail "Test 14: expected 'OK', got '$RESULT'"
-fi
-
-# -----------------------------------------------------------------------
-# Summary
-# -----------------------------------------------------------------------
 TOTAL=$((PASS_COUNT + FAIL_COUNT))
 printf '\n=== QMP JSON Parsing Behavioral Regression Test Results ===\n'
 printf '  Passed: %d / %d\n' "$PASS_COUNT" "$TOTAL"

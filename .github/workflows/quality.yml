@@ -26,7 +26,7 @@ jobs:
       - name: Install ShellCheck
         run: |
           sudo apt-get update
-          sudo apt-get install --yes shellcheck
+          sudo apt-get install --yes shellcheck squashfs-tools
 
       - name: Validate Bash syntax
         shell: bash
@@ -176,6 +176,14 @@ jobs:
       - name: QMP JSON parsing behavioral regression tests
         shell: bash
         run: bash tests/infrastructure/test-qmp-json-parsing.sh
+
+      - name: Candidate 2 early failure evidence behavioral tests
+        shell: bash
+        run: bash tests/infrastructure/test-candidate2-failure-evidence.sh
+
+      - name: mksquashfs runner compatibility behavioral test
+        shell: bash
+        run: bash tests/infrastructure/test-mksquashfs-runner.sh
 
 
 

@@ -110,28 +110,6 @@ mkdir -p "$stage_logs_dir" 2>/dev/null || true
 
 [[ -n "$C2_SOURCE_COMMIT" ]] || C2_SOURCE_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-# 4. Install EXIT trap — before any fallible validation
-trap on_exit EXIT
-
-# --- End of trap setup ---
-
-# 5. Now validate ISO, disk, mode, checksums, dependencies
-[[ -n "$ISO_PATH" && -f "$ISO_PATH" ]] || fail 'Valid --iso path is required.'
-[[ -n "$DISK_PATH" ]] || fail '--disk path is required.'
-
-# Lifecycle variables — remaining setup after validation
-VM_ID="cand2_${MODE}_$(date +%s)_$$"
-state_dir="$(dirname "$DISK_PATH")/cand2-${MODE}-state"
-mkdir -p "$state_dir"
-
-serial_log="${RUNTIME_EVIDENCE_DIR}/installer.serial.log"
-qmp_path="${state_dir}/qmp-${VM_ID}.sock"
-pid_file="${state_dir}/qemu-${VM_ID}.pid"
-screenshot_path="${RUNTIME_EVIDENCE_DIR}/installer.ppm"
-disk_inspect_json="${RUNTIME_EVIDENCE_DIR}/disk-inspection-${MODE}.json"
-completion_json="${RUNTIME_EVIDENCE_DIR}/install-completion.json"
-kernel_extraction_json="${RUNTIME_EVIDENCE_DIR}/kernel-extraction.json"
-
 # --- Helper functions ---
 
 preserve_install_evidence() {
@@ -424,7 +402,43 @@ on_exit() {
     exit "$cleanup_rc"
 }
 
+# Install EXIT trap only after every referenced handler is defined.
+trap on_exit EXIT
+
+# Validate ISO, disk, mode, checksums, and dependencies after trap setup.
+INSTALL_PHASE="validation_mode"
+case "$MODE" in
+    uefi|bios)
+        ;;
+    *)
+        fail "--mode must be uefi or bios."
+        ;;
+esac
+
+INSTALL_PHASE="validation_iso_path"
+[[ -n "$ISO_PATH" && -f "$ISO_PATH" ]] || fail 'Valid --iso path is required.'
+
+INSTALL_PHASE="validation_disk_arg"
+[[ -n "$DISK_PATH" ]] || fail '--disk path is required.'
+
+# Lifecycle variables — remaining setup after validation inputs are safe.
+VM_ID="cand2_${MODE}_$(date +%s)_$$"
+state_dir="$(dirname "$DISK_PATH")/cand2-${MODE}-state"
+mkdir -p "$state_dir"
+
+serial_log="${RUNTIME_EVIDENCE_DIR}/installer.serial.log"
+qmp_path="${state_dir}/qmp-${VM_ID}.sock"
+pid_file="${state_dir}/qemu-${VM_ID}.pid"
+screenshot_path="${RUNTIME_EVIDENCE_DIR}/installer.ppm"
+disk_inspect_json="${RUNTIME_EVIDENCE_DIR}/disk-inspection-${MODE}.json"
+completion_json="${RUNTIME_EVIDENCE_DIR}/install-completion.json"
+kernel_extraction_json="${RUNTIME_EVIDENCE_DIR}/kernel-extraction.json"
+
 # 1. Validate Candidate 2 ISO checksum
+INSTALL_PHASE="validation_iso_nonempty"
+[[ -s "$ISO_PATH" ]] || fail 'Candidate 2 ISO file is empty.'
+
+INSTALL_PHASE="validation_iso_checksum"
 CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
 if [[ "$CAND2_VERIFIED_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
     fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA} — expected 1cb79fbf..."

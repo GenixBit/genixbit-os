@@ -42,6 +42,10 @@ def respond_error(conn, req, error_class="GenericError", desc="error"):
     conn.sendall(json.dumps(resp).encode() + b"\n")
 
 
+def json_line(value):
+    return json.dumps(value).encode() + b"\n"
+
+
 def wait_sendall(conn, data, delay=0):
     """Send data, optionally with a delay before."""
     if delay > 0:
@@ -62,9 +66,11 @@ def serve(sock_path, scenario, status="running"):
     conn.settimeout(5)
 
     if scenario == "one_write":
-        greeting = json.dumps({"QMP": {"version": {"qemu": {"major": 8}}}})
-        # Send greeting; caps req comes next but we don't read it
-        conn.sendall(greeting.encode() + b"\n")
+        # Genuine coalescing: greeting and asynchronous event in one write.
+        conn.sendall(
+            json_line({"QMP": {"version": {"qemu": {"major": 8}}}})
+            + json_line({"event": "RESET", "data": {}})
+        )
         req = recv_json(conn)
         respond_ok(conn, req)
         req = recv_json(conn)
@@ -84,9 +90,12 @@ def serve(sock_path, scenario, status="running"):
     elif scenario == "caps_together":
         conn.sendall(json.dumps({"QMP": {"version": {"qemu": {"major": 8}}}}).encode() + b"\n")
         req = recv_json(conn)
-        respond_ok(conn, req)
+        # Genuine coalescing: capabilities response and async event in one write.
+        conn.sendall(
+            json_line({"id": req.get("id"), "return": {}})
+            + json_line({"event": "STOP", "data": {}})
+        )
         req2 = recv_json(conn)
-        # Send status response — both responses arrive in same recv buffer
         respond_ok(conn, req2, {"status": status})
 
     elif scenario == "async_event":
@@ -103,10 +112,11 @@ def serve(sock_path, scenario, status="running"):
         req = recv_json(conn)
         respond_ok(conn, req)
         req = recv_json(conn)
-        # Send a stale response with wrong ID first
-        wrong = json.dumps({"id": "stale-1", "return": {"status": "shutdown"}})
-        conn.sendall(wrong.encode() + b"\n")
-        respond_ok(conn, req, {"status": status})
+        # Genuine coalescing: stale response and correct response in one write.
+        conn.sendall(
+            json_line({"id": "stale-1", "return": {"status": "shutdown"}})
+            + json_line({"id": req.get("id"), "return": {"status": status}})
+        )
 
     elif scenario == "misleading_greeting":
         conn.sendall(json.dumps({

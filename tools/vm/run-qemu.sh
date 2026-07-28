@@ -146,6 +146,14 @@ qmp_query_status() {
     python3 "$QMP_CLIENT" --socket "$socket_path" --timeout 5 query-status
 }
 
+qmp_query_active_status() {
+    local socket_path="$1"
+    python3 "$QMP_CLIENT" \
+        --socket "$socket_path" \
+        --timeout 5 \
+        query-active-status
+}
+
 case "$ACTION" in
     start)
         [[ -n "$VM_ID" ]] || fail '--vm-id is required for start.'
@@ -244,6 +252,7 @@ case "$ACTION" in
 
         # MANDATORY QMP READINESS VALIDATION
         QMP_READY=false
+        qmp_status=""
         qmp_start_time=$(date +%s)
         while true; do
             curr_time=$(date +%s)
@@ -251,11 +260,20 @@ case "$ACTION" in
                 break
             fi
 
-            if kill -0 "$QEMU_PID" 2>/dev/null && [[ -S "$QMP_SOCKET" ]]; then
-                if qmp_query_status "$QMP_SOCKET" >/dev/null 2>&1; then
+            if kill -0 "$QEMU_PID" 2>/dev/null &&
+               [[ -S "$QMP_SOCKET" ]]; then
+
+                qmp_status=$(qmp_query_active_status "$QMP_SOCKET" 2>/dev/null) || qmp_status=""
+
+                case "$qmp_status" in
+                    running|prelaunch)
                     QMP_READY=true
                     break
-                fi
+                        ;;
+                    *)
+                        QMP_READY=false
+                        ;;
+                esac
             fi
             sleep 1
         done

@@ -378,7 +378,7 @@ EOF
     judge "Generate manifest for filesystem-desktop"
 
     print_ok "Compressing rootfs as squashfs on /casper/filesystem.squashfs..."
-    sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH mksquashfs new_building_os image/casper/filesystem.squashfs \
+    sudo env SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" mksquashfs new_building_os image/casper/filesystem.squashfs \
         -noappend -no-duplicates -no-recovery \
         -wildcards -b 1M \
         -comp zstd -Xcompression-level 19 \
