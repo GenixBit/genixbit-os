@@ -10,8 +10,7 @@ Package: genixbit-os-wallpapers
 Architecture: all
 Depends: ${misc:Depends}
 Replaces: anduinos-wallpapers
-Provides: anduinos-wallpapers
+Provides: anduinos-wallpapers, ubuntu-wallpapers
 Conflicts: anduinos-wallpapers
 Description: Official desktop wallpaper assets for GenixBit OS
  Provides light and dark high-resolution SVG wallpaper assets for the GNOME desktop.
-
