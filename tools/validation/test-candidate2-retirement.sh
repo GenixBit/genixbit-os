@@ -236,7 +236,25 @@ cmp "$TMP_DIR/empty-status-results-before.txt" "$TMP_DIR/empty-status-results-af
 pass "migration validation rejects empty usable provenance and preserves production evidence"
 
 TOTAL=$((TOTAL + 1))
-if CANDIDATE2_PROVENANCE_FILE="$active_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/active-migration.out" 2> "$TMP_DIR/active-migration.err"; then
+active_migration_bin="$TMP_DIR/active-migration-bin"
+mkdir -p "$active_migration_bin"
+for binary in bash dirname pwd git grep cut date python3 sed mktemp rm mkdir chmod; do
+    real_binary=$(command -v "$binary")
+    if [[ "$real_binary" != /* ]]; then
+        case "$binary" in
+            bash) real_binary="/bin/bash" ;;
+            dirname) real_binary="/usr/bin/dirname" ;;
+            pwd) real_binary="/bin/pwd" ;;
+        esac
+    fi
+    if [[ "$binary" == "bash" ]]; then
+        printf '#!/bin/sh\nexec %q "$@"\n' "$real_binary" > "$active_migration_bin/$binary"
+    else
+        printf '#!/usr/bin/env bash\nexec %q "$@"\n' "$real_binary" > "$active_migration_bin/$binary"
+    fi
+    chmod +x "$active_migration_bin/$binary"
+done
+if PATH="$active_migration_bin" CANDIDATE2_PROVENANCE_FILE="$active_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/active-migration.out" 2> "$TMP_DIR/active-migration.err"; then
     printf '[FAIL] active migration fixture unexpectedly completed full validation\n' >&2
     exit 1
 fi
@@ -244,7 +262,7 @@ if grep -q 'not an active artifact status\|Candidate 2 artifact is retired\|not 
     printf '[FAIL] active migration fixture was blocked by provenance status instead of the next controlled phase\n' >&2
     exit 1
 fi
-grep -q 'STAGING_SIGNING_PASSPHRASE is required\|GPG binary not found' "$TMP_DIR/active-migration.out" "$TMP_DIR/active-migration.err"
+grep -q 'GPG binary not found' "$TMP_DIR/active-migration.out" "$TMP_DIR/active-migration.err"
 pass "migration validation accepts active provenance and reaches next controlled phase"
 
 missing_collector_provenance="$TMP_DIR/missing-collector-provenance.json"
