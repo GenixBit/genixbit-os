@@ -159,13 +159,14 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 9: Operator workflow sets EXECUTE_REAL_MIGRATION=true
+# Test 9: Operator workflow marks migration not applicable for fresh-install-only
 # ─────────────────────────────────────────────────────────────────────────────
-info "Test 9: release-gate.yml must set EXECUTE_REAL_MIGRATION=true..."
-if grep -q 'EXECUTE_REAL_MIGRATION.*true\|EXECUTE_REAL_MIGRATION=true' "$RELEASE_GATE_YML" 2>/dev/null; then
-    pass_test "Test 9: release-gate.yml sets EXECUTE_REAL_MIGRATION=true"
+info "Test 9: release-gate.yml must set EXECUTE_REAL_MIGRATION=false only with fresh-install-only..."
+if grep -q 'EXECUTE_REAL_MIGRATION.*false\|EXECUTE_REAL_MIGRATION=false' "$RELEASE_GATE_YML" 2>/dev/null && \
+   grep -q 'ACTIVE_RELEASE_MODE.*fresh-install-only\|ACTIVE_RELEASE_MODE=fresh-install-only' "$RELEASE_GATE_YML" 2>/dev/null; then
+    pass_test "Test 9: release-gate.yml marks migration not applicable for fresh-install-only"
 else
-    fail_test "Test 9: release-gate.yml does NOT set EXECUTE_REAL_MIGRATION=true"
+    fail_test "Test 9: release-gate.yml migration mode is inconsistent with fresh-install-only"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -62,6 +62,7 @@ import sys, re
 
 status_file = sys.argv[1]
 seen = set()
+allow_empty = {"ACTIVE_RELEASE_ISO_LOCAL", "ACTIVE_RELEASE_ISO_URL", "ACTIVE_RELEASE_SOURCE_COMMIT"}
 
 with open(status_file, 'r', encoding='utf-8') as f:
     for line in f:
@@ -75,7 +76,7 @@ with open(status_file, 'r', encoding='utf-8') as f:
         if not re.match(r'^[A-Z][A-Z0-9_]*$', key):
             print(f"fail 'Invalid key in {status_file}: {key}'")
             sys.exit(0)
-        if not value:
+        if not value and key not in allow_empty:
             print(f"fail 'Empty value for {key} in {status_file}'")
             sys.exit(0)
         if key in seen:

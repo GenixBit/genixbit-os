@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "release_version": "0.3.0-alpha",
+  "candidate_branch": null,
+  "candidate_source_commit": null,
+  "filename": null,
+  "size_bytes": null,
+  "sha256": null,
+  "sha512": null,
+  "object_generation": null,
+  "verification_status": "PENDING_BUILD",
+  "usable_as_release_artifact": false,
+  "usable_as_migration_source": false
+}

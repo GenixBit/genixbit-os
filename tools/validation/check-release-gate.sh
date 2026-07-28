@@ -79,11 +79,13 @@ actual_pass = sum(1 for c in categories.values() if c.get("status") == "PASS")
 actual_fail = sum(1 for c in categories.values() if c.get("status") in ("FAIL", "RETIRED"))
 actual_blocked = sum(1 for c in categories.values() if c.get("status") == "BLOCKED")
 actual_not_tested = sum(1 for c in categories.values() if c.get("status") == "NOT TESTED")
+actual_not_applicable = sum(1 for c in categories.values() if c.get("status") == "NOT_APPLICABLE")
 
 rep_pass = summary.get("pass_count")
 rep_fail = summary.get("fail_count")
 rep_blocked = summary.get("blocked_count")
 rep_not_tested = summary.get("not_tested_count")
+rep_not_applicable = summary.get("not_applicable_count", 0)
 
 if rep_pass != actual_pass:
     print(f"[FAIL] pass_count mismatch: reported {rep_pass}, actual {actual_pass}")
@@ -101,13 +103,34 @@ if rep_not_tested != actual_not_tested:
     print(f"[FAIL] not_tested_count mismatch: reported {rep_not_tested}, actual {actual_not_tested}")
     sys.exit(1)
 
-print(f"[PASS] Summary counters consistent (PASS={actual_pass}, FAIL={actual_fail}, BLOCKED={actual_blocked}, NOT TESTED={actual_not_tested}).")
+if rep_not_applicable != actual_not_applicable:
+    print(f"[FAIL] not_applicable_count mismatch: reported {rep_not_applicable}, actual {actual_not_applicable}")
+    sys.exit(1)
+
+print(f"[PASS] Summary counters consistent (PASS={actual_pass}, FAIL={actual_fail}, BLOCKED={actual_blocked}, NOT TESTED={actual_not_tested}, NOT_APPLICABLE={actual_not_applicable}).")
 
 # 2. Overall Gate Status Consistency Verification
 overall_status = summary.get("overall_gate_status", "")
 if actual_fail > 0:
     if "PASS" in overall_status:
         print(f"[FAIL] overall_gate_status cannot be '{overall_status}' when fail_count={actual_fail}!")
+        sys.exit(1)
+
+na_reason = "No valid prior GenixBit OS release artifact exists from which to execute an upgrade or rollback test."
+for key in ("upgrade_readiness", "rollback_readiness"):
+    cat = categories.get(key, {})
+    if cat.get("status") == "NOT_APPLICABLE" and cat.get("reason") != na_reason:
+        print(f"[FAIL] {key} is NOT_APPLICABLE without the required factual reason")
+        sys.exit(1)
+
+if overall_status == "PASS_ALPHA_FRESH_INSTALL":
+    mandatory = ["clean_install_readiness", "vm_readiness", "installer_readiness", "package_health_readiness", "reproducibility_readiness"]
+    missing = [key for key in mandatory if categories.get(key, {}).get("status") != "PASS"]
+    if missing or actual_fail or actual_blocked:
+        print(f"[FAIL] PASS_ALPHA_FRESH_INSTALL requires mandatory PASS categories and no failures/blockers; missing={missing}")
+        sys.exit(1)
+    if summary.get("release_ready") is not True or summary.get("stable_ready") is not False:
+        print("[FAIL] PASS_ALPHA_FRESH_INSTALL requires release_ready=true and stable_ready=false")
         sys.exit(1)
 
 # 3. Executed Validation Requirement for vm_readiness = PASS

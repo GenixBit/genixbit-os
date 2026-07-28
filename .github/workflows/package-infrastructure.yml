@@ -97,5 +97,6 @@ jobs:
           bash tools/validation/test-iso-structure.sh
           bash tools/validation/test-release-preflight-evidence.sh
           bash tools/validation/test-candidate2-retirement.sh
+          bash tools/validation/test-active-release-artifact.sh
           python3 tools/validation/check-retired-candidate-claims.py
           bash tools/validation/test-retired-candidate-claims.sh

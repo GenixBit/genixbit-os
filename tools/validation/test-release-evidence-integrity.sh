@@ -208,22 +208,26 @@ fi
 pass_test "validate-package-migration.sh: calls install-current-iso.sh for both UEFI and BIOS modes"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 11: release-gate.yml must not pass EXECUTE_REAL_* bypass flags
+# Test 11: release-gate.yml must not pass release-validation bypass flags
 # ─────────────────────────────────────────────────────────────────────────────
-info "Test 11: release-gate.yml must not contain EXECUTE_REAL_* bypass flags..."
+info "Test 11: release-gate.yml must not contain release-validation bypass flags..."
 GATE_WORKFLOW="$REPO_ROOT/.github/workflows/release-gate.yml"
 BYPASS_PATTERNS=(
     "EXECUTE_REAL_ISO_BUILD=false"
     "EXECUTE_REAL_VM_TESTS=false"
     "EXECUTE_REAL_CLIENT_INSTALL=false"
-    "EXECUTE_REAL_MIGRATION=false"
 )
 for pat in "${BYPASS_PATTERNS[@]}"; do
     if grep -q "$pat" "$GATE_WORKFLOW" 2>/dev/null; then
         fail_test "release-gate.yml contains bypass flag: '$pat'"
     fi
 done
-pass_test "release-gate.yml: no EXECUTE_REAL_*=false bypass flags"
+if grep -q 'EXECUTE_REAL_MIGRATION=false' "$GATE_WORKFLOW" 2>/dev/null && \
+   ! grep -q 'ACTIVE_RELEASE_MODE=fresh-install-only' "$GATE_WORKFLOW" 2>/dev/null && \
+   ! grep -q 'ACTIVE_RELEASE_MODE: fresh-install-only' "$GATE_WORKFLOW" 2>/dev/null; then
+    fail_test "release-gate.yml disables migration without fresh-install-only active release mode"
+fi
+pass_test "release-gate.yml: no release-validation bypass flags beyond fresh-install-only migration NA"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 12: release-gate.yml must restore build dependencies installation step
