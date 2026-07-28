@@ -170,13 +170,17 @@ pass_test "validate-package-migration.sh: no placeholder boot evidence creation"
 # Test 8: validate-package-migration.sh must execute real build.sh
 # ─────────────────────────────────────────────────────────────────────────────
 info "Test 8: validate-package-migration.sh must call real build.sh..."
-if ! grep -q 'PACKAGE_SOURCE_MODE=genixbit-staging' "$VALIDATE_SCRIPT" 2>/dev/null; then
-    fail_test "validate-package-migration.sh: does not call PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh"
+BUILD_ORCHESTRATOR="$REPO_ROOT/tools/validation/build-active-release-candidate.sh"
+if ! grep -q 'build-active-release-candidate.sh' "$VALIDATE_SCRIPT" 2>/dev/null; then
+    fail_test "validate-package-migration.sh: does not use active release build orchestrator"
 fi
-if ! grep -q 'bash.*build.sh' "$VALIDATE_SCRIPT" 2>/dev/null; then
-    fail_test "validate-package-migration.sh: does not call build.sh"
+if ! grep -q 'PACKAGE_SOURCE_MODE=genixbit-staging' "$BUILD_ORCHESTRATOR" 2>/dev/null; then
+    fail_test "build-active-release-candidate.sh: does not call PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh"
 fi
-pass_test "validate-package-migration.sh: calls real build.sh with PACKAGE_SOURCE_MODE=genixbit-staging"
+if ! grep -q 'bash ./build.sh' "$BUILD_ORCHESTRATOR" 2>/dev/null; then
+    fail_test "build-active-release-candidate.sh: does not call build.sh"
+fi
+pass_test "validate-package-migration.sh: calls real build orchestrator with PACKAGE_SOURCE_MODE=genixbit-staging"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 9: validate-package-migration.sh must reject identical UEFI/BIOS evidence

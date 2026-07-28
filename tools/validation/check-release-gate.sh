@@ -9,13 +9,15 @@ IFS=$'\n\t'
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 GATE_FILE="$REPO_ROOT/docs/releases/0.3.0-release-gate.json"
+PROVENANCE_FILE=""
 
 usage() {
     cat <<EOF
-Usage: check-release-gate.sh [--gate-file PATH]
+Usage: check-release-gate.sh [--gate-file PATH] [--provenance-file PATH]
 
 Options:
   --gate-file PATH    Path to release gate JSON file (default: docs/releases/0.3.0-release-gate.json).
+  --provenance-file PATH  Run-scoped active artifact provenance for candidate validation.
   -h, --help          Show this help.
 EOF
 }
@@ -40,6 +42,11 @@ while (($# > 0)); do
             GATE_FILE=$2
             shift 2
             ;;
+        --provenance-file)
+            (($# >= 2)) || fail '--provenance-file requires a path.'
+            PROVENANCE_FILE=$2
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -54,11 +61,12 @@ done
 
 info "Validating release gate JSON: $GATE_FILE"
 
-python3 - "$REPO_ROOT" "$GATE_FILE" <<'PYEOF'
+python3 - "$REPO_ROOT" "$GATE_FILE" "$PROVENANCE_FILE" <<'PYEOF'
 import sys, os, json, subprocess
 
 repo_root = sys.argv[1]
 gate_file = sys.argv[2]
+provenance_file = sys.argv[3]
 
 with open(gate_file, "r") as f:
     try:
@@ -116,6 +124,69 @@ if actual_fail > 0:
         print(f"[FAIL] overall_gate_status cannot be '{overall_status}' when fail_count={actual_fail}!")
         sys.exit(1)
 
+required_candidate_categories = [
+    "candidate_selection", "host_readiness", "package_infrastructure",
+    "clean_install_readiness", "iso_build_readiness", "iso_structure_readiness",
+    "uefi_readiness", "bios_readiness", "installer_readiness",
+    "installed_system_readiness", "package_health_readiness", "security_readiness",
+    "reproducibility_readiness", "documentation_readiness",
+]
+
+if overall_status == "PASS_VALIDATION_AWAITING_IMMUTABLE_PUBLICATION":
+    missing = [key for key in required_candidate_categories if key not in categories]
+    if missing:
+        print(f"[FAIL] candidate validation gate missing required categories: {missing}")
+        sys.exit(1)
+    non_pass = [key for key in required_candidate_categories if categories.get(key, {}).get("status") != "PASS"]
+    if non_pass or actual_fail or actual_blocked or actual_not_tested:
+        print(f"[FAIL] candidate validation awaiting publication requires all mandatory categories PASS; non_pass={non_pass}")
+        sys.exit(1)
+    if summary.get("release_ready") is not False or summary.get("stable_ready") is not False:
+        print("[FAIL] candidate validation awaiting immutable publication requires release_ready=false and stable_ready=false")
+        sys.exit(1)
+    if categories.get("upgrade_readiness", {}).get("status") == "PASS" or categories.get("rollback_readiness", {}).get("status") == "PASS":
+        print("[FAIL] upgrade/rollback must not be PASS in fresh-install-only validation")
+        sys.exit(1)
+    stage_repro = os.path.join(repo_root, "infra/package-staging/results/stage-logs/stage-reproducibility.json")
+    if not os.path.isfile(stage_repro):
+        print(f"[FAIL] reproducibility evidence missing: {stage_repro}")
+        sys.exit(1)
+    with open(stage_repro, encoding="utf-8") as f:
+        repro = json.load(f)
+    hashes = repro.get("artifact_hashes", {})
+    if repro.get("status") != "PASS" or hashes.get("cmp_exit_code") != 0 or not hashes.get("build_b_sha256"):
+        print("[FAIL] Build B reproducibility evidence is incomplete or failed")
+        sys.exit(1)
+    if not provenance_file:
+        provenance_file = data.get("active_artifact_provenance", "")
+    if not provenance_file or not os.path.isfile(provenance_file):
+        print(f"[FAIL] run-scoped active provenance missing: {provenance_file}")
+        sys.exit(1)
+    with open(provenance_file, encoding="utf-8") as f:
+        provenance = json.load(f)
+    if provenance.get("verification_status") in ("PENDING_BUILD", "BUILT_UNVALIDATED"):
+        print("[FAIL] active provenance is not runtime validated")
+        sys.exit(1)
+    if provenance.get("verification_status") == "PASS":
+        print("[FAIL] active provenance must not be PASS before immutable publication")
+        sys.exit(1)
+    if provenance.get("verification_status") != "VALIDATED_UNPUBLISHED":
+        print(f"[FAIL] unexpected active provenance status: {provenance.get('verification_status')}")
+        sys.exit(1)
+    if provenance.get("object_generation") is not None or provenance.get("usable_as_release_artifact") is not False:
+        print("[FAIL] unpublished provenance must keep object_generation=null and usability=false")
+        sys.exit(1)
+    retired = {"GenixBitOS-0.2.0-alpha-2607220558.iso", "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669", "51bdb60298460d1204dd6b641ed7d531c9d34da98fecf90fbfbbabf9beeef0dc42fe86e59646c7cd4c8746b1c5e48d05afc81712758c51cb2096a77c45e0902e", "1784810864397202"}
+    if any(str(v) in retired for v in provenance.values()):
+        print("[FAIL] active artifact provenance uses a retired Candidate 2 identifier")
+        sys.exit(1)
+
+if os.path.abspath(gate_file).endswith("docs/releases/0.3.0-release-gate.json") and overall_status == "BLOCKED_INVALID_RELEASE_EVIDENCE":
+    print("[PASS] committed blocked release-gate template validated as historical status")
+elif overall_status == "BLOCKED_INVALID_RELEASE_EVIDENCE":
+    print("[FAIL] run-scoped candidate validation cannot end with old BLOCKED_INVALID_RELEASE_EVIDENCE status")
+    sys.exit(1)
+
 na_reason = "No valid prior GenixBit OS release artifact exists from which to execute an upgrade or rollback test."
 for key in ("upgrade_readiness", "rollback_readiness"):
     cat = categories.get(key, {})
@@ -133,9 +204,9 @@ if overall_status == "PASS_ALPHA_FRESH_INSTALL":
         print("[FAIL] PASS_ALPHA_FRESH_INSTALL requires release_ready=true and stable_ready=false")
         sys.exit(1)
 
-# 3. Executed Validation Requirement for vm_readiness = PASS
+# 3. Legacy committed-template validation for vm_readiness = PASS
 vm_status = categories.get("vm_readiness", {}).get("status")
-if vm_status == "PASS":
+if vm_status == "PASS" and overall_status != "PASS_VALIDATION_AWAITING_IMMUTABLE_PUBLICATION":
     # If vm_readiness is PASS, check if candidate 1 environment was retired
     cand1_env = os.path.join(repo_root, "docs/releases/0.3.0-alpha-candidate-1.env")
     if os.path.exists(cand1_env):

@@ -32,6 +32,12 @@ def get_git_head(repo_root):
     except Exception as e:
         fail(f"Failed to query git HEAD: {e}")
 
+def get_current_branch(repo_root):
+    res = subprocess.run(["git", "-C", repo_root, "symbolic-ref", "--quiet", "--short", "HEAD"], capture_output=True, text=True)
+    if res.returncode != 0:
+        fail("Detached HEAD or non-branch checkout is not valid for candidate validation")
+    return res.stdout.strip()
+
 def calc_sha256(filepath):
     if not os.path.isfile(filepath):
         fail(f"File not found for SHA-256 calculation: {filepath}")
@@ -153,6 +159,20 @@ def main():
     current_commit = get_git_head(repo_root)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    expected_branch = os.environ.get("EXPECTED_CANDIDATE_BRANCH", "")
+    expected_sha = os.environ.get("EXPECTED_CANDIDATE_SHA", "")
+    if expected_branch or expected_sha:
+        if expected_branch != "validation/0.3.0-alpha-candidate-2":
+            fail(f"Unexpected candidate branch: {expected_branch}")
+        if not re.fullmatch(r"[0-9a-f]{40}", expected_sha):
+            fail("EXPECTED_CANDIDATE_SHA must be a full 40-character SHA")
+        if get_current_branch(repo_root) != expected_branch:
+            fail("Current branch does not match EXPECTED_CANDIDATE_BRANCH")
+        if current_commit != expected_sha:
+            fail("Git HEAD does not match EXPECTED_CANDIDATE_SHA")
+        if os.environ.get("ACTIVE_RELEASE_SOURCE_COMMIT") != expected_sha:
+            fail("ACTIVE_RELEASE_SOURCE_COMMIT does not match EXPECTED_CANDIDATE_SHA")
+
 
     # Rejection 31: Candidate 1 MUST NOT be marked PASS!
     cand1_env = os.path.join(repo_root, "docs/releases/0.3.0-alpha-candidate-1.env")
@@ -170,15 +190,6 @@ def main():
     )
     if tag_check.stdout.strip() == "v0.3.0-alpha":
         fail("Release tag v0.3.0-alpha exists! Candidate 1 was retired and v0.3.0-alpha MUST NOT be created.")
-
-    # Rejection 32: Branch validation/0.3.0-alpha-candidate-2 MUST NOT exist while gate is blocked
-    branch_check = subprocess.run(
-        ["git", "-C", repo_root, "branch", "-a", "--list", "*validation/0.3.0-alpha-candidate-2*"],
-        capture_output=True,
-        text=True
-    )
-    if branch_check.stdout.strip():
-        fail("Branch validation/0.3.0-alpha-candidate-2 exists! Candidate 2 MUST NOT be created while gate is blocked.")
 
     forbidden_patterns = [
         r"0000000000000000000000000000000000000000",
@@ -198,7 +209,8 @@ def main():
         "stage-tamper.json",
         "stage-installer.json",
         "stage-test-iso-build.json",
-        "stage-test-iso-boot.json"
+        "stage-test-iso-boot.json",
+        "stage-reproducibility.json"
     ]
     if args.active_release_mode == "fresh-install-only":
         req_stage_logs.extend(["stage-candidate-upgrade.json", "stage-rollback.json"])
@@ -269,27 +281,27 @@ def main():
     if "0 upgraded, 7 newly installed, 0 to remove and 0 not upgraded." in apt_out and "Executed real apt-get" not in apt_out and "Get:" not in apt_out and "Reading package lists" not in apt_out:
         fail("Synthetic echo-generated APT log detected! Real apt-get execution output is required.")
 
-    # 2. Candidate 2 upgrade must specify actual Candidate 2 ISO checksum
-    cand_obs = stage_data["candidate-upgrade"].get("observations", {})
-    cand_sha = cand_obs.get("candidate2_iso_sha256")
-    if not cand_sha:
-        for a in stage_data["candidate-upgrade"].get("assertions", []):
-            if "candidate2_iso_sha256" in a:
-                cand_sha = a.get("candidate2_iso_sha256")
+    if args.active_release_mode != "fresh-install-only":
+        # Candidate 2 upgrade must specify actual Candidate 2 ISO checksum in legacy modes only.
+        cand_obs = stage_data["candidate-upgrade"].get("observations", {})
+        cand_sha = cand_obs.get("candidate2_iso_sha256")
         if not cand_sha:
-            cand_hashes = stage_data["candidate-upgrade"].get("artifact_hashes", {})
-            cand_sha = cand_hashes.get("candidate2_iso_sha256")
-    if cand_sha == RETIRED_CANDIDATE2_SHA:
-        fail("Candidate 2 upgrade stage used retired zero-filled artifact SHA-256 as a successful migration source")
-    if not cand_sha:
-        fail("Candidate 2 upgrade stage log SHA-256 is missing")
-    if cand_sha != expected_cand_sha:
-        fail(f"Candidate 2 upgrade stage log SHA-256 '{cand_sha}' does not match active provenance SHA-256 '{expected_cand_sha}'")
+            for a in stage_data["candidate-upgrade"].get("assertions", []):
+                if "candidate2_iso_sha256" in a:
+                    cand_sha = a.get("candidate2_iso_sha256")
+            if not cand_sha:
+                cand_hashes = stage_data["candidate-upgrade"].get("artifact_hashes", {})
+                cand_sha = cand_hashes.get("candidate2_iso_sha256")
+        if cand_sha == RETIRED_CANDIDATE2_SHA:
+            fail("Candidate 2 upgrade stage used retired zero-filled artifact SHA-256 as a successful migration source")
+        if not cand_sha:
+            fail("Candidate 2 upgrade stage log SHA-256 is missing")
+        if cand_sha != expected_cand_sha:
+            fail(f"Candidate 2 upgrade stage log SHA-256 '{cand_sha}' does not match active provenance SHA-256 '{expected_cand_sha}'")
 
-    # Rejection 15: Migration script without staging URL
-    cand_cmd = str(stage_data["candidate-upgrade"].get("command", ""))
-    if "--staging-url" not in cand_cmd and "migrate-candidate2.sh" in cand_cmd:
-        fail("Candidate 2 migration script executed without required --staging-url!")
+        cand_cmd = str(stage_data["candidate-upgrade"].get("command", ""))
+        if "--staging-url" not in cand_cmd and "migrate-candidate2.sh" in cand_cmd:
+            fail("Candidate 2 migration script executed without required --staging-url!")
 
     # 3. Installer stage must contain installer execution logs
     inst_obs = stage_data["installer"].get("observations", {})
@@ -303,7 +315,7 @@ def main():
 
     # 4. Test ISO build must execute build.sh, match current commit, and pass structural validation
     iso_cmd = stage_data["test-iso-build"].get("command", "")
-    if "build.sh" not in iso_cmd:
+    if "build-active-release-candidate.sh" not in iso_cmd and "build.sh" not in iso_cmd:
         fail(f"test-iso-build command '{iso_cmd}' must execute build.sh!")
 
     iso_obs = stage_data["test-iso-build"].get("observations", {})
@@ -318,7 +330,9 @@ def main():
                 iso_file = a.get("iso_filename")
     if not iso_file:
         fail("Missing iso_filename in test-iso-build stage log observations")
-    iso_path = os.path.join(repo_root, "dist", iso_file)
+    iso_path = iso_obs.get("iso_path") or iso_obs.get("build_a_iso") or iso_file
+    if not os.path.isabs(iso_path):
+        iso_path = os.path.join(repo_root, "dist", iso_file)
     if not os.path.isfile(iso_path):
         fail(f"ISO file missing from disk at: {iso_path}")
         
@@ -337,6 +351,18 @@ def main():
         fail(f"Recorded ISO SHA-256 {recorded_sha} does not match file hash {real_iso_sha}")
 
     verify_iso_structure(repo_root, iso_path)
+
+    repro = stage_data["reproducibility"]
+    repro_hashes = repro.get("artifact_hashes", {})
+    if repro.get("status") != "PASS" or repro_hashes.get("cmp_exit_code") != 0:
+        fail("reproducibility evidence did not pass byte comparison")
+    if not repro_hashes.get("build_b_sha256") or repro_hashes.get("build_a_sha256") != repro_hashes.get("build_b_sha256"):
+        fail("Build A/Build B reproducibility SHA-256 evidence is missing or mismatched")
+
+    for stage_name, data in stage_data.items():
+        src = data.get("source_commit") or data.get("observations", {}).get("source_commit")
+        if src and src != current_commit:
+            fail(f"source SHA mismatch in stage {stage_name}: {src} != {current_commit}")
 
     # 5. Test ISO boot must contain real VM command logs, separate UEFI and BIOS evidence files
     boot_obs = stage_data["test-iso-boot"].get("observations", {})
@@ -424,9 +450,10 @@ def main():
             "command": stage_data["candidate-upgrade"]["command"],
             "exit_code": stage_data["candidate-upgrade"]["exit_code"],
             "timestamp": timestamp,
-            "environment": stage_data["candidate-upgrade"]["environment"],
-            "observations": stage_data["candidate-upgrade"]["observations"],
-            "status": "PASS"
+            "environment": stage_data["candidate-upgrade"].get("environment", "NOT_APPLICABLE"),
+            "observations": stage_data["candidate-upgrade"].get("observations", {}),
+            "reason": stage_data["candidate-upgrade"].get("reason") if args.active_release_mode == "fresh-install-only" else None,
+            "status": "NOT_APPLICABLE" if args.active_release_mode == "fresh-install-only" else "PASS"
         },
         "tamper-result.json": {
             "source_commit": current_commit,
@@ -442,9 +469,10 @@ def main():
             "command": stage_data["rollback"]["command"],
             "exit_code": stage_data["rollback"]["exit_code"],
             "timestamp": timestamp,
-            "environment": stage_data["rollback"]["environment"],
-            "observations": stage_data["rollback"]["observations"],
-            "status": "PASS"
+            "environment": stage_data["rollback"].get("environment", "NOT_APPLICABLE"),
+            "observations": stage_data["rollback"].get("observations", {}),
+            "reason": stage_data["rollback"].get("reason") if args.active_release_mode == "fresh-install-only" else None,
+            "status": "NOT_APPLICABLE" if args.active_release_mode == "fresh-install-only" else "PASS"
         },
         "installer-result.json": {
             "source_commit": current_commit,
@@ -471,6 +499,15 @@ def main():
             "timestamp": timestamp,
             "environment": stage_data["test-iso-boot"]["environment"],
             "observations": stage_data["test-iso-boot"]["observations"],
+            "status": "PASS"
+        },
+        "reproducibility-result.json": {
+            "source_commit": current_commit,
+            "command": stage_data["reproducibility"]["command"],
+            "exit_code": stage_data["reproducibility"]["exit_code"],
+            "timestamp": timestamp,
+            "environment": stage_data["reproducibility"].get("environment"),
+            "observations": stage_data["reproducibility"].get("observations", {}),
             "status": "PASS"
         },
         "final-package-migration-result.json": {

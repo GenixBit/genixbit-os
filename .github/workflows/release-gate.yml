@@ -1,8 +1,15 @@
-name: Operator-Controlled Release Gate Execution
+name: 0.3.0-alpha Candidate Validation Gate
 
 on:
   workflow_dispatch:
     inputs:
+      candidate_branch:
+        description: 'Frozen candidate branch'
+        required: true
+        default: 'validation/0.3.0-alpha-candidate-2'
+      candidate_sha:
+        description: 'Full 40-character candidate commit SHA'
+        required: true
       target_version:
         description: 'Target Release Version (e.g. 0.3.0-alpha)'
         required: true
@@ -17,7 +24,7 @@ concurrency:
 
 jobs:
   release-gate-validation:
-    name: Operator-Controlled Release Gate Execution
+    name: Candidate Validation Gate
     runs-on:
       - self-hosted
       - linux
@@ -33,9 +40,10 @@ jobs:
       ACTIVE_RELEASE_VERSION: 0.3.0-alpha
       ACTIVE_RELEASE_MODE: fresh-install-only
       ACTIVE_RELEASE_PROVENANCE_FILE: docs/releases/0.3.0-alpha-artifact.json
-      ACTIVE_RELEASE_ISO_LOCAL: dist/GenixBitOS-0.3.0-alpha.iso
       ACTIVE_RELEASE_ISO_URL: ${{ vars.ACTIVE_RELEASE_ISO_URL }}
-      ACTIVE_RELEASE_SOURCE_COMMIT: ${{ github.sha }}
+      ACTIVE_RELEASE_SOURCE_COMMIT: ${{ inputs.candidate_sha }}
+      EXPECTED_CANDIDATE_BRANCH: ${{ inputs.candidate_branch }}
+      EXPECTED_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}
       GCP_ZONE: ${{ vars.GCP_ZONE }}
@@ -52,6 +60,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.candidate_sha }}
+
+      - name: Verify frozen candidate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ '${{ inputs.candidate_branch }}' == 'validation/0.3.0-alpha-candidate-2' ]]
+          [[ '${{ inputs.target_version }}' == '0.3.0-alpha' ]]
+          [[ '${{ inputs.candidate_sha }}' =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin '${{ inputs.candidate_branch }}:${{ inputs.candidate_branch }}'
+          branch_sha=$(git rev-parse '${{ inputs.candidate_branch }}')
+          [[ "$branch_sha" == '${{ inputs.candidate_sha }}' ]]
+          [[ "$(git rev-parse HEAD)" == '${{ inputs.candidate_sha }}' ]]
+          git switch -C '${{ inputs.candidate_branch }}' '${{ inputs.candidate_sha }}'
+          [[ "$(git symbolic-ref --quiet --short HEAD)" == '${{ inputs.candidate_branch }}' ]]
+          [[ "$(git rev-parse HEAD)" == '${{ inputs.candidate_sha }}' ]]
 
       - name: Install Build Dependencies
         run: |
@@ -83,6 +107,7 @@ jobs:
           bash tools/validation/test-release-preflight-evidence.sh
           bash tools/validation/test-candidate2-retirement.sh
           bash tools/validation/test-active-release-artifact.sh
+          bash tools/validation/test-candidate-validation-gate.sh
           bash tests/infrastructure/test-qmp-json-parsing.sh
           bash tests/infrastructure/test-candidate2-failure-evidence.sh
           bash tests/infrastructure/test-mksquashfs-runner.sh
@@ -97,6 +122,9 @@ jobs:
           ACTIVE_RELEASE_VERSION: "0.3.0-alpha"
           ACTIVE_RELEASE_MODE: "fresh-install-only"
           ACTIVE_RELEASE_PROVENANCE_FILE: "docs/releases/0.3.0-alpha-artifact.json"
+          ACTIVE_RELEASE_SOURCE_COMMIT: "${{ inputs.candidate_sha }}"
+          EXPECTED_CANDIDATE_BRANCH: "${{ inputs.candidate_branch }}"
+          EXPECTED_CANDIDATE_SHA: "${{ inputs.candidate_sha }}"
           GENIXBIT_STAGING_SERVER: "${{ vars.GENIXBIT_STAGING_SERVER || 'http://staging-packages.os.genixbit.internal' }}"
           STAGING_SIGNING_PASSPHRASE: "${{ secrets.STAGING_SIGNING_PASSPHRASE }}"
         run: |
@@ -108,11 +136,16 @@ jobs:
           ACTIVE_RELEASE_VERSION=0.3.0-alpha \
           ACTIVE_RELEASE_MODE=fresh-install-only \
           ACTIVE_RELEASE_PROVENANCE_FILE=docs/releases/0.3.0-alpha-artifact.json \
+          ACTIVE_RELEASE_SOURCE_COMMIT='${{ inputs.candidate_sha }}' \
+          EXPECTED_CANDIDATE_BRANCH='${{ inputs.candidate_branch }}' \
+          EXPECTED_CANDIDATE_SHA='${{ inputs.candidate_sha }}' \
           bash tools/validation/validate-package-migration.sh
 
       - name: Validate Release Gate Integrity
         run: |
-          bash tools/validation/check-release-gate.sh
+          bash tools/validation/check-release-gate.sh \
+            --gate-file infra/package-staging/results/current/0.3.0-alpha-release-gate.json \
+            --provenance-file infra/package-staging/results/current/0.3.0-alpha-artifact.json
 
       - name: Upload Private Release Gate Validation Artifacts
         if: always()
@@ -123,7 +156,19 @@ jobs:
             infra/package-staging/results/stage-logs/**
             infra/package-staging/results/current/**
             infra/package-staging/results/runtime/**
-            docs/releases/0.3.0-release-gate.json
+            infra/package-staging/results/builds/build-a-build.json
+            infra/package-staging/results/builds/build-a.env
+            infra/package-staging/results/builds/build-a-build.stdout.log
+            infra/package-staging/results/builds/build-a-build.stderr.log
+            infra/package-staging/results/builds/build-b-build.json
+            infra/package-staging/results/builds/build-b.env
+            infra/package-staging/results/builds/build-b-build.stdout.log
+            infra/package-staging/results/builds/build-b-build.stderr.log
+            infra/package-staging/results/builds/build-a-iso-structure.stdout.log
+            infra/package-staging/results/builds/build-a-iso-structure.stderr.log
+            infra/package-staging/results/builds/build-b-iso-structure.stdout.log
+            infra/package-staging/results/builds/build-b-iso-structure.stderr.log
+            infra/package-staging/results/builds/build-a-GenixBitOS-0.3.0-alpha-*.iso
             !infra/package-staging/results/runtime/**/id_*
             !infra/package-staging/results/runtime/**/*.key
             !infra/package-staging/results/runtime/**/*private*
