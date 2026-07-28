@@ -460,7 +460,7 @@ fi
     set -e
 
     if (( CAND2_INSTALL_EXIT != 0 )); then
-        CAND2_FAIL_REASON=$(grep '\[FAIL\]' "$CAND2_STDOUT_LOG" 2>/dev/null | tail -1 || echo "non-zero exit $CAND2_INSTALL_EXIT")
+        CAND2_FAIL_REASON=$(grep -E '^\s*\[FAIL\]' "$CAND2_STDERR_LOG" 2>/dev/null | tail -1 || echo "non-zero exit $CAND2_INSTALL_EXIT")
         write_candidate_stage_failure "candidate2_install" "$CAND2_INSTALL_EXIT" "$CAND2_FAIL_REASON"
         fail "Candidate 2 installation failed (exit $CAND2_INSTALL_EXIT): $CAND2_FAIL_REASON"
     fi
@@ -544,6 +544,26 @@ fi
     if [[ -z "$MIG_PRE_SHA" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} pre_sha_empty"; fi
     if [[ "$MIG_PRE_SHA" != "$MIG_ROLLBACK_SHA" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} sha_mismatch"; fi
 
+    # Read binding fields from migration result
+    MIG_INSTALL_SOURCE_COMMIT=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_source_commit',''))" 2>/dev/null || echo "")
+    MIG_INSTALL_ISO_SHA256=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_source_iso_sha256',''))" 2>/dev/null || echo "")
+    MIG_INSTALL_ISO_SHA512=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_source_iso_sha512',''))" 2>/dev/null || echo "")
+    MIG_INSTALL_INSTALLER_VM=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_installer_vm_id',''))" 2>/dev/null || echo "")
+    MIG_INSTALL_INSTALLED_VM=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_installed_vm_id',''))" 2>/dev/null || echo "")
+
+    # Read corresponding fields from installation state for binding validation
+    STATE_SOURCE_COMMIT=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('source_commit',''))" 2>/dev/null || echo "")
+    STATE_ISO_SHA256=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('source_iso_sha256',''))" 2>/dev/null || echo "")
+    STATE_ISO_SHA512=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('source_iso_sha512',''))" 2>/dev/null || echo "")
+    STATE_INSTALLER_VM=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('vm_id',''))" 2>/dev/null || echo "")
+    STATE_INSTALLED_VM=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('installed_vm_id',''))" 2>/dev/null || echo "")
+
+    [[ "$MIG_INSTALL_SOURCE_COMMIT" == "$STATE_SOURCE_COMMIT" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} source_commit_binding: mig=$MIG_INSTALL_SOURCE_COMMIT != state=$STATE_SOURCE_COMMIT"
+    [[ "$MIG_INSTALL_ISO_SHA256" == "$STATE_ISO_SHA256" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} iso_sha256_binding: mig=$MIG_INSTALL_ISO_SHA256 != state=$STATE_ISO_SHA256"
+    [[ "$MIG_INSTALL_ISO_SHA512" == "$STATE_ISO_SHA512" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} iso_sha512_binding: mig=$MIG_INSTALL_ISO_SHA512 != state=$STATE_ISO_SHA512"
+    [[ "$MIG_INSTALL_INSTALLER_VM" == "$STATE_INSTALLER_VM" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} installer_vm_binding: mig=$MIG_INSTALL_INSTALLER_VM != state=$STATE_INSTALLER_VM"
+    [[ "$MIG_INSTALL_INSTALLED_VM" == "$STATE_INSTALLED_VM" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} installed_vm_binding: mig=$MIG_INSTALL_INSTALLED_VM != state=$STATE_INSTALLED_VM"
+
     if [[ -n "$MIG_VALIDATION_FAILURES" ]]; then
         write_candidate_stage_failure "invalid_migration_result" "$CAND2_MIG_EXIT" "Migration result validation failures:${MIG_VALIDATION_FAILURES}"
         fail "Candidate 2 migration result validation failures:${MIG_VALIDATION_FAILURES}"
@@ -565,7 +585,7 @@ fi
   "environment": "Disposable Candidate 2 legacy VM container",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stderr.log",
-  "artifact_paths": ["$RUNTIME_EVIDENCE_DIR/failure-summary.json", "$RUNTIME_EVIDENCE_DIR/install-completion.json", "$RUNTIME_EVIDENCE_DIR/installer.serial.log", "$RUNTIME_EVIDENCE_DIR/vm-state.final.json", "$RUNTIME_EVIDENCE_DIR/shutdown-result.json", "$RUNTIME_EVIDENCE_DIR/migration-result.json"],
+  "artifact_paths": ["$RUNTIME_EVIDENCE_DIR/install-completion.json", "$RUNTIME_EVIDENCE_DIR/installer.serial.log", "$RUNTIME_EVIDENCE_DIR/vm-state.final.json", "$RUNTIME_EVIDENCE_DIR/shutdown-result.json", "$RUNTIME_EVIDENCE_DIR/migration-result.json"],
   "artifact_hashes": {
     "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
     "candidate2_iso_sha512": "$CAND2_ACTUAL_SHA512"

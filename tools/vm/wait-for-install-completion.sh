@@ -44,30 +44,52 @@ write_out_json() {
     ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     [[ -n "$token_hash" ]] || token_hash=$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')
 
-    python3 -c "
+    VM_ID="$VM_ID" \
+    MODE="$MODE" \
+    TERMINAL_STATE="$terminal_state" \
+    FINAL_STATUS="$final" \
+    FAIL_PHASE="$fail_phase" \
+    FAIL_REASON="$fail_reason" \
+    TOKEN_HASH="$token_hash" \
+    TS="$ts" \
+    TOKEN_OBSERVED="$token_observed" \
+    PROGRESS_OBSERVED="$progress_observed" \
+    QEMU_STOPPED="$qemu_stopped" \
+    FS_VERIFIED="$fs_verified" \
+    OUT_JSON="$OUT_JSON" \
+    python3 - "$OUT_JSON" <<'PYEOF'
 import json
+import os
+import sys
+
+def boolean(name: str) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false, got {value!r}")
+    return value == "true"
+
 result = {
-    'schema_version': '1.0',
-    'vm_id': '$VM_ID',
-    'firmware_mode': '$MODE',
-    'installer_progress_observed': ${progress_observed},
-    'serial_token_observed': ${token_observed},
-    'filesystem_token_verified': ${fs_verified},
-    'qemu_process_stopped': ${qemu_stopped},
-    'installer_terminal_state': '${terminal_state}',
-    'failure_phase': '${fail_phase}',
-    'failure_reason': '${fail_reason}',
-    'completion_token_hash': '${token_hash}',
-    'token_source': 'installed_root_filesystem',
-    'token_path': '/etc/genixbit-install-token',
-    'root_partition': '/dev/vda1',
-    'root_fs_type': 'ext4',
-    'verification_timestamp': '${ts}',
-    'final_status': '${final}'
+    "schema_version": "1.0",
+    "vm_id": os.environ["VM_ID"],
+    "firmware_mode": os.environ["MODE"],
+    "installer_progress_observed": boolean("PROGRESS_OBSERVED"),
+    "serial_token_observed": boolean("TOKEN_OBSERVED"),
+    "filesystem_token_verified": boolean("FS_VERIFIED"),
+    "qemu_process_stopped": boolean("QEMU_STOPPED"),
+    "installer_terminal_state": os.environ["TERMINAL_STATE"],
+    "failure_phase": os.environ.get("FAIL_PHASE", ""),
+    "failure_reason": os.environ.get("FAIL_REASON", ""),
+    "completion_token_hash": os.environ["TOKEN_HASH"],
+    "token_source": "installed_root_filesystem",
+    "token_path": "/etc/genixbit-install-token",
+    "root_partition": "/dev/vda1",
+    "root_fs_type": "ext4",
+    "verification_timestamp": os.environ["TS"],
+    "final_status": os.environ["FINAL_STATUS"],
 }
-with open('$OUT_JSON', 'w') as f:
-    json.dump(result, f, indent=2)
-"
+with open(os.environ["OUT_JSON"], "w", encoding="utf-8") as handle:
+    json.dump(result, handle, indent=2)
+PYEOF
 }
 
 while (($# > 0)); do

@@ -285,38 +285,63 @@ args = [item.decode("utf-8", errors="replace") for item in raw if item]
 json.dump(args, sys.stdout, indent=2)
 ' > "$QEMU_ARGS_FILE"
         QEMU_BIN=$(get_qemu_binary)
-        python3 -c "
-import json, time
-with open('$QEMU_ARGS_FILE', 'r') as f:
+        NO_REBOOT="$NO_REBOOT" \
+        VM_ID="$VM_ID" \
+        MODE="$MODE" \
+        QEMU_PID="$QEMU_PID" \
+        PID_FILE="$PID_FILE" \
+        QMP_SOCKET="$QMP_SOCKET" \
+        SSH_PORT="$SSH_PORT" \
+        SERIAL_LOG="$SERIAL_LOG" \
+        DISK_PATH="$DISK_PATH" \
+        ISO_PATH="$ISO_PATH" \
+        SEED_ISO_PATH="$SEED_ISO_PATH" \
+        KERNEL_PATH="$KERNEL_PATH" \
+        INITRD_PATH="$INITRD_PATH" \
+        KERNEL_APPEND="$KERNEL_APPEND" \
+        QEMU_BIN="$QEMU_BIN" \
+        QEMU_ARGS_FILE="$QEMU_ARGS_FILE" \
+        STATE_FILE="$STATE_FILE" \
+        python3 - <<'PYEOF'
+import json
+import os
+
+def boolean(name: str) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false, got {value!r}")
+    return value == "true"
+
+with open(os.environ["QEMU_ARGS_FILE"], "r") as f:
     qemu_args_list = json.load(f)
+
 state = {
-    'vm_id': '$VM_ID',
-    'mode': '$MODE',
-    'pid': $QEMU_PID,
-    'pid_file': '$PID_FILE',
-    'qmp_socket': '$QMP_SOCKET',
-    'ssh_port': $SSH_PORT,
-    'serial_log': '$SERIAL_LOG',
-    'disk_path': '$DISK_PATH',
-    'iso_path': '$ISO_PATH',
-    'seed_iso_path': '$SEED_ISO_PATH',
-    'kernel_path': '$KERNEL_PATH',
-    'initrd_path': '$INITRD_PATH',
-    'kernel_cmdline': '$KERNEL_APPEND',
-    'no_reboot': $([ '$NO_REBOOT' = 'true' ] && echo True || echo False),
-    'qemu_binary': '$QEMU_BIN',
-    'source_iso_path': '$ISO_PATH',
-    'seed_iso_path': '$SEED_ISO_PATH',
-    'target_disk_path': '$DISK_PATH',
-    'firmware_mode': '$MODE',
-    'qemu_arguments': qemu_args_list,
-    'start_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
-    'state': 'running',
-    'qmp_ready': True
+    "vm_id": os.environ["VM_ID"],
+    "mode": os.environ["MODE"],
+    "pid": int(os.environ["QEMU_PID"]),
+    "pid_file": os.environ["PID_FILE"],
+    "qmp_socket": os.environ["QMP_SOCKET"],
+    "ssh_port": int(os.environ["SSH_PORT"]),
+    "serial_log": os.environ["SERIAL_LOG"],
+    "disk_path": os.environ["DISK_PATH"],
+    "iso_path": os.environ["ISO_PATH"],
+    "seed_iso_path": os.environ["SEED_ISO_PATH"],
+    "kernel_path": os.environ["KERNEL_PATH"],
+    "initrd_path": os.environ["INITRD_PATH"],
+    "kernel_cmdline": os.environ["KERNEL_APPEND"],
+    "no_reboot": boolean("NO_REBOOT"),
+    "qemu_binary": os.environ["QEMU_BIN"],
+    "source_iso_path": os.environ["ISO_PATH"],
+    "target_disk_path": os.environ["DISK_PATH"],
+    "firmware_mode": os.environ["MODE"],
+    "qemu_arguments": qemu_args_list,
+    "start_timestamp": __import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "state": "running",
+    "qmp_ready": True,
 }
-with open('$STATE_FILE', 'w') as f:
+with open(os.environ["STATE_FILE"], "w") as f:
     json.dump(state, f, indent=2)
-"
+PYEOF
         printf '[PASS] Managed QEMU background VM started successfully (VM: %s, PID: %s, Port: %s)\n' "$VM_ID" "$QEMU_PID" "$SSH_PORT"
         ;;
 
@@ -324,22 +349,28 @@ with open('$STATE_FILE', 'w') as f:
         [[ -n "$STATE_DIR" ]] || fail '--state-dir is required for stop when a managed state file exists.'
         if [[ -z "$PID_FILE" || ! -f "$PID_FILE" ]]; then
             SHUTDOWN_STATE="NOT_STARTED"
-            STOP_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            python3 -c "
+            VM_ID="$VM_ID" \
+            STATE_DIR="$STATE_DIR" \
+            SHUTDOWN_STATE="$SHUTDOWN_STATE" \
+            python3 - <<'PYEOF'
 import json
+import os
+import datetime
+
 result = {
-    'vm_id': '$VM_ID',
-    'pid': 0,
-    'requested_action': 'stop',
-    'shutdown_state': '$SHUTDOWN_STATE',
-    'process_alive_after_stop': false,
-    'qmp_socket_present_after_stop': false,
-    'timestamp': '$STOP_TIMESTAMP',
-    'status': 'SKIP'
+    "vm_id": os.environ["VM_ID"],
+    "pid": 0,
+    "requested_action": "stop",
+    "shutdown_state": os.environ["SHUTDOWN_STATE"],
+    "process_alive_after_stop": False,
+    "qmp_socket_present_after_stop": False,
+    "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "status": "SKIP",
 }
-with open('${STATE_DIR}/shutdown-${VM_ID}.json', 'w') as f:
+path = os.path.join(os.environ["STATE_DIR"], f"shutdown-{os.environ['VM_ID']}.json")
+with open(path, "w", encoding="utf-8") as f:
     json.dump(result, f, indent=2)
-"
+PYEOF
             printf '[INFO] run-qemu.sh (stop): pid-file absent or missing for VM %s — not started, skipping.\n' "$VM_ID" >&2
             exit 0
         fi
@@ -348,24 +379,30 @@ with open('${STATE_DIR}/shutdown-${VM_ID}.json', 'w') as f:
         QEMU_PID=$(cat "$PID_FILE" 2>/dev/null || echo "")
         if [[ -z "$QEMU_PID" ]]; then
             SHUTDOWN_STATE="ALREADY_STOPPED_VERIFIED"
-            STOP_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
             rm -f "$PID_FILE" 2>/dev/null || true
             if [[ -S "$QMP_SOCKET" ]]; then rm -f "$QMP_SOCKET"; fi
-            python3 -c "
+            VM_ID="$VM_ID" \
+            STATE_DIR="$STATE_DIR" \
+            SHUTDOWN_STATE="$SHUTDOWN_STATE" \
+            python3 - <<'PYEOF'
 import json
+import os
+import datetime
+
 result = {
-    'vm_id': '$VM_ID',
-    'pid': 0,
-    'requested_action': 'stop',
-    'shutdown_state': '$SHUTDOWN_STATE',
-    'process_alive_after_stop': false,
-    'qmp_socket_present_after_stop': false,
-    'timestamp': '$STOP_TIMESTAMP',
-    'status': 'PASS'
+    "vm_id": os.environ["VM_ID"],
+    "pid": 0,
+    "requested_action": "stop",
+    "shutdown_state": os.environ["SHUTDOWN_STATE"],
+    "process_alive_after_stop": False,
+    "qmp_socket_present_after_stop": False,
+    "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "status": "PASS",
 }
-with open('${STATE_DIR}/shutdown-${VM_ID}.json', 'w') as f:
+path = os.path.join(os.environ["STATE_DIR"], f"shutdown-{os.environ['VM_ID']}.json")
+with open(path, "w", encoding="utf-8") as f:
     json.dump(result, f, indent=2)
-"
+PYEOF
             printf '[PASS] VM stopped cleanly (ALREADY_STOPPED_VERIFIED)\n'
             exit 0
         fi
@@ -415,46 +452,70 @@ with open('${STATE_DIR}/shutdown-${VM_ID}.json', 'w') as f:
             PROCESS_ALIVE=false
         fi
 
-        rm -f "$PID_FILE" 2>/dev/null || true
-        if [[ -S "$QMP_SOCKET" ]]; then rm -f "$QMP_SOCKET"; fi
-        QMP_PRESENT_AFTER=$([[ -S "$QMP_SOCKET" ]] && echo true || echo false)
         QMP_PRESENT_AFTER=false
+        if [[ -S "$QMP_SOCKET" ]]; then
+            QMP_PRESENT_AFTER=true
+            rm -f "$QMP_SOCKET"
+        fi
+        rm -f "$PID_FILE" 2>/dev/null || true
 
-        STOP_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
         SHUTDOWN_STATUS="PASS"
         if [[ "$SHUTDOWN_STATE" == "FORCED_SIGTERM" || "$SHUTDOWN_STATE" == "FORCED_SIGKILL" || "$SHUTDOWN_STATE" == "STOP_FAILED" ]]; then
             SHUTDOWN_STATUS="FAIL"
         fi
 
-        # Write shutdown-result JSON
-        python3 -c "
+        VM_ID="$VM_ID" \
+        STATE_DIR="$STATE_DIR" \
+        QEMU_PID="$QEMU_PID" \
+        SHUTDOWN_STATE="$SHUTDOWN_STATE" \
+        PROCESS_ALIVE="$PROCESS_ALIVE" \
+        QMP_PRESENT_AFTER="$QMP_PRESENT_AFTER" \
+        SHUTDOWN_STATUS="$SHUTDOWN_STATUS" \
+        python3 - <<'PYEOF'
 import json
+import os
+import datetime
+
+def boolean(name: str) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false, got {value!r}")
+    return value == "true"
+
 result = {
-    'vm_id': '$VM_ID',
-    'pid': $QEMU_PID,
-    'requested_action': 'stop',
-    'shutdown_state': '$SHUTDOWN_STATE',
-    'process_alive_after_stop': $PROCESS_ALIVE,
-    'qmp_socket_present_after_stop': $QMP_PRESENT_AFTER,
-    'timestamp': '$STOP_TIMESTAMP',
-    'status': '$SHUTDOWN_STATUS'
+    "vm_id": os.environ["VM_ID"],
+    "pid": int(os.environ["QEMU_PID"]),
+    "requested_action": "stop",
+    "shutdown_state": os.environ["SHUTDOWN_STATE"],
+    "process_alive_after_stop": boolean("PROCESS_ALIVE"),
+    "qmp_socket_present_after_stop": boolean("QMP_PRESENT_AFTER"),
+    "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "status": os.environ["SHUTDOWN_STATUS"],
 }
-with open('${STATE_DIR}/shutdown-${VM_ID}.json', 'w') as f:
+path = os.path.join(os.environ["STATE_DIR"], f"shutdown-{os.environ['VM_ID']}.json")
+with open(path, "w", encoding="utf-8") as f:
     json.dump(result, f, indent=2)
-"
+PYEOF
 
         # State JSON update (set state to actual result, never running)
         if [[ -n "$VM_ID" && -n "$STATE_DIR" ]]; then
             state_file_path="${STATE_DIR}/vm-${VM_ID}.json"
             if [[ -f "$state_file_path" ]]; then
-                python3 -c "
+                STATE_FILE_PATH="$state_file_path" \
+                SHUTDOWN_STATE="$SHUTDOWN_STATE" \
+                SHUTDOWN_STATUS="$SHUTDOWN_STATUS" \
+                python3 - <<'PYEOF'
 import json
-p = '$state_file_path'
-with open(p, 'r') as f: data = json.load(f)
-data['state'] = '$SHUTDOWN_STATE'
-data['shutdown_status'] = '$SHUTDOWN_STATUS'
-with open(p, 'w') as f: json.dump(data, f, indent=2)
-"
+import os
+
+path = os.environ["STATE_FILE_PATH"]
+with open(path, "r") as f:
+    data = json.load(f)
+data["state"] = os.environ["SHUTDOWN_STATE"]
+data["shutdown_status"] = os.environ["SHUTDOWN_STATUS"]
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+PYEOF
             fi
         fi
 

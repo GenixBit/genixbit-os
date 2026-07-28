@@ -141,6 +141,14 @@ if [[ -z "$SSH_USER" ]]; then
     SSH_USER=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('ssh_username', 'genixbit'))")
 fi
 
+# Read binding fields from installation state for migration-result attestation
+INSTALL_SOURCE_COMMIT=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('source_commit', 'unknown'))")
+INSTALL_SOURCE_ISO_SHA256=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('source_iso_sha256', 'unknown'))")
+INSTALL_SOURCE_ISO_SHA512=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('source_iso_sha512', 'unknown'))")
+INSTALL_INSTALLER_VM_ID=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('vm_id', 'unknown'))")
+INSTALL_INSTALLED_VM_ID=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('installed_vm_id', 'unknown'))")
+INSTALL_WORKFLOW_RUN_ID=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('workflow_run_id', 'unknown'))")
+
 [[ -n "$DISK_PATH" && -f "$DISK_PATH" ]] || fail "Installed disk path ($DISK_PATH) is required and must exist."
 [[ -n "$SSH_KEY" && -f "$SSH_KEY" ]] || fail "Provisioned SSH private key ($SSH_KEY) is required and must exist."
 
@@ -591,9 +599,16 @@ result = {
         '$REUPGRADE_GUEST_LOG'
     ],
     'execution_timestamp': '$EXEC_TIMESTAMP',
+    # Binding fields from installation state — attest that migration ran on the same candidate2 build
+    'installation_source_commit': '$INSTALL_SOURCE_COMMIT',
+    'installation_source_iso_sha256': '$INSTALL_SOURCE_ISO_SHA256',
+    'installation_source_iso_sha512': '$INSTALL_SOURCE_ISO_SHA512',
+    'installation_installer_vm_id': '$INSTALL_INSTALLER_VM_ID',
+    'installation_installed_vm_id': '$INSTALL_INSTALLED_VM_ID',
+    'installation_workflow_run_id': '$INSTALL_WORKFLOW_RUN_ID',
 }
 
-# Final status: ALL 18 observed conditions must be satisfied
+# Final status: ALL 18 observed conditions plus binding fields must be satisfied
 all_pass = (
     result['apt_install_exit_code'] == '0' and
     result['apt_check_exit_code'] == '0' and

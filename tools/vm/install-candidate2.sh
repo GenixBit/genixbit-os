@@ -72,16 +72,14 @@ done
 [[ -n "$ISO_PATH" && -f "$ISO_PATH" ]] || fail 'Valid --iso path is required.'
 [[ -n "$DISK_PATH" ]] || fail '--disk path is required.'
 
-# 1. Validate Candidate 2 ISO checksum
-CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
-if [[ "$CAND2_VERIFIED_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
-    fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA} — expected 1cb79fbf..."
-fi
-CAND2_VERIFIED_SHA512=$(sha512sum "$ISO_PATH" | awk '{print $1}')
-info "Candidate 2 ISO SHA-256 verified: $CAND2_VERIFIED_SHA"
-info "Candidate 2 ISO SHA-512 verified: ${CAND2_VERIFIED_SHA512:0:16}..."
+# Lifecycle variables — set BEFORE trap so cleanup_exit always has safe defaults
+INSTALL_PHASE="initialization"
+INSTALL_EXIT_CODE=0
+INSTALLER_VM_STARTED=false
+INSTALLED_VM_STARTED=false
+CLEANUP_RUNNING=false
 
-# 2. Setup state directory and unique run identifiers
+# Setup state directory and unique run identifiers BEFORE trap
 VM_ID="cand2_${MODE}_$(date +%s)_$$"
 state_dir="$(dirname "$DISK_PATH")/cand2-${MODE}-state"
 REPO_TOP=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -106,12 +104,7 @@ failure_summary_json="${RUNTIME_EVIDENCE_DIR}/failure-summary.json"
 
 [[ -n "$C2_SOURCE_COMMIT" ]] || C2_SOURCE_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-# Lifecycle variables
-INSTALL_PHASE="initialization"
-INSTALL_EXIT_CODE=0
-INSTALL_VM_STARTED=false
-INSTALL_VM_NATURALLY_STOPPED=false
-CLEANUP_RUNNING=false
+# --- Helper functions ---
 
 preserve_install_evidence() {
     local original_exit="$1"
@@ -138,91 +131,157 @@ preserve_install_evidence() {
     fi
 }
 
+cleanup_managed_vm() {
+    local vm_id="$1"
+    local vm_pid_file="$2"
+    local vm_qmp_socket="$3"
+    local vm_state_dir="$4"
+    local vm_label="$5"
+
+    if [[ -f "$vm_pid_file" ]]; then
+        local vpid
+        vpid=$(cat "$vm_pid_file" 2>/dev/null || echo "")
+        if [[ -n "$vpid" ]] && kill -0 "$vpid" 2>/dev/null; then
+            info "Stopping $vm_label VM ($vm_id) via managed shutdown..."
+            if [[ -S "$vm_qmp_socket" ]]; then
+                bash "$(dirname "$0")/capture-screenshot.sh" \
+                  --socket "$vm_qmp_socket" \
+                  --output "${RUNTIME_EVIDENCE_DIR}/final-${vm_label}.ppm" \
+                  2>/dev/null || true
+            fi
+            bash "$(dirname "$0")/run-qemu.sh" stop \
+                --vm-id "$vm_id" \
+                --pid-file "$vm_pid_file" \
+                --qmp-socket "$vm_qmp_socket" \
+                --state-dir "$vm_state_dir" || true
+            return 0
+        fi
+    fi
+    if [[ -S "$vm_qmp_socket" ]]; then
+        rm -f "$vm_qmp_socket"
+    fi
+    return 0
+}
+
 cleanup_exit() {
     local exit_code=$?
     INSTALL_EXIT_CODE=$exit_code
 
-    preserve_install_evidence "$exit_code"
+    cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/vm-state.before-cleanup.json" 2>/dev/null || true
+    cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/shutdown-result.before-cleanup.json" 2>/dev/null || true
 
-    if [[ "$INSTALL_VM_STARTED" == "true" ]]; then
-        # Detect whether QEMU remained alive
-        local qemu_alive=false
-        if [[ -f "$pid_file" ]]; then
-            local qpid
-            qpid=$(cat "$pid_file" 2>/dev/null || echo "")
-            if [[ -n "$qpid" ]] && kill -0 "$qpid" 2>/dev/null; then
-                qemu_alive=true
-            fi
-        fi
+    local installer_cleanup_state="not_attempted"
+    if [[ "$INSTALLER_VM_STARTED" == "true" ]]; then
+        cleanup_managed_vm "$VM_ID" "$pid_file" "$qmp_path" "$state_dir" "installer"
+        installer_cleanup_state="attempted"
+    fi
 
-        if [[ "$qemu_alive" == "true" ]]; then
-            if [[ "$INSTALL_VM_NATURALLY_STOPPED" == "true" ]]; then
-                # Natural exit — verify QEMU is truly gone
-                local qpid
-                qpid=$(cat "$pid_file" 2>/dev/null || echo "")
-                if [[ -n "$qpid" ]] && kill -0 "$qpid" 2>/dev/null; then
-                    kill "$qpid" 2>/dev/null || true
-                    sleep 2
-                    if kill -0 "$qpid" 2>/dev/null; then
-                        kill -9 "$qpid" 2>/dev/null || true
-                    fi
-                fi
-            else
-                # Attempt graceful stop first
-                if [[ -S "$qmp_path" ]]; then
-                    bash "$(dirname "$0")/capture-screenshot.sh" \
-                      --socket "$qmp_path" \
-                      --output "$RUNTIME_EVIDENCE_DIR/final-installer.ppm" \
-                      2>/dev/null || true
-                fi
+    local installed_cleanup_state="not_attempted"
+    if [[ "$INSTALLED_VM_STARTED" == "true" ]]; then
+        local inst_pid="${state_dir}/qemu-${VM_ID}_inst.pid"
+        local inst_qmp="${state_dir}/qmp-${VM_ID}_inst.sock"
+        cleanup_managed_vm "${VM_ID}_inst" "$inst_pid" "$inst_qmp" "$state_dir" "installed"
+        installed_cleanup_state="attempted"
+    fi
 
-                local qpid
-                qpid=$(cat "$pid_file" 2>/dev/null || echo "")
-                if [[ -n "$qpid" ]] && kill -0 "$qpid" 2>/dev/null; then
-                    kill "$qpid" 2>/dev/null || true
-                    sleep 2
-                    if kill -0 "$qpid" 2>/dev/null; then
-                        kill -9 "$qpid" 2>/dev/null || true
-                    fi
-                fi
-            fi
+    local installer_alive=false
+    if [[ -f "$pid_file" ]]; then
+        local apid
+        apid=$(cat "$pid_file" 2>/dev/null || echo "")
+        if [[ -n "$apid" ]] && kill -0 "$apid" 2>/dev/null; then
+            installer_alive=true
         fi
     fi
+
+    local installed_alive=false
+    local inst_pid="${state_dir}/qemu-${VM_ID}_inst.pid"
+    if [[ -f "$inst_pid" ]]; then
+        local bpid
+        bpid=$(cat "$inst_pid" 2>/dev/null || echo "")
+        if [[ -n "$bpid" ]] && kill -0 "$bpid" 2>/dev/null; then
+            installed_alive=true
+        fi
+    fi
+
+    preserve_install_evidence "$exit_code"
+
+    cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/shutdown-result.json" 2>/dev/null || true
+    cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/vm-state.final.json" 2>/dev/null || true
 
     rm -f "$pid_file" 2>/dev/null || true
     rm -f "$qmp_path" 2>/dev/null || true
 
-    # Write failure-summary.json for any non-zero exit
     if [[ "$exit_code" -ne 0 ]]; then
         local wf_run_id="${GITHUB_RUN_ID:-local}"
-        local ts
-        ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-        python3 -c "
-import json
+        C2_SOURCE_COMMIT="$C2_SOURCE_COMMIT" \
+        WF_RUN_ID="$wf_run_id" \
+        VM_ID="$VM_ID" \
+        INSTALL_PHASE="$INSTALL_PHASE" \
+        EXIT_CODE="$exit_code" \
+        CAND2_VERIFIED_SHA="${CAND2_VERIFIED_SHA:-unknown}" \
+        CAND2_VERIFIED_SHA512="${CAND2_VERIFIED_SHA512:-unknown}" \
+        KERNEL_SHA256="${KERNEL_SHA256:-unknown}" \
+        INITRD_SHA256="${INITRD_SHA256:-unknown}" \
+        SEED_SHA256="${SEED_SHA256:-unknown}" \
+        KERNEL_APPEND="${KERNEL_APPEND:-unknown}" \
+        RUNTIME_EVIDENCE_DIR="$RUNTIME_EVIDENCE_DIR" \
+        INSTALLER_VM_STARTED="$INSTALLER_VM_STARTED" \
+        INSTALLED_VM_STARTED="$INSTALLED_VM_STARTED" \
+        INSTALLER_CLEANUP_STATE="$installer_cleanup_state" \
+        INSTALLED_CLEANUP_STATE="$installed_cleanup_state" \
+        INSTALLER_ALIVE="$installer_alive" \
+        INSTALLED_ALIVE="$installed_alive" \
+        FAILURE_SUMMARY_JSON="$failure_summary_json" \
+        python3 - <<'PYEOF'
+import json, os, datetime
+
+def boolean(name: str) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false, got {value!r}")
+    return value == "true"
+
 summary = {
-    'source_commit': '$C2_SOURCE_COMMIT',
-    'workflow_run_id': '$wf_run_id',
-    'vm_id': '$VM_ID',
-    'phase': '$INSTALL_PHASE',
-    'exit_code': $exit_code,
-    'failure_reason': 'install-candidate2.sh failed during phase $INSTALL_PHASE with exit code $exit_code',
-    'source_iso_sha256': '$CAND2_VERIFIED_SHA',
-    'source_iso_sha512': '$CAND2_VERIFIED_SHA512',
-    'kernel_sha256': '${KERNEL_SHA256:-unknown}',
-    'initrd_sha256': '${INITRD_SHA256:-unknown}',
-    'seed_iso_sha256': '${SEED_SHA256:-unknown}',
-    'kernel_command_line': '${KERNEL_APPEND:-unknown}',
-    'runtime_evidence_dir': '$RUNTIME_EVIDENCE_DIR',
-    'timestamp': '$ts',
-    'status': 'FAIL'
+    "source_commit": os.environ["C2_SOURCE_COMMIT"],
+    "workflow_run_id": os.environ["WF_RUN_ID"],
+    "vm_id": os.environ["VM_ID"],
+    "phase": os.environ["INSTALL_PHASE"],
+    "exit_code": int(os.environ["EXIT_CODE"]),
+    "failure_reason": f"install-candidate2.sh failed during phase {os.environ['INSTALL_PHASE']} with exit code {os.environ['EXIT_CODE']}",
+    "source_iso_sha256": os.environ.get("CAND2_VERIFIED_SHA", "unknown"),
+    "source_iso_sha512": os.environ.get("CAND2_VERIFIED_SHA512", "unknown"),
+    "kernel_sha256": os.environ.get("KERNEL_SHA256", "unknown"),
+    "initrd_sha256": os.environ.get("INITRD_SHA256", "unknown"),
+    "seed_iso_sha256": os.environ.get("SEED_SHA256", "unknown"),
+    "kernel_command_line": os.environ.get("KERNEL_APPEND", "unknown"),
+    "runtime_evidence_dir": os.environ["RUNTIME_EVIDENCE_DIR"],
+    "installer_vm_started": boolean("INSTALLER_VM_STARTED"),
+    "installed_vm_started": boolean("INSTALLED_VM_STARTED"),
+    "installer_cleanup_state": os.environ["INSTALLER_CLEANUP_STATE"],
+    "installed_cleanup_state": os.environ["INSTALLED_CLEANUP_STATE"],
+    "installer_process_alive_after_cleanup": boolean("INSTALLER_ALIVE"),
+    "installed_process_alive_after_cleanup": boolean("INSTALLED_ALIVE"),
+    "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "status": "FAIL",
 }
-with open('$failure_summary_json', 'w') as f:
+with open(os.environ["FAILURE_SUMMARY_JSON"], "w", encoding="utf-8") as f:
     json.dump(summary, f, indent=2)
-" 2>/dev/null || true
+PYEOF
     fi
 }
 
 trap cleanup_exit EXIT
+
+# --- End of trap setup ---
+
+# 1. Validate Candidate 2 ISO checksum
+CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
+if [[ "$CAND2_VERIFIED_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
+    fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA} — expected 1cb79fbf..."
+fi
+CAND2_VERIFIED_SHA512=$(sha512sum "$ISO_PATH" | awk '{print $1}')
+info "Candidate 2 ISO SHA-256 verified: $CAND2_VERIFIED_SHA"
+info "Candidate 2 ISO SHA-512 verified: ${CAND2_VERIFIED_SHA512:0:16}..."
 
 # 3. Create GENUINELY BLANK target QCOW2 disk.
 # The target disk must be blank. The installer running inside QEMU is the ONLY entity
@@ -300,7 +359,7 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
-INSTALL_VM_STARTED=true
+INSTALLER_VM_STARTED=true
 INSTALL_PHASE="installer_running"
 
 # 8. Capture initial screenshot
@@ -366,6 +425,9 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
+INSTALLED_VM_STARTED=true
+INSTALL_PHASE="installed_boot_verification"
+
 # Wait for installed guest SSH to become reachable — authentication is mandatory
 INSTALLED_READINESS_TOKEN="CAND2_INSTALLED_BOOT_${RUN_ID}_$(date +%s)"
 bash "$(dirname "$0")/wait-for-guest.sh" \
@@ -418,47 +480,70 @@ INSTALL_STATE_FILE="${state_dir}/cand2-install-state.json"
 TOKEN_HASH=$(printf '%s' "$INSTALL_TOKEN" | sha256sum | awk '{print $1}')
 CURR_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-python3 -c "
-import json, sys
+DISK_INSPECT_JSON="$disk_inspect_json" \
+COMPLETION_JSON="$completion_json" \
+CURR_SHA="$CURR_SHA" \
+RUN_ID="$RUN_ID" \
+ISO_PATH="$ISO_PATH" \
+CAND2_VERIFIED_SHA="$CAND2_VERIFIED_SHA" \
+CAND2_VERIFIED_SHA512="$CAND2_VERIFIED_SHA512" \
+KERNEL_SHA256="$KERNEL_SHA256" \
+INITRD_SHA256="$INITRD_SHA256" \
+SEED_SHA256="$SEED_SHA256" \
+KERNEL_APPEND="$KERNEL_APPEND" \
+VM_ID="$VM_ID" \
+MODE="$MODE" \
+DISK_PATH="$DISK_PATH" \
+INSTALLED_GUEST_CMD_LOG="$installed_guest_cmd_log" \
+SSH_KEY="$SSH_KEY" \
+SSH_PUB="$SSH_PUB" \
+SSH_FP="$SSH_FP" \
+RUNTIME_EVIDENCE_DIR="$RUNTIME_EVIDENCE_DIR" \
+INSTALL_STATE_FILE="$INSTALL_STATE_FILE" \
+python3 - <<'PYEOF'
+import json, os, sys, datetime
 
-with open('$disk_inspect_json', 'r') as f: disk_report = json.load(f)
-with open('$completion_json', 'r') as f: comp_report = json.load(f)
+with open(os.environ["DISK_INSPECT_JSON"], "r") as f:
+    disk_report = json.load(f)
+with open(os.environ["COMPLETION_JSON"], "r") as f:
+    comp_report = json.load(f)
 
-overall_status = 'PASS' if (disk_report.get('status') == 'PASS' and comp_report.get('final_status') == 'PASS') else 'FAIL'
-if overall_status != 'PASS':
-    sys.stderr.write('Candidate 2 verification failed! disk_report=' + str(disk_report.get('status')) + ', comp_report=' + str(comp_report.get('final_status')) + '\n')
+overall_status = "PASS" if (disk_report.get("status") == "PASS" and comp_report.get("final_status") == "PASS") else "FAIL"
+if overall_status != "PASS":
+    sys.stderr.write(f"Candidate 2 verification failed! disk_report={disk_report.get('status')}, comp_report={comp_report.get('final_status')}\n")
     sys.exit(1)
 
 state = {
-    'schema_version': '1.0',
-    'source_commit': '$CURR_SHA',
-    'workflow_run_id': '$RUN_ID',
-    'candidate2_iso_path': '$ISO_PATH',
-    'source_iso_sha256': '$CAND2_VERIFIED_SHA',
-    'source_iso_sha512': '$CAND2_VERIFIED_SHA512',
-    'kernel_sha256': '$KERNEL_SHA256',
-    'initrd_sha256': '$INITRD_SHA256',
-    'seed_iso_sha256': '$SEED_SHA256',
-    'kernel_command_line': '$KERNEL_APPEND',
-    'vm_id': '$VM_ID',
-    'firmware_mode': '$MODE',
-    'installed_disk_path': '$DISK_PATH',
-    'target_disk': '$DISK_PATH',
-    'disk_inspection_result': '$disk_inspect_json',
-    'install_completion_result': '$completion_json',
-    'installed_guest_commands_log': '$installed_guest_cmd_log',
-    'ssh_username': 'genixbit',
-    'ssh_private_key_path': '$SSH_KEY',
-    'ssh_public_key_path': '$SSH_PUB',
-    'ssh_public_key_fingerprint': '$SSH_FP',
-    'installation_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
-    'installed_boot_result': 'SSH_AUTHENTICATED_PASS',
-    'runtime_evidence_dir': '$RUNTIME_EVIDENCE_DIR',
-    'status': 'PASS'
+    "schema_version": "1.0",
+    "source_commit": os.environ["CURR_SHA"],
+    "workflow_run_id": os.environ["RUN_ID"],
+    "candidate2_iso_path": os.environ["ISO_PATH"],
+    "source_iso_sha256": os.environ["CAND2_VERIFIED_SHA"],
+    "source_iso_sha512": os.environ["CAND2_VERIFIED_SHA512"],
+    "kernel_sha256": os.environ["KERNEL_SHA256"],
+    "initrd_sha256": os.environ["INITRD_SHA256"],
+    "seed_iso_sha256": os.environ["SEED_SHA256"],
+    "kernel_command_line": os.environ["KERNEL_APPEND"],
+    "vm_id": os.environ["VM_ID"],
+    "firmware_mode": os.environ["MODE"],
+    "installed_disk_path": os.environ["DISK_PATH"],
+    "target_disk": os.environ["DISK_PATH"],
+    "disk_inspection_result": os.environ["DISK_INSPECT_JSON"],
+    "install_completion_result": os.environ["COMPLETION_JSON"],
+    "installed_guest_commands_log": os.environ["INSTALLED_GUEST_CMD_LOG"],
+    "ssh_username": "genixbit",
+    "ssh_private_key_path": os.environ["SSH_KEY"],
+    "ssh_public_key_path": os.environ["SSH_PUB"],
+    "ssh_public_key_fingerprint": os.environ["SSH_FP"],
+    "installation_timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "installed_boot_result": "SSH_AUTHENTICATED_PASS",
+    "runtime_evidence_dir": os.environ["RUNTIME_EVIDENCE_DIR"],
+    "installed_vm_id": os.environ["VM_ID"] + "_inst",
+    "status": "PASS",
 }
-with open('$INSTALL_STATE_FILE', 'w') as f:
+with open(os.environ["INSTALL_STATE_FILE"], "w") as f:
     json.dump(state, f, indent=2)
-"
+PYEOF
 chmod 0600 "$INSTALL_STATE_FILE"
 cp -f "$INSTALL_STATE_FILE" "$RUNTIME_EVIDENCE_DIR/cand2-install-state.json" 2>/dev/null || true
 
