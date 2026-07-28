@@ -16,6 +16,12 @@ import sys
 DEFAULT_VERSION = "0.3.0-alpha"
 DEFAULT_MODE = "fresh-install-only"
 DEFAULT_PROVENANCE = "docs/releases/0.3.0-alpha-artifact.json"
+PHASE_STATUS = {
+    "pending": "PENDING_BUILD",
+    "built": "BUILT_UNVALIDATED",
+    "validated-unpublished": "VALIDATED_UNPUBLISHED",
+    "pass": "PASS",
+}
 RETIRED_FILENAME = "GenixBitOS-0.2.0-alpha-2607220558.iso"
 RETIRED_SHA256 = "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
 RETIRED_SHA512 = "51bdb60298460d1204dd6b641ed7d531c9d34da98fecf90fbfbbabf9beeef0dc42fe86e59646c7cd4c8746b1c5e48d05afc81712758c51cb2096a77c45e0902e"
@@ -64,37 +70,51 @@ def reject_retired(data: dict, iso_path: pathlib.Path | None = None) -> None:
         fail("retired_object_generation", RETIRED_GENERATION)
 
 
+def validate_hash_bound_iso(data: dict, args: argparse.Namespace) -> pathlib.Path:
+    iso = pathlib.Path(args.iso or os.environ.get("ACTIVE_RELEASE_ISO_LOCAL") or data.get("filename") or "").resolve()
+    reject_retired(data, iso)
+    if not iso.is_file() or iso.stat().st_size <= 0:
+        fail("iso", f"real nonempty ISO missing: {iso}")
+    if data.get("size_bytes") != iso.stat().st_size:
+        fail("size_bytes", f"expected {iso.stat().st_size}, got {data.get('size_bytes')!r}")
+    if data.get("sha256") != sha(iso, "sha256"):
+        fail("sha256", "active ISO SHA-256 mismatch")
+    if data.get("sha512") != sha(iso, "sha512"):
+        fail("sha512", "active ISO SHA-512 mismatch")
+    checker = pathlib.Path(args.repo_root) / "tools/validation/check-iso-structure.sh"
+    res = subprocess.run(["bash", str(checker), "--iso", str(iso)], capture_output=True, text=True)
+    if res.returncode != 0:
+        fail("iso_structure", "active ISO structural validation failed")
+    return iso
+
+
 def validate_provenance(data: dict, args: argparse.Namespace, require_pass: bool) -> pathlib.Path | None:
     reject_retired(data)
     if data.get("release_version") != args.release_version:
         fail("release_version", f"expected {args.release_version}, got {data.get('release_version')!r}")
-    if data.get("verification_status") != "PASS":
-        fail("verification_status", f"expected PASS, got {data.get('verification_status')!r}")
+    expected_status = PHASE_STATUS[args.phase]
+    if data.get("verification_status") != expected_status:
+        fail("verification_status", f"expected {expected_status}, got {data.get('verification_status')!r}")
     expected_commit = args.source_commit or os.environ.get("ACTIVE_RELEASE_SOURCE_COMMIT")
     if expected_commit and data.get("candidate_source_commit") != expected_commit:
         fail("candidate_source_commit", f"expected {expected_commit}, got {data.get('candidate_source_commit')!r}")
-    if data.get("usable_as_release_artifact") is not True:
-        fail("usable_as_release_artifact", "must be true only after genuine release validation")
-    if data.get("filename") is None or str(data.get("filename", "")).strip() == "":
+    if args.phase == "pass":
+        if data.get("usable_as_release_artifact") is not True:
+            fail("usable_as_release_artifact", "must be true only after immutable publication validation")
+        if data.get("object_generation") in (None, ""):
+            fail("object_generation", "missing immutable object identifier")
+    else:
+        if data.get("usable_as_release_artifact") is not False:
+            fail("usable_as_release_artifact", "must remain false before immutable publication")
+        if data.get("usable_as_migration_source") is not False:
+            fail("usable_as_migration_source", "fresh-install artifact must not be a migration source")
+        if data.get("object_generation") is not None:
+            fail("object_generation", "must remain null before immutable publication")
+    if args.phase in ("built", "validated-unpublished", "pass") and (data.get("filename") is None or str(data.get("filename", "")).strip() == ""):
         fail("filename", "missing active ISO filename")
-    if data.get("object_generation") in (None, ""):
-        fail("object_generation", "missing immutable object identifier")
-    iso = pathlib.Path(args.iso or os.environ.get("ACTIVE_RELEASE_ISO_LOCAL") or data["filename"]).resolve()
-    reject_retired(data, iso)
-    if require_pass:
-        if not iso.is_file() or iso.stat().st_size <= 0:
-            fail("iso", f"real nonempty ISO missing: {iso}")
-        if data.get("size_bytes") != iso.stat().st_size:
-            fail("size_bytes", f"expected {iso.stat().st_size}, got {data.get('size_bytes')!r}")
-        if data.get("sha256") != sha(iso, "sha256"):
-            fail("sha256", "active ISO SHA-256 mismatch")
-        if data.get("sha512") != sha(iso, "sha512"):
-            fail("sha512", "active ISO SHA-512 mismatch")
-        checker = pathlib.Path(args.repo_root) / "tools/validation/check-iso-structure.sh"
-        res = subprocess.run(["bash", str(checker), "--iso", str(iso)], capture_output=True, text=True)
-        if res.returncode != 0:
-            fail("iso_structure", "active ISO structural validation failed")
-    return iso
+    if args.phase in ("built", "validated-unpublished", "pass") or require_pass:
+        return validate_hash_bound_iso(data, args)
+    return None
 
 
 def validate_gate(path: pathlib.Path) -> None:
@@ -129,6 +149,7 @@ def main() -> int:
     parser.add_argument("--mode", default=os.environ.get("ACTIVE_RELEASE_MODE", DEFAULT_MODE))
     parser.add_argument("--source-commit", default=os.environ.get("ACTIVE_RELEASE_SOURCE_COMMIT", ""))
     parser.add_argument("--iso", default=os.environ.get("ACTIVE_RELEASE_ISO_LOCAL", ""))
+    parser.add_argument("--phase", choices=sorted(PHASE_STATUS), default="pass")
     parser.add_argument("--require-pass", action="store_true")
     parser.add_argument("--allow-pending", action="store_true")
     parser.add_argument("--gate-file")
