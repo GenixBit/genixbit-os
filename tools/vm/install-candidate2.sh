@@ -440,6 +440,7 @@ bash "$(dirname "$0")/create-test-disk.sh" --disk "$DISK_PATH" --size "40G"
 
 # 4. Generate ephemeral SSH keypair and extract real fingerprint (FAIL CLOSED on fingerprint failure)
 KEY_JSON=$(bash "$(dirname "$0")/create-ephemeral-key.sh" --vm-id "$VM_ID" --state-dir "$state_dir")
+echo "$KEY_JSON" | python3 -c "import sys, json; json.load(sys.stdin)" || fail "create-ephemeral-key.sh produced invalid JSON output!"
 SSH_KEY=$(echo "$KEY_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['private_key_path'])")
 SSH_PUB=$(echo "$KEY_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['public_key_path'])")
 
@@ -462,6 +463,7 @@ SEED_JSON=$(bash "$(dirname "$0")/create-autoinstall-seed.sh" \
     --out-dir "${RUNTIME_EVIDENCE_DIR}/seed" \
     --mode "$MODE")
 
+echo "$SEED_JSON" | python3 -c "import sys, json; json.load(sys.stdin)" || fail "create-autoinstall-seed.sh produced invalid JSON output!"
 SEED_ISO=$(echo "$SEED_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['seed_iso_path'])")
 SEED_SHA256=$(echo "$SEED_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['seed_iso_sha256'])")
 
