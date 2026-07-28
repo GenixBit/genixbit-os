@@ -112,23 +112,17 @@ run_case() {
     local ovmf_code="$case_dir/OVMF_CODE.fd"
     local ovmf_vars="$case_dir/OVMF_VARS.fd"
     local seabios="$case_dir/bios.bin"
-    local cand_iso="$case_dir/dist/GenixBitOS-0.2.0-alpha-2607220558.iso"
     local artifact_provenance="$case_dir/artifact.json"
     : > "$kvm_path"
     : > "$ovmf_code"
     : > "$ovmf_vars"
     : > "$seabios"
-    printf 'candidate iso placeholder for preflight tests\n' > "$cand_iso"
-    printf '{"verification_status":"PASS","usable_as_migration_source":true,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}\n' > "$artifact_provenance"
+    printf '{"schema_version":"1.0","release_version":"0.3.0-alpha","candidate_branch":null,"candidate_source_commit":null,"filename":null,"size_bytes":null,"sha256":null,"sha512":null,"object_generation":null,"verification_status":"PENDING_BUILD","usable_as_release_artifact":false,"usable_as_migration_source":false}\n' > "$artifact_provenance"
 
     local source_commit="abcdef1234567890abcdef1234567890abcdef12"
     local run_id="preflight-test-run"
     local run_attempt="7"
     local secret="top-secret-passphrase-value"
-    local iso_command="true"
-    local artifact_status="PASS"
-    local artifact_usable="true"
-    local artifact_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     local iso_marker=""
 
     while (($# > 0)); do
@@ -140,17 +134,10 @@ run_case() {
             --memory) export TEST_MEM_AVAIL="$2"; shift 2 ;;
             --no-secret) secret=""; shift ;;
             --curl-fail) export TEST_CURL_FAIL=1; shift ;;
-            --sha) export TEST_SHA256="$2"; shift 2 ;;
-            --iso-command) iso_command="$2"; shift 2 ;;
-            --artifact-status) artifact_status="$2"; shift 2 ;;
-            --artifact-usable) artifact_usable="$2"; shift 2 ;;
-            --artifact-sha) artifact_sha="$2"; shift 2 ;;
-            --mark-iso-structure) iso_marker="$case_dir/iso-structure-ran"; iso_command="printf ran > \"$iso_marker\""; shift ;;
+            --mark-iso-structure) iso_marker="$case_dir/iso-structure-ran"; shift ;;
             *) printf '[FAIL] Unknown test option: %s\n' "$1" >&2; exit 1 ;;
         esac
     done
-
-    printf '{"verification_status":"%s","usable_as_migration_source":%s,"sha256":"%s"}\n' "$artifact_status" "$artifact_usable" "$artifact_sha" > "$artifact_provenance"
 
     set +e
     PATH="$bin_dir:/usr/bin:/bin:/sbin" \
@@ -162,16 +149,15 @@ run_case() {
     PREFLIGHT_OVMF_CODE_CANDIDATES="$ovmf_code" \
     PREFLIGHT_OVMF_VARS_CANDIDATES="$ovmf_vars" \
     PREFLIGHT_SEABIOS_CANDIDATES="$seabios" \
-    PREFLIGHT_CANDIDATE2_LOCAL="$cand_iso" \
-    PREFLIGHT_ARTIFACT_PROVENANCE_FILE="$artifact_provenance" \
-    PREFLIGHT_ISO_STRUCTURE_COMMAND="$iso_command" \
+    ACTIVE_RELEASE_PROVENANCE_FILE="$artifact_provenance" \
+    ACTIVE_RELEASE_VERSION="0.3.0-alpha" \
+    ACTIVE_RELEASE_MODE="fresh-install-only" \
     GITHUB_SHA="$source_commit" \
     GITHUB_RUN_ID="$run_id" \
     GITHUB_RUN_ATTEMPT="$run_attempt" \
     RUNNER_NAME="preflight-test-runner" \
     STAGING_SIGNING_PASSPHRASE="$secret" \
     GENIXBIT_STAGING_SERVER="http://127.0.0.1:18080" \
-    CANDIDATE2_ISO_URL="http://127.0.0.1:18080/iso/GenixBitOS-0.2.0-alpha-2607220558.iso" \
     bash "$PREFLIGHT" > "$case_dir/stdout.log" 2> "$case_dir/stderr.log"
     local rc=$?
     set -e
@@ -217,13 +203,9 @@ run_case "insufficient disk produces valid FAIL JSON" FAIL disk no no "" --disk 
 run_case "insufficient memory produces valid FAIL JSON" FAIL memory no no "" --memory 0
 run_case "missing secret produces valid FAIL JSON without leaking" FAIL secret no no "" --no-secret
 run_case "unreachable staging server produces valid FAIL JSON" FAIL staging_server no no "" --curl-fail
-run_case "PENDING provenance status fails before ISO validation" FAIL candidate2_artifact_status no no "" --artifact-status PENDING --mark-iso-structure
-run_case "UNKNOWN provenance status fails before ISO validation" FAIL candidate2_artifact_status no no "" --artifact-status UNKNOWN --mark-iso-structure
-run_case "empty provenance status fails before ISO validation" FAIL candidate2_artifact_status no no "" --artifact-status "" --mark-iso-structure
-run_case "candidate ISO checksum mismatch produces valid FAIL JSON" FAIL candidate2_sha256 no no "" --sha 0000000000000000000000000000000000000000000000000000000000000000
-run_case "ISO structural failure produces valid FAIL JSON" FAIL iso_structure no no "" --iso-command false
-run_case "successful preflight produces PASS JSON" PASS "" yes yes "" --iso-command true
-run_case "JSON source commit and workflow identity match supplied values" PASS "" yes yes "" --iso-command true
+run_case "pending active artifact accepted before build" PASS "" yes yes "" --mark-iso-structure
+run_case "successful preflight produces PASS JSON" PASS "" yes yes ""
+run_case "JSON source commit and workflow identity match supplied values" PASS "" yes yes ""
 run_case "failure JSON contains the real first failed phase" FAIL architecture no no "" --arch arm64
 run_case "script returns the original non-zero exit code" FAIL kvm no no "" --missing-kvm
 run_case "no private key passphrase or unredacted secret appears in evidence" FAIL secret no no "" --no-secret

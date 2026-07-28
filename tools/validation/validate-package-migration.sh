@@ -30,10 +30,15 @@ info "=== Starting GenixBit OS Package Migration & Staging Validation Suite ==="
 CURRENT_COMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD)
 BUILD_VERSION=$(grep -E '^export TARGET_BUILD_VERSION=' "$REPO_ROOT/args.sh" | cut -d'"' -f2)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+ACTIVE_RELEASE_VERSION="${ACTIVE_RELEASE_VERSION:-0.3.0-alpha}"
+ACTIVE_RELEASE_MODE="${ACTIVE_RELEASE_MODE:-fresh-install-only}"
+ACTIVE_RELEASE_PROVENANCE_FILE="${ACTIVE_RELEASE_PROVENANCE_FILE:-docs/releases/0.3.0-alpha-artifact.json}"
+NOT_APPLICABLE_REASON="No valid prior GenixBit OS release artifact exists from which to execute an upgrade or rollback test."
 
 # Fail closed before any package, VM, or migration work when the historical
 # Candidate 2 object has been retired as a zero-filled non-ISO artifact.
 CAND2_PROVENANCE_FILE="${CANDIDATE2_PROVENANCE_FILE:-$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json}"
+if [[ "$ACTIVE_RELEASE_MODE" != "fresh-install-only" ]]; then
 [[ -f "$CAND2_PROVENANCE_FILE" && -r "$CAND2_PROVENANCE_FILE" ]] || fail "Candidate 2 provenance file missing or unreadable: $CAND2_PROVENANCE_FILE"
 set +e
 candidate2_provenance=$(PROVENANCE_FILE="$CAND2_PROVENANCE_FILE" python3 - <<'PYEOF'
@@ -75,6 +80,11 @@ if [[ "$CAND2_STATUS" != "PASS" ]]; then
 fi
 if [[ "$CAND2_USABLE" != "true" ]]; then
     fail "Candidate 2 provenance is not usable as a migration source."
+fi
+else
+    CAND2_STATUS="NOT_APPLICABLE"
+    CAND2_USABLE="false"
+    CAND2_PINNED_SHA="NOT_APPLICABLE"
 fi
 
 # Directories
@@ -254,6 +264,29 @@ EOF
 # All four phases are mandatory for the operator release gate.
 # Skipping any phase causes evidence collection to fail with missing stage JSON.
 
+# In fresh-install-only mode no valid prior GenixBit OS artifact exists, so the
+# active 0.3.0-alpha gate must not execute migration or rollback from Candidate 2.
+if [[ "$ACTIVE_RELEASE_MODE" == "fresh-install-only" ]]; then
+    info "Recording upgrade and rollback as NOT_APPLICABLE for fresh-install-only active release mode."
+    NA_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    for stage in candidate-upgrade rollback; do
+        cat > "$STAGE_LOGS_DIR/stage-${stage}.json" <<EOF
+{
+  "source_commit": "$CURRENT_COMMIT",
+  "release_version": "$ACTIVE_RELEASE_VERSION",
+  "active_release_mode": "$ACTIVE_RELEASE_MODE",
+  "command": "NOT_APPLICABLE",
+  "start_timestamp": "$NA_START",
+  "completion_timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "exit_code": 0,
+  "status": "NOT_APPLICABLE",
+  "reason": "$NOT_APPLICABLE_REASON"
+}
+EOF
+    done
+    pass "Fresh-install-only mode recorded upgrade and rollback as NOT_APPLICABLE."
+fi
+
 # Read canonical Candidate 2 SHA from provenance record (single source of truth)
 info "Candidate 2 canonical SHA-256 (from provenance): $CAND2_PINNED_SHA"
 
@@ -391,6 +424,7 @@ EOF
 
 
 # Candidate 2 Migration (mandatory)
+if [[ "$ACTIVE_RELEASE_MODE" != "fresh-install-only" ]]; then
 info "Executing real Candidate 2 system migration..."
 CAND2_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -833,6 +867,7 @@ fi
   "status": "PASS"
 }
 EOF
+fi
 
 
 # Security & Tamper Rejection
@@ -874,6 +909,7 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-tamper.json"
 EOF
 
 # Snapshot & Rollback
+if [[ "$ACTIVE_RELEASE_MODE" != "fresh-install-only" ]]; then
 ROLLBACK_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 SNAP_OUTPUT=$(bash "$REPO_ROOT/tools/repository/create-snapshot.sh" --repo-dir "$TMP_REPO" --channel "resolute-alpha")
 SNAP_ID=$(echo "$SNAP_OUTPUT" | grep "Snapshot ID:" | awk '{print $3}')
@@ -911,6 +947,7 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-rollback.json"
   "status": "PASS"
 }
 EOF
+fi
 
 # Installer Verification
 INST_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

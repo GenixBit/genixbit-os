@@ -11,6 +11,7 @@ import hashlib
 from datetime import datetime, timezone
 
 RETIRED_CANDIDATE2_SHA = "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
+NA_REASON = "No valid prior GenixBit OS release artifact exists from which to execute an upgrade or rollback test."
 
 def fail(msg):
     print(f"[FAIL] Evidence Collector Error: {msg}", file=sys.stderr)
@@ -132,6 +133,10 @@ def main():
                         help="Override current evidence output directory (for testing; default: infra/package-staging/results/current)")
     parser.add_argument("--candidate2-provenance-file", default=None,
                         help="Override Candidate 2 provenance file (for testing; default: docs/releases/0.2.0-alpha-artifact.json)")
+    parser.add_argument("--active-release-mode", default=os.environ.get("ACTIVE_RELEASE_MODE", "fresh-install-only"),
+                        help="Active release mode (default: fresh-install-only)")
+    parser.add_argument("--active-provenance-file", default=os.environ.get("ACTIVE_RELEASE_PROVENANCE_FILE"),
+                        help="Active release provenance file (default: docs/releases/0.3.0-alpha-artifact.json)")
     args = parser.parse_args()
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -139,7 +144,9 @@ def main():
     out_dir = args.current_dir or os.path.join(repo_root, "infra/package-staging/results/current")
     debs_dir = os.path.join(repo_root, "packages/build-debs")
     candidate2_provenance_file = args.candidate2_provenance_file or os.path.join(repo_root, "docs/releases/0.2.0-alpha-artifact.json")
-    expected_cand_sha = load_candidate2_provenance(candidate2_provenance_file)
+    expected_cand_sha = "NOT_APPLICABLE"
+    if args.active_release_mode != "fresh-install-only":
+        expected_cand_sha = load_candidate2_provenance(candidate2_provenance_file)
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -188,13 +195,15 @@ def main():
         "stage-package-build.json",
         "stage-repository-publication.json",
         "stage-clean-install.json",
-        "stage-candidate-upgrade.json",
         "stage-tamper.json",
-        "stage-rollback.json",
         "stage-installer.json",
         "stage-test-iso-build.json",
         "stage-test-iso-boot.json"
     ]
+    if args.active_release_mode == "fresh-install-only":
+        req_stage_logs.extend(["stage-candidate-upgrade.json", "stage-rollback.json"])
+    else:
+        req_stage_logs.extend(["stage-candidate-upgrade.json", "stage-rollback.json"])
     
     stage_data = {}
     for stage_file in req_stage_logs:
@@ -220,6 +229,13 @@ def main():
             fail(f"Stage {stage_file} command contains '|| true' error suppression: {cmd_str}")
         if any(flag in cmd_str for flag in ["--dry-run", "--simulate", " -s "]):
             fail(f"Stage {stage_file} command contains dry-run/simulation flags: {cmd_str}")
+
+        if args.active_release_mode == "fresh-install-only" and stage_file in ("stage-candidate-upgrade.json", "stage-rollback.json"):
+            if data.get("status") != "NOT_APPLICABLE" or data.get("reason") != NA_REASON:
+                fail(f"{stage_file} must be NOT_APPLICABLE with factual reason in fresh-install-only mode")
+            stage_name = stage_file.replace("stage-", "").replace(".json", "")
+            stage_data[stage_name] = data
+            continue
 
         if data.get("exit_code") != 0:
             fail(f"Stage {stage_file} failed with exit code {data.get('exit_code')}")

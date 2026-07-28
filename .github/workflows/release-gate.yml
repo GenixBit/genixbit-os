@@ -30,7 +30,12 @@ jobs:
     env:
       STAGING_SIGNING_PASSPHRASE: ${{ secrets.STAGING_SIGNING_PASSPHRASE }}
       GENIXBIT_STAGING_SERVER: ${{ vars.GENIXBIT_STAGING_SERVER }}
-      CANDIDATE2_ISO_URL: ${{ vars.CANDIDATE2_ISO_URL }}
+      ACTIVE_RELEASE_VERSION: 0.3.0-alpha
+      ACTIVE_RELEASE_MODE: fresh-install-only
+      ACTIVE_RELEASE_PROVENANCE_FILE: docs/releases/0.3.0-alpha-artifact.json
+      ACTIVE_RELEASE_ISO_LOCAL: dist/GenixBitOS-0.3.0-alpha.iso
+      ACTIVE_RELEASE_ISO_URL: ${{ vars.ACTIVE_RELEASE_ISO_URL }}
+      ACTIVE_RELEASE_SOURCE_COMMIT: ${{ github.sha }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}
       GCP_ZONE: ${{ vars.GCP_ZONE }}
@@ -77,6 +82,7 @@ jobs:
           bash tools/validation/test-iso-structure.sh
           bash tools/validation/test-release-preflight-evidence.sh
           bash tools/validation/test-candidate2-retirement.sh
+          bash tools/validation/test-active-release-artifact.sh
           bash tests/infrastructure/test-qmp-json-parsing.sh
           bash tests/infrastructure/test-candidate2-failure-evidence.sh
           bash tests/infrastructure/test-mksquashfs-runner.sh
@@ -87,7 +93,10 @@ jobs:
           EXECUTE_REAL_ISO_BUILD: "true"
           EXECUTE_REAL_VM_TESTS: "true"
           EXECUTE_REAL_CLIENT_INSTALL: "true"
-          EXECUTE_REAL_MIGRATION: "true"
+          EXECUTE_REAL_MIGRATION: "false"
+          ACTIVE_RELEASE_VERSION: "0.3.0-alpha"
+          ACTIVE_RELEASE_MODE: "fresh-install-only"
+          ACTIVE_RELEASE_PROVENANCE_FILE: "docs/releases/0.3.0-alpha-artifact.json"
           GENIXBIT_STAGING_SERVER: "${{ vars.GENIXBIT_STAGING_SERVER || 'http://staging-packages.os.genixbit.internal' }}"
           STAGING_SIGNING_PASSPHRASE: "${{ secrets.STAGING_SIGNING_PASSPHRASE }}"
         run: |
@@ -95,7 +104,10 @@ jobs:
           EXECUTE_REAL_ISO_BUILD=true \
           EXECUTE_REAL_VM_TESTS=true \
           EXECUTE_REAL_CLIENT_INSTALL=true \
-          EXECUTE_REAL_MIGRATION=true \
+          EXECUTE_REAL_MIGRATION=false \
+          ACTIVE_RELEASE_VERSION=0.3.0-alpha \
+          ACTIVE_RELEASE_MODE=fresh-install-only \
+          ACTIVE_RELEASE_PROVENANCE_FILE=docs/releases/0.3.0-alpha-artifact.json \
           bash tools/validation/validate-package-migration.sh
 
       - name: Validate Release Gate Integrity

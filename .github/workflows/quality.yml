@@ -197,6 +197,10 @@ jobs:
         shell: bash
         run: bash tools/validation/test-candidate2-retirement.sh
 
+      - name: Active release artifact behavioral tests
+        shell: bash
+        run: bash tools/validation/test-active-release-artifact.sh
+
       - name: Validate retired Candidate 2 documentation claims
         shell: bash
         run: python3 tools/validation/check-retired-candidate-claims.py
