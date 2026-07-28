@@ -701,13 +701,13 @@ fi
 # Test 67 -- migrate-candidate2.sh includes installation binding fields
 T=67
 DESC="migrate-candidate2.sh migration-result.json includes installation binding fields"
-if grep -q "'source_commit'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
-   grep -q "'workflow_run_id'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
-   grep -q "'installation_state_sha256'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
-   grep -q "'source_iso_sha256'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
-   grep -q "'installation_installer_vm_id'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
-   grep -q "'installation_installed_vm_id'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
-   grep -q "'migration_vm_id'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
+if grep -q '"source_commit"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"workflow_run_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"installation_state_sha256"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"source_iso_sha256"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"installation_installer_vm_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"installation_installed_vm_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"migration_vm_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
     pass_test $T "$DESC"
 else
     fail_test $T "$DESC" "migrate-candidate2.sh missing installation binding fields"

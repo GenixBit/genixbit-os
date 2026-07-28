@@ -134,112 +134,16 @@ get_qemu_binary() {
     fi
 }
 
+QMP_CLIENT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/qmp-client.py"
+
 send_qmp_cmd() {
     local socket="$1"
-    local cmd="$2"
-    python3 -c "
-import socket, sys, json
-s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-s.connect('$socket')
-greeting = s.recv(4096)
-s.sendall(json.dumps({'execute': 'qmp_capabilities'}).encode() + b'\n')
-resp1 = s.recv(4096)
-s.sendall(json.dumps($cmd).encode() + b'\n')
-resp2 = s.recv(4096)
-s.close()
-sys.stdout.write(resp2.decode())
-"
+    python3 "$QMP_CLIENT" --socket "$socket" "$2" "${@:3}" 2>/dev/null || true
 }
 
 qmp_query_status() {
     local socket_path="$1"
-
-    QMP_SOCKET_PATH="$socket_path" python3 - <<'PY'
-import json
-import os
-import socket
-import sys
-import time
-import uuid
-
-socket_path = os.environ["QMP_SOCKET_PATH"]
-deadline = time.monotonic() + 5
-
-def receive_object(sock):
-    buffer = b""
-
-    while time.monotonic() < deadline:
-        try:
-            chunk = sock.recv(4096)
-        except socket.timeout:
-            raise TimeoutError("QMP socket timed out during read")
-        if not chunk:
-            raise RuntimeError("QMP socket closed before complete response")
-
-        buffer += chunk
-
-        while b"\n" in buffer:
-            line, buffer = buffer.split(b"\n", 1)
-            line = line.strip()
-            if not line:
-                continue
-
-            try:
-                obj = json.loads(line)
-                if not isinstance(obj, dict):
-                    continue
-                return obj
-            except json.JSONDecodeError:
-                continue
-
-    raise TimeoutError("Timed out reading QMP JSON response")
-
-with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-    sock.settimeout(5)
-    sock.connect(socket_path)
-
-    greeting = receive_object(sock)
-    if "QMP" not in greeting:
-        raise RuntimeError("Missing QMP greeting")
-
-    capability_id = f"caps-{uuid.uuid4()}"
-    sock.sendall(
-        json.dumps({
-            "execute": "qmp_capabilities",
-            "id": capability_id,
-        }).encode() + b"\n"
-    )
-
-    while True:
-        response = receive_object(sock)
-        if response.get("id") == capability_id:
-            if "error" in response:
-                raise RuntimeError(f"qmp_capabilities failed: {response['error']}")
-            break
-
-    status_id = f"status-{uuid.uuid4()}"
-    sock.sendall(
-        json.dumps({
-            "execute": "query-status",
-            "id": status_id,
-        }).encode() + b"\n"
-    )
-
-    while True:
-        response = receive_object(sock)
-        if response.get("id") != status_id:
-            continue
-
-        if "error" in response:
-            raise RuntimeError(f"query-status failed: {response['error']}")
-
-        status = response.get("return", {}).get("status", "")
-        if status not in {"running", "prelaunch"}:
-            raise RuntimeError(f"Unexpected QMP status: {status!r}")
-
-        print(status)
-        break
-PY
+    python3 "$QMP_CLIENT" --socket "$socket_path" --timeout 5 query-status
 }
 
 case "$ACTION" in
@@ -507,7 +411,7 @@ PYEOF
             PROCESS_ALIVE=true
             if [[ -S "$QMP_SOCKET" ]]; then
                 QMP_PRESENT=true
-                send_qmp_cmd "$QMP_SOCKET" '{"execute": "system_powerdown"}' >/dev/null 2>&1 || true
+                python3 "$QMP_CLIENT" --socket "$QMP_SOCKET" system-powerdown >/dev/null 2>&1 || true
             fi
 
             stop_start=$(date +%s)
@@ -662,7 +566,7 @@ PYEOF
     screenshot)
         [[ -n "$QMP_SOCKET" && -S "$QMP_SOCKET" ]] || fail 'Valid QMP socket required for screenshot.'
         OUT_FILE="${1:-screenshot.ppm}"
-        send_qmp_cmd "$QMP_SOCKET" "{\"execute\": \"screendump\", \"arguments\": {\"filename\": \"$OUT_FILE\"}}" >/dev/null 2>&1
+        python3 "$QMP_CLIENT" --socket "$QMP_SOCKET" --file "$OUT_FILE" screendump >/dev/null 2>&1 || true
         [[ -f "$OUT_FILE" && -s "$OUT_FILE" ]] || fail "Screenshot capture failed to create non-empty file at $OUT_FILE"
         printf '[PASS] Screenshot captured to %s\n' "$OUT_FILE"
         ;;

@@ -189,6 +189,7 @@ snap_name="pre-migration-snap"
 out_json="${state_dir}/migration-result-${VM_ID}.json"
 
 # VM registry for fail-safe cleanup on any failure
+# Format: label|vm_id|pid_file|qmp_socket|serial_log|original_pid
 declare -a MIG_VM_REGISTRY=()
 
 mig_register_vm() {
@@ -197,7 +198,11 @@ mig_register_vm() {
     local pid_file="$3"
     local qmp_socket="$4"
     local serial_log="$5"
-    MIG_VM_REGISTRY+=("$label|$vm_id|$pid_file|$qmp_socket|$serial_log")
+    local original_pid=""
+    if [[ -f "$pid_file" ]]; then
+        original_pid=$(cat "$pid_file" 2>/dev/null || echo "")
+    fi
+    MIG_VM_REGISTRY+=("$label|$vm_id|$pid_file|$qmp_socket|$serial_log|$original_pid")
 }
 
 mig_unregister_vm() {
@@ -215,7 +220,7 @@ mig_unregister_vm() {
 mig_cleanup_all_vms() {
     local rc=0
     for entry in "${MIG_VM_REGISTRY[@]}"; do
-        IFS='|' read -r label vm_id pid_file qmp_socket serial_log <<< "$entry"
+        IFS='|' read -r label vm_id pid_file qmp_socket serial_log original_pid <<< "$entry"
         info "Cleaning up migration VM: $label ($vm_id)"
         if [[ -f "$pid_file" ]]; then
             local vpid
@@ -228,12 +233,54 @@ mig_cleanup_all_vms() {
                     --state-dir "$state_dir" || rc=1
             fi
         fi
-        # Preserve lifecycle evidence
-        if [[ -f "${state_dir}/vm-${vm_id}.json" ]]; then
-            cp -f "${state_dir}/vm-${vm_id}.json" "$RUNTIME_EVIDENCE_DIR/migration-${label}-vm-state.json" 2>/dev/null || true
+        # Verify original PID directly, not inferred from PID file
+        if [[ -n "$original_pid" ]] && kill -0 "$original_pid" 2>/dev/null; then
+            printf '[FAIL] Migration VM %s original PID %s still alive after cleanup\n' "$label" "$original_pid" >&2
+            rc=1
         fi
-        if [[ -f "${state_dir}/shutdown-${vm_id}.json" ]]; then
-            cp -f "${state_dir}/shutdown-${vm_id}.json" "$RUNTIME_EVIDENCE_DIR/migration-${label}-shutdown.json" 2>/dev/null || true
+        # Preserve and validate lifecycle evidence
+        local vm_state_file="${state_dir}/vm-${vm_id}.json"
+        local shutdown_file="${state_dir}/shutdown-${vm_id}.json"
+        if [[ -f "$vm_state_file" ]]; then
+            cp -f "$vm_state_file" "$RUNTIME_EVIDENCE_DIR/migration-${label}-vm-state.json" 2>/dev/null || true
+            # Validate VM state is not running
+            local vm_state
+            vm_state=$(python3 -c "import json; d=json.load(open('$vm_state_file')); print(d.get('state',''))" 2>/dev/null || echo "")
+            if [[ "$vm_state" == "running" ]]; then
+                printf '[FAIL] Migration VM %s final state is still running\n' "$label" >&2
+                rc=1
+            fi
+        else
+            printf '[FAIL] Migration VM %s state file missing: %s\n' "$label" "$vm_state_file" >&2
+            rc=1
+        fi
+        if [[ -f "$shutdown_file" ]]; then
+            cp -f "$shutdown_file" "$RUNTIME_EVIDENCE_DIR/migration-${label}-shutdown.json" 2>/dev/null || true
+            # Validate shutdown result
+            local shut_status shut_state proc_alive qmp_present
+            shut_status=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(d.get('status',''))" 2>/dev/null || echo "")
+            shut_state=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(d.get('shutdown_state',''))" 2>/dev/null || echo "")
+            proc_alive=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(str(d.get('process_alive_after_stop',True)).lower())" 2>/dev/null || echo "true")
+            qmp_present=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(str(d.get('qmp_socket_present_after_stop',True)).lower())" 2>/dev/null || echo "true")
+            if [[ "$shut_status" != "PASS" ]]; then
+                printf '[FAIL] Migration VM %s shutdown status is %s (expected PASS)\n' "$label" "$shut_status" >&2
+                rc=1
+            fi
+            if [[ "$shut_state" != "NATURAL_EXIT" && "$shut_state" != "ALREADY_STOPPED_VERIFIED" ]]; then
+                printf '[FAIL] Migration VM %s shutdown state is %s (expected NATURAL_EXIT or ALREADY_STOPPED_VERIFIED)\n' "$label" "$shut_state" >&2
+                rc=1
+            fi
+            if [[ "$proc_alive" == "true" ]]; then
+                printf '[FAIL] Migration VM %s process still alive after stop\n' "$label" >&2
+                rc=1
+            fi
+            if [[ "$qmp_present" == "true" ]]; then
+                printf '[FAIL] Migration VM %s QMP socket still present after stop\n' "$label" >&2
+                rc=1
+            fi
+        else
+            printf '[FAIL] Migration VM %s shutdown file missing: %s\n' "$label" "$shutdown_file" >&2
+            rc=1
         fi
     done
     return "$rc"
@@ -244,10 +291,12 @@ mig_cleanup_trap() {
     trap - EXIT
     set +e
     mig_cleanup_all_vms
+    local cleanup_rc=$?
     set -e
-    if [[ "$original_exit" -ne 0 ]]; then
+    if (( original_exit != 0 )); then
         exit "$original_exit"
     fi
+    exit "$cleanup_rc"
 }
 
 trap mig_cleanup_trap EXIT
@@ -508,9 +557,11 @@ OBS_POST_APT_CHECK_EXIT=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
     "sudo apt-get check > /dev/null 2>&1; echo \$?" 2>/dev/null || echo "unknown")
 
 # D8: Capture dpkg --audit exit code AND stdout; fail if non-empty output
+set +e
 OBS_DPKG_AUDIT_RAW=$(ssh_guest "$MIG_PORT" "$SSH_USER" "$SSH_KEY" \
-    "sudo dpkg --audit 2>&1" 2>/dev/null || echo "")
+    "sudo dpkg --audit 2>&1" 2>/dev/null)
 OBS_POST_DPKG_AUDIT_EXIT=$?
+set -e
 OBS_POST_DPKG_AUDIT_EMPTY=$([[ -z "$OBS_DPKG_AUDIT_RAW" ]] && echo "true" || echo "false")
 [[ "$OBS_POST_DPKG_AUDIT_EXIT" == "0" && -z "$OBS_DPKG_AUDIT_RAW" ]] || \
     fail "dpkg --audit not clean after migration (exit=$OBS_POST_DPKG_AUDIT_EXIT, output='$OBS_DPKG_AUDIT_RAW')"
@@ -655,120 +706,195 @@ printf '[PASS] Real re-migration after rollback verified: %s\n' "$REUPGRADE_LOG"
 # ─────────────────────────────────────────────────────────────────────────────
 # Produce migration-result.json — ALL fields from observed command output only
 # ─────────────────────────────────────────────────────────────────────────────
-EXEC_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-python3 - <<PYEOF
-import json
+exec_timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Only observed values — no hardcoded PASS fields
+# Write large values to temp files for safe Python consumption
+OBS_PRE_MIG_PKGS_FILE="$state_dir/obs_pre_migration_packages.txt"
+OBS_APT_CACHE_FILE="$state_dir/obs_apt_cache_policy.txt"
+OBS_DPKG_QUERY_FILE="$state_dir/obs_post_dpkg_query.txt"
+OBS_BOOT_OS_FILE="$state_dir/obs_post_boot_os.txt"
+OBS_ROLLBACK_DPKG_FILE="$state_dir/obs_rollback_dpkg.txt"
+OBS_REUPGRADE_DPKG_FILE="$state_dir/obs_reupgrade_dpkg.txt"
+OBS_FINAL_OS_FILE="$state_dir/obs_final_os.txt"
+
+printf '%s' "$OBS_PRE_MIGRATION_PACKAGES" > "$OBS_PRE_MIG_PKGS_FILE"
+printf '%s' "$OBS_APT_CACHE_POLICY" > "$OBS_APT_CACHE_FILE"
+printf '%s' "$OBS_POST_DPKG_QUERY" > "$OBS_DPKG_QUERY_FILE"
+printf '%s' "$OBS_POST_BOOT_OS_RELEASE" > "$OBS_BOOT_OS_FILE"
+printf '%s' "$OBS_ROLLBACK_DPKG_QUERY" > "$OBS_ROLLBACK_DPKG_FILE"
+printf '%s' "$OBS_REUPGRADE_DPKG_QUERY" > "$OBS_REUPGRADE_DPKG_FILE"
+printf '%s' "$OBS_FINAL_OS_RELEASE" > "$OBS_FINAL_OS_FILE"
+
+# Compute lifecycle evidence hashes safely in shell
+premig_hash=$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-premig-vm-state.json" 2>/dev/null | awk '{print $1}' || echo "")
+premig_shut_hash=$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-premig-shutdown.json" 2>/dev/null | awk '{print $1}' || echo "")
+mig_hash=$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-mig-vm-state.json" 2>/dev/null | awk '{print $1}' || echo "")
+mig_shut_hash=$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-mig-shutdown.json" 2>/dev/null | awk '{print $1}' || echo "")
+rb_hash=$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-rollback-vm-state.json" 2>/dev/null | awk '{print $1}' || echo "")
+rb_shut_hash=$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-rollback-shutdown.json" 2>/dev/null | awk '{print $1}' || echo "")
+ru_hash=$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-reupgrade-vm-state.json" 2>/dev/null | awk '{print $1}' || echo "")
+ru_shut_hash=$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-reupgrade-shutdown.json" 2>/dev/null | awk '{print $1}' || echo "")
+
+GENIXBIT_MIG_RESULT_JSON="$out_json" \
+OBS_PRE_MIG_PKGS_FILE="$OBS_PRE_MIG_PKGS_FILE" \
+OBS_APT_CACHE_FILE="$OBS_APT_CACHE_FILE" \
+OBS_DPKG_QUERY_FILE="$OBS_DPKG_QUERY_FILE" \
+OBS_BOOT_OS_FILE="$OBS_BOOT_OS_FILE" \
+OBS_ROLLBACK_DPKG_FILE="$OBS_ROLLBACK_DPKG_FILE" \
+OBS_REUPGRADE_DPKG_FILE="$OBS_REUPGRADE_DPKG_FILE" \
+OBS_FINAL_OS_FILE="$OBS_FINAL_OS_FILE" \
+INSTALLATION_STATE_PATH="$INSTALLATION_STATE_JSON" \
+MV_ID="$VM_ID" \
+MV_RUN_ID="$RUN_ID" \
+MV_DISK_PATH="$DISK_PATH" \
+MV_MODE="$MODE" \
+MV_SSH_USER="$SSH_USER" \
+MV_STAGING_URL="$STAGING_URL" \
+MV_OBSERVED_FINGERPRINT="$OBSERVED_FINGERPRINT" \
+MV_STAGING_FINGERPRINT="$STAGING_FINGERPRINT" \
+MV_OBS_STAGING_FINGERPRINT_MATCH="$OBS_STAGING_FINGERPRINT_MATCH" \
+MV_OBS_ALL_PKG_ORIGINS="$OBS_ALL_PACKAGE_ORIGINS_VERIFIED" \
+MV_PRE_STATE_SHA256="$PRE_STATE_SHA256" \
+MV_APT_UPDATE_EXIT="$OBS_APT_UPDATE_EXIT" \
+MV_APT_INSTALL_EXIT="$OBS_APT_INSTALL_EXIT" \
+MV_APT_CHECK_EXIT="$OBS_POST_APT_CHECK_EXIT" \
+MV_DPKG_AUDIT_EXIT="$OBS_POST_DPKG_AUDIT_EXIT" \
+MV_DPKG_AUDIT_EMPTY="$OBS_POST_DPKG_AUDIT_EMPTY" \
+MV_ROLLBACK_STATE_SHA256="$ROLLBACK_STATE_SHA256" \
+MV_ROLLBACK_STATE_EQUALITY="$OBS_ROLLBACK_STATE_EQUALITY" \
+MV_EXEC_TIMESTAMP="$exec_timestamp" \
+MV_RUNTIME_EVIDENCE_DIR="$RUNTIME_EVIDENCE_DIR" \
+MV_MIG_LOG="$MIG_LOG" \
+MV_POST_MIG_LOG="$POST_MIG_LOG" \
+MV_ROLLBACK_LOG="$ROLLBACK_LOG" \
+MV_REUPGRADE_LOG="$REUPGRADE_LOG" \
+MV_REUPGRADE_GUEST_LOG="$REUPGRADE_GUEST_LOG" \
+MV_PREMIG_HASH="$premig_hash" \
+MV_PREMIG_SHUT_HASH="$premig_shut_hash" \
+MV_MIG_HASH="$mig_hash" \
+MV_MIG_SHUT_HASH="$mig_shut_hash" \
+MV_RB_HASH="$rb_hash" \
+MV_RB_SHUT_HASH="$rb_shut_hash" \
+MV_RU_HASH="$ru_hash" \
+MV_RU_SHUT_HASH="$ru_shut_hash" \
+MV_SOURCE_COMMIT="$MIG_SOURCE_COMMIT" \
+MV_WORKFLOW_RUN_ID="$MIG_WORKFLOW_RUN_ID" \
+MV_INSTALLATION_STATE_SHA256="$INSTALLATION_STATE_SHA256" \
+MV_SOURCE_ISO_SHA256="$INSTALL_SOURCE_ISO_SHA256" \
+MV_SOURCE_ISO_SHA512="$INSTALL_SOURCE_ISO_SHA512" \
+MV_INSTALL_INSTALLER_VM_ID="$INSTALL_INSTALLER_VM_ID" \
+MV_INSTALL_INSTALLED_VM_ID="$INSTALL_INSTALLED_VM_ID" \
+MV_INSTALL_WORKFLOW_RUN_ID="$INSTALL_WORKFLOW_RUN_ID" \
+python3 - <<'PYEOF'
+import json
+import os
+
+def read_file(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except (OSError, IOError):
+        return ""
+
 result = {
-    'installation_state_path': '$INSTALLATION_STATE_JSON',
-    'vm_id': '$VM_ID',
-    'run_id': '$RUN_ID',
-    'disk_identity': '$DISK_PATH',
-    'firmware_mode': '$MODE',
-    'ssh_username': '$SSH_USER',
-    'staging_url': '$STAGING_URL',
-    'observed_staging_fingerprint': '$OBSERVED_FINGERPRINT',
-    'expected_staging_fingerprint': '$STAGING_FINGERPRINT',
-    'staging_key_fingerprint_match': '$OBS_STAGING_FINGERPRINT_MATCH',
-    'all_package_origins_verified': '$OBS_ALL_PACKAGE_ORIGINS_VERIFIED',
-    'pre_migration_package_state': '''$OBS_PRE_MIGRATION_PACKAGES''',
-    'pre_migration_state_sha256': '$PRE_STATE_SHA256',
-    'apt_update_exit_code': '$OBS_APT_UPDATE_EXIT',
-    'apt_cache_policy_output': '''$OBS_APT_CACHE_POLICY''',
-    'apt_install_exit_code': '$OBS_APT_INSTALL_EXIT',
-    'post_install_dpkg_query': '''$OBS_POST_DPKG_QUERY''',
-    'apt_check_exit_code': '$OBS_POST_APT_CHECK_EXIT',
-    'dpkg_audit_exit_code': '$OBS_POST_DPKG_AUDIT_EXIT',
-    'dpkg_audit_output_empty': '$OBS_POST_DPKG_AUDIT_EMPTY',
-    'post_migration_boot_os_release': '''$OBS_POST_BOOT_OS_RELEASE''',
-    'rollback_dpkg_query': '''$OBS_ROLLBACK_DPKG_QUERY''',
-    'rollback_state_sha256': '$ROLLBACK_STATE_SHA256',
-    'rollback_package_state_matches_pre_migration': '$OBS_ROLLBACK_STATE_EQUALITY',
-    'reupgrade_dpkg_query': '''$OBS_REUPGRADE_DPKG_QUERY''',
-    'final_os_release': '''$OBS_FINAL_OS_RELEASE''',
-    'stdout_paths': [
-        '$MIG_LOG',
-        '$POST_MIG_LOG',
-        '$ROLLBACK_LOG',
-        '$REUPGRADE_LOG',
-        '$REUPGRADE_GUEST_LOG'
+    "installation_state_path": os.environ["INSTALLATION_STATE_PATH"],
+    "vm_id": os.environ["MV_ID"],
+    "run_id": os.environ["MV_RUN_ID"],
+    "disk_identity": os.environ["MV_DISK_PATH"],
+    "firmware_mode": os.environ["MV_MODE"],
+    "ssh_username": os.environ["MV_SSH_USER"],
+    "staging_url": os.environ["MV_STAGING_URL"],
+    "observed_staging_fingerprint": os.environ["MV_OBSERVED_FINGERPRINT"],
+    "expected_staging_fingerprint": os.environ["MV_STAGING_FINGERPRINT"],
+    "staging_key_fingerprint_match": os.environ["MV_OBS_STAGING_FINGERPRINT_MATCH"],
+    "all_package_origins_verified": os.environ["MV_OBS_ALL_PKG_ORIGINS"],
+    "pre_migration_package_state": read_file(os.environ["OBS_PRE_MIG_PKGS_FILE"]),
+    "pre_migration_state_sha256": os.environ["MV_PRE_STATE_SHA256"],
+    "apt_update_exit_code": os.environ["MV_APT_UPDATE_EXIT"],
+    "apt_cache_policy_output": read_file(os.environ["OBS_APT_CACHE_FILE"]),
+    "apt_install_exit_code": os.environ["MV_APT_INSTALL_EXIT"],
+    "post_install_dpkg_query": read_file(os.environ["OBS_DPKG_QUERY_FILE"]),
+    "apt_check_exit_code": os.environ["MV_APT_CHECK_EXIT"],
+    "dpkg_audit_exit_code": os.environ["MV_DPKG_AUDIT_EXIT"],
+    "dpkg_audit_output_empty": os.environ["MV_DPKG_AUDIT_EMPTY"],
+    "post_migration_boot_os_release": read_file(os.environ["OBS_BOOT_OS_FILE"]),
+    "rollback_dpkg_query": read_file(os.environ["OBS_ROLLBACK_DPKG_FILE"]),
+    "rollback_state_sha256": os.environ["MV_ROLLBACK_STATE_SHA256"],
+    "rollback_package_state_matches_pre_migration": os.environ["MV_ROLLBACK_STATE_EQUALITY"],
+    "reupgrade_dpkg_query": read_file(os.environ["OBS_REUPGRADE_DPKG_FILE"]),
+    "final_os_release": read_file(os.environ["OBS_FINAL_OS_FILE"]),
+    "stdout_paths": [
+        os.environ["MV_MIG_LOG"],
+        os.environ["MV_POST_MIG_LOG"],
+        os.environ["MV_ROLLBACK_LOG"],
+        os.environ["MV_REUPGRADE_LOG"],
+        os.environ["MV_REUPGRADE_GUEST_LOG"],
     ],
-    'execution_timestamp': '$EXEC_TIMESTAMP',
-    # Migration VM lifecycle evidence paths
-    'lifecycle_evidence': [
-        '$RUNTIME_EVIDENCE_DIR/migration-premig-vm-state.json',
-        '$RUNTIME_EVIDENCE_DIR/migration-premig-shutdown.json',
-        '$RUNTIME_EVIDENCE_DIR/migration-mig-vm-state.json',
-        '$RUNTIME_EVIDENCE_DIR/migration-mig-shutdown.json',
-        '$RUNTIME_EVIDENCE_DIR/migration-rollback-vm-state.json',
-        '$RUNTIME_EVIDENCE_DIR/migration-rollback-shutdown.json',
-        '$RUNTIME_EVIDENCE_DIR/migration-reupgrade-vm-state.json',
-        '$RUNTIME_EVIDENCE_DIR/migration-reupgrade-shutdown.json',
+    "execution_timestamp": os.environ["MV_EXEC_TIMESTAMP"],
+    "lifecycle_evidence": [
+        os.path.join(os.environ["MV_RUNTIME_EVIDENCE_DIR"], "migration-premig-vm-state.json"),
+        os.path.join(os.environ["MV_RUNTIME_EVIDENCE_DIR"], "migration-premig-shutdown.json"),
+        os.path.join(os.environ["MV_RUNTIME_EVIDENCE_DIR"], "migration-mig-vm-state.json"),
+        os.path.join(os.environ["MV_RUNTIME_EVIDENCE_DIR"], "migration-mig-shutdown.json"),
+        os.path.join(os.environ["MV_RUNTIME_EVIDENCE_DIR"], "migration-rollback-vm-state.json"),
+        os.path.join(os.environ["MV_RUNTIME_EVIDENCE_DIR"], "migration-rollback-shutdown.json"),
+        os.path.join(os.environ["MV_RUNTIME_EVIDENCE_DIR"], "migration-reupgrade-vm-state.json"),
+        os.path.join(os.environ["MV_RUNTIME_EVIDENCE_DIR"], "migration-reupgrade-shutdown.json"),
     ],
-    'lifecycle_evidence_sha256': {
-        'premig': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-premig-vm-state.json" 2>/dev/null | awk "{print \$1}" || echo "")',
-        'premig_shutdown': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-premig-shutdown.json" 2>/dev/null | awk "{print \$1}" || echo "")',
-        'mig': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-mig-vm-state.json" 2>/dev/null | awk "{print \$1}" || echo "")',
-        'mig_shutdown': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-mig-shutdown.json" 2>/dev/null | awk "{print \$1}" || echo "")',
-        'rollback': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-rollback-vm-state.json" 2>/dev/null | awk "{print \$1}" || echo "")',
-        'rollback_shutdown': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-rollback-shutdown.json" 2>/dev/null | awk "{print \$1}" || echo "")',
-        'reupgrade': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-reupgrade-vm-state.json" 2>/dev/null | awk "{print \$1}" || echo "")',
-        'reupgrade_shutdown': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-reupgrade-shutdown.json" 2>/dev/null | awk "{print \$1}" || echo "")',
+    "lifecycle_evidence_sha256": {
+        "premig": os.environ["MV_PREMIG_HASH"],
+        "premig_shutdown": os.environ["MV_PREMIG_SHUT_HASH"],
+        "mig": os.environ["MV_MIG_HASH"],
+        "mig_shutdown": os.environ["MV_MIG_SHUT_HASH"],
+        "rollback": os.environ["MV_RB_HASH"],
+        "rollback_shutdown": os.environ["MV_RB_SHUT_HASH"],
+        "reupgrade": os.environ["MV_RU_HASH"],
+        "reupgrade_shutdown": os.environ["MV_RU_SHUT_HASH"],
     },
-    # Binding fields — attest that migration ran on the exact same candidate2 build
-    'source_commit': '$MIG_SOURCE_COMMIT',
-    'workflow_run_id': '$MIG_WORKFLOW_RUN_ID',
-    'installation_state_sha256': '$INSTALLATION_STATE_SHA256',
-    'source_iso_sha256': '$INSTALL_SOURCE_ISO_SHA256',
-    'source_iso_sha512': '$INSTALL_SOURCE_ISO_SHA512',
-    'installation_installer_vm_id': '$INSTALL_INSTALLER_VM_ID',
-    'installation_installed_vm_id': '$INSTALL_INSTALLED_VM_ID',
-    'installation_workflow_run_id': '$INSTALL_WORKFLOW_RUN_ID',
-    'migration_vm_id': '$VM_ID',
+    "source_commit": os.environ["MV_SOURCE_COMMIT"],
+    "workflow_run_id": os.environ["MV_WORKFLOW_RUN_ID"],
+    "installation_state_sha256": os.environ["MV_INSTALLATION_STATE_SHA256"],
+    "source_iso_sha256": os.environ["MV_SOURCE_ISO_SHA256"],
+    "source_iso_sha512": os.environ["MV_SOURCE_ISO_SHA512"],
+    "installation_installer_vm_id": os.environ["MV_INSTALL_INSTALLER_VM_ID"],
+    "installation_installed_vm_id": os.environ["MV_INSTALL_INSTALLED_VM_ID"],
+    "installation_workflow_run_id": os.environ["MV_INSTALL_WORKFLOW_RUN_ID"],
+    "migration_vm_id": os.environ["MV_ID"],
 }
 
-# Final status: ALL observed conditions plus binding fields must be satisfied
 all_pass = (
-    result['apt_install_exit_code'] == '0' and
-    result['apt_check_exit_code'] == '0' and
-    result['dpkg_audit_exit_code'] == '0' and
-    result['dpkg_audit_output_empty'] == 'true' and
-    result['staging_key_fingerprint_match'] == 'true' and
-    result['all_package_origins_verified'] == 'true' and
-    result['rollback_package_state_matches_pre_migration'] == 'true' and
-    result['apt_update_exit_code'] == '0' and
-    result['pre_migration_state_sha256'] != '' and
-    result['rollback_state_sha256'] != '' and
-    result['pre_migration_state_sha256'] == result['rollback_state_sha256'] and
-    result['post_migration_boot_os_release'] not in ('', 'unavailable') and
-    result['post_install_dpkg_query'] not in ('', 'unavailable') and
-    result['rollback_dpkg_query'] not in ('', 'unavailable') and
-    result['reupgrade_dpkg_query'] not in ('', 'unavailable') and
-    result['final_os_release'] not in ('', 'unavailable') and
-    result['observed_staging_fingerprint'] != '' and
-    result['vm_id'] != '' and
-    # Binding field validation
-    result['source_commit'] != '' and
-    result['workflow_run_id'] != '' and
-    result['installation_state_sha256'] != '' and
-    result['source_iso_sha256'] != '' and
-    result['migration_vm_id'] != '' and
-    # Lifecycle evidence validation — all phases must have vm-state and shutdown evidence
-    result.get('lifecycle_evidence_sha256', {}).get('premig', '') != '' and
-    result.get('lifecycle_evidence_sha256', {}).get('premig_shutdown', '') != '' and
-    result.get('lifecycle_evidence_sha256', {}).get('mig', '') != '' and
-    result.get('lifecycle_evidence_sha256', {}).get('mig_shutdown', '') != '' and
-    result.get('lifecycle_evidence_sha256', {}).get('rollback', '') != '' and
-    result.get('lifecycle_evidence_sha256', {}).get('rollback_shutdown', '') != '' and
-    result.get('lifecycle_evidence_sha256', {}).get('reupgrade', '') != '' and
-    result.get('lifecycle_evidence_sha256', {}).get('reupgrade_shutdown', '') != ''
+    result["apt_install_exit_code"] == "0" and
+    result["apt_check_exit_code"] == "0" and
+    result["dpkg_audit_exit_code"] == "0" and
+    result["dpkg_audit_output_empty"] == "true" and
+    result["staging_key_fingerprint_match"] == "true" and
+    result["all_package_origins_verified"] == "true" and
+    result["rollback_package_state_matches_pre_migration"] == "true" and
+    result["apt_update_exit_code"] == "0" and
+    result["pre_migration_state_sha256"] != "" and
+    result["rollback_state_sha256"] != "" and
+    result["pre_migration_state_sha256"] == result["rollback_state_sha256"] and
+    result["post_migration_boot_os_release"] not in ("", "unavailable") and
+    result["post_install_dpkg_query"] not in ("", "unavailable") and
+    result["rollback_dpkg_query"] not in ("", "unavailable") and
+    result["reupgrade_dpkg_query"] not in ("", "unavailable") and
+    result["final_os_release"] not in ("", "unavailable") and
+    result["observed_staging_fingerprint"] != "" and
+    result["vm_id"] != "" and
+    result["source_commit"] != "" and
+    result["workflow_run_id"] != "" and
+    result["installation_state_sha256"] != "" and
+    result["source_iso_sha256"] != "" and
+    result["migration_vm_id"] != "" and
+    all(result.get("lifecycle_evidence_sha256", {}).get(k, "") != ""
+        for k in ("premig", "premig_shutdown", "mig", "mig_shutdown",
+                  "rollback", "rollback_shutdown", "reupgrade", "reupgrade_shutdown"))
 )
-result['migration_status'] = 'PASS' if all_pass else 'FAIL'
-result['final_status'] = 'PASS' if all_pass else 'FAIL'
-with open('$out_json', 'w') as f:
+result["migration_status"] = "PASS" if all_pass else "FAIL"
+result["final_status"] = "PASS" if all_pass else "FAIL"
+with open(os.environ["GENIXBIT_MIG_RESULT_JSON"], "w") as f:
     json.dump(result, f, indent=2)
-print(result['final_status'])
+print(result["final_status"])
 PYEOF
 
 FINAL_STATUS=$(python3 -c "import json; d=json.load(open('$out_json')); print(d.get('final_status','FAIL'))")

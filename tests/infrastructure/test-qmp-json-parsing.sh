@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Behavioral regression test: QMP JSON parsing logic
+# Behavioral regression test: QMP JSON parsing via production qmp-client.py
 #
-# Tests the JSON receive-and-parse logic that the production qmp_query_status
-# helper in run-qemu.sh relies on: newline-delimited JSON, ID matching,
-# greeting validation, error handling, split reads, multi-object reads,
-# stale/timeout sockets, and production-readiness checks.
+# Each test creates a fake QMP Unix socket server that simulates various
+# QMP protocol scenarios and invokes the production qmp-client.py helper.
 
 set -Eeuo pipefail
 
@@ -16,33 +14,35 @@ pass() { PASS_COUNT=$((PASS_COUNT + 1)); printf '[PASS] %s\n' "$*"; }
 fail() { FAIL_COUNT=$((FAIL_COUNT + 1)); printf '[FAIL] %s\n' "$*" >&2; }
 
 TEST_DIR=$(mktemp -d)
-cleanup_rm() { rm -rf "${TEST_DIR:?}"; }
+cleanup_rm() {
+    rm -rf "${TEST_DIR:?}"
+    # Clean up any leftover fake server processes
+    pkill -f "qmp-fake-server.py" 2>/dev/null || true
+}
 trap cleanup_rm EXIT
 
-RUN_QEMU="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools/vm/run-qemu.sh"
-HELPER="$RUN_QEMU"
+REPO_TOP="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+QMP_CLIENT="$REPO_TOP/tools/vm/qmp-client.py"
 
 info() { printf '[INFO] %s\n' "$*"; }
+
+run_qmp() {
+    local socket="$1"; shift
+    # Wait for socket to appear
+    for i in $(seq 1 20); do
+        if [[ -S "$socket" ]]; then break; fi
+        sleep 0.2
+    done
+    python3 "$QMP_CLIENT" --socket "$socket" --timeout 4 "$@" 2>&1 || true
+}
 
 # -----------------------------------------------------------------------
 # Test 1: Valid 'running' status
 # -----------------------------------------------------------------------
-info "Test 1: Parse valid 'running' status"
-RESULT=$(python3 -c "
-import json, io
-# Use BytesIO to simulate a socket buffer
-data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-1\", \"return\": {}}\n{\"id\": \"status-1\", \"return\": {\"status\": \"running\", \"running\": true}}\n'
-buf = data
-while b'\n' in buf:
-    line, buf = buf.split(b'\n', 1)
-    line = line.strip()
-    if not line: continue
-    obj = json.loads(line)
-    if isinstance(obj, dict):
-        if obj.get('id') == 'status-1':
-            print(obj.get('return', {}).get('status', ''))
-            break
-" 2>/dev/null || echo "")
+info "Test 1: Valid 'running' status"
+S1="$TEST_DIR/q1.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" "$S1" "running" 2>/dev/null &
+RESULT=$(run_qmp "$S1" query-status)
 if [[ "$RESULT" == "running" ]]; then
     pass "Test 1: parsed 'running' correctly"
 else
@@ -52,21 +52,10 @@ fi
 # -----------------------------------------------------------------------
 # Test 2: Valid 'prelaunch' status
 # -----------------------------------------------------------------------
-info "Test 2: Parse valid 'prelaunch' status"
-RESULT=$(python3 -c "
-import json
-data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-2\", \"return\": {}}\n{\"id\": \"status-2\", \"return\": {\"status\": \"prelaunch\", \"running\": false}}\n'
-buf = data
-while b'\n' in buf:
-    line, buf = buf.split(b'\n', 1)
-    line = line.strip()
-    if not line: continue
-    obj = json.loads(line)
-    if isinstance(obj, dict):
-        if obj.get('id') == 'status-2':
-            print(obj.get('return', {}).get('status', ''))
-            break
-" 2>/dev/null || echo "")
+info "Test 2: Valid 'prelaunch' status"
+S2="$TEST_DIR/q2.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" "$S2" "prelaunch" 2>/dev/null &
+RESULT=$(run_qmp "$S2" query-status)
 if [[ "$RESULT" == "prelaunch" ]]; then
     pass "Test 2: parsed 'prelaunch' correctly"
 else
@@ -74,211 +63,159 @@ else
 fi
 
 # -----------------------------------------------------------------------
-# Test 3: Misleading 'status:running' in QMP greeting is ignored
+# Test 3: Greeting and responses in one socket write
 # -----------------------------------------------------------------------
-info "Test 3: Misleading 'running' in greeting is ignored"
-RESULT=$(python3 -c "
-import json
-data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}, \"capabilities\": {\"status\": \"running\"}}}\n{\"id\": \"caps-3\", \"return\": {}}\n{\"id\": \"status-3\", \"return\": {\"status\": \"prelaunch\", \"running\": false}}\n'
-buf = data
-while b'\n' in buf:
-    line, buf = buf.split(b'\n', 1)
-    line = line.strip()
-    if not line: continue
-    obj = json.loads(line)
-    if isinstance(obj, dict):
-        if obj.get('id') == 'status-3':
-            print(obj.get('return', {}).get('status', ''))
-            break
-" 2>/dev/null || echo "")
+info "Test 3: Greeting and responses in one write"
+S3="$TEST_DIR/q3.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --one-write "$S3" "running" 2>/dev/null &
+RESULT=$(run_qmp "$S3" query-status)
+if [[ "$RESULT" == "running" ]]; then
+    pass "Test 3: greeting+responses in one write"
+else
+    fail "Test 3: expected 'running', got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 4: Status response split across multiple writes
+# -----------------------------------------------------------------------
+info "Test 4: Status response split across multiple writes"
+S4="$TEST_DIR/q4.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --split "$S4" "running" 2>/dev/null &
+RESULT=$(run_qmp "$S4" query-status)
+if [[ "$RESULT" == "running" ]]; then
+    pass "Test 4: split response reassembled"
+else
+    fail "Test 4: expected 'running', got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 5: Capabilities and status in the same read
+# -----------------------------------------------------------------------
+info "Test 5: Capabilities and status in same read"
+S5="$TEST_DIR/q5.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --caps-together "$S5" "prelaunch" 2>/dev/null &
+RESULT=$(run_qmp "$S5" query-status)
 if [[ "$RESULT" == "prelaunch" ]]; then
-    pass "Test 3: greeting 'running' ignored, got 'prelaunch'"
+    pass "Test 5: caps+status in same read"
 else
-    fail "Test 3: expected 'prelaunch', got '$RESULT'"
+    fail "Test 5: expected 'prelaunch', got '$RESULT'"
 fi
 
 # -----------------------------------------------------------------------
-# Test 4: 'running' in error description, not in status
+# Test 6: Async event before expected response
 # -----------------------------------------------------------------------
-info "Test 4: 'running' in error text not mistaken for status"
-RESULT=$(python3 -c "
-import json
-data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-4\", \"return\": {}}\n{\"error\": {\"class\": \"DeviceNotFound\", \"desc\": \"Device was running but state is unknown\"}, \"id\": \"status-4\"}\n'
-buf = data
-while b'\n' in buf:
-    line, buf = buf.split(b'\n', 1)
-    line = line.strip()
-    if not line: continue
-    obj = json.loads(line)
-    if isinstance(obj, dict):
-        if obj.get('id') == 'status-4':
-            if 'error' in obj:
-                print('ERROR')
-            else:
-                print(obj.get('return', {}).get('status', 'NO_STATUS'))
-            break
-" 2>/dev/null || echo "")
-if [[ "$RESULT" == "ERROR" ]]; then
-    pass "Test 4: error response correctly detected, not mistaken for status"
-else
-    fail "Test 4: expected 'ERROR', got '$RESULT'"
-fi
-
-# -----------------------------------------------------------------------
-# Test 5: Response split across multiple socket reads (buffered reassembly)
-# -----------------------------------------------------------------------
-info "Test 5: Split JSON response across multiple socket reads"
-RESULT=$(python3 -c "
-import json
-
-# Simulate two recv() calls with partial JSON
-chunk1 = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-5\", \"return\": {}}\n{\"id\": \"status-5\", \"ret'
-chunk2 = b'urn\": {\"status\": \"running\", \"running\": true}}\n'
-
-# Simulate the production recv_obj logic: buffer accumulates across reads
-buf = b''
-for chunk in (chunk1, chunk2):
-    buf += chunk
-    while b'\n' in buf:
-        line, buf = buf.split(b'\n', 1)
-        line = line.strip()
-        if not line: continue
-        obj = json.loads(line)
-        if isinstance(obj, dict) and obj.get('id') == 'status-5':
-            print(obj.get('return', {}).get('status', ''))
-" 2>/dev/null || echo "")
+info "Test 6: Async event before expected response"
+S6="$TEST_DIR/q6.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --async-event "$S6" "running" 2>/dev/null &
+RESULT=$(run_qmp "$S6" query-status)
 if [[ "$RESULT" == "running" ]]; then
-    pass "Test 5: split response reassembled, got 'running'"
-else
-    fail "Test 5: expected 'running', got '$RESULT'"
-fi
-
-# -----------------------------------------------------------------------
-# Test 6: Multiple JSON objects in one socket read
-# -----------------------------------------------------------------------
-info "Test 6: Multiple JSON objects in a single read"
-RESULT=$(python3 -c "
-import json
-# Two JSON objects on one line (separated by newline within one recv)
-data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-6\", \"return\": {}}\n{\"id\": \"status-6\", \"return\": {\"status\": \"running\", \"running\": true}}\n'
-buf = data
-while b'\n' in buf:
-    line, buf = buf.split(b'\n', 1)
-    line = line.strip()
-    if not line: continue
-    obj = json.loads(line)
-    if isinstance(obj, dict) and obj.get('id') == 'status-6':
-        print(obj.get('return', {}).get('status', ''))
-" 2>/dev/null || echo "")
-if [[ "$RESULT" == "running" ]]; then
-    pass "Test 6: multi-object read handled, got 'running'"
+    pass "Test 6: async event ignored"
 else
     fail "Test 6: expected 'running', got '$RESULT'"
 fi
 
 # -----------------------------------------------------------------------
-# Test 7: Wrong response ID before correct response
+# Test 7: Wrong response ID before correct
 # -----------------------------------------------------------------------
-info "Test 7: Wrong response ID before correct response"
-RESULT=$(python3 -c "
-import json
-data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-7\", \"return\": {}}\n{\"id\": \"stale-1\", \"return\": {\"status\": \"shutdown\"}}\n{\"id\": \"status-7\", \"return\": {\"status\": \"running\", \"running\": true}}\n'
-buf = data
-while b'\n' in buf:
-    line, buf = buf.split(b'\n', 1)
-    line = line.strip()
-    if not line: continue
-    obj = json.loads(line)
-    if isinstance(obj, dict) and obj.get('id') == 'status-7':
-        print(obj.get('return', {}).get('status', ''))
-" 2>/dev/null || echo "")
+info "Test 7: Wrong response ID before correct"
+S7="$TEST_DIR/q7.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --wrong-id "$S7" "running" 2>/dev/null &
+RESULT=$(run_qmp "$S7" query-status)
 if [[ "$RESULT" == "running" ]]; then
-    pass "Test 7: stale ID ignored, got 'running' from correct ID"
+    pass "Test 7: wrong ID ignored"
 else
     fail "Test 7: expected 'running', got '$RESULT'"
 fi
 
 # -----------------------------------------------------------------------
-# Test 8: QMP error response
+# Test 8: Misleading 'running' in greeting metadata
 # -----------------------------------------------------------------------
-info "Test 8: QMP error response rejected"
-RESULT=$(python3 -c "
-import json
-data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-8\", \"return\": {}}\n{\"error\": {\"class\": \"GenericError\", \"desc\": \"not found\"}, \"id\": \"status-8\"}\n'
-buf = data
-while b'\n' in buf:
-    line, buf = buf.split(b'\n', 1)
-    line = line.strip()
-    if not line: continue
-    obj = json.loads(line)
-    if isinstance(obj, dict) and obj.get('id') == 'status-8':
-        if 'error' in obj:
-            print('ERROR')
-        else:
-            print(obj.get('return', {}).get('status', ''))
-" 2>/dev/null || echo "")
-if [[ "$RESULT" == "ERROR" ]]; then
-    pass "Test 8: error response correctly rejected"
+info "Test 8: Misleading 'running' in greeting metadata"
+S8="$TEST_DIR/q8.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --misleading-greeting "$S8" "prelaunch" 2>/dev/null &
+RESULT=$(run_qmp "$S8" query-status)
+if [[ "$RESULT" == "prelaunch" ]]; then
+    pass "Test 8: misleading greeting ignored"
 else
-    fail "Test 8: expected 'ERROR', got '$RESULT'"
+    fail "Test 8: expected 'prelaunch', got '$RESULT'"
 fi
 
 # -----------------------------------------------------------------------
-# Test 9: Malformed JSON line skipped
+# Test 9: 'running' in error description
 # -----------------------------------------------------------------------
-info "Test 9: Malformed JSON line skipped"
-RESULT=$(python3 -c "
-import json
-data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\nnot valid json at all\n{\"id\": \"caps-9\", \"return\": {}}\n{\"id\": \"status-9\", \"return\": {\"status\": \"running\", \"running\": true}}\n'
-buf = data
-while b'\n' in buf:
-    line, buf = buf.split(b'\n', 1)
-    line = line.strip()
-    if not line: continue
-    try:
-        obj = json.loads(line)
-    except json.JSONDecodeError:
-        continue
-    if isinstance(obj, dict) and obj.get('id') == 'status-9':
-        print(obj.get('return', {}).get('status', ''))
-" 2>/dev/null || echo "")
+info "Test 9: 'running' in error text not mistaken"
+S9="$TEST_DIR/q9.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --error-desc "$S9" "running" 2>/dev/null &
+RESULT=$(run_qmp "$S9" query-status)
+if [[ -z "$RESULT" || "$RESULT" == *"Error"* || "$RESULT" == *"error"* ]]; then
+    pass "Test 9: error response rejected"
+else
+    fail "Test 9: expected error, got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 10: QMP error response
+# -----------------------------------------------------------------------
+info "Test 10: QMP error response"
+S10="$TEST_DIR/q10.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --error-response "$S10" 2>/dev/null &
+RESULT=$(run_qmp "$S10" query-status)
+if [[ -z "$RESULT" || "$RESULT" == *"Error"* || "$RESULT" == *"error"* ]]; then
+    pass "Test 10: QMP error correctly rejected"
+else
+    fail "Test 10: expected error, got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 11: Malformed JSON then valid
+# -----------------------------------------------------------------------
+info "Test 11: Malformed JSON then valid response"
+S11="$TEST_DIR/q11.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --malformed-json "$S11" "running" 2>/dev/null &
+RESULT=$(run_qmp "$S11" query-status)
 if [[ "$RESULT" == "running" ]]; then
-    pass "Test 9: malformed JSON skipped, got 'running'"
+    pass "Test 11: malformed JSON skipped"
 else
-    fail "Test 9: expected 'running', got '$RESULT'"
+    fail "Test 11: expected 'running', got '$RESULT'"
 fi
 
 # -----------------------------------------------------------------------
-# Test 10: Socket timeout simulated
+# Test 12: Premature EOF
 # -----------------------------------------------------------------------
-info "Test 10: Stale socket timeout handled"
-SOCKET_10="$TEST_DIR/qmp10.sock"
-touch "$SOCKET_10"
-RESULT=$(python3 -c "
-import socket
-try:
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.settimeout(2)
-    s.connect('$SOCKET_10')
-    print('CONNECTED')
-except (FileNotFoundError, ConnectionRefusedError, socket.timeout, OSError):
-    print('EXPECTED_FAILURE')
-" 2>/dev/null || echo "EXPECTED_FAILURE")
-rm -f "$SOCKET_10"
-if [[ "$RESULT" == "EXPECTED_FAILURE" ]]; then
-    pass "Test 10: stale socket correctly short-circuits"
+info "Test 12: Premature EOF"
+S12="$TEST_DIR/q12.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --premature-eof "$S12" 2>/dev/null &
+RESULT=$(run_qmp "$S12" query-status)
+if [[ -z "$RESULT" || "$RESULT" == *"Error"* || "$RESULT" == *"closed"* ]]; then
+    pass "Test 12: premature EOF handled"
 else
-    fail "Test 10: expected 'EXPECTED_FAILURE', got '$RESULT'"
+    fail "Test 12: expected failure on EOF, got '$RESULT'"
 fi
 
 # -----------------------------------------------------------------------
-# Test 11: Production code contains no raw status grep
+# Test 13: Socket timeout
 # -----------------------------------------------------------------------
-info "Test 11: run-qemu.sh contains no raw QMP status grep"
-if grep -qnE 'grep.*qmp_status|grep.*running.*prelaunch' "$RUN_QEMU" 2>/dev/null; then
-    fail "Test 11: run-qemu.sh still contains raw QMP status grep!"
+info "Test 13: Socket timeout"
+S13="$TEST_DIR/q13.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --timeout "$S13" 2>/dev/null &
+RESULT=$(run_qmp "$S13" query-status)
+if [[ -z "$RESULT" || "$RESULT" == *"timeout"* || "$RESULT" == *"Timeout"* ]]; then
+    pass "Test 13: socket timeout handled"
 else
-    pass "Test 11: no raw QMP status grep in run-qemu.sh"
+    fail "Test 13: expected timeout, got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 14: system-powerdown command
+# -----------------------------------------------------------------------
+info "Test 14: system-powerdown command"
+S14="$TEST_DIR/q14.sock"
+python3 "$REPO_TOP/tests/infrastructure/qmp-fake-server.py" --powerdown "$S14" 2>/dev/null &
+RESULT=$(run_qmp "$S14" system-powerdown)
+if [[ "$RESULT" == "OK" ]]; then
+    pass "Test 14: system-powerdown verified"
+else
+    fail "Test 14: expected 'OK', got '$RESULT'"
 fi
 
 # -----------------------------------------------------------------------
