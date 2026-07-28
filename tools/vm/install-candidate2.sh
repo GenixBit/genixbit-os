@@ -443,6 +443,15 @@ CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
 if [[ "$CAND2_VERIFIED_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
     fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA} — expected 1cb79fbf..."
 fi
+INSTALL_PHASE="validation_artifact_status"
+artifact_file="$(cd "$(dirname "$0")/../.." && pwd)/docs/releases/0.2.0-alpha-artifact.json"
+if [[ -f "$artifact_file" ]]; then
+    artifact_status=$(python3 -c "import json; d=json.load(open('$artifact_file')); print(d.get('verification_status',''))")
+    artifact_usable=$(python3 -c "import json; d=json.load(open('$artifact_file')); print(str(d.get('usable_as_migration_source', False)).lower())")
+    if [[ "$artifact_status" == "RETIRED_INVALID_ZERO_FILLED" || "$artifact_usable" != "true" ]]; then
+        fail "Candidate 2 artifact is retired: recorded object is exactly 2540554240 zero bytes and is not an ISO."
+    fi
+fi
 CAND2_VERIFIED_SHA512=$(sha512sum "$ISO_PATH" | awk '{print $1}')
 info "Candidate 2 ISO SHA-256 verified: $CAND2_VERIFIED_SHA"
 info "Candidate 2 ISO SHA-512 verified: ${CAND2_VERIFIED_SHA512:0:16}..."

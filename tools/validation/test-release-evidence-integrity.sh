@@ -259,17 +259,20 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 14: collect-migration-evidence.py must use 1cb79fbf Candidate 2 SHA (real GCS hash)
+# Test 14: collect-migration-evidence.py must reject retired 1cb79fbf Candidate 2 SHA
 # ─────────────────────────────────────────────────────────────────────────────
-info "Test 14: collect-migration-evidence.py must use correct 1cb79fbf Candidate 2 SHA..."
+info "Test 14: collect-migration-evidence.py must reject retired 1cb79fbf Candidate 2 SHA..."
 COLLECT_PY="$REPO_ROOT/tools/validation/collect-migration-evidence.py"
 if grep -q 'd9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228' "$COLLECT_PY" 2>/dev/null; then
     fail_test "collect-migration-evidence.py: still contains fabricated d9aa0d2e SHA"
 fi
 if ! grep -q '1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669' "$COLLECT_PY" 2>/dev/null; then
-    fail_test "collect-migration-evidence.py: does not contain correct 1cb79fbf SHA"
+    fail_test "collect-migration-evidence.py: does not contain retired 1cb79fbf SHA guard"
 fi
-pass_test "collect-migration-evidence.py: uses correct 1cb79fbf Candidate 2 SHA"
+if ! grep -q 'retired zero-filled artifact' "$COLLECT_PY" 2>/dev/null; then
+    fail_test "collect-migration-evidence.py: missing retired artifact rejection language"
+fi
+pass_test "collect-migration-evidence.py: rejects retired 1cb79fbf Candidate 2 SHA"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Summary

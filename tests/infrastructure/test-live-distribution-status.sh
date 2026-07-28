@@ -14,7 +14,7 @@ EXPECTED_SIZE=2540554240
 echo "=== 1. Checking Checksum File Availability ==="
 checksum_out=$(curl -sL "$CHECKSUM_URL")
 if [[ "$checksum_out" == *"1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"* ]]; then
-    pass "Checksum file is publicly available and contains expected SHA-256."
+    pass "Checksum file identifies the retired zero-filled object."
 else
     fail "Checksum file missing or invalid: $checksum_out"
 fi
@@ -22,13 +22,13 @@ fi
 echo "=== 2. Checking ISO HEAD Request & Content-Length ==="
 headers=$(curl -sIL "$ISO_URL")
 if echo "$headers" | grep -qi "HTTP/.* 200"; then
-    pass "ISO HEAD request returned HTTP 200 OK."
+    pass "Retired ISO object HEAD request returned HTTP 200 OK for audit identity only."
 else
     fail "ISO HEAD request failed: $headers"
 fi
 
 if echo "$headers" | grep -qi "content-length: $EXPECTED_SIZE"; then
-    pass "ISO Content-Length matches expected $EXPECTED_SIZE bytes."
+    pass "Retired object Content-Length matches expected $EXPECTED_SIZE bytes."
 else
     fail "ISO Content-Length mismatch: $headers"
 fi
@@ -43,10 +43,10 @@ fi
 
 echo "=== 4. Checking OS Portal (os.genixbit.com) ==="
 os_html=$(curl -sL https://os.genixbit.com)
-if echo "$os_html" | grep -q "$ISO_URL"; then
-    pass "OS portal contains expected ISO download URL."
+if echo "$os_html" | grep -qi "Retired\|RETIRED_INVALID_ZERO_FILLED"; then
+    pass "OS portal marks the Candidate 2 object retired."
 else
-    fail "OS portal missing ISO download URL."
+    fail "OS portal does not mark the Candidate 2 object retired."
 fi
 
 if echo "$os_html" | grep -qi "Download coming after validation"; then
@@ -57,10 +57,10 @@ fi
 
 echo "=== 5. Checking Docs Portal (docs.os.genixbit.com) ==="
 docs_html=$(curl -sL https://docs.os.genixbit.com)
-if echo "$docs_html" | grep -q "$CHECKSUM_URL"; then
-    pass "Docs portal contains expected checksum URL."
+if echo "$docs_html" | grep -qi "Retired\|RETIRED_INVALID_ZERO_FILLED"; then
+    pass "Docs portal marks the Candidate 2 object retired."
 else
-    fail "Docs portal missing checksum URL."
+    fail "Docs portal does not mark the Candidate 2 object retired."
 fi
 
 echo "=== 6. Checking Package Status Portal (packages.os.genixbit.com) ==="

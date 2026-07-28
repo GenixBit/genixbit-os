@@ -47,7 +47,7 @@ EOF
 {"command": "install", "exit_code": 0, "status": "PASS", "observations": {"captured_apt_output": "Reading package lists... Done"}}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-candidate-upgrade.json"
-{"command": "upgrade", "exit_code": 0, "status": "PASS", "observations": {"candidate2_iso_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"}}
+{"command": "upgrade", "exit_code": 0, "status": "PASS", "observations": {"candidate2_iso_sha256": "09a00e22c73d91ce0bf6f1e8558dbc80a7f9061ca6b36edc434281c761aeb204"}}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-tamper.json"
 {"command": "tamper", "exit_code": 0, "status": "PASS"}
@@ -168,4 +168,3 @@ fi
 
 pass "=== All Evidence Collector Negative Security Tests Passed ==="
 exit 0
-

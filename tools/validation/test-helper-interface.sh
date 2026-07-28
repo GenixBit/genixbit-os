@@ -197,17 +197,17 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 12: Candidate 2 provenance file exists and contains single pinned SHA
+# Test 12: Candidate 2 provenance file exists and records retired status
 # ─────────────────────────────────────────────────────────────────────────────
-info "Test 12: 0.2.0-alpha-artifact.json must exist with correct pinned SHA..."
+info "Test 12: 0.2.0-alpha-artifact.json must exist with retired status..."
 if [[ ! -f "$PROVENANCE" ]]; then
     fail_test "Test 12: docs/releases/0.2.0-alpha-artifact.json is missing"
 else
-    PINNED_SHA=$(python3 -c "import json; print(json.load(open('$PROVENANCE'))['sha256'])" 2>/dev/null || echo "")
-    if [[ "$PINNED_SHA" == "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
-        pass_test "Test 12: Provenance file exists with correct canonical SHA 1cb79fbf"
+    STATUS=$(python3 -c "import json; print(json.load(open('$PROVENANCE'))['verification_status'])" 2>/dev/null || echo "")
+    if [[ "$STATUS" == "RETIRED_INVALID_ZERO_FILLED" ]]; then
+        pass_test "Test 12: Provenance file records retired invalid Candidate 2 status"
     else
-        fail_test "Test 12: Provenance file sha256='$PINNED_SHA' — expected 1cb79fbf (confirmed by GCS downloads)"
+        fail_test "Test 12: Provenance file verification_status='$STATUS' — expected RETIRED_INVALID_ZERO_FILLED"
     fi
 fi
 
@@ -222,13 +222,13 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 14: install-candidate2.sh pins Cand2 ISO to 1cb79fbf (real GCS hash)
+# Test 14: install-candidate2.sh rejects retired Cand2 ISO hash
 # ─────────────────────────────────────────────────────────────────────────────
-info "Test 14: install-candidate2.sh must pin to 1cb79fbf only..."
+info "Test 14: install-candidate2.sh must reject retired 1cb79fbf hash..."
 if grep -q 'd9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228' "$INSTALL_CAND2" 2>/dev/null; then
     fail_test "Test 14: install-candidate2.sh still contains fabricated d9aa0d2e SHA"
-elif grep -q '1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669' "$INSTALL_CAND2" 2>/dev/null; then
-    pass_test "Test 14: install-candidate2.sh pins to canonical 1cb79fbf SHA only"
+elif grep -q 'Candidate 2 artifact is retired' "$INSTALL_CAND2" 2>/dev/null && grep -q '1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669' "$INSTALL_CAND2" 2>/dev/null; then
+    pass_test "Test 14: install-candidate2.sh rejects retired 1cb79fbf SHA"
 else
     fail_test "Test 14: install-candidate2.sh does not contain expected 1cb79fbf SHA reference"
 fi

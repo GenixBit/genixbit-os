@@ -60,6 +60,18 @@ CURRENT_COMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD)
 BUILD_VERSION=$(grep -E '^export TARGET_BUILD_VERSION=' "$REPO_ROOT/args.sh" | cut -d'"' -f2)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# Fail closed before any package, VM, or migration work when the historical
+# Candidate 2 object has been retired as a zero-filled non-ISO artifact.
+CAND2_PROVENANCE_FILE="$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json"
+[[ -f "$CAND2_PROVENANCE_FILE" ]] || fail "Candidate 2 provenance file missing: $CAND2_PROVENANCE_FILE"
+CAND2_PINNED_SHA=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENANCE_FILE'))['sha256'])")
+[[ -n "$CAND2_PINNED_SHA" ]] || fail "Candidate 2 provenance file sha256 field is empty!"
+CAND2_STATUS=$(python3 -c "import json; d=json.load(open('$CAND2_PROVENANCE_FILE')); print(d.get('verification_status',''))")
+CAND2_USABLE=$(python3 -c "import json; d=json.load(open('$CAND2_PROVENANCE_FILE')); print(str(d.get('usable_as_migration_source', False)).lower())")
+if [[ "$CAND2_STATUS" == "RETIRED_INVALID_ZERO_FILLED" || "$CAND2_USABLE" != "true" || "$CAND2_PINNED_SHA" == "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
+    fail "Candidate 2 artifact is retired: recorded object is exactly 2540554240 zero bytes and is not an ISO."
+fi
+
 if command -v gpg >/dev/null 2>&1; then
     info "Generating passphrase-protected isolated test GPG key pair..."
     : "${STAGING_SIGNING_PASSPHRASE:?STAGING_SIGNING_PASSPHRASE is required}"
@@ -209,10 +221,6 @@ EOF
 # Skipping any phase causes evidence collection to fail with missing stage JSON.
 
 # Read canonical Candidate 2 SHA from provenance record (single source of truth)
-CAND2_PROVENANCE_FILE="$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json"
-[[ -f "$CAND2_PROVENANCE_FILE" ]] || fail "Candidate 2 provenance file missing: $CAND2_PROVENANCE_FILE"
-CAND2_PINNED_SHA=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENANCE_FILE'))['sha256'])")
-[[ -n "$CAND2_PINNED_SHA" ]] || fail "Candidate 2 provenance file sha256 field is empty!"
 info "Candidate 2 canonical SHA-256 (from provenance): $CAND2_PINNED_SHA"
 
 # D14: Validate immutable_url has generation pin (checked before download, no ISO needed)

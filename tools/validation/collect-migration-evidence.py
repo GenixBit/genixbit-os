@@ -235,9 +235,11 @@ def main():
         if not cand_sha:
             cand_hashes = stage_data["candidate-upgrade"].get("artifact_hashes", {})
             cand_sha = cand_hashes.get("candidate2_iso_sha256")
-    expected_cand_sha = "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
-    if cand_sha != expected_cand_sha:
-        fail(f"Candidate 2 upgrade stage log SHA-256 '{cand_sha}' does not match expected '{expected_cand_sha}'")
+    retired_cand_sha = "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
+    if cand_sha == retired_cand_sha:
+        fail("Candidate 2 upgrade stage used retired zero-filled artifact SHA-256 as a successful migration source")
+    if not cand_sha:
+        fail("Candidate 2 upgrade stage log SHA-256 is missing")
 
     # Rejection 15: Migration script without staging URL
     cand_cmd = str(stage_data["candidate-upgrade"].get("command", ""))

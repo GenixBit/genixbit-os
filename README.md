@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!NOTE]
-> **Release Validation Complete (`0.2.0-alpha`)**: GenixBit OS `0.2.0-alpha` candidate 2 (`validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`) successfully completed release validation (Evidence PR #40, artifact `GenixBitOS-0.2.0-alpha-2607220558.iso`, SHA-256 `1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669`). The historical `0.1.0-alpha` candidate `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` remains recorded as historical validation. Candidate 1 `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` is retired due to target build version mismatch.
+> **Retired Invalid Artifact (`0.2.0-alpha`)**: GenixBit OS `0.2.0-alpha` candidate 2 (`validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`) is retired. The recorded artifact `GenixBitOS-0.2.0-alpha-2607220558.iso` has SHA-256 `1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669`, which exactly matches 2,540,554,240 zero bytes and is not a valid ISO. It must not be used as a release, installation, migration, or upgrade source. Candidate 1 `validation/0.2.0-alpha-candidate` remains retired due to target build version mismatch.
 
 ## Build with AI. Own your environment.
 

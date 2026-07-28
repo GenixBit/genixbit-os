@@ -48,7 +48,7 @@ jobs:
       - name: Install ShellCheck and Packaging tools
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y shellcheck jq gpg curl python3-jsonschema squashfs-tools
+          sudo apt-get install -y shellcheck jq gpg curl python3-jsonschema squashfs-tools xorriso mtools
 
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -85,6 +85,9 @@ jobs:
           bash tests/infrastructure/test-qmp-json-parsing.sh
           bash tests/infrastructure/test-candidate2-failure-evidence.sh
           bash tests/infrastructure/test-mksquashfs-runner.sh
+          bash tools/validation/test-iso-structure.sh
+          bash tools/validation/test-release-preflight-evidence.sh
+          bash tools/validation/test-candidate2-retirement.sh
 
       - name: Verify plan and evidence JSON schema validity
         run: |
