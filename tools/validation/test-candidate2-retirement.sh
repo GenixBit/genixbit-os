@@ -332,7 +332,8 @@ fi
 grep -q 'Primary Volume Descriptor signature missing' "$TMP_DIR/zero.err"
 pass "structural checker rejects sufficiently large zero-filled file"
 
-check "documentation no longer says Candidate 2 successfully completed release validation" bash -c "! git grep -n 'Candidate 2.*successfully completed release validation\|successfully completed release validation.*Candidate 2' -- README.md CHANGELOG.md docs website >/dev/null"
+check "documentation contains no active retired Candidate 2 release claims" python3 "$REPO_ROOT/tools/validation/check-retired-candidate-claims.py"
+check "retired Candidate 2 claim checker behavior" bash "$REPO_ROOT/tools/validation/test-retired-candidate-claims.sh"
 check "no secret or private material is written to test output" bash -c "! grep -R 'secret\|PRIVATE KEY\|passphrase' '$TMP_DIR' >/dev/null 2>&1"
 
 printf '[PASS] Candidate 2 retirement tests passed: %s/%s\n' "$PASS" "$TOTAL"

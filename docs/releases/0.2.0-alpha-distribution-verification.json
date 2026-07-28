@@ -12,6 +12,8 @@
   "downloaded_file_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669",
   "hash_match": true,
   "artifact_status": "RETIRED_INVALID_ZERO_FILLED",
+  "evidence_classification": "RETRACTED_UNBOUND_EVIDENCE",
+  "release_validation_status": "NOT_VALIDATED",
   "usable_as_release_artifact": false,
   "usable_as_migration_source": false,
   "verification_resolution": "Checksum verification matched the stored GCS object only. The object is retired because it is exactly 2540554240 zero bytes and lacks an ISO9660 Primary Volume Descriptor.",

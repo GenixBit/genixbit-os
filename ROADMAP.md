@@ -77,7 +77,7 @@ See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VA
 - [x] Replace user-facing boot, live-session, installer, desktop and support branding.
 - [x] Ensure `/etc/os-release`, issue files, URLs and settings identify GenixBit OS.
 - [x] Audit remaining upstream terms as legal notices, technical dependencies or migration defects.
-- [x] Produce genuine screenshots from a validated GenixBit build.
+- [x] Preserve historical screenshots as unbound audit material; new release screenshots require a valid replacement ISO.
 
 ### GenixBit Branding Foundation Status
 - Branding package source: PASS
@@ -89,16 +89,18 @@ See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VA
 - Purge: PASS
 - Identity restoration: PASS
 - ISO integration: PASS
-- BIOS branding: PASS
-- UEFI branding: PASS
-- Installer branding: PASS
-- Installed-system branding: PASS
+- BIOS branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+- UEFI branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+- Installer branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+- Installed-system branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
 
-**Validated 0.2.0-alpha Candidate 2:**
+**Retired 0.2.0-alpha Candidate 2:**
 - Candidate branch: `validation/0.2.0-alpha-candidate-2`
 - Candidate SHA: `88a1550a9129a80ffd2c4cf73838122020a782cb`
 - Evidence PR: #40
-- Status: **PASS** (Release validation complete)
+- Artifact status: **RETIRED_INVALID_ZERO_FILLED**
+- Evidence classification: **RETRACTED_UNBOUND_EVIDENCE**
+- Release validation status: **NOT_VALIDATED**
 
 **Retired Diagnostic Candidate 1:**
 - Candidate branch: `validation/0.2.0-alpha-candidate`

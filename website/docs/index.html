@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS Official Documentation — Architecture, Release 0.2.0-alpha, ISO verification, USB creation, VM testing, package architecture, GCP staging validation, and security policies.">
+  <meta name="description" content="GenixBit OS Official Documentation — Architecture, retired 0.2.0-alpha object status, VM testing, package architecture, GCP staging validation, and security policies.">
   <title>GenixBit OS Documentation Portal</title>
   <style>
     :root {
@@ -76,7 +76,7 @@
         <a href="https://www.genixbit.com">Company</a>
         <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
       </div>
-      <span class="badge">v0.2.0-alpha Validated</span>
+      <span class="badge">0.2.0-alpha Retired</span>
     </nav>
   </header>
 
@@ -85,8 +85,8 @@
       <h4>Documentation Guide</h4>
       <ul>
         <li><a href="#overview">1. Overview</a></li>
-        <li><a href="#download">2. Download & Checksum</a></li>
-        <li><a href="#installation">3. Installation & USB</a></li>
+        <li><a href="#download">2. Retired Object & Checksum</a></li>
+        <li><a href="#installation">3. Installation Blocked</a></li>
         <li><a href="#vm-testing">4. VM Testing Guide</a></li>
         <li><a href="#release">5. Release 0.2.0-alpha</a></li>
         <li><a href="#branding">6. Branding Architecture</a></li>
@@ -113,7 +113,7 @@
 
       <!-- 2. Download & Checksum -->
       <section id="download">
-        <h2>2. Download & Checksum</h2>
+        <h2>2. Retired Object & Checksum</h2>
         <p><strong>Retired:</strong> The previously listed 0.2.0-alpha object is not a valid ISO. It is exactly zero-filled and must not be downloaded for installation, migration, or upgrade validation.</p>
         <p>Historical object name retained for audit: <code>GenixBitOS-0.2.0-alpha-2607220558.iso</code></p>
 
@@ -127,7 +127,7 @@ $ sha256sum GenixBitOS-0.2.0-alpha-2607220558.iso
 
       <!-- 3. Installation & USB -->
       <section id="installation">
-        <h2>3. Installation & Bootable USB Creation</h2>
+        <h2>3. Installation Blocked</h2>
         <p>No usable 0.2.0-alpha ISO is currently published. Do not write the retired object to USB media.</p>
         
         <h3>Creating a Bootable USB Flash Drive</h3>
@@ -167,7 +167,7 @@ sudo lsblk
 
         <h3>Known Limitations</h3>
         <ul>
-          <li>Alpha release intended for testing and evaluation only; back up important data.</li>
+          <li>No usable 0.2.0-alpha release or migration-source ISO currently exists.</li>
           <li>Secure Boot key enrollment is manual in 0.2.0-alpha.</li>
           <li>Production package repository is NOT active; package staging ran on isolated GCP environment.</li>
         </ul>
@@ -215,7 +215,7 @@ sudo lsblk
       <!-- 12. Troubleshooting -->
       <section id="troubleshooting">
         <h2>12. Troubleshooting</h2>
-        <p>If you encounter boot issues, verify ISO SHA-256 hash, disable Secure Boot in BIOS, or check QEMU memory allocation (minimum 4 GB RAM required).</p>
+        <p>If you encounter the retired 0.2.0-alpha object, do not debug it as a boot issue. It is exactly zero-filled and must be replaced by a new valid ISO before VM or USB testing.</p>
       </section>
 
       <!-- 13. Roadmap -->
@@ -223,7 +223,7 @@ sudo lsblk
         <h2>13. Roadmap</h2>
         <ul>
           <li><strong>Phase 1 (Completed):</strong> ISO build pipeline & 12-stage GCP package staging validation drill.</li>
-          <li><strong>Phase 2 (Completed):</strong> Public ISO release & transparency portal publication.</li>
+          <li><strong>Phase 2 (Blocked):</strong> Public ISO release requires a new valid artifact; the 0.2.0-alpha object is retired invalid.</li>
           <li><strong>Phase 3 (Upcoming):</strong> Hardware-accelerated AI Core integration & production package repository approval.</li>
         </ul>
       </section>

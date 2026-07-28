@@ -1,6 +1,6 @@
 # GenixBit OS Baseline Testing Record
 
-This document records evidence for `0.1.0-alpha` and `0.2.0-alpha` release validation. A status is `PASS` only when the specific activity was directly performed and recorded. Package presence, configuration files, manifests, dry runs, or bootloader files do not by themselves prove that a live desktop, installer, or installed system worked interactively.
+This document records release-validation evidence and later retractions. A status is `PASS` only when the specific activity was directly performed, recorded, and bound to a valid retained artifact. Package presence, configuration files, manifests, dry runs, or bootloader files do not by themselves prove that a live desktop, installer, or installed system worked interactively.
 
 The machine-readable summary is maintained in [`VALIDATION-STATUS.env`](VALIDATION-STATUS.env). Candidate-validation pull requests must pass the release-evidence CI gate before merge.
 
@@ -10,6 +10,9 @@ The machine-readable summary is maintained in [`VALIDATION-STATUS.env`](VALIDATI
 - **PARTIAL** — some relevant evidence exists, but the complete user-visible test is not recorded.
 - **FAIL** — performed and failed.
 - **NOT TESTED** — no direct execution evidence is recorded.
+- **RETIRED_INVALID_ZERO_FILLED** — retained object identity is preserved for audit but the object is conclusively invalid.
+- **RETRACTED_UNBOUND_EVIDENCE** — historical evidence may exist but cannot be tied to a valid retained ISO and cannot count as release evidence.
+- **NOT_VALIDATED** — no usable release or migration-source ISO currently exists for the version.
 
 ## Historical First-Build Evidence
 
@@ -30,11 +33,11 @@ This artifact is retained as historical proof that commit `2ed584c` compiled. It
 
 Cloud resource identifiers, public build-host addresses, SSH access details, and administrator paths belong in a private GenixBit operations record and must not be committed here.
 
-## Validated 0.2.0-alpha Candidate 2 Evidence
+## Retired 0.2.0-alpha Candidate 2 Historical Record
 
 `main` is a moving development branch. The validation build uses the immutable candidate branch created according to [`VALIDATION-CANDIDATE.md`](VALIDATION-CANDIDATE.md).
 
-**Candidate 2 validation cycle:**
+**Candidate 2 historical cycle:**
 
 | Field | Value |
 | --- | --- |
@@ -48,24 +51,26 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 | ISO size | 2,540,554,240 bytes |
 | SHA-256 | `1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669` |
 | Artifact status | `RETIRED_INVALID_ZERO_FILLED`; checksum matching confirmed object identity only, not ISO validity |
+| Release validation status | `NOT_VALIDATED` |
+| Historical screenshots/logs | `RETRACTED_UNBOUND_EVIDENCE`; retained for audit but unusable for release approval |
 
 | Test / Gate | Status | Requirement / Evidence |
 | --- | :---: | --- |
 | Candidate branch created | **HISTORICAL** | `validation/0.2.0-alpha-candidate-2` branch created at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`; recorded artifact retired as invalid zero-filled object |
-| Full candidate SHA recorded | **PASS** | `88a1550a9129a80ffd2c4cf73838122020a782cb` verified via `git rev-parse HEAD` |
-| Candidate checkout clean | **PASS** | Verified clean git status prior to candidate freeze |
-| Checksum verification | **PASS** | Independent sha256 checksum calculation matched generated digest |
-| UEFI boot path | **PASS** | Booted ISO via OVMF firmware to live desktop |
-| Legacy BIOS boot path | **PASS** | Booted ISO via SeaBIOS firmware to GRUB menu and live desktop |
-| Live session desktop | **PASS** | Desktop GUI, dock, wallpaper, and GenixBit branding verified |
-| Ubiquity installer execution | **PASS** | Interactive installer launched, formatted disk, configured user `genixbit`, and completed installation |
-| Installed BIOS system boot | **PASS** | Installed target disk booted cleanly in BIOS mode and reached completion |
-| Installed UEFI system boot | **PASS** | Installed target disk booted cleanly in UEFI mode and logged in as `genixbit` |
-| APT package health | **PASS** | `sudo apt update` and `apt-get check` completed with 0 broken packages |
-| dpkg audit | **PASS** | `dpkg --audit` returned clean result (0 unconfigured/half-installed packages) |
-| Critical log review | **PASS** | `journalctl -p 3 -b` reviewed on target system with 0 critical systemd errors |
-| Second reproducible build (Build B) | **PASS** | Second clean build executed independently from fresh checkout |
-| Reproducibility comparison | **PASS** | `cmp` confirmed Build A and Build B ISOs are 100% byte-for-byte identical |
+| Full candidate SHA recorded | **HISTORICAL** | `88a1550a9129a80ffd2c4cf73838122020a782cb` identifies the frozen source branch only |
+| Candidate checkout clean | **HISTORICAL** | Historical source-state record; not release approval |
+| Checksum verification | **RETIRED_INVALID_ZERO_FILLED** | Digest match proves only the invalid zero-filled object identity |
+| UEFI boot path | **RETRACTED_UNBOUND_EVIDENCE** | Prior boot material cannot be tied to a valid retained ISO |
+| Legacy BIOS boot path | **RETRACTED_UNBOUND_EVIDENCE** | Prior boot material cannot prove the retired object booted |
+| Live session desktop | **RETRACTED_UNBOUND_EVIDENCE** | Screenshots are historical audit material only |
+| Ubiquity installer execution | **RETRACTED_UNBOUND_EVIDENCE** | Installer evidence cannot approve an installation source |
+| Installed BIOS system boot | **RETRACTED_UNBOUND_EVIDENCE** | Installed-system evidence cannot be tied to a valid source ISO |
+| Installed UEFI system boot | **RETRACTED_UNBOUND_EVIDENCE** | Installed-system evidence cannot be tied to a valid source ISO |
+| APT package health | **RETRACTED_UNBOUND_EVIDENCE** | Guest package-health claims cannot validate the retired object |
+| dpkg audit | **RETRACTED_UNBOUND_EVIDENCE** | Guest package-health claims cannot validate the retired object |
+| Critical log review | **RETRACTED_UNBOUND_EVIDENCE** | Guest log claims cannot validate the retired object |
+| Second reproducible build (Build B) | **RETRACTED_UNBOUND_EVIDENCE** | Prior Build B claim cannot be bound to a usable retained ISO |
+| Reproducibility comparison | **RETRACTED_UNBOUND_EVIDENCE** | `cmp` claim cannot establish a valid reproducible release artifact |
 
 ## Retired 0.2.0-alpha Candidate 1 Diagnostic Attempt
 
@@ -153,56 +158,56 @@ The candidate branch must not receive commits after validation starts. A require
 
 A QEMU dry run is not boot evidence. Script presence and Bash syntax validation are not proof that the host or guest validation succeeded.
 
-## Candidate 2 Boot and Live-Session Validation
+## Candidate 2 Boot and Live-Session Historical Evidence
 
 | Test | Status | Evidence / Reference |
 | --- | :---: | --- |
-| UEFI boot path | **PASS** | Candidate ISO boots to live desktop under UEFI via OVMF |
-| Legacy BIOS boot path | **PASS** | Candidate ISO boots to live desktop under BIOS via SeaBIOS |
-| GRUB menu displayed interactively | **PASS** | Interactive GRUB menu verified in BIOS and UEFI modes |
-| Kernel completed boot | **PASS** | Clean kernel boot completed without panics |
-| Live desktop reached | **PASS** | GenixBit OS Live Desktop GUI loads successfully |
-| Keyboard and locale worked | **PASS** | English (US) keyboard and locale verified |
-| Display and graphics worked | **PASS** | X11/Mutter display manager and graphics fully operational |
-| Network and DNS worked | **PASS** | Network interfaces active, DNS resolution functional |
-| Audio worked | **PASS** | PipeWire/WirePlumber audio architecture active |
-| Shutdown and restart worked | **PASS** | System shuts down and reboots cleanly |
-| User-facing identity visually confirmed | **PASS** | Verified GenixBit branding across wallpaper, dock, installer, and os-release |
+| UEFI boot path | **RETRACTED_UNBOUND_EVIDENCE** | Historical evidence cannot be tied to a valid retained ISO |
+| Legacy BIOS boot path | **RETRACTED_UNBOUND_EVIDENCE** | Historical evidence cannot prove the retired object booted |
+| GRUB menu displayed interactively | **RETRACTED_UNBOUND_EVIDENCE** | Historical evidence cannot count as release proof |
+| Kernel completed boot | **RETRACTED_UNBOUND_EVIDENCE** | Historical evidence cannot count as release proof |
+| Live desktop reached | **RETRACTED_UNBOUND_EVIDENCE** | Historical screenshot evidence is audit-only |
+| Keyboard and locale worked | **RETRACTED_UNBOUND_EVIDENCE** | Guest observations cannot validate the retired object |
+| Display and graphics worked | **RETRACTED_UNBOUND_EVIDENCE** | Guest observations cannot validate the retired object |
+| Network and DNS worked | **RETRACTED_UNBOUND_EVIDENCE** | Guest observations cannot validate the retired object |
+| Audio worked | **RETRACTED_UNBOUND_EVIDENCE** | Guest observations cannot validate the retired object |
+| Shutdown and restart worked | **RETRACTED_UNBOUND_EVIDENCE** | Guest observations cannot validate the retired object |
+| User-facing identity visually confirmed | **RETRACTED_UNBOUND_EVIDENCE** | Branding observations cannot approve the invalid artifact |
 
-## Candidate 2 Installer Validation
-
-| Test | Status | Evidence / Reference |
-| --- | :---: | --- |
-| Candidate installer content inspected | **PASS** | Installer launcher and package structures verified |
-| Separate clean BIOS and UEFI virtual disks prepared | **PASS** | Separate `/dev/vda` 30GB qcow2 disks provisioned for UEFI and BIOS |
-| Installer launched interactively | **PASS** | Ubiquity launcher script executed from live desktop |
-| Language, keyboard, and timezone selection worked | **PASS** | Setup steps completed (English US, Kolkata timezone) |
-| Partitioning completed | **PASS** | Automatic ext4 and EFI system partitioning completed |
-| Installation completed | **PASS** | File copying and chroot configuration completed successfully |
-| Bootloader installed to target disk | **PASS** | GRUB bootloader installed to target disk for UEFI and BIOS |
-| User account creation and login worked | **PASS** | Created `genixbit` user account and verified login |
-
-## Candidate 2 Installed-System Validation
+## Candidate 2 Installer Historical Evidence
 
 | Test | Status | Evidence / Reference |
 | --- | :---: | --- |
-| Installed BIOS system booted from virtual disk | **PASS** | Target BIOS VM boots from virtual disk successfully |
-| Installed UEFI system booted from virtual disk | **PASS** | Target UEFI VM boots from virtual disk successfully |
-| Desktop session started | **PASS** | GDM login screen loads and desktop session starts cleanly |
-| `sudo apt update` succeeded | **PASS** | Package repositories updated cleanly without errors |
-| No broken installed packages | **PASS** | `apt-get check` and `dpkg --audit` returned 0 broken packages |
-| Network and DNS worked | **PASS** | Outbound HTTPS connectivity functional |
-| Display and audio worked | **PASS** | Desktop display resolution and audio server operational |
-| Shutdown and restart worked | **PASS** | VM shuts down and reboots cleanly |
-| Critical boot logs reviewed | **PASS** | `journalctl -p 3 -b` returned 0 system errors |
-| GenixBit base-files package status | **PASS** | Integrated into ISO build pipeline and verified on target disk |
+| Candidate installer content inspected | **RETRACTED_UNBOUND_EVIDENCE** | Historical inspection cannot approve the retired object |
+| Separate clean BIOS and UEFI virtual disks prepared | **RETRACTED_UNBOUND_EVIDENCE** | Historical VM setup cannot approve the retired object |
+| Installer launched interactively | **RETRACTED_UNBOUND_EVIDENCE** | Historical installer evidence cannot be tied to a valid retained ISO |
+| Language, keyboard, and timezone selection worked | **RETRACTED_UNBOUND_EVIDENCE** | Historical installer evidence cannot count as release proof |
+| Partitioning completed | **RETRACTED_UNBOUND_EVIDENCE** | Historical installer evidence cannot count as release proof |
+| Installation completed | **RETRACTED_UNBOUND_EVIDENCE** | Historical installer evidence cannot count as release proof |
+| Bootloader installed to target disk | **RETRACTED_UNBOUND_EVIDENCE** | Historical installer evidence cannot count as release proof |
+| User account creation and login worked | **RETRACTED_UNBOUND_EVIDENCE** | Historical installer evidence cannot count as release proof |
+
+## Candidate 2 Installed-System Historical Evidence
+
+| Test | Status | Evidence / Reference |
+| --- | :---: | --- |
+| Installed BIOS system booted from virtual disk | **RETRACTED_UNBOUND_EVIDENCE** | Historical VM result cannot be tied to a valid source ISO |
+| Installed UEFI system booted from virtual disk | **RETRACTED_UNBOUND_EVIDENCE** | Historical VM result cannot be tied to a valid source ISO |
+| Desktop session started | **RETRACTED_UNBOUND_EVIDENCE** | Historical guest result cannot count as release proof |
+| `sudo apt update` succeeded | **RETRACTED_UNBOUND_EVIDENCE** | Historical guest APT result cannot validate the retired object |
+| No broken installed packages | **RETRACTED_UNBOUND_EVIDENCE** | Historical guest package-health result cannot validate the retired object |
+| Network and DNS worked | **RETRACTED_UNBOUND_EVIDENCE** | Historical guest result cannot count as release proof |
+| Display and audio worked | **RETRACTED_UNBOUND_EVIDENCE** | Historical guest result cannot count as release proof |
+| Shutdown and restart worked | **RETRACTED_UNBOUND_EVIDENCE** | Historical guest result cannot count as release proof |
+| Critical boot logs reviewed | **RETRACTED_UNBOUND_EVIDENCE** | Historical guest log result cannot validate the retired object |
+| GenixBit base-files package status | **RETRACTED_UNBOUND_EVIDENCE** | Historical target-disk result cannot validate the retired object |
 
 ## Historical 0.1.0-alpha Boot and Live-Session Validation
 
 | Test | Status | Missing evidence |
 | --- | :---: | --- |
-| UEFI boot path | **PASS** | Candidate ISO boots to the live desktop under UEFI via OVMF |
-| Legacy BIOS boot path | **PASS** | Candidate ISO boots to the live desktop under BIOS via SeaBIOS |
+| UEFI boot path | **PASS** | 0.1.0-alpha ISO reached the live desktop under UEFI via OVMF |
+| Legacy BIOS boot path | **PASS** | 0.1.0-alpha ISO reached the live desktop under BIOS via SeaBIOS |
 | GRUB menu displayed interactively | **PASS** | Interactive GRUB menu displayed and selected |
 | Kernel completed boot | **PASS** | Clean kernel boot completed without fatal panics |
 | Live desktop reached | **PASS** | AnduinOS Live Desktop interface loads successfully |

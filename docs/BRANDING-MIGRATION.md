@@ -124,11 +124,11 @@ A release may be described as fully GenixBit-branded only when:
 - mandatory attribution remains available in source and legal documentation;
 - all replacement packages come from signed GenixBit infrastructure;
 - clean install, upgrade, removal, rollback, and offline boot tests pass;
-- screenshots are taken from an actual validated GenixBit OS build.
+- screenshots are taken from a valid GenixBit OS build and remain bound to that retained artifact.
 
 ## Hardening Cycle 0.2.0-alpha (Completed July 2026)
 
-The branding package integration was fully hardened for the `0.2.0-alpha` release cycle with the following implementations:
+The branding package integration was hardened during the `0.2.0-alpha` cycle with the following implementations. Candidate 2 boot, installer and installed-system screenshots from this cycle are now `RETRACTED_UNBOUND_EVIDENCE` because the retained ISO object is `RETIRED_INVALID_ZERO_FILLED`.
 
 1. **Asset Generation & Preserving Geometry**:
    - Dynamic asset creation via PIL (`tools/validation/generate-branding-assets.py`) to process the official GenixBit GB monogram and horizontal lockup.
@@ -164,5 +164,4 @@ Audit and Visual Evidence:
 
 - Comprehensive Upstream Audit: [`docs/UPSTREAM-BRANDING-AUDIT.md`](UPSTREAM-BRANDING-AUDIT.md)
 - Genuine Release Screenshots: [`docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md`](RELEASE-SCREENSHOTS-0.2.0-alpha.md)
-
 

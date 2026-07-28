@@ -8,6 +8,7 @@
 - **Status**: **PASS**
 - **Production Repository Status**: **NOT DEPLOYED** (Production APT source `APKG_SERVER="https://packages.anduinos.com"` remains unchanged until explicitly approved)
 - **Pinned Ref Integrity**: `v0.2.0-alpha` and `validation/0.2.0-alpha-candidate-2` remain pinned to `88a1550a9129a80ffd2c4cf73838122020a782cb`.
+- **Candidate 2 ISO / Migration Source Status**: **RETIRED_INVALID_ZERO_FILLED** and **NOT_VALIDATED**. Package-staging PASS records do not make the retired object a usable installation or migration source.
 
 ---
 
@@ -58,7 +59,7 @@
 | # | Validation Scenario | Status | Result Summary |
 | :-: | :--- | :-: | :--- |
 | 1 | Clean installation of replacement packages | **PASS** | Every package installs without conflicts on clean base system. |
-| 2 | Upgrade from Candidate 2 dependencies | **PASS** | Package manager resolves `Replaces:`, `Provides:`, `Conflicts:` metadata cleanly. |
+| 2 | Upgrade from Candidate 2 package dependency set | **PASS** | Package manager resolves `Replaces:`, `Provides:`, `Conflicts:` metadata cleanly in staging; this does not validate the retired Candidate 2 ISO as a migration source. |
 | 3 | Replacement of `anduinos-archive-keyring` | **PASS** | `genixbit-os-archive-keyring` replaces legacy keyring. |
 | 4 | Replacement of `anduinos-apt-config` | **PASS** | `genixbit-os-apt-config` replaces legacy APT config. |
 | 5 | APT source migration without duplicate sources | **PASS** | Sources list configured without duplicate entries. |
@@ -71,7 +72,7 @@
 | 12 | `dpkg-divert` restoration | **PASS** | Original Ubuntu os-release and issue files restored upon package purge. |
 | 13 | Interrupted upgrade recovery | **PASS** | System handles interrupted package upgrades cleanly via `dpkg --configure -a`. |
 | 14 | Snapshot creation | **PASS** | Created staging repository snapshot `snap-resolute-alpha-*`. |
-| 15 | Rollback to previous validated state | **PASS** | Rollback script successfully restores repository state from snapshot. |
+| 15 | Rollback to previous staging snapshot | **PASS** | Rollback script restores repository state from snapshot; this does not validate the retired Candidate 2 ISO. |
 | 16 | Re-upgrade after rollback | **PASS** | Clean re-upgrade path verified after rollback. |
 | 17 | `apt-get update` | **PASS** | APT repository index fetch and signature verification succeed. |
 | 18 | `apt-get check` | **PASS** | APT dependency graph integrity check passes with zero errors. |

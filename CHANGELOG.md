@@ -28,14 +28,14 @@ and this project follows Semantic Versioning for release identifiers.
 - Added end-to-end repository test suites (`tests/repository/test-path-safety.sh`, `test-negative-security.sh`, `test-signed-repository-lifecycle.sh`).
 - Updated Package Infrastructure CI workflow (`.github/workflows/package-infrastructure.yml`) to enforce path safety, negative security cases, and signed lifecycle validation.
 
-## [0.2.0-alpha-candidate-2] — Candidate Validation Successful (2026-07-22)
+## [0.2.0-alpha-candidate-2] — Candidate Evidence Retracted (2026-07-22)
 
 - Target build version set to `0.2.0-alpha`.
 - Added release version consistency validation script `tools/validation/check-release-version-consistency.sh` and test suite.
 - Added release manifest schema `docs/releases/0.2.0-alpha.env`, validator `tools/validation/check-release-manifest.sh`, and test suite `tools/validation/test-release-manifest.sh`.
 - Integrated release manifest checks into Repository Quality CI workflow `.github/workflows/quality.yml`.
 - Completed comprehensive upstream branding audit `docs/UPSTREAM-BRANDING-AUDIT.md` and audit validation tools.
-- Published genuine Candidate 2 release screenshots gallery `docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md` and WebP assets under `docs/assets/releases/0.2.0-alpha/`.
+- Published Candidate 2 screenshot gallery `docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md` and WebP assets under `docs/assets/releases/0.2.0-alpha/`; these are now classified as `RETRACTED_UNBOUND_EVIDENCE`.
 - Frozen validation candidate `validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` was later retired because the recorded ISO object is zero-filled and not a valid ISO.
 
 ### Validation Artifact Details
@@ -51,8 +51,8 @@ and this project follows Semantic Versioning for release identifiers.
 - **BIOS & UEFI Live Sessions**: Retracted. The recorded artifact is not a valid ISO, so prior QEMU startup evidence does not prove a successful ISO boot.
 - **Installer Execution**: Retracted. The recorded artifact is not usable as an installation source.
 - **Installed System Boot**: Retracted. The recorded artifact is not usable as a release-validation source.
-- **APT & Package Health**: `sudo apt update`, `apt-get check` (0 broken packages), `dpkg --audit` (0 unconfigured packages), and `journalctl -p 3 -b` (0 critical errors) passed.
-- **Reproducibility**: Second clean build (`Build B`) compiled independently; `cmp` confirmed 100% byte-for-byte identical outputs.
+- **APT & Package Health**: Retracted as `RETRACTED_UNBOUND_EVIDENCE`; guest package-health claims cannot be tied to a valid retained ISO.
+- **Reproducibility**: Retracted as `RETRACTED_UNBOUND_EVIDENCE`; Build A/Build B claims cannot be tied to a usable retained ISO.
 
 ### Branding Foundation Validation Status
 
@@ -65,10 +65,10 @@ and this project follows Semantic Versioning for release identifiers.
 - Purge: PASS
 - Identity restoration: PASS
 - ISO integration: PASS
-- BIOS branding: PASS
-- UEFI branding: PASS
-- Installer branding: PASS
-- Installed-system branding: PASS
+- BIOS branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+- UEFI branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+- Installer branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+- Installed-system branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
 
 ## [0.1.0-alpha] — Candidate Validation Successful (2026-07-21)
 
