@@ -272,15 +272,23 @@ case "$ACTION" in
             fail "QEMU process failed QMP readiness check (VM ID: $VM_ID)!"
         fi
 
-        # Write per-VM state JSON file (record full argument vector)
+        # Write per-VM state JSON file (record full argument vector via NUL-delimited serialization)
         STATE_FILE="${STATE_DIR}/vm-${VM_ID}.json"
-        QEMU_ARGS_JSON=$(python3 -c "
-import json, sys
-args = $(python3 -c "import sys,json; print(json.dumps($(printf '%s ' "${qemu_args[@]}" | python3 -c 'import sys; words=sys.stdin.read().split(); print(words)')))") 
-print(json.dumps(args))
-" 2>/dev/null || echo '[]')
+        QEMU_ARGS_FILE="${STATE_DIR}/qemu-${VM_ID}-arguments.json"
+        printf '%s\0' "${qemu_args[@]}" | \
+        python3 -c '
+import json
+import sys
+
+raw = sys.stdin.buffer.read().split(b"\0")
+args = [item.decode("utf-8", errors="replace") for item in raw if item]
+json.dump(args, sys.stdout, indent=2)
+' > "$QEMU_ARGS_FILE"
+        QEMU_BIN=$(get_qemu_binary)
         python3 -c "
 import json, time
+with open('$QEMU_ARGS_FILE', 'r') as f:
+    qemu_args_list = json.load(f)
 state = {
     'vm_id': '$VM_ID',
     'mode': '$MODE',
@@ -296,6 +304,12 @@ state = {
     'initrd_path': '$INITRD_PATH',
     'kernel_cmdline': '$KERNEL_APPEND',
     'no_reboot': $([ '$NO_REBOOT' = 'true' ] && echo True || echo False),
+    'qemu_binary': '$QEMU_BIN',
+    'source_iso_path': '$ISO_PATH',
+    'seed_iso_path': '$SEED_ISO_PATH',
+    'target_disk_path': '$DISK_PATH',
+    'firmware_mode': '$MODE',
+    'qemu_arguments': qemu_args_list,
     'start_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
     'state': 'running',
     'qmp_ready': True
@@ -307,29 +321,66 @@ with open('$STATE_FILE', 'w') as f:
         ;;
 
     stop)
-        # Gracefully no-op if the pid-file is missing — VM may already be stopped
+        [[ -n "$STATE_DIR" ]] || fail '--state-dir is required for stop when a managed state file exists.'
         if [[ -z "$PID_FILE" || ! -f "$PID_FILE" ]]; then
-            printf '[INFO] run-qemu.sh (stop): pid-file absent or missing for VM %s — already stopped, skipping.\n' "$VM_ID" >&2
+            SHUTDOWN_STATE="NOT_STARTED"
+            STOP_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            python3 -c "
+import json
+result = {
+    'vm_id': '$VM_ID',
+    'pid': 0,
+    'requested_action': 'stop',
+    'shutdown_state': '$SHUTDOWN_STATE',
+    'process_alive_after_stop': false,
+    'qmp_socket_present_after_stop': false,
+    'timestamp': '$STOP_TIMESTAMP',
+    'status': 'SKIP'
+}
+with open('${STATE_DIR}/shutdown-${VM_ID}.json', 'w') as f:
+    json.dump(result, f, indent=2)
+"
+            printf '[INFO] run-qemu.sh (stop): pid-file absent or missing for VM %s — not started, skipping.\n' "$VM_ID" >&2
             exit 0
         fi
         [[ -n "$QMP_SOCKET" ]] || QMP_SOCKET="${STATE_DIR}/qmp-${VM_ID}.sock"
 
         QEMU_PID=$(cat "$PID_FILE" 2>/dev/null || echo "")
-        [[ -n "$QEMU_PID" ]] || {
-            printf '[INFO] run-qemu.sh (stop): pid-file present but empty for VM %s — treating as ALREADY_STOPPED_VERIFIED.\n' "$VM_ID" >&2
-            rm -f "$PID_FILE" "$QMP_SOCKET" 2>/dev/null || true
+        if [[ -z "$QEMU_PID" ]]; then
+            SHUTDOWN_STATE="ALREADY_STOPPED_VERIFIED"
+            STOP_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            rm -f "$PID_FILE" 2>/dev/null || true
+            if [[ -S "$QMP_SOCKET" ]]; then rm -f "$QMP_SOCKET"; fi
+            python3 -c "
+import json
+result = {
+    'vm_id': '$VM_ID',
+    'pid': 0,
+    'requested_action': 'stop',
+    'shutdown_state': '$SHUTDOWN_STATE',
+    'process_alive_after_stop': false,
+    'qmp_socket_present_after_stop': false,
+    'timestamp': '$STOP_TIMESTAMP',
+    'status': 'PASS'
+}
+with open('${STATE_DIR}/shutdown-${VM_ID}.json', 'w') as f:
+    json.dump(result, f, indent=2)
+"
             printf '[PASS] VM stopped cleanly (ALREADY_STOPPED_VERIFIED)\n'
             exit 0
-        }
+        fi
 
         SHUTDOWN_STATE="STOP_FAILED"
+        PROCESS_ALIVE=false
+        QMP_PRESENT=false
 
         if kill -0 "$QEMU_PID" 2>/dev/null; then
+            PROCESS_ALIVE=true
             if [[ -S "$QMP_SOCKET" ]]; then
+                QMP_PRESENT=true
                 send_qmp_cmd "$QMP_SOCKET" '{"execute": "system_powerdown"}' >/dev/null 2>&1 || true
             fi
 
-            # Wait up to 15 seconds for graceful shutdown
             stop_start=$(date +%s)
             while kill -0 "$QEMU_PID" 2>/dev/null; do
                 if (( $(date +%s) - stop_start > 15 )); then
@@ -339,41 +390,81 @@ with open('$STATE_FILE', 'w') as f:
             done
 
             if ! kill -0 "$QEMU_PID" 2>/dev/null; then
-                SHUTDOWN_STATE="STOPPED_GRACEFULLY"
+                SHUTDOWN_STATE="NATURAL_EXIT"
+                PROCESS_ALIVE=false
             else
                 kill -15 "$QEMU_PID" 2>/dev/null || true
                 sleep 2
                 if ! kill -0 "$QEMU_PID" 2>/dev/null; then
-                    SHUTDOWN_STATE="STOPPED_BY_SIGTERM"
+                    SHUTDOWN_STATE="FORCED_SIGTERM"
+                    PROCESS_ALIVE=false
                 else
                     kill -9 "$QEMU_PID" 2>/dev/null || true
-                    SHUTDOWN_STATE="STOPPED_BY_SIGKILL"
+                    sleep 1
+                    if ! kill -0 "$QEMU_PID" 2>/dev/null; then
+                        SHUTDOWN_STATE="FORCED_SIGKILL"
+                        PROCESS_ALIVE=false
+                    else
+                        SHUTDOWN_STATE="STOP_FAILED"
+                        PROCESS_ALIVE=true
+                    fi
                 fi
             fi
         else
             SHUTDOWN_STATE="ALREADY_STOPPED_VERIFIED"
+            PROCESS_ALIVE=false
         fi
 
-        rm -f "$PID_FILE" "$QMP_SOCKET"
+        rm -f "$PID_FILE" 2>/dev/null || true
+        if [[ -S "$QMP_SOCKET" ]]; then rm -f "$QMP_SOCKET"; fi
+        QMP_PRESENT_AFTER=$([[ -S "$QMP_SOCKET" ]] && echo true || echo false)
+        QMP_PRESENT_AFTER=false
 
-        # State JSON update
-        if [[ -n "$VM_ID" && -n "$STATE_DIR" && -f "${STATE_DIR}/vm-${VM_ID}.json" ]]; then
-            python3 -c "
+        STOP_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        SHUTDOWN_STATUS="PASS"
+        if [[ "$SHUTDOWN_STATE" == "FORCED_SIGTERM" || "$SHUTDOWN_STATE" == "FORCED_SIGKILL" || "$SHUTDOWN_STATE" == "STOP_FAILED" ]]; then
+            SHUTDOWN_STATUS="FAIL"
+        fi
+
+        # Write shutdown-result JSON
+        python3 -c "
 import json
-p = '${STATE_DIR}/vm-${VM_ID}.json'
+result = {
+    'vm_id': '$VM_ID',
+    'pid': $QEMU_PID,
+    'requested_action': 'stop',
+    'shutdown_state': '$SHUTDOWN_STATE',
+    'process_alive_after_stop': $PROCESS_ALIVE,
+    'qmp_socket_present_after_stop': $QMP_PRESENT_AFTER,
+    'timestamp': '$STOP_TIMESTAMP',
+    'status': '$SHUTDOWN_STATUS'
+}
+with open('${STATE_DIR}/shutdown-${VM_ID}.json', 'w') as f:
+    json.dump(result, f, indent=2)
+"
+
+        # State JSON update (set state to actual result, never running)
+        if [[ -n "$VM_ID" && -n "$STATE_DIR" ]]; then
+            state_file_path="${STATE_DIR}/vm-${VM_ID}.json"
+            if [[ -f "$state_file_path" ]]; then
+                python3 -c "
+import json
+p = '$state_file_path'
 with open(p, 'r') as f: data = json.load(f)
 data['state'] = '$SHUTDOWN_STATE'
+data['shutdown_status'] = '$SHUTDOWN_STATUS'
 with open(p, 'w') as f: json.dump(data, f, indent=2)
 "
+            fi
         fi
 
-        if [[ "$SHUTDOWN_STATE" == "STOPPED_GRACEFULLY" || "$SHUTDOWN_STATE" == "ALREADY_STOPPED_VERIFIED" ]]; then
+        if [[ "$SHUTDOWN_STATE" == "NATURAL_EXIT" || "$SHUTDOWN_STATE" == "ALREADY_STOPPED_VERIFIED" ]]; then
             printf '[PASS] VM stopped cleanly (%s)\n' "$SHUTDOWN_STATE"
             exit 0
-        elif [[ "$SHUTDOWN_STATE" == "STOPPED_BY_SIGTERM" ]]; then
+        elif [[ "$SHUTDOWN_STATE" == "FORCED_SIGTERM" ]]; then
             printf '[FAIL] VM required SIGTERM to terminate (%s) — forced termination is a release-gate failure.\n' "$SHUTDOWN_STATE" >&2
             exit 1
-        elif [[ "$SHUTDOWN_STATE" == "STOPPED_BY_SIGKILL" ]]; then
+        elif [[ "$SHUTDOWN_STATE" == "FORCED_SIGKILL" ]]; then
             printf '[FAIL] VM required SIGKILL to terminate (%s) — forced termination is a release-gate failure.\n' "$SHUTDOWN_STATE" >&2
             exit 1
         else

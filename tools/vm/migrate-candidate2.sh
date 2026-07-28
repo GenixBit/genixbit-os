@@ -230,7 +230,8 @@ stop_migration_vm() {
     stop_out=$(bash "$SCRIPT_DIR/run-qemu.sh" stop \
         --vm-id "$mig_vm_id" \
         --pid-file "$pid_f" \
-        --qmp-socket "$qmp_s" 2>&1) || {
+        --qmp-socket "$qmp_s" \
+        --state-dir "$state_dir" 2>&1) || {
         fail "Migration VM stop FAILED for $vm_label (${stop_out}) — cannot proceed to offline disk access!"
     }
     # Verify process is truly gone before returning
@@ -623,6 +624,7 @@ PYEOF
 FINAL_STATUS=$(python3 -c "import json; d=json.load(open('$out_json')); print(d.get('final_status','FAIL'))")
 [[ "$FINAL_STATUS" == "PASS" ]] || fail "Migration result final_status is '$FINAL_STATUS' — gate fails."
 
+printf 'GENIXBIT_MIGRATION_RESULT=%s\n' "$out_json"
 printf '[PASS] Candidate 2 real APT migration, rollback, and re-upgrade verified and recorded in %s for %s mode: %s\n' \
     "$out_json" "$MODE" "$DISK_PATH"
 exit 0

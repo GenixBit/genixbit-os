@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Waits for authentic installer completion inside guest VM and verifies completion token read directly from /etc/genixbit-install-token.
 # Calls verify-disk-structure.sh for real offline disk verification and derives result fields dynamically.
+#
+# Every exit path writes the requested --out-json file before returning.
+# On timeout, installer_terminal_state=TIMEOUT and final_status=FAIL.
+# Does not perform offline disk inspection while QEMU remains alive.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -23,6 +27,47 @@ OUT_JSON=""
 fail() {
     printf '[FAIL] wait-for-install-completion.sh: %s\n' "$*" >&2
     exit 1
+}
+
+write_out_json() {
+    local terminal_state="$1"
+    local final="$2"
+    local fail_phase="${3:-}"
+    local fail_reason="${4:-}"
+    local token_observed="${5:-false}"
+    local progress_observed="${6:-false}"
+    local qemu_stopped="${7:-false}"
+    local fs_verified="${8:-false}"
+    local token_hash="${9:-}"
+
+    local ts
+    ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    [[ -n "$token_hash" ]] || token_hash=$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')
+
+    python3 -c "
+import json
+result = {
+    'schema_version': '1.0',
+    'vm_id': '$VM_ID',
+    'firmware_mode': '$MODE',
+    'installer_progress_observed': ${progress_observed},
+    'serial_token_observed': ${token_observed},
+    'filesystem_token_verified': ${fs_verified},
+    'qemu_process_stopped': ${qemu_stopped},
+    'installer_terminal_state': '${terminal_state}',
+    'failure_phase': '${fail_phase}',
+    'failure_reason': '${fail_reason}',
+    'completion_token_hash': '${token_hash}',
+    'token_source': 'installed_root_filesystem',
+    'token_path': '/etc/genixbit-install-token',
+    'root_partition': '/dev/vda1',
+    'root_fs_type': 'ext4',
+    'verification_timestamp': '${ts}',
+    'final_status': '${final}'
+}
+with open('$OUT_JSON', 'w') as f:
+    json.dump(result, f, indent=2)
+"
 }
 
 while (($# > 0)); do
@@ -112,6 +157,7 @@ installer_progress_observed=false
 serial_token_observed=false
 qemu_process_stopped=false
 filesystem_token_verified=false
+installer_terminal_state="RUNNING"
 
 initial_disk_alloc=$(stat -c%s "$DISK_PATH" 2>/dev/null || stat -f%z "$DISK_PATH" 2>/dev/null || echo "0")
 
@@ -130,7 +176,7 @@ while true; do
         serial_token_observed=true
         printf '[INFO] Completion token observed in serial log after %ss — waiting for natural installer shutdown (grace: %ss)...\n' "$elapsed" "$NATURAL_SHUTDOWN_GRACE" >&2
 
-        # Step 9: After seeing the token, do NOT immediately force-stop.
+        # After seeing the token, do NOT immediately force-stop.
         # Wait up to NATURAL_SHUTDOWN_GRACE seconds for QEMU to exit naturally (poweroff from installer).
         natural_shutdown_ok=false
         grace_start=$(date +%s)
@@ -147,7 +193,6 @@ while true; do
                     break
                 fi
             else
-                # No PID file — already gone
                 natural_shutdown_ok=true
                 qemu_process_stopped=true
                 break
@@ -162,12 +207,14 @@ while true; do
         done
 
         if [[ "$natural_shutdown_ok" != "true" ]]; then
-            # Preserve evidence before failing
-            printf '[FAIL] Natural installer shutdown grace period expired. VM must NOT be force-stopped and inspected.\n' >&2
-            printf '[FAIL] Stage: FAIL — installer did not poweroff naturally. Evidence preserved. Do not inspect disk.\n' >&2
+            installer_terminal_state="TIMEOUT"
+            printf '[FAIL] Natural installer shutdown grace period expired. Letting caller cleanup trap handle VM termination.\n' >&2
+            write_out_json "$installer_terminal_state" "FAIL" "installer_completion_wait" "Natural shutdown grace expired after token observation - QEMU still alive" \
+                "$serial_token_observed" "$installer_progress_observed" "false" "false"
             fail "Installer did not power off naturally after completion token. Completion cannot be verified."
         fi
 
+        installer_terminal_state="NATURAL_EXIT"
         break
     fi
 
@@ -177,44 +224,39 @@ while true; do
         if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
             qemu_process_stopped=true
             printf '[INFO] QEMU process exited (no serial token yet) after %ss.\n' "$elapsed" >&2
+            installer_terminal_state="EARLY_EXIT"
             break
         fi
     fi
 
     if ((elapsed >= TIMEOUT_SEC)); then
         printf '[WARN] Installer wait loop reached timeout (%ss) for VM %s\n' "$TIMEOUT_SEC" "$VM_ID" >&2
+        installer_terminal_state="TIMEOUT"
         break
     fi
 
     sleep 2
 done
 
-# At this point: either token observed + natural shutdown, or timeout/early exit.
-# Fail-closed: verify QEMU process is truly stopped before offline disk inspection.
-# SIGTERM or SIGKILL to stop the VM after token observation = FAIL.
-if [[ -f "$PID_FILE" ]]; then
-    pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-        # QEMU still alive — we must NOT kill it and claim success
-        # Record SIGTERM as failure state
-        ACTUAL_STOP_STATE="STOPPED_BY_SIGTERM"
-        printf '[FAIL] QEMU still alive after wait loop — recording STOP_BY_SIGTERM as evidence.\n' >&2
-        kill "$pid" 2>/dev/null || true
-        fail "Installer VM still alive after wait period — SIGTERM recorded as FAIL. Disk inspection prohibited."
-    else
-        # PID not running — already stopped naturally
-        ACTUAL_STOP_STATE="ALREADY_STOPPED_VERIFIED"
-    fi
-else
-    # No PID file — already stopped or never started
-    ACTUAL_STOP_STATE="ALREADY_STOPPED_VERIFIED"
-fi
-qemu_process_stopped=true
-
 TOKEN_HASH=$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')
+
+if [[ "$installer_terminal_state" == "TIMEOUT" ]]; then
+    write_out_json "TIMEOUT" "FAIL" "installer_completion_wait" "Installer wait loop timed out after ${TIMEOUT_SEC}s" \
+        "$serial_token_observed" "$installer_progress_observed" "$qemu_process_stopped" "false" "$TOKEN_HASH"
+    fail "Installer wait loop timed out for VM $VM_ID after ${TIMEOUT_SEC}s. Letting caller cleanup trap terminate VM."
+fi
+
+# For EARLY_EXIT or NATURAL_EXIT: process already stopped, proceed to disk inspection
+if [[ "$qemu_process_stopped" != "true" ]]; then
+    # QEMU still alive — we must NOT inspect disk. Return failure to caller, let cleanup trap handle termination.
+    write_out_json "RUNNING" "FAIL" "installer_completion_wait" "QEMU still alive after wait loop" \
+        "$serial_token_observed" "$installer_progress_observed" "false" "false" "$TOKEN_HASH"
+    fail "Installer VM still alive after wait period. Letting caller cleanup trap handle termination."
+fi
+
 VERIFY_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Call real offline disk-structure inspector helper
+# Call real offline disk-structure inspector helper (QEMU is confirmed stopped)
 disk_inspect_json="${state_dir}/disk-inspection-${MODE}.json"
 disk_inspect_status="FAIL"
 if bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$TOKEN" --mode "$MODE" --out-json "$disk_inspect_json"; then
@@ -231,32 +273,8 @@ if [[ "$filesystem_token_verified" == "true" ]]; then
     final_status="PASS"
 fi
 
-python3 -c "
-import json
-with open('$disk_inspect_json', 'r') as f:
-    disk_data = json.load(f)
-
-result = {
-    'schema_version': '1.0',
-    'vm_id': '$VM_ID',
-    'firmware_mode': '$MODE',
-    'installer_progress_observed': $( [ "$installer_progress_observed" = "true" ] && echo "True" || echo "False" ),
-    'serial_token_observed': $( [ "$serial_token_observed" = "true" ] && echo "True" || echo "False" ),
-    'qemu_process_stopped': $( [ "$qemu_process_stopped" = "true" ] && echo "True" || echo "False" ),
-    'filesystem_token_verified': $( [ "$filesystem_token_verified" = "true" ] && echo "True" || echo "False" ),
-    'completion_token_hash': '$TOKEN_HASH',
-    'token_source': 'installed_root_filesystem',
-    'token_path': '/etc/genixbit-install-token',
-    'root_partition': disk_data.get('selected_root_filesystem', '/dev/vda1'),
-    'root_fs_type': 'ext4',
-    'verification_timestamp': '$VERIFY_TIMESTAMP',
-    'installer_terminal_state': '$ACTUAL_STOP_STATE',
-    'disk_inspection_status': disk_data.get('status', 'FAIL'),
-    'final_status': '$final_status'
-}
-with open('$OUT_JSON', 'w') as f:
-    json.dump(result, f, indent=2)
-"
+write_out_json "$installer_terminal_state" "$final_status" "" "" \
+    "$serial_token_observed" "$installer_progress_observed" "$qemu_process_stopped" "$filesystem_token_verified" "$TOKEN_HASH"
 
 if [[ "$final_status" != "PASS" ]]; then
     fail "Installer completion token ($TOKEN) not verified in target root filesystem for VM $VM_ID! (final_status: FAIL)"

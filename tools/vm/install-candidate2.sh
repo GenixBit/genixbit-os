@@ -20,6 +20,7 @@ DISK_PATH=""
 MODE="uefi"
 TIMEOUT_SEC=2700
 RUNTIME_EVIDENCE_DIR=""
+C2_SOURCE_COMMIT=""
 
 fail() {
     printf '[FAIL] install-candidate2.sh: %s\n' "$*" >&2
@@ -55,6 +56,11 @@ while (($# > 0)); do
         --runtime-evidence-dir)
             (($# >= 2)) || fail '--runtime-evidence-dir requires a path.'
             RUNTIME_EVIDENCE_DIR=$2
+            shift 2
+            ;;
+        --source-commit)
+            (($# >= 2)) || fail '--source-commit requires a git SHA.'
+            C2_SOURCE_COMMIT=$2
             shift 2
             ;;
         *)
@@ -97,6 +103,126 @@ disk_inspect_json="${RUNTIME_EVIDENCE_DIR}/disk-inspection-${MODE}.json"
 completion_json="${RUNTIME_EVIDENCE_DIR}/install-completion.json"
 kernel_extraction_json="${RUNTIME_EVIDENCE_DIR}/kernel-extraction.json"
 failure_summary_json="${RUNTIME_EVIDENCE_DIR}/failure-summary.json"
+
+[[ -n "$C2_SOURCE_COMMIT" ]] || C2_SOURCE_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+
+# Lifecycle variables
+INSTALL_PHASE="initialization"
+INSTALL_EXIT_CODE=0
+INSTALL_VM_STARTED=false
+INSTALL_VM_NATURALLY_STOPPED=false
+CLEANUP_RUNNING=false
+
+preserve_install_evidence() {
+    local original_exit="$1"
+
+    [[ "$CLEANUP_RUNNING" == "false" ]] || return 0
+    CLEANUP_RUNNING=true
+
+    mkdir -p "$RUNTIME_EVIDENCE_DIR"
+
+    cp -f "$serial_log" \
+      "$RUNTIME_EVIDENCE_DIR/installer.serial.log" 2>/dev/null || true
+
+    cp -f "${state_dir}/qemu-${VM_ID}.stderr" \
+      "$RUNTIME_EVIDENCE_DIR/qemu.stderr.log" 2>/dev/null || true
+
+    cp -f "${state_dir}/vm-${VM_ID}.json" \
+      "$RUNTIME_EVIDENCE_DIR/vm-state.raw.json" 2>/dev/null || true
+
+    if [[ -S "$qmp_path" ]]; then
+        bash "$(dirname "$0")/capture-screenshot.sh" \
+          --socket "$qmp_path" \
+          --output "$RUNTIME_EVIDENCE_DIR/final-installer.ppm" \
+          2>/dev/null || true
+    fi
+}
+
+cleanup_exit() {
+    local exit_code=$?
+    INSTALL_EXIT_CODE=$exit_code
+
+    preserve_install_evidence "$exit_code"
+
+    if [[ "$INSTALL_VM_STARTED" == "true" ]]; then
+        # Detect whether QEMU remained alive
+        local qemu_alive=false
+        if [[ -f "$pid_file" ]]; then
+            local qpid
+            qpid=$(cat "$pid_file" 2>/dev/null || echo "")
+            if [[ -n "$qpid" ]] && kill -0 "$qpid" 2>/dev/null; then
+                qemu_alive=true
+            fi
+        fi
+
+        if [[ "$qemu_alive" == "true" ]]; then
+            if [[ "$INSTALL_VM_NATURALLY_STOPPED" == "true" ]]; then
+                # Natural exit — verify QEMU is truly gone
+                local qpid
+                qpid=$(cat "$pid_file" 2>/dev/null || echo "")
+                if [[ -n "$qpid" ]] && kill -0 "$qpid" 2>/dev/null; then
+                    kill "$qpid" 2>/dev/null || true
+                    sleep 2
+                    if kill -0 "$qpid" 2>/dev/null; then
+                        kill -9 "$qpid" 2>/dev/null || true
+                    fi
+                fi
+            else
+                # Attempt graceful stop first
+                if [[ -S "$qmp_path" ]]; then
+                    bash "$(dirname "$0")/capture-screenshot.sh" \
+                      --socket "$qmp_path" \
+                      --output "$RUNTIME_EVIDENCE_DIR/final-installer.ppm" \
+                      2>/dev/null || true
+                fi
+
+                local qpid
+                qpid=$(cat "$pid_file" 2>/dev/null || echo "")
+                if [[ -n "$qpid" ]] && kill -0 "$qpid" 2>/dev/null; then
+                    kill "$qpid" 2>/dev/null || true
+                    sleep 2
+                    if kill -0 "$qpid" 2>/dev/null; then
+                        kill -9 "$qpid" 2>/dev/null || true
+                    fi
+                fi
+            fi
+        fi
+    fi
+
+    rm -f "$pid_file" 2>/dev/null || true
+    rm -f "$qmp_path" 2>/dev/null || true
+
+    # Write failure-summary.json for any non-zero exit
+    if [[ "$exit_code" -ne 0 ]]; then
+        local wf_run_id="${GITHUB_RUN_ID:-local}"
+        local ts
+        ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        python3 -c "
+import json
+summary = {
+    'source_commit': '$C2_SOURCE_COMMIT',
+    'workflow_run_id': '$wf_run_id',
+    'vm_id': '$VM_ID',
+    'phase': '$INSTALL_PHASE',
+    'exit_code': $exit_code,
+    'failure_reason': 'install-candidate2.sh failed during phase $INSTALL_PHASE with exit code $exit_code',
+    'source_iso_sha256': '$CAND2_VERIFIED_SHA',
+    'source_iso_sha512': '$CAND2_VERIFIED_SHA512',
+    'kernel_sha256': '${KERNEL_SHA256:-unknown}',
+    'initrd_sha256': '${INITRD_SHA256:-unknown}',
+    'seed_iso_sha256': '${SEED_SHA256:-unknown}',
+    'kernel_command_line': '${KERNEL_APPEND:-unknown}',
+    'runtime_evidence_dir': '$RUNTIME_EVIDENCE_DIR',
+    'timestamp': '$ts',
+    'status': 'FAIL'
+}
+with open('$failure_summary_json', 'w') as f:
+    json.dump(summary, f, indent=2)
+" 2>/dev/null || true
+    fi
+}
+
+trap cleanup_exit EXIT
 
 # 3. Create GENUINELY BLANK target QCOW2 disk.
 # The target disk must be blank. The installer running inside QEMU is the ONLY entity
@@ -174,6 +300,9 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
+INSTALL_VM_STARTED=true
+INSTALL_PHASE="installer_running"
+
 # 8. Capture initial screenshot
 if [[ -S "$qmp_path" ]]; then
     bash "$(dirname "$0")/capture-screenshot.sh" --socket "$qmp_path" --output "$screenshot_path" || true
@@ -199,13 +328,16 @@ bash "$(dirname "$0")/wait-for-install-completion.sh" \
 cp -f "$serial_log" "$RUNTIME_EVIDENCE_DIR/installer.serial.log" 2>/dev/null || true
 cp -f "${state_dir}/qemu-${VM_ID}.stderr" "$RUNTIME_EVIDENCE_DIR/qemu.stderr.log" 2>/dev/null || true
 cp -f "$screenshot_path" "$RUNTIME_EVIDENCE_DIR/installer.ppm" 2>/dev/null || true
-cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/vm-state.json" 2>/dev/null || true
 
 # Copy to stage-logs for CI artifact upload
 cp -f "$serial_log" "$stage_logs_dir/cand2-install-serial.log" 2>/dev/null || true
 
-# 10. Stop installer VM cleanly
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
+# 10. Stop installer VM cleanly (with --state-dir to capture lifecycle result)
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" --state-dir "$state_dir"
+
+# Copy final VM state and shutdown result to runtime evidence
+cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/vm-state.final.json" 2>/dev/null || true
+cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/shutdown-result.json" 2>/dev/null || true
 
 # 11. Inspect target virtual disk structure offline via guestfish (inspection only, no writes)
 bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE" --out-json "$disk_inspect_json"
@@ -276,7 +408,7 @@ cp -f "$installed_serial_log" "$stage_logs_dir/cand2-installed-boot.serial.log"
 cp -f "$installed_guest_cmd_log" "$stage_logs_dir/cand2-installed-guest-commands.log"
 
 # 13. Stop installed guest VM cleanly
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$installed_pid_file" --qmp-socket "$installed_qmp_path"
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$installed_pid_file" --qmp-socket "$installed_qmp_path" --state-dir "$state_dir"
 
 INSTALLED_BOOT_RESULT="SSH_AUTHENTICATED_PASS"
 printf '[PASS] Installed Candidate 2 guest authenticated and guest commands executed for VM %s (%s mode).\n' "$INSTALLED_VM_ID" "$MODE"

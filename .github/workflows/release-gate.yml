@@ -236,7 +236,12 @@ jobs:
         with:
           name: genixbit-release-gate-evidence
           path: |
-            infra/package-staging/results/stage-logs/*
-            infra/package-staging/results/current/*
+            infra/package-staging/results/stage-logs/**
+            infra/package-staging/results/current/**
+            infra/package-staging/results/runtime/**
             docs/releases/0.3.0-release-gate.json
+            !infra/package-staging/results/runtime/**/id_*
+            !infra/package-staging/results/runtime/**/*.key
+            !infra/package-staging/results/runtime/**/*private*
+          if-no-files-found: error
           retention-days: 90

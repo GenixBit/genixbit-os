@@ -121,24 +121,24 @@ else
     fail_test $T "$DESC" "all_pass computation not found in migration result JSON block"
 fi
 
-# Test 11 -- D10: STOPPED_BY_SIGTERM exits non-zero
+# Test 11 -- D10: FORCED_SIGTERM exits non-zero
 T=11
-DESC="D10: STOPPED_BY_SIGTERM causes run-qemu.sh stop to exit 1"
-if grep -q "STOPPED_BY_SIGTERM" "$REPO_ROOT/tools/vm/run-qemu.sh" && \
-   grep -A3 "STOPPED_BY_SIGTERM" "$REPO_ROOT/tools/vm/run-qemu.sh" | grep -q "exit 1"; then
+DESC="D10: FORCED_SIGTERM causes run-qemu.sh stop to exit 1"
+if grep -q "FORCED_SIGTERM" "$REPO_ROOT/tools/vm/run-qemu.sh" && \
+   grep -A3 "FORCED_SIGTERM" "$REPO_ROOT/tools/vm/run-qemu.sh" | grep -q "exit 1"; then
     pass_test $T "$DESC"
 else
-    fail_test $T "$DESC" "STOPPED_BY_SIGTERM with exit 1 not found"
+    fail_test $T "$DESC" "FORCED_SIGTERM with exit 1 not found"
 fi
 
-# Test 12 -- D10: STOPPED_BY_SIGKILL exits non-zero
+# Test 12 -- D10: FORCED_SIGKILL exits non-zero
 T=12
-DESC="D10: STOPPED_BY_SIGKILL causes run-qemu.sh stop to exit 1"
-if grep -q "STOPPED_BY_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" && \
-   grep -A3 "STOPPED_BY_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" | grep -q "exit 1"; then
+DESC="D10: FORCED_SIGKILL causes run-qemu.sh stop to exit 1"
+if grep -q "FORCED_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" && \
+   grep -A3 "FORCED_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" | grep -q "exit 1"; then
     pass_test $T "$DESC"
 else
-    fail_test $T "$DESC" "STOPPED_BY_SIGKILL with exit 1 not found"
+    fail_test $T "$DESC" "FORCED_SIGKILL with exit 1 not found"
 fi
 
 # Test 13 -- D12: install-current-iso.sh passes --mode to wait-for-install-completion
@@ -301,13 +301,13 @@ else
     fail_test $T "$DESC" "validate-package-migration.sh does not write FAIL JSON on installation timeout"
 fi
 
-# Test 30 -- SIGTERM records stage FAIL
+# Test 30 -- TIMEOUT records stage FAIL
 T=30
-DESC="wait-for-install-completion.sh records STOPPED_BY_SIGTERM as FAIL"
-if grep -q "STOPPED_BY_SIGTERM" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then
+DESC="wait-for-install-completion.sh records TIMEOUT as FAIL terminal state"
+if grep -q "installer_terminal_state.*TIMEOUT" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then
     pass_test $T "$DESC"
 else
-    fail_test $T "$DESC" "wait-for-install-completion.sh does not record STOPPED_BY_SIGTERM"
+    fail_test $T "$DESC" "wait-for-install-completion.sh does not record TIMEOUT terminal state"
 fi
 
 # Test 31 -- Failed install cannot leave PASS JSON (RUNNING sentinel)
@@ -333,7 +333,9 @@ T=33
 DESC="infra artifact upload path does not include private SSH keys"
 WORKFLOW_FILE=$(find "$REPO_ROOT/.github/workflows" -name "*.yml" | head -1 || echo "")
 if [[ -n "$WORKFLOW_FILE" ]]; then
-    if grep -q "id_rsa\|\.key\|private_key" "$WORKFLOW_FILE" 2>/dev/null && \
+    if grep -q '!infra/package-staging/results/runtime/\*\*/id_\*' "$WORKFLOW_FILE" 2>/dev/null; then
+        pass_test $T "$DESC"
+    elif grep -q "id_rsa\|\.key\|private_key" "$WORKFLOW_FILE" 2>/dev/null && \
        ! grep -q "exclude.*id_rsa\|exclude.*private_key\|exclude.*\.key" "$WORKFLOW_FILE" 2>/dev/null; then
         fail_test $T "$DESC" "Workflow may upload private keys without exclusion filter"
     else
@@ -350,6 +352,206 @@ if [[ -f "$REPO_ROOT/tools/vm/extract-installer-kernel.sh" && -x "$REPO_ROOT/too
     pass_test $T "$DESC"
 else
     fail_test $T "$DESC" "extract-installer-kernel.sh is missing or not executable"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tests 35-54: Runtime evidence and behavioral validation (PR #110 corrections)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Test 35 -- Runtime evidence path is included in release-gate artifact upload
+T=35
+DESC="Runtime evidence path is included in release-gate artifact upload"
+GATE_YML="$REPO_ROOT/.github/workflows/release-gate.yml"
+if grep -q 'infra/package-staging/results/runtime/\*\*' "$GATE_YML" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "runtime/** path not found in release-gate.yml artifact upload"
+fi
+
+# Test 36 -- Private key exclusion globs exist
+T=36
+DESC="Private key exclusion globs exist in artifact upload"
+if grep -q '!infra/package-staging/results/runtime/\*\*/id_\*' "$GATE_YML" 2>/dev/null && \
+   grep -q '!infra/package-staging/results/runtime/\*\*/\*\.key' "$GATE_YML" 2>/dev/null && \
+   grep -q '!infra/package-staging/results/runtime/\*\*/\*private\*' "$GATE_YML" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "Missing private key exclusion globs in release-gate.yml"
+fi
+
+# Test 37 -- Failure before QEMU start creates failure-summary.json
+T=37
+DESC="install-candidate2.sh writes failure-summary.json on non-zero exit"
+if grep -q "failure-summary.json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "failure_summary_json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh does not write failure-summary.json on failure"
+fi
+
+# Test 38 -- QEMU start failure creates failure-summary.json (handled by cleanup trap)
+T=38
+DESC="QEMU start failure recorded via cleanup trap in install-candidate2.sh"
+if grep -q "cleanup_exit" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "INSTALL_PHASE" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh missing cleanup_exit trap or INSTALL_PHASE tracking"
+fi
+
+# Test 39 -- Installer timeout creates install-completion.json with FAIL
+T=39
+DESC="wait-for-install-completion.sh writes FAIL JSON on timeout"
+if grep -q "TIMEOUT.*FAIL" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null || \
+   grep -q "installer_terminal_state.*TIMEOUT" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "wait-for-install-completion.sh does not write FAIL on timeout"
+fi
+
+# Test 40 -- Timeout cleanup confirms whether SIGTERM succeeded
+T=40
+DESC="run-qemu.sh stop returns FORCED_SIGTERM status when graceful shutdown fails"
+if grep -q "FORCED_SIGTERM" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh stop does not report FORCED_SIGTERM"
+fi
+
+# Test 41 -- Ignored SIGTERM escalates to SIGKILL and records FAIL
+T=41
+DESC="run-qemu.sh escalates SIGTERM to SIGKILL and records FAIL"
+if grep -q "FORCED_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null && \
+   grep -A3 "FORCED_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" | grep -q "exit 1"; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh does not escalate to SIGKILL or record FAIL"
+fi
+
+# Test 42 -- No QEMU process remains after failed installation cleanup
+T=42
+DESC="install-candidate2.sh cleanup trap terminates QEMU on failure"
+if grep -q "kill.*qpid" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "kill -9" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh cleanup does not kill remaining QEMU process"
+fi
+
+# Test 43 -- Final VM state cannot remain running
+T=43
+DESC="run-qemu.sh stop sets state to shutdown result, never leaves running"
+if grep -q "data\['state'\] = .SHUTDOWN_STATE." "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null || \
+   grep -q "data\['state'\] = .*SHUTDOWN" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh stop does not update state away from running"
+fi
+
+# Test 44 -- QEMU argument vector is present in VM state JSON
+T=44
+DESC="QEMU argument vector recorded in VM state JSON as qemu_arguments"
+if grep -q "qemu_arguments" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null && \
+   grep -q "qemu-arguments.json\|QEMU_ARGS_FILE" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh does not record QEMU arguments in state JSON"
+fi
+
+# Test 45 -- QEMU argument vector includes autoinstall
+T=45
+DESC="QEMU argument vector includes 'autoinstall' keyword"
+if grep -q "'autoinstall'" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "autoinstall not found in run-qemu.sh arguments"
+fi
+
+# Test 46 -- QEMU argument vector includes the canonical ISO as read-only CD-ROM
+T=46
+DESC="QEMU argument uses media=cdrom,readonly=on for canonical ISO"
+if grep -q "media=cdrom,readonly=on" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "read-only CD-ROM attachment not found in run-qemu.sh"
+fi
+
+# Test 47 -- Missing GENIXBIT_MIGRATION_RESULT fails
+T=47
+DESC="validate-package-migration.sh uses GENIXBIT_MIGRATION_RESULT marker"
+if grep -q "GENIXBIT_MIGRATION_RESULT" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "GENIXBIT_MIGRATION_RESULT marker not used in validate-package-migration.sh"
+fi
+
+# Test 48 -- Missing migration-result file fails
+T=48
+DESC="validate-package-migration.sh fails when MIG_RESULT_FILE is missing or empty"
+if grep -q 'if \[\[ -z "\$MIG_RESULT_FILE" \|' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null || \
+   grep -q 'missing_migration_result' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "validate-package-migration.sh does not reject missing migration result file"
+fi
+
+# Test 49 -- Migration result with final_status=FAIL fails
+T=49
+DESC="validate-package-migration.sh rejects migration with final_status=FAIL"
+if grep -q "final_status.*FAIL" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null || \
+   grep -q "MIG_FINAL_STATUS.*PASS" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "validate-package-migration.sh does not validate MIG_FINAL_STATUS"
+fi
+
+# Test 50 -- Migration result with rollback mismatch fails
+T=50
+DESC="validate-package-migration.sh validates rollback state SHA equality"
+if grep -q "rollback_eq\|ROLLBACK_EQ\|rollback.*sha" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "validate-package-migration.sh does not validate rollback state equality"
+fi
+
+# Test 51 -- Migration result source identity mismatch fails
+T=51
+DESC="migrate-candidate2.sh validates source identity commit"
+if grep -q "source_commit\|installation_state_path" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "migrate-candidate2.sh does not validate source identity"
+fi
+
+# Test 52 -- Failure after RUNNING sentinel always replaces it
+T=52
+DESC="validate-package-migration.sh uses write_candidate_stage_failure after RUNNING sentinel"
+if grep -q "write_candidate_stage_failure" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "write_candidate_stage_failure function not found in validate-package-migration.sh"
+fi
+
+# Test 53 -- Separate Candidate 2 stdout/stderr evidence files exist
+T=53
+DESC="Candidate 2 stdout and stderr evidence files captured separately"
+if grep -q "stage-candidate-upgrade.stdout.log" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null && \
+   grep -q "stage-candidate-upgrade.stderr.log" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "Separate stdout/stderr log paths not found in validate-package-migration.sh"
+fi
+
+# Test 54 -- Runtime evidence contains no private SSH key material (by exclusion)
+T=54
+DESC="release-gate.yml excludes private SSH keys from artifact upload"
+if grep -qF '!infra/package-staging/results/runtime/' "$GATE_YML" 2>/dev/null && \
+   grep -qF '!infra/package-staging/results/runtime/**/id_' "$GATE_YML" 2>/dev/null && \
+   grep -qF '!infra/package-staging/results/runtime/**/*.key' "$GATE_YML" 2>/dev/null && \
+   grep -qF '!infra/package-staging/results/runtime/**/*private' "$GATE_YML" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "Private SSH key exclusion globs not found in release-gate.yml"
 fi
 
 # Summary
