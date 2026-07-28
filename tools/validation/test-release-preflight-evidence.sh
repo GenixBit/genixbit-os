@@ -126,6 +126,10 @@ run_case() {
     local run_attempt="7"
     local secret="top-secret-passphrase-value"
     local iso_command="true"
+    local artifact_status="PASS"
+    local artifact_usable="true"
+    local artifact_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    local iso_marker=""
 
     while (($# > 0)); do
         case "$1" in
@@ -138,9 +142,15 @@ run_case() {
             --curl-fail) export TEST_CURL_FAIL=1; shift ;;
             --sha) export TEST_SHA256="$2"; shift 2 ;;
             --iso-command) iso_command="$2"; shift 2 ;;
+            --artifact-status) artifact_status="$2"; shift 2 ;;
+            --artifact-usable) artifact_usable="$2"; shift 2 ;;
+            --artifact-sha) artifact_sha="$2"; shift 2 ;;
+            --mark-iso-structure) iso_marker="$case_dir/iso-structure-ran"; iso_command="printf ran > \"$iso_marker\""; shift ;;
             *) printf '[FAIL] Unknown test option: %s\n' "$1" >&2; exit 1 ;;
         esac
     done
+
+    printf '{"verification_status":"%s","usable_as_migration_source":%s,"sha256":"%s"}\n' "$artifact_status" "$artifact_usable" "$artifact_sha" > "$artifact_provenance"
 
     set +e
     PATH="$bin_dir:/usr/bin:/bin:/sbin" \
@@ -190,6 +200,10 @@ run_case() {
         printf '[FAIL] %s leaked secret material\n' "$name" >&2
         exit 1
     fi
+    if [[ -n "$iso_marker" && -e "$iso_marker" ]]; then
+        printf '[FAIL] %s reached ISO structural validation unexpectedly\n' "$name" >&2
+        exit 1
+    fi
 
     PASS=$((PASS + 1))
     printf '[PASS] %s\n' "$name"
@@ -203,6 +217,9 @@ run_case "insufficient disk produces valid FAIL JSON" FAIL disk no no "" --disk 
 run_case "insufficient memory produces valid FAIL JSON" FAIL memory no no "" --memory 0
 run_case "missing secret produces valid FAIL JSON without leaking" FAIL secret no no "" --no-secret
 run_case "unreachable staging server produces valid FAIL JSON" FAIL staging_server no no "" --curl-fail
+run_case "PENDING provenance status fails before ISO validation" FAIL candidate2_artifact_status no no "" --artifact-status PENDING --mark-iso-structure
+run_case "UNKNOWN provenance status fails before ISO validation" FAIL candidate2_artifact_status no no "" --artifact-status UNKNOWN --mark-iso-structure
+run_case "empty provenance status fails before ISO validation" FAIL candidate2_artifact_status no no "" --artifact-status "" --mark-iso-structure
 run_case "candidate ISO checksum mismatch produces valid FAIL JSON" FAIL candidate2_sha256 no no "" --sha 0000000000000000000000000000000000000000000000000000000000000000
 run_case "ISO structural failure produces valid FAIL JSON" FAIL iso_structure no no "" --iso-command false
 run_case "successful preflight produces PASS JSON" PASS "" yes yes "" --iso-command true

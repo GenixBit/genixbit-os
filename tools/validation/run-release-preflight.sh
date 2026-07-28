@@ -218,26 +218,46 @@ fi
 
 PHASE="candidate2_artifact_status"
 artifact_provenance_file="${PREFLIGHT_ARTIFACT_PROVENANCE_FILE:-$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json}"
-artifact_status=$(PROVENANCE_FILE="$artifact_provenance_file" python3 - <<'PYEOF'
+set +e
+artifact_provenance=$(PROVENANCE_FILE="$artifact_provenance_file" python3 - <<'PYEOF'
 import json
 import os
+import re
+import sys
 
-with open(os.environ["PROVENANCE_FILE"], encoding="utf-8") as f:
-    data = json.load(f)
-print(data.get("verification_status", ""))
+try:
+    with open(os.environ["PROVENANCE_FILE"], encoding="utf-8") as f:
+        data = json.load(f)
+except Exception as exc:
+    print(exc, file=sys.stderr)
+    sys.exit(1)
+
+sha256 = str(data.get("sha256", ""))
+if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+    sys.exit(2)
+print(str(data.get("verification_status", "")))
+print("true" if data.get("usable_as_migration_source") is True else "false")
+print(sha256)
 PYEOF
 )
-artifact_usable=$(PROVENANCE_FILE="$artifact_provenance_file" python3 - <<'PYEOF'
-import json
-import os
-
-with open(os.environ["PROVENANCE_FILE"], encoding="utf-8") as f:
-    data = json.load(f)
-print(str(data.get("usable_as_migration_source", False)).lower())
-PYEOF
-)
-if [[ "$artifact_status" == "RETIRED_INVALID_ZERO_FILLED" || "$artifact_usable" != "true" ]]; then
+artifact_provenance_rc=$?
+set -e
+if ((artifact_provenance_rc == 2)); then
+    fail_phase "Candidate 2 provenance sha256 field is missing or invalid."
+elif ((artifact_provenance_rc != 0)); then
+    fail_phase "Candidate 2 provenance file is missing, unreadable, or malformed: $artifact_provenance_file"
+fi
+artifact_status=$(printf '%s\n' "$artifact_provenance" | sed -n '1p')
+artifact_usable=$(printf '%s\n' "$artifact_provenance" | sed -n '2p')
+CANDIDATE2_EXPECTED_SHA=$(printf '%s\n' "$artifact_provenance" | sed -n '3p')
+if [[ "$artifact_status" == "RETIRED_INVALID_ZERO_FILLED" || "$CANDIDATE2_EXPECTED_SHA" == "$RETIRED_CANDIDATE2_SHA" ]]; then
     fail_phase "Candidate 2 artifact is retired: recorded object is exactly 2540554240 zero bytes and is not an ISO."
+fi
+if [[ "$artifact_status" != "PASS" ]]; then
+    fail_phase "Candidate 2 provenance status '$artifact_status' is not an active artifact status."
+fi
+if [[ "$artifact_usable" != "true" ]]; then
+    fail_phase "Candidate 2 provenance is not usable as a migration source."
 fi
 
 PHASE="candidate2_download"
@@ -248,7 +268,6 @@ if [[ ! -f "$cand2_local" ]]; then
 fi
 
 PHASE="candidate2_sha256"
-CANDIDATE2_EXPECTED_SHA=$(PROVENANCE_FILE="$artifact_provenance_file" python3 -c 'import json, os; print(json.load(open(os.environ["PROVENANCE_FILE"]))["sha256"])')
 CANDIDATE2_OBSERVED_SHA=$(sha256sum "$cand2_local" | awk '{print $1}')
 if [[ "$CANDIDATE2_OBSERVED_SHA" != "$CANDIDATE2_EXPECTED_SHA" ]]; then
     fail_phase "Candidate 2 ISO SHA-256 mismatch: got $CANDIDATE2_OBSERVED_SHA, expected $CANDIDATE2_EXPECTED_SHA"

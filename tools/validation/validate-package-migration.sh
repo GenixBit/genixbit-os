@@ -33,7 +33,7 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Fail closed before any package, VM, or migration work when the historical
 # Candidate 2 object has been retired as a zero-filled non-ISO artifact.
-CAND2_PROVENANCE_FILE="$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json"
+CAND2_PROVENANCE_FILE="${CANDIDATE2_PROVENANCE_FILE:-$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json}"
 [[ -f "$CAND2_PROVENANCE_FILE" && -r "$CAND2_PROVENANCE_FILE" ]] || fail "Candidate 2 provenance file missing or unreadable: $CAND2_PROVENANCE_FILE"
 set +e
 candidate2_provenance=$(PROVENANCE_FILE="$CAND2_PROVENANCE_FILE" python3 - <<'PYEOF'
@@ -67,8 +67,14 @@ fi
 CAND2_STATUS=$(printf '%s\n' "$candidate2_provenance" | sed -n '1p')
 CAND2_USABLE=$(printf '%s\n' "$candidate2_provenance" | sed -n '2p')
 CAND2_PINNED_SHA=$(printf '%s\n' "$candidate2_provenance" | sed -n '3p')
-if [[ "$CAND2_STATUS" == "RETIRED_INVALID_ZERO_FILLED" || "$CAND2_USABLE" != "true" || "$CAND2_PINNED_SHA" == "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
+if [[ "$CAND2_STATUS" == "RETIRED_INVALID_ZERO_FILLED" || "$CAND2_PINNED_SHA" == "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
     fail "Candidate 2 artifact is retired: recorded object is exactly 2540554240 zero bytes and is not an ISO."
+fi
+if [[ "$CAND2_STATUS" != "PASS" ]]; then
+    fail "Candidate 2 provenance status '$CAND2_STATUS' is not an active artifact status."
+fi
+if [[ "$CAND2_USABLE" != "true" ]]; then
+    fail "Candidate 2 provenance is not usable as a migration source."
 fi
 
 # Directories

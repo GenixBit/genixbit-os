@@ -193,6 +193,60 @@ snapshot_results "$TMP_DIR/results-after.txt"
 cmp "$TMP_DIR/results-before.txt" "$TMP_DIR/results-after.txt"
 pass "migration validation rejects retired artifact and preserves production evidence"
 
+pending_migration_provenance="$TMP_DIR/pending-migration-provenance.json"
+unknown_migration_provenance="$TMP_DIR/unknown-migration-provenance.json"
+empty_status_migration_provenance="$TMP_DIR/empty-status-migration-provenance.json"
+active_migration_provenance="$TMP_DIR/active-migration-provenance.json"
+write_provenance "$pending_migration_provenance" "PENDING" true "$ACTIVE_SHA"
+write_provenance "$unknown_migration_provenance" "UNKNOWN" true "$ACTIVE_SHA"
+write_provenance "$empty_status_migration_provenance" "" true "$ACTIVE_SHA"
+write_provenance "$active_migration_provenance" "PASS" true "$ACTIVE_SHA"
+
+TOTAL=$((TOTAL + 1))
+snapshot_results "$TMP_DIR/pending-results-before.txt"
+if CANDIDATE2_PROVENANCE_FILE="$pending_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/pending-migration.out" 2> "$TMP_DIR/pending-migration.err"; then
+    printf '[FAIL] migration validation accepted PENDING artifact status\n' >&2
+    exit 1
+fi
+grep -q "Candidate 2 provenance status 'PENDING' is not an active artifact status." "$TMP_DIR/pending-migration.out" "$TMP_DIR/pending-migration.err"
+snapshot_results "$TMP_DIR/pending-results-after.txt"
+cmp "$TMP_DIR/pending-results-before.txt" "$TMP_DIR/pending-results-after.txt"
+pass "migration validation rejects PENDING usable provenance and preserves production evidence"
+
+TOTAL=$((TOTAL + 1))
+snapshot_results "$TMP_DIR/unknown-results-before.txt"
+if CANDIDATE2_PROVENANCE_FILE="$unknown_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/unknown-migration.out" 2> "$TMP_DIR/unknown-migration.err"; then
+    printf '[FAIL] migration validation accepted UNKNOWN artifact status\n' >&2
+    exit 1
+fi
+grep -q "Candidate 2 provenance status 'UNKNOWN' is not an active artifact status." "$TMP_DIR/unknown-migration.out" "$TMP_DIR/unknown-migration.err"
+snapshot_results "$TMP_DIR/unknown-results-after.txt"
+cmp "$TMP_DIR/unknown-results-before.txt" "$TMP_DIR/unknown-results-after.txt"
+pass "migration validation rejects UNKNOWN usable provenance and preserves production evidence"
+
+TOTAL=$((TOTAL + 1))
+snapshot_results "$TMP_DIR/empty-status-results-before.txt"
+if CANDIDATE2_PROVENANCE_FILE="$empty_status_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/empty-status-migration.out" 2> "$TMP_DIR/empty-status-migration.err"; then
+    printf '[FAIL] migration validation accepted empty artifact status\n' >&2
+    exit 1
+fi
+grep -q "Candidate 2 provenance status '' is not an active artifact status." "$TMP_DIR/empty-status-migration.out" "$TMP_DIR/empty-status-migration.err"
+snapshot_results "$TMP_DIR/empty-status-results-after.txt"
+cmp "$TMP_DIR/empty-status-results-before.txt" "$TMP_DIR/empty-status-results-after.txt"
+pass "migration validation rejects empty usable provenance and preserves production evidence"
+
+TOTAL=$((TOTAL + 1))
+if CANDIDATE2_PROVENANCE_FILE="$active_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/active-migration.out" 2> "$TMP_DIR/active-migration.err"; then
+    printf '[FAIL] active migration fixture unexpectedly completed full validation\n' >&2
+    exit 1
+fi
+if grep -q 'not an active artifact status\|Candidate 2 artifact is retired\|not usable as a migration source' "$TMP_DIR/active-migration.out" "$TMP_DIR/active-migration.err"; then
+    printf '[FAIL] active migration fixture was blocked by provenance status instead of the next controlled phase\n' >&2
+    exit 1
+fi
+grep -q 'STAGING_SIGNING_PASSPHRASE is required\|GPG binary not found' "$TMP_DIR/active-migration.out" "$TMP_DIR/active-migration.err"
+pass "migration validation accepts active provenance and reaches next controlled phase"
+
 missing_collector_provenance="$TMP_DIR/missing-collector-provenance.json"
 malformed_collector_provenance="$TMP_DIR/malformed-collector-provenance.json"
 retired_collector_provenance="$TMP_DIR/retired-collector-provenance.json"
