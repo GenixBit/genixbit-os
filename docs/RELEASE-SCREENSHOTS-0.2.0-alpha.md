@@ -1,8 +1,10 @@
-# GenixBit OS 0.2.0-alpha Release Screenshots
+# GenixBit OS 0.2.0-alpha Historical Unbound Screenshots
 
 ## Summary & Provenance
 
 This gallery is retained as historical audit material only. The recorded **GenixBit OS 0.2.0-alpha Candidate 2** object (Candidate SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`, ISO `GenixBitOS-0.2.0-alpha-2607220558.iso`) is retired because the stored ISO object is exactly zero-filled and invalid.
+
+Classification: `RETRACTED_UNBOUND_EVIDENCE`. These screenshots must not be used to claim that the retired object booted, installed, reproduced, or satisfied a release gate. They remain useful only as historical, unbound audit material.
 
 No screens were simulated, redrawn, or altered with artificial UI elements. High-resolution raw PNG captures remain retained in the private release validation evidence bundle outside Git.
 
@@ -21,7 +23,7 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | ISO Filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | Boot Mode | Legacy BIOS (SeaBIOS) |
 | System Mode | Live Session / Bootloader |
-| Validation Result | **PASS** |
+| Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | None |
 | Retained Private Evidence | `bios_step1.png` in evidence bundle |
 | Known Limitation | Resolution initialized at default VESA 800x600 before kernel mode setting |
@@ -39,7 +41,7 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | ISO Filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | Boot Mode | UEFI (OVMF firmware) |
 | System Mode | Live Session / Bootloader |
-| Validation Result | **PASS** |
+| Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | None |
 | Retained Private Evidence | `uefi_vnc_initial_1784620403924.png` in evidence bundle |
 | Known Limitation | GRUB theme uses standard fallback font before X11 graphics load |
@@ -57,7 +59,7 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | ISO Filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | Boot Mode | UEFI |
 | System Mode | Live Session |
-| Validation Result | **PASS** |
+| Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | None |
 | Retained Private Evidence | `uefi_boot_fresh.png` in evidence bundle |
 | Known Limitation | Temporary upstream package repository icons remain pending Phase 3 APT setup |
@@ -75,7 +77,7 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | ISO Filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | Boot Mode | UEFI |
 | System Mode | Live Session |
-| Validation Result | **PASS** |
+| Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | None |
 | Retained Private Evidence | `live_desktop_booted_1784618685976.png` in evidence bundle |
 | Known Limitation | Desktop launcher icon uses transparent GenixBit GB monogram |
@@ -93,7 +95,7 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | ISO Filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | Boot Mode | Legacy BIOS |
 | System Mode | Live Session / Installer |
-| Validation Result | **PASS** |
+| Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | None |
 | Retained Private Evidence | `bios_step2.png` in evidence bundle |
 | Known Limitation | Installer theme inherits default system dark theme styling |
@@ -111,7 +113,7 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | ISO Filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | Boot Mode | Legacy BIOS |
 | System Mode | Live Session / Installer |
-| Validation Result | **PASS** |
+| Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | None |
 | Retained Private Evidence | `bios_install_progress.png` in evidence bundle |
 | Known Limitation | Upstream slideshow package retains legacy slideshow text pending Phase 3 packaging |
@@ -129,10 +131,10 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | ISO Filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | Boot Mode | UEFI |
 | System Mode | Installed System |
-| Validation Result | **PASS** |
+| Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | Cleared terminal prompt history; no private user data visible |
 | Retained Private Evidence | `installed_terminal_open.png` in evidence bundle |
-| Known Limitation | Boots directly from target virtual disk `/dev/vda` without live ISO |
+| Known Limitation | Historical screenshot was labeled as depicting a target-disk session; this attribution is unbound and is not valid boot or installation evidence. |
 
 ---
 
@@ -147,7 +149,7 @@ No screens were simulated, redrawn, or altered with artificial UI elements. High
 | ISO Filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | Boot Mode | UEFI |
 | System Mode | Installed System |
-| Validation Result | **PASS** |
+| Evidence Classification | `RETRACTED_UNBOUND_EVIDENCE` |
 | Privacy Edits | None |
 | Retained Private Evidence | `os_release.png` in evidence bundle |
-| Known Limitation | Confirms `PRETTY_NAME="GenixBit OS 0.2.0-alpha"` and `VERSION_ID="0.2.0-alpha"` |
+| Known Limitation | Historical screenshot is labeled as displaying `PRETTY_NAME="GenixBit OS 0.2.0-alpha"` and `VERSION_ID="0.2.0-alpha"`; this visual attribution remains unbound. |

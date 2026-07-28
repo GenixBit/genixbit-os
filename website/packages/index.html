@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS Package Transparency & Staging Status Page — Validated GCP staging execution metrics, ISO distribution, and production repository status.">
+  <meta name="description" content="GenixBit OS Package Transparency & Staging Status Page — GCP staging metrics, retired ISO object status, and production repository status.">
   <title>GenixBit Package Transparency & Staging Status</title>
   <style>
     :root {
@@ -100,7 +100,7 @@
       </div>
       <div class="summary-card">
         <label>ISO Distribution</label>
-        <div class="val pass">AVAILABLE (0.2.0-alpha)</div>
+        <div class="val not-deployed">RETIRED INVALID</div>
       </div>
       <div class="summary-card">
         <label>GCP Staging Validation</label>
@@ -113,22 +113,22 @@
     </div>
 
     <div class="warning-banner">
-      <strong>Security & Operational Notice:</strong> No production APT package repository is served from this hostname. The ISO download bucket (GCP Cloud Storage) serves verified ISO installation images only and is separate from package repository mirrors. Do not add this domain to APT sources.
+      <strong>Security & Operational Notice:</strong> No production APT package repository is served from this hostname. The historical 0.2.0-alpha object is retired as <code>RETIRED_INVALID_ZERO_FILLED</code> and is not a verified installation image. Do not add this domain to APT sources.
     </div>
 
-    <!-- Validated Staging Metrics -->
+    <!-- Release Retraction & Staging Metrics -->
     <div class="table-section">
       `2.54 GB`
-      <h2>Validated Release & GCP Staging Results</h2>
+      <h2>Release Retraction & GCP Staging Results</h2>
       <table>
         <thead>
           <tr><th>Validation Metric</th><th>Value / Identifier</th><th>Status</th></tr>
         </thead>
         <tbody>
-          <tr><td>Current Release</td><td><code>0.2.0-alpha</code></td><td><span class="tag-pass">VALIDATED</span></td></tr>
-          <tr><td>ISO Download Host</td><td><code>storage.googleapis.com / downloads.os.genixbit.com</code></td><td><span class="tag-pass">AVAILABLE</span></td></tr>
-          <tr><td>ISO SHA-256 Checksum</td><td><code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
-          <tr><td>Candidate Git SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td><td><span class="tag-pass">PINNED</span></td></tr>
+          <tr><td>Current Release</td><td><code>none</code></td><td><span class="tag-info">NOT_VALIDATED</span></td></tr>
+          <tr><td>Retired ISO Object</td><td><code>GenixBitOS-0.2.0-alpha-2607220558.iso</code></td><td><span class="tag-info">RETIRED_INVALID_ZERO_FILLED</span></td></tr>
+          <tr><td>ISO SHA-256 Checksum</td><td><code>1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669</code></td><td><span class="tag-info">OBJECT IDENTITY ONLY</span></td></tr>
+          <tr><td>Candidate Git SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td><td><span class="tag-info">HISTORICAL</span></td></tr>
           <tr><td>Staging Run ID</td><td><code>run-staging-20260723-001</code></td><td><span class="tag-info">GCP STAGING</span></td></tr>
           <tr><td>Staging Public Key Fingerprint</td><td><code>9D8696C4BF7862A6366C1669BF6D1B248A0760A2</code></td><td><span class="tag-pass">ISOLATED SIGNER</span></td></tr>
           <tr><td>Key Expiry Record</td><td><code>2026-08-22T00:00:00Z</code></td><td><span class="tag-info">30 DAYS</span></td></tr>

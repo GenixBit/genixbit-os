@@ -23,8 +23,10 @@ GenixBit OS currently uses:
 - **Target architecture**: `amd64` / x86_64;
 - **Build system and layout**: derived from AnduinOS 2;
 - **License**: GPL-3.0 for covered source;
-- **Current version**: `0.2.0-alpha`;
-- **Current release state**: 0.2.0-alpha validation complete; signed GenixBit package and update infrastructure is the next active phase.
+- **Current development version**: `0.3.0-alpha`;
+- **Current valid release artifact**: none;
+- **0.2.0-alpha Candidate 2 state**: retired invalid zero-filled object (`RETIRED_INVALID_ZERO_FILLED`);
+- **Release gate**: blocked pending a newly built and validated replacement artifact.
 
 The source retains mandatory upstream attribution. See [`UPSTREAM.md`](UPSTREAM.md), [`LICENSE`](LICENSE) and [`OSS.md`](OSS.md).
 
@@ -73,18 +75,18 @@ Read:
 | Feature Area | Status | Notes |
 | --- | --- | --- |
 | Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM tooling are present |
-| Historical ISO compilation | **PASS** | commit `2ed584c` generated the recorded ISO, size and checksum |
+| Historical source build work | **PASS** | Source and package work is independently tracked in repository history and tests |
 | Historical 0.1.0 candidate branch | **PASS** | `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` is fully validated |
 | Candidate 1 0.2.0 branch (retired) | **FAIL** | `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` retired due to target version mismatch |
-| Candidate 2 0.2.0 branch (validated) | **PASS** | `validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` is fully validated (PR #40) |
-| Candidate clean ISO build | **PASS** | Build A successfully compiled on GCE Ubuntu 26.04 `resolute` amd64 |
-| Candidate BIOS/UEFI runtime validation | **PASS** | Verified boot and execution via run-qemu.sh |
-| Live session and installer | **PASS** | Interactive live sessions and Calamares/Ubiquity installer execution validated |
-| Installed system and APT validation | **PASS** | Clean boot from target disk and verified apt update & system package health |
-| Reproducibility | **PASS** | cmp verified Build A and Build B ISOs are 100% byte-for-byte identical |
+| Candidate 2 0.2.0 branch | **RETIRED_INVALID_ZERO_FILLED** | `validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` points to historical source only; the retained ISO object is invalid |
+| Candidate 2 clean ISO build | **RETRACTED_UNBOUND_EVIDENCE** | Prior build claims cannot be bound to a valid retained ISO artifact |
+| Candidate 2 BIOS/UEFI runtime validation | **RETRACTED_UNBOUND_EVIDENCE** | Prior boot screenshots/logs cannot prove the retired zero-filled object booted |
+| Candidate 2 live session and installer | **RETRACTED_UNBOUND_EVIDENCE** | Historical visual material is retained but cannot approve an installation source |
+| Candidate 2 installed system and APT validation | **RETRACTED_UNBOUND_EVIDENCE** | Guest results cannot be tied to the invalid retained ISO object |
+| Candidate 2 reproducibility | **RETRACTED_UNBOUND_EVIDENCE** | Build A/Build B claims cannot be tied to a usable retained ISO |
 | Release-evidence CI gate | **Active** | validation PRs must set every required machine-readable release gate to `PASS` |
 | `genixbit-os-base-files` | **PASS** | identity templates and Debian package metadata exist; build/install/upgrade evidence verified |
-| Complete GenixBit runtime branding | **PASS** | GenixBit OS identity validated across boot, live session, installer, and installed system |
+| Complete GenixBit runtime branding | **RETRACTED_UNBOUND_EVIDENCE** | Candidate 2 boot, live-session, installer and installed-system branding evidence cannot approve the retired ISO |
 | Product website preview | **Active** | public preview recorded at `os.genixbit.com` |
 | Documentation preview | **Active** | public preview recorded at `docs.os.genixbit.com` |
 | Package repository | **Not active** | `packages.os.genixbit.com` is a status page only; signing and APT infrastructure remain pending |
@@ -104,20 +106,20 @@ Read:
 - Purge: PASS
 - Identity restoration: PASS
 - ISO integration: PASS
-- BIOS branding: PASS
-- UEFI branding: PASS
-- Installer branding: PASS
-- Installed-system branding: PASS
+- BIOS branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+- UEFI branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+- Installer branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+- Installed-system branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
 
-### Validated Release Screenshots (`0.2.0-alpha`)
+### Historical Unbound Screenshots (`0.2.0-alpha`)
 
 ![GenixBit OS 0.2.0-alpha Live Desktop](docs/assets/releases/0.2.0-alpha/03-live-desktop.webp)
 
-*GenixBit OS 0.2.0-alpha Candidate 2 live desktop environment booted via UEFI.*
+*Historical visual material classified as `RETRACTED_UNBOUND_EVIDENCE`; it must not be used to claim the retired ISO booted successfully.*
 
 ![GenixBit OS 0.2.0-alpha Installed System](docs/assets/releases/0.2.0-alpha/07-installed-desktop.webp)
 
-*GenixBit OS 0.2.0-alpha target disk installation booted with full desktop and terminal identity.*
+*Historical installed-system visual material classified as `RETRACTED_UNBOUND_EVIDENCE`; it cannot approve a release, installation source, migration source or reproducibility claim.*
 
 Full gallery & metadata: [`docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md`](docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md)
 
