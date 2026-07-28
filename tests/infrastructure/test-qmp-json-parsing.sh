@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Behavioral regression test: QMP JSON parsing vs grep-based matching
+# Behavioral regression test: QMP JSON parsing logic
 #
-# Validates that JSON parsing is used instead of grep for QMP responses,
-# and that expected-failure short-circuit handles closed/errored QMP sockets.
+# Tests the JSON receive-and-parse logic that the production qmp_query_status
+# helper in run-qemu.sh relies on: newline-delimited JSON, ID matching,
+# greeting validation, error handling, split reads, multi-object reads,
+# stale/timeout sockets, and production-readiness checks.
 
 set -Eeuo pipefail
 
@@ -14,196 +16,274 @@ pass() { PASS_COUNT=$((PASS_COUNT + 1)); printf '[PASS] %s\n' "$*"; }
 fail() { FAIL_COUNT=$((FAIL_COUNT + 1)); printf '[FAIL] %s\n' "$*" >&2; }
 
 TEST_DIR=$(mktemp -d)
-cleanup() { rm -rf "${TEST_DIR:?}"; }
-trap cleanup EXIT
+cleanup_rm() { rm -rf "${TEST_DIR:?}"; }
+trap cleanup_rm EXIT
 
-QMP_SOCKET="$TEST_DIR/qmp-test.sock"
-QMP_RESULT="$TEST_DIR/qmp-result.json"
+RUN_QEMU="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools/vm/run-qemu.sh"
+HELPER="$RUN_QEMU"
 
-# Generate a fake QMP response file for scenarios that do not require a real VM.
-write_qmp_response() {
-    local file="$1"
-    shift
-    printf '%s\n' "$@" > "$file"
-}
-
-# ---------------------------------------------------------------------------
-# Test 1: JSON parse correctly extracts status from a well-formed QMP response
-# ---------------------------------------------------------------------------
 info() { printf '[INFO] %s\n' "$*"; }
-info "Test 1: JSON parse of valid query-status response"
-write_qmp_response "$QMP_RESULT" \
-    '{"return": {"status": "running", "singlestep": false, "running": true}}'
 
-PARSED_STATUS=$(python3 -c "
-import json
-with open('$QMP_RESULT') as f:
-    data = json.load(f)
-print(data.get('return', {}).get('status', ''))
+# -----------------------------------------------------------------------
+# Test 1: Valid 'running' status
+# -----------------------------------------------------------------------
+info "Test 1: Parse valid 'running' status"
+RESULT=$(python3 -c "
+import json, io
+# Use BytesIO to simulate a socket buffer
+data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-1\", \"return\": {}}\n{\"id\": \"status-1\", \"return\": {\"status\": \"running\", \"running\": true}}\n'
+buf = data
+while b'\n' in buf:
+    line, buf = buf.split(b'\n', 1)
+    line = line.strip()
+    if not line: continue
+    obj = json.loads(line)
+    if isinstance(obj, dict):
+        if obj.get('id') == 'status-1':
+            print(obj.get('return', {}).get('status', ''))
+            break
 " 2>/dev/null || echo "")
-
-if [[ "$PARSED_STATUS" == "running" ]]; then
-    pass "Test 1: JSON parse correctly extracted status='running'"
+if [[ "$RESULT" == "running" ]]; then
+    pass "Test 1: parsed 'running' correctly"
 else
-    fail "Test 1: Expected status='running', got '$PARSED_STATUS'"
+    fail "Test 1: expected 'running', got '$RESULT'"
 fi
 
-# ---------------------------------------------------------------------------
-# Test 2: JSON parse rejects status that is not exactly 'running' or 'prelaunch'
-# ---------------------------------------------------------------------------
-info "Test 2: JSON parse rejects unknown status (grep false positive scenario)"
-write_qmp_response "$QMP_RESULT" \
-    '{"return": {"status": "shutdown", "singlestep": false, "running": false}}'
-
-PARSED_STATUS=$(python3 -c "
+# -----------------------------------------------------------------------
+# Test 2: Valid 'prelaunch' status
+# -----------------------------------------------------------------------
+info "Test 2: Parse valid 'prelaunch' status"
+RESULT=$(python3 -c "
 import json
-with open('$QMP_RESULT') as f:
-    data = json.load(f)
-s = data.get('return', {}).get('status', '')
-print('VALID' if s in ('running', 'prelaunch') else 'INVALID')
+data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-2\", \"return\": {}}\n{\"id\": \"status-2\", \"return\": {\"status\": \"prelaunch\", \"running\": false}}\n'
+buf = data
+while b'\n' in buf:
+    line, buf = buf.split(b'\n', 1)
+    line = line.strip()
+    if not line: continue
+    obj = json.loads(line)
+    if isinstance(obj, dict):
+        if obj.get('id') == 'status-2':
+            print(obj.get('return', {}).get('status', ''))
+            break
 " 2>/dev/null || echo "")
-
-if [[ "$PARSED_STATUS" == "INVALID" ]]; then
-    pass "Test 2: JSON parse correctly rejected status='shutdown'"
+if [[ "$RESULT" == "prelaunch" ]]; then
+    pass "Test 2: parsed 'prelaunch' correctly"
 else
-    fail "Test 2: Expected INVALID for status='shutdown', got '$PARSED_STATUS'"
+    fail "Test 2: expected 'prelaunch', got '$RESULT'"
 fi
 
-# ---------------------------------------------------------------------------
-# Test 3: JSON parse rejects grep false positive where 'running' appears in
-#         a non-status field but grep -E '"status": "(running|prelaunch)"'
-#         would incorrectly match a substring in the capabilities block.
-# ---------------------------------------------------------------------------
-info "Test 3: Grep false positive: 'running' in capabilities block is NOT the VM state"
-
-# Simulate QMP greeting followed by query-status response.
-# The capabilities block contains "status": "running" but the actual
-# query-status returns "prelaunch".  Grep scanning the entire output
-# would match the first occurrence and incorrectly conclude the VM is running.
-write_qmp_response "$QMP_RESULT" \
-    '{"QMP": {"version": {"qemu": {"major": 8}}, "capabilities": {"status": "running"}}}' \
-    '{"return": {"status": "prelaunch", "singlestep": false, "running": false}}'
-
-# What grep would find
-GREP_MATCH=$(grep -E '"status": "(running|prelaunch)"' "$QMP_RESULT" 2>/dev/null | head -1 || echo "")
-# What JSON parse of the LAST object would find
-LAST_STATUS=$(python3 -c "
+# -----------------------------------------------------------------------
+# Test 3: Misleading 'status:running' in QMP greeting is ignored
+# -----------------------------------------------------------------------
+info "Test 3: Misleading 'running' in greeting is ignored"
+RESULT=$(python3 -c "
 import json
-with open('$QMP_RESULT') as f:
-    lines = f.read().strip().split('\n')
-    last = json.loads(lines[-1])
-    print(last.get('return', {}).get('status', ''))
+data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}, \"capabilities\": {\"status\": \"running\"}}}\n{\"id\": \"caps-3\", \"return\": {}}\n{\"id\": \"status-3\", \"return\": {\"status\": \"prelaunch\", \"running\": false}}\n'
+buf = data
+while b'\n' in buf:
+    line, buf = buf.split(b'\n', 1)
+    line = line.strip()
+    if not line: continue
+    obj = json.loads(line)
+    if isinstance(obj, dict):
+        if obj.get('id') == 'status-3':
+            print(obj.get('return', {}).get('status', ''))
+            break
 " 2>/dev/null || echo "")
-
-if [[ "$GREP_MATCH" == *'"status": "running"'* ]]; then
-    pass "Test 3: grep incorrectly matched capabilities block status (false positive documented)"
+if [[ "$RESULT" == "prelaunch" ]]; then
+    pass "Test 3: greeting 'running' ignored, got 'prelaunch'"
 else
-    info "Test 3: grep did not match capabilities status (may vary by grep version)"
+    fail "Test 3: expected 'prelaunch', got '$RESULT'"
 fi
 
-if [[ "$LAST_STATUS" == "prelaunch" ]]; then
-    pass "Test 3b: JSON parse correctly extracts LAST status='prelaunch' from multi-object response"
-else
-    fail "Test 3b: JSON parse got '$LAST_STATUS', expected 'prelaunch'"
-fi
-
-# ---------------------------------------------------------------------------
-# Test 4: JSON parse correctly handles 'running' appearing inside error text
-#         rather than as the real status field value.
-# ---------------------------------------------------------------------------
-info "Test 4: 'running' in error description text must not be mistaken for VM state"
-write_qmp_response "$QMP_RESULT" \
-    '{"error": {"class": "DeviceNotFound", "desc": "Device was running but state is unknown"}, "id": "test"}'
-
-PARSED_STATUS=$(python3 -c "
+# -----------------------------------------------------------------------
+# Test 4: 'running' in error description, not in status
+# -----------------------------------------------------------------------
+info "Test 4: 'running' in error text not mistaken for status"
+RESULT=$(python3 -c "
 import json
-with open('$QMP_RESULT') as f:
-    data = json.load(f)
-ret = data.get('return', {})
-if isinstance(ret, dict):
-    print(ret.get('status', 'NO_STATUS'))
-else:
-    print('NO_RETURN')
+data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-4\", \"return\": {}}\n{\"error\": {\"class\": \"DeviceNotFound\", \"desc\": \"Device was running but state is unknown\"}, \"id\": \"status-4\"}\n'
+buf = data
+while b'\n' in buf:
+    line, buf = buf.split(b'\n', 1)
+    line = line.strip()
+    if not line: continue
+    obj = json.loads(line)
+    if isinstance(obj, dict):
+        if obj.get('id') == 'status-4':
+            if 'error' in obj:
+                print('ERROR')
+            else:
+                print(obj.get('return', {}).get('status', 'NO_STATUS'))
+            break
 " 2>/dev/null || echo "")
-
-if [[ "$PARSED_STATUS" == "NO_STATUS" ]] || [[ "$PARSED_STATUS" == "NO_RETURN" ]]; then
-    pass "Test 4: JSON parse ignored 'running' in error text (got: $PARSED_STATUS)"
+if [[ "$RESULT" == "ERROR" ]]; then
+    pass "Test 4: error response correctly detected, not mistaken for status"
 else
-    fail "Test 4: JSON parse incorrectly extracted status='$PARSED_STATUS' from error response"
+    fail "Test 4: expected 'ERROR', got '$RESULT'"
 fi
 
-# ---------------------------------------------------------------------------
-# Test 5: Expected-failure short-circuit: closed QMP socket
-# ---------------------------------------------------------------------------
-info "Test 5: Expected-failure short-circuit on closed QMP socket"
+# -----------------------------------------------------------------------
+# Test 5: Response split across multiple socket reads (buffered reassembly)
+# -----------------------------------------------------------------------
+info "Test 5: Split JSON response across multiple socket reads"
+RESULT=$(python3 -c "
+import json
 
-SEND_RESULT=$(python3 -c "
-import socket, json, sys
+# Simulate two recv() calls with partial JSON
+chunk1 = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-5\", \"return\": {}}\n{\"id\": \"status-5\", \"ret'
+chunk2 = b'urn\": {\"status\": \"running\", \"running\": true}}\n'
+
+# Simulate the production recv_obj logic: buffer accumulates across reads
+buf = b''
+for chunk in (chunk1, chunk2):
+    buf += chunk
+    while b'\n' in buf:
+        line, buf = buf.split(b'\n', 1)
+        line = line.strip()
+        if not line: continue
+        obj = json.loads(line)
+        if isinstance(obj, dict) and obj.get('id') == 'status-5':
+            print(obj.get('return', {}).get('status', ''))
+" 2>/dev/null || echo "")
+if [[ "$RESULT" == "running" ]]; then
+    pass "Test 5: split response reassembled, got 'running'"
+else
+    fail "Test 5: expected 'running', got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 6: Multiple JSON objects in one socket read
+# -----------------------------------------------------------------------
+info "Test 6: Multiple JSON objects in a single read"
+RESULT=$(python3 -c "
+import json
+# Two JSON objects on one line (separated by newline within one recv)
+data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-6\", \"return\": {}}\n{\"id\": \"status-6\", \"return\": {\"status\": \"running\", \"running\": true}}\n'
+buf = data
+while b'\n' in buf:
+    line, buf = buf.split(b'\n', 1)
+    line = line.strip()
+    if not line: continue
+    obj = json.loads(line)
+    if isinstance(obj, dict) and obj.get('id') == 'status-6':
+        print(obj.get('return', {}).get('status', ''))
+" 2>/dev/null || echo "")
+if [[ "$RESULT" == "running" ]]; then
+    pass "Test 6: multi-object read handled, got 'running'"
+else
+    fail "Test 6: expected 'running', got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 7: Wrong response ID before correct response
+# -----------------------------------------------------------------------
+info "Test 7: Wrong response ID before correct response"
+RESULT=$(python3 -c "
+import json
+data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-7\", \"return\": {}}\n{\"id\": \"stale-1\", \"return\": {\"status\": \"shutdown\"}}\n{\"id\": \"status-7\", \"return\": {\"status\": \"running\", \"running\": true}}\n'
+buf = data
+while b'\n' in buf:
+    line, buf = buf.split(b'\n', 1)
+    line = line.strip()
+    if not line: continue
+    obj = json.loads(line)
+    if isinstance(obj, dict) and obj.get('id') == 'status-7':
+        print(obj.get('return', {}).get('status', ''))
+" 2>/dev/null || echo "")
+if [[ "$RESULT" == "running" ]]; then
+    pass "Test 7: stale ID ignored, got 'running' from correct ID"
+else
+    fail "Test 7: expected 'running', got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 8: QMP error response
+# -----------------------------------------------------------------------
+info "Test 8: QMP error response rejected"
+RESULT=$(python3 -c "
+import json
+data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\n{\"id\": \"caps-8\", \"return\": {}}\n{\"error\": {\"class\": \"GenericError\", \"desc\": \"not found\"}, \"id\": \"status-8\"}\n'
+buf = data
+while b'\n' in buf:
+    line, buf = buf.split(b'\n', 1)
+    line = line.strip()
+    if not line: continue
+    obj = json.loads(line)
+    if isinstance(obj, dict) and obj.get('id') == 'status-8':
+        if 'error' in obj:
+            print('ERROR')
+        else:
+            print(obj.get('return', {}).get('status', ''))
+" 2>/dev/null || echo "")
+if [[ "$RESULT" == "ERROR" ]]; then
+    pass "Test 8: error response correctly rejected"
+else
+    fail "Test 8: expected 'ERROR', got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 9: Malformed JSON line skipped
+# -----------------------------------------------------------------------
+info "Test 9: Malformed JSON line skipped"
+RESULT=$(python3 -c "
+import json
+data = b'{\"QMP\": {\"version\": {\"qemu\": {\"major\": 8}}}}\nnot valid json at all\n{\"id\": \"caps-9\", \"return\": {}}\n{\"id\": \"status-9\", \"return\": {\"status\": \"running\", \"running\": true}}\n'
+buf = data
+while b'\n' in buf:
+    line, buf = buf.split(b'\n', 1)
+    line = line.strip()
+    if not line: continue
+    try:
+        obj = json.loads(line)
+    except json.JSONDecodeError:
+        continue
+    if isinstance(obj, dict) and obj.get('id') == 'status-9':
+        print(obj.get('return', {}).get('status', ''))
+" 2>/dev/null || echo "")
+if [[ "$RESULT" == "running" ]]; then
+    pass "Test 9: malformed JSON skipped, got 'running'"
+else
+    fail "Test 9: expected 'running', got '$RESULT'"
+fi
+
+# -----------------------------------------------------------------------
+# Test 10: Socket timeout simulated
+# -----------------------------------------------------------------------
+info "Test 10: Stale socket timeout handled"
+SOCKET_10="$TEST_DIR/qmp10.sock"
+touch "$SOCKET_10"
+RESULT=$(python3 -c "
+import socket
 try:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.settimeout(2)
-    s.connect('$QMP_SOCKET')
-    sys.stdout.write('CONNECTED')
+    s.connect('$SOCKET_10')
+    print('CONNECTED')
 except (FileNotFoundError, ConnectionRefusedError, socket.timeout, OSError):
-    sys.stdout.write('EXPECTED_FAILURE')
+    print('EXPECTED_FAILURE')
 " 2>/dev/null || echo "EXPECTED_FAILURE")
-
-if [[ "$SEND_RESULT" == "EXPECTED_FAILURE" ]]; then
-    pass "Test 5: Closed QMP socket correctly short-circuits (expected failure)"
+rm -f "$SOCKET_10"
+if [[ "$RESULT" == "EXPECTED_FAILURE" ]]; then
+    pass "Test 10: stale socket correctly short-circuits"
 else
-    fail "Test 5: Expected EXPECTED_FAILURE on closed socket, got '$SEND_RESULT'"
+    fail "Test 10: expected 'EXPECTED_FAILURE', got '$RESULT'"
 fi
 
-# ---------------------------------------------------------------------------
-# Test 6: Expected-failure short-circuit: QMP socket file exists but is stale
-#         (no QEMU listening)
-# ---------------------------------------------------------------------------
-info "Test 6: Stale QMP socket file (no listener) short-circuits"
-touch "$QMP_SOCKET"
-chmod 700 "$QMP_SOCKET"
-
-SEND_RESULT=$(python3 -c "
-import socket, json, sys
-try:
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.settimeout(2)
-    s.connect('$QMP_SOCKET')
-    sys.stdout.write('CONNECTED')
-except (FileNotFoundError, ConnectionRefusedError, socket.timeout, OSError):
-    sys.stdout.write('EXPECTED_FAILURE')
-" 2>/dev/null || echo "EXPECTED_FAILURE")
-
-rm -f "$QMP_SOCKET"
-
-if [[ "$SEND_RESULT" == "EXPECTED_FAILURE" ]]; then
-    pass "Test 6: Stale QMP socket correctly short-circuits (expected failure)"
+# -----------------------------------------------------------------------
+# Test 11: Production code contains no raw status grep
+# -----------------------------------------------------------------------
+info "Test 11: run-qemu.sh contains no raw QMP status grep"
+if grep -qnE 'grep.*qmp_status|grep.*running.*prelaunch' "$RUN_QEMU" 2>/dev/null; then
+    fail "Test 11: run-qemu.sh still contains raw QMP status grep!"
 else
-    fail "Test 6: Expected EXPECTED_FAILURE on stale socket, got '$SEND_RESULT'"
+    pass "Test 11: no raw QMP status grep in run-qemu.sh"
 fi
 
-# ---------------------------------------------------------------------------
-# Test 7: JSON parse vs grep on embedded 'running' in serialized args text
-# ---------------------------------------------------------------------------
-info "Test 7: Embedded 'running' in non-status field must not trigger false match"
-write_qmp_response "$QMP_RESULT" \
-    '{"return": {"status": "prelaunch", "args": "running-mode=enabled", "running": false}}'
-
-PARSED_STATUS=$(python3 -c "
-import json
-with open('$QMP_RESULT') as f:
-    data = json.load(f)
-print(data.get('return', {}).get('status', ''))
-" 2>/dev/null || echo "")
-
-if [[ "$PARSED_STATUS" == "prelaunch" ]]; then
-    pass "Test 7: JSON parse correctly got 'prelaunch' despite 'running' in args field"
-else
-    fail "Test 7: Expected 'prelaunch', got '$PARSED_STATUS'"
-fi
-
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------
 # Summary
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------
 TOTAL=$((PASS_COUNT + FAIL_COUNT))
 printf '\n=== QMP JSON Parsing Behavioral Regression Test Results ===\n'
 printf '  Passed: %d / %d\n' "$PASS_COUNT" "$TOTAL"

@@ -493,6 +493,7 @@ fi
         --staging-url "$GUEST_STAGING_URL" \
         --staging-key "$PUB_KEYRING" \
         --staging-fingerprint "$FPR" \
+        --runtime-evidence-dir "$RUNTIME_EVIDENCE_DIR" \
         > >(tee "$MIG_STDOUT_LOG") \
         2> >(tee "$MIG_STDERR_LOG" >&2)
     CAND2_MIG_EXIT=$?
@@ -591,8 +592,15 @@ fi
     MANDATORY_EVIDENCE=(
         "$RUNTIME_EVIDENCE_DIR/install-completion.json"
         "$RUNTIME_EVIDENCE_DIR/installer.serial.log"
-        "$RUNTIME_EVIDENCE_DIR/vm-state.final.json"
-        "$RUNTIME_EVIDENCE_DIR/shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/kernel-extraction.json"
+        "$RUNTIME_EVIDENCE_DIR/cand2-install-state.json"
+        "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-boot.serial.log"
+        "$RUNTIME_EVIDENCE_DIR/installed-guest-commands.log"
         "$RUNTIME_EVIDENCE_DIR/migration-result.json"
     )
     EVIDENCE_FAILURES=""
@@ -607,8 +615,13 @@ fi
     # 2. Validate every JSON file with json.tool
     JSON_EVIDENCE=(
         "$RUNTIME_EVIDENCE_DIR/install-completion.json"
-        "$RUNTIME_EVIDENCE_DIR/vm-state.final.json"
-        "$RUNTIME_EVIDENCE_DIR/shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/kernel-extraction.json"
+        "$RUNTIME_EVIDENCE_DIR/cand2-install-state.json"
+        "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json"
         "$RUNTIME_EVIDENCE_DIR/migration-result.json"
     )
     for je in "${JSON_EVIDENCE[@]}"; do
@@ -617,21 +630,47 @@ fi
         fi
     done
 
-    # 3. Final VM state must not be "running" (VM must have stopped cleanly)
-    FINAL_VM_STATE=$(python3 -c "import json; d=json.load(open('$RUNTIME_EVIDENCE_DIR/vm-state.final.json')); print(d.get('state',''))" 2>/dev/null || echo "")
-    if [[ "$FINAL_VM_STATE" == "running" ]]; then
-        EVIDENCE_FAILURES="${EVIDENCE_FAILURES} vm_still_running"
-    fi
+    # 3. Validate both shutdown results fail-closed
+    validate_shutdown_result() {
+        local shutdown_file="$1"
+        local label="$2"
+        local result=0
+        if [[ ! -f "$shutdown_file" ]]; then
+            EVIDENCE_FAILURES="${EVIDENCE_FAILURES} missing_shutdown:$label"
+            return 1
+        fi
+        local sd_status sd_state sd_alive sd_qmp
+        sd_status=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(d.get('status','missing'))" 2>/dev/null || echo "missing")
+        sd_state=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(d.get('shutdown_state','missing'))" 2>/dev/null || echo "missing")
+        sd_alive=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(str(d.get('process_alive_after_stop','')).lower())" 2>/dev/null || echo "")
+        sd_qmp=$(python3 -c "import json; d=json.load(open('$shutdown_file')); print(str(d.get('qmp_socket_present_after_stop','')).lower())" 2>/dev/null || echo "")
+        [[ "$sd_status" == "PASS" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_status=$sd_status"; result=1; }
+        [[ "$sd_state" == "NATURAL_EXIT" || "$sd_state" == "ALREADY_STOPPED_VERIFIED" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_state=$sd_state"; result=1; }
+        [[ "$sd_alive" == "false" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_alive=$sd_alive"; result=1; }
+        [[ "$sd_qmp" == "false" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_qmp=$sd_qmp"; result=1; }
+        return "$result"
+    }
+    validate_shutdown_result "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json" "installer"
+    validate_shutdown_result "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json" "installed"
 
-    # 4. Shutdown result must confirm clean stop
-    SHUTDOWN_ALIVE=$(python3 -c "import json; d=json.load(open('$RUNTIME_EVIDENCE_DIR/shutdown-result.json')); print(str(d.get('process_alive_after_stop', '')).lower())" 2>/dev/null || echo "")
-    SHUTDOWN_QMP=$(python3 -c "import json; d=json.load(open('$RUNTIME_EVIDENCE_DIR/shutdown-result.json')); print(str(d.get('qmp_socket_present_after_stop', '')).lower())" 2>/dev/null || echo "")
-    if [[ "$SHUTDOWN_ALIVE" != "false" ]]; then
-        EVIDENCE_FAILURES="${EVIDENCE_FAILURES} process_alive_after_stop=$SHUTDOWN_ALIVE"
-    fi
-    if [[ "$SHUTDOWN_QMP" != "false" ]]; then
-        EVIDENCE_FAILURES="${EVIDENCE_FAILURES} qmp_socket_present_after_stop=$SHUTDOWN_QMP"
-    fi
+    # 4. Validate both final VM state files fail-closed
+    validate_vm_state() {
+        local state_file="$1"
+        local label="$2"
+        local result=0
+        if [[ ! -f "$state_file" ]]; then
+            EVIDENCE_FAILURES="${EVIDENCE_FAILURES} missing_vmstate:$label"
+            return 1
+        fi
+        local vm_state vm_sd_status
+        vm_state=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('state','missing'))" 2>/dev/null || echo "missing")
+        vm_sd_status=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('shutdown_status','missing'))" 2>/dev/null || echo "missing")
+        [[ "$vm_state" == "NATURAL_EXIT" || "$vm_state" == "ALREADY_STOPPED_VERIFIED" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_vmstate=$vm_state"; result=1; }
+        [[ "$vm_sd_status" == "PASS" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} ${label}_sdstatus=$vm_sd_status"; result=1; }
+        return "$result"
+    }
+    validate_vm_state "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json" "installer"
+    validate_vm_state "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json" "installed"
 
     if [[ -n "$EVIDENCE_FAILURES" ]]; then
         write_candidate_stage_failure "invalid_evidence" "$CAND2_MIG_EXIT" "Mandatory evidence validation failures:${EVIDENCE_FAILURES}"
@@ -651,7 +690,20 @@ fi
   "environment": "Disposable Candidate 2 legacy VM container",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stdout.log",
   "stderr_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stderr.log",
-  "artifact_paths": ["$RUNTIME_EVIDENCE_DIR/install-completion.json", "$RUNTIME_EVIDENCE_DIR/installer.serial.log", "$RUNTIME_EVIDENCE_DIR/vm-state.final.json", "$RUNTIME_EVIDENCE_DIR/shutdown-result.json", "$RUNTIME_EVIDENCE_DIR/migration-result.json"],
+  "artifact_paths": [
+    "$RUNTIME_EVIDENCE_DIR/install-completion.json",
+    "$RUNTIME_EVIDENCE_DIR/installer.serial.log",
+    "$RUNTIME_EVIDENCE_DIR/kernel-extraction.json",
+    "$RUNTIME_EVIDENCE_DIR/cand2-install-state.json",
+    "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json",
+    "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json",
+    "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json",
+    "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json",
+    "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json",
+    "$RUNTIME_EVIDENCE_DIR/installed-boot.serial.log",
+    "$RUNTIME_EVIDENCE_DIR/installed-guest-commands.log",
+    "$RUNTIME_EVIDENCE_DIR/migration-result.json"
+  ],
   "artifact_hashes": {
     "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
     "candidate2_iso_sha512": "$CAND2_ACTUAL_SHA512"

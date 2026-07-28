@@ -151,6 +151,97 @@ sys.stdout.write(resp2.decode())
 "
 }
 
+qmp_query_status() {
+    local socket_path="$1"
+
+    QMP_SOCKET_PATH="$socket_path" python3 - <<'PY'
+import json
+import os
+import socket
+import sys
+import time
+import uuid
+
+socket_path = os.environ["QMP_SOCKET_PATH"]
+deadline = time.monotonic() + 5
+
+def receive_object(sock):
+    buffer = b""
+
+    while time.monotonic() < deadline:
+        try:
+            chunk = sock.recv(4096)
+        except socket.timeout:
+            raise TimeoutError("QMP socket timed out during read")
+        if not chunk:
+            raise RuntimeError("QMP socket closed before complete response")
+
+        buffer += chunk
+
+        while b"\n" in buffer:
+            line, buffer = buffer.split(b"\n", 1)
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                obj = json.loads(line)
+                if not isinstance(obj, dict):
+                    continue
+                return obj
+            except json.JSONDecodeError:
+                continue
+
+    raise TimeoutError("Timed out reading QMP JSON response")
+
+with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+    sock.settimeout(5)
+    sock.connect(socket_path)
+
+    greeting = receive_object(sock)
+    if "QMP" not in greeting:
+        raise RuntimeError("Missing QMP greeting")
+
+    capability_id = f"caps-{uuid.uuid4()}"
+    sock.sendall(
+        json.dumps({
+            "execute": "qmp_capabilities",
+            "id": capability_id,
+        }).encode() + b"\n"
+    )
+
+    while True:
+        response = receive_object(sock)
+        if response.get("id") == capability_id:
+            if "error" in response:
+                raise RuntimeError(f"qmp_capabilities failed: {response['error']}")
+            break
+
+    status_id = f"status-{uuid.uuid4()}"
+    sock.sendall(
+        json.dumps({
+            "execute": "query-status",
+            "id": status_id,
+        }).encode() + b"\n"
+    )
+
+    while True:
+        response = receive_object(sock)
+        if response.get("id") != status_id:
+            continue
+
+        if "error" in response:
+            raise RuntimeError(f"query-status failed: {response['error']}")
+
+        status = response.get("return", {}).get("status", "")
+        if status not in {"running", "prelaunch"}:
+            raise RuntimeError(f"Unexpected QMP status: {status!r}")
+
+        print(status)
+        break
+PY
+}
+
 case "$ACTION" in
     start)
         [[ -n "$VM_ID" ]] || fail '--vm-id is required for start.'
@@ -257,8 +348,7 @@ case "$ACTION" in
             fi
 
             if kill -0 "$QEMU_PID" 2>/dev/null && [[ -S "$QMP_SOCKET" ]]; then
-                qmp_status=$(send_qmp_cmd "$QMP_SOCKET" '{"execute": "query-status"}' 2>/dev/null || echo "")
-                if echo "$qmp_status" | grep -E '"status": "(running|prelaunch)"' >/dev/null 2>&1; then
+                if qmp_query_status "$QMP_SOCKET" >/dev/null 2>&1; then
                     QMP_READY=true
                     break
                 fi

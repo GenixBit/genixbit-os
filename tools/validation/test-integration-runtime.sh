@@ -829,7 +829,7 @@ fi
 # Test 78 -- install-candidate2.sh cleanup trap installed BEFORE ISO validation
 T=78
 DESC="install-candidate2.sh EXIT trap installed before fallible ISO validation"
-TRAP_LINE=$(grep -n "trap cleanup_exit EXIT" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+TRAP_LINE=$(grep -n "trap on_exit EXIT" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
 ISO_VALID_LINE=$(grep -n "Validate Candidate 2 ISO checksum" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
 if (( TRAP_LINE > 0 && TRAP_LINE < ISO_VALID_LINE )); then
     pass_test $T "$DESC"

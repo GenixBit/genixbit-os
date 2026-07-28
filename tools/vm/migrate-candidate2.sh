@@ -30,6 +30,7 @@ SSH_KEY=""
 SSH_USER="genixbit"
 INSTALLATION_STATE_JSON=""
 TIMEOUT_SEC=600
+RUNTIME_EVIDENCE_DIR=""
 
 fail() {
     printf '[FAIL] migrate-candidate2.sh: %s\n' "$*" >&2
@@ -110,6 +111,11 @@ while (($# > 0)); do
             TIMEOUT_SEC=$2
             shift 2
             ;;
+        --runtime-evidence-dir)
+            (($# >= 2)) || fail '--runtime-evidence-dir requires a path.'
+            RUNTIME_EVIDENCE_DIR=$2
+            shift 2
+            ;;
         *)
             fail "Unknown argument: $1"
             ;;
@@ -171,9 +177,80 @@ state_dir="$(dirname "$DISK_PATH")/cand2-migrate-${MODE}-state"
 stage_logs_dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/infra/package-staging/results/stage-logs"
 mkdir -p "$state_dir" "$stage_logs_dir"
 
+# Persistent runtime evidence dir (survives validation cleanup)
+if [[ -z "$RUNTIME_EVIDENCE_DIR" ]]; then
+    RUNTIME_EVIDENCE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/infra/package-staging/results/runtime/mig-$(date +%s)-$$"
+fi
+mkdir -p "$RUNTIME_EVIDENCE_DIR"
+info "Migration runtime evidence directory: $RUNTIME_EVIDENCE_DIR"
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 snap_name="pre-migration-snap"
 out_json="${state_dir}/migration-result-${VM_ID}.json"
+
+# VM registry for fail-safe cleanup on any failure
+declare -a MIG_VM_REGISTRY=()
+
+mig_register_vm() {
+    local label="$1"
+    local vm_id="$2"
+    local pid_file="$3"
+    local qmp_socket="$4"
+    local serial_log="$5"
+    MIG_VM_REGISTRY+=("$label|$vm_id|$pid_file|$qmp_socket|$serial_log")
+}
+
+mig_unregister_vm() {
+    local label="$1"
+    local new_reg=()
+    for entry in "${MIG_VM_REGISTRY[@]}"; do
+        local entry_label="${entry%%|*}"
+        if [[ "$entry_label" != "$label" ]]; then
+            new_reg+=("$entry")
+        fi
+    done
+    MIG_VM_REGISTRY=("${new_reg[@]}")
+}
+
+mig_cleanup_all_vms() {
+    local rc=0
+    for entry in "${MIG_VM_REGISTRY[@]}"; do
+        IFS='|' read -r label vm_id pid_file qmp_socket serial_log <<< "$entry"
+        info "Cleaning up migration VM: $label ($vm_id)"
+        if [[ -f "$pid_file" ]]; then
+            local vpid
+            vpid=$(cat "$pid_file" 2>/dev/null || echo "")
+            if [[ -n "$vpid" ]] && kill -0 "$vpid" 2>/dev/null; then
+                bash "$SCRIPT_DIR/run-qemu.sh" stop \
+                    --vm-id "$vm_id" \
+                    --pid-file "$pid_file" \
+                    --qmp-socket "$qmp_socket" \
+                    --state-dir "$state_dir" || rc=1
+            fi
+        fi
+        # Preserve lifecycle evidence
+        if [[ -f "${state_dir}/vm-${vm_id}.json" ]]; then
+            cp -f "${state_dir}/vm-${vm_id}.json" "$RUNTIME_EVIDENCE_DIR/migration-${label}-vm-state.json" 2>/dev/null || true
+        fi
+        if [[ -f "${state_dir}/shutdown-${vm_id}.json" ]]; then
+            cp -f "${state_dir}/shutdown-${vm_id}.json" "$RUNTIME_EVIDENCE_DIR/migration-${label}-shutdown.json" 2>/dev/null || true
+        fi
+    done
+    return "$rc"
+}
+
+mig_cleanup_trap() {
+    local original_exit=$?
+    trap - EXIT
+    set +e
+    mig_cleanup_all_vms
+    set -e
+    if [[ "$original_exit" -ne 0 ]]; then
+        exit "$original_exit"
+    fi
+}
+
+trap mig_cleanup_trap EXIT
 
 # Track observed values for migration-result.json — all populated from real command output
 OBS_PRE_MIGRATION_PACKAGES=""
@@ -213,6 +290,8 @@ start_migration_vm() {
         --ssh-port "$ssh_port" \
         --headless \
         --timeout "$TIMEOUT_SEC"
+
+    mig_register_vm "$vm_label" "$mig_vm_id" "$pid_f" "$qmp_s" "$serial_log"
 
     echo "$mig_vm_id"
 }
@@ -256,6 +335,16 @@ stop_migration_vm() {
             fail "Migration VM $vm_label PID $pid still alive after stop — cannot proceed to snapshot/offline operations!"
         fi
     fi
+
+    # Copy lifecycle evidence to runtime evidence dir
+    if [[ -f "${state_dir}/vm-${mig_vm_id}.json" ]]; then
+        cp -f "${state_dir}/vm-${mig_vm_id}.json" "$RUNTIME_EVIDENCE_DIR/migration-${vm_label}-vm-state.json" 2>/dev/null || true
+    fi
+    if [[ -f "${state_dir}/shutdown-${mig_vm_id}.json" ]]; then
+        cp -f "${state_dir}/shutdown-${mig_vm_id}.json" "$RUNTIME_EVIDENCE_DIR/migration-${vm_label}-shutdown.json" 2>/dev/null || true
+    fi
+
+    mig_unregister_vm "$vm_label"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -606,6 +695,27 @@ result = {
         '$REUPGRADE_GUEST_LOG'
     ],
     'execution_timestamp': '$EXEC_TIMESTAMP',
+    # Migration VM lifecycle evidence paths
+    'lifecycle_evidence': [
+        '$RUNTIME_EVIDENCE_DIR/migration-premig-vm-state.json',
+        '$RUNTIME_EVIDENCE_DIR/migration-premig-shutdown.json',
+        '$RUNTIME_EVIDENCE_DIR/migration-mig-vm-state.json',
+        '$RUNTIME_EVIDENCE_DIR/migration-mig-shutdown.json',
+        '$RUNTIME_EVIDENCE_DIR/migration-rollback-vm-state.json',
+        '$RUNTIME_EVIDENCE_DIR/migration-rollback-shutdown.json',
+        '$RUNTIME_EVIDENCE_DIR/migration-reupgrade-vm-state.json',
+        '$RUNTIME_EVIDENCE_DIR/migration-reupgrade-shutdown.json',
+    ],
+    'lifecycle_evidence_sha256': {
+        'premig': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-premig-vm-state.json" 2>/dev/null | awk "{print \$1}" || echo "")',
+        'premig_shutdown': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-premig-shutdown.json" 2>/dev/null | awk "{print \$1}" || echo "")',
+        'mig': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-mig-vm-state.json" 2>/dev/null | awk "{print \$1}" || echo "")',
+        'mig_shutdown': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-mig-shutdown.json" 2>/dev/null | awk "{print \$1}" || echo "")',
+        'rollback': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-rollback-vm-state.json" 2>/dev/null | awk "{print \$1}" || echo "")',
+        'rollback_shutdown': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-rollback-shutdown.json" 2>/dev/null | awk "{print \$1}" || echo "")',
+        'reupgrade': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-reupgrade-vm-state.json" 2>/dev/null | awk "{print \$1}" || echo "")',
+        'reupgrade_shutdown': '$(sha256sum "$RUNTIME_EVIDENCE_DIR/migration-reupgrade-shutdown.json" 2>/dev/null | awk "{print \$1}" || echo "")',
+    },
     # Binding fields — attest that migration ran on the exact same candidate2 build
     'source_commit': '$MIG_SOURCE_COMMIT',
     'workflow_run_id': '$MIG_WORKFLOW_RUN_ID',
@@ -643,7 +753,16 @@ all_pass = (
     result['workflow_run_id'] != '' and
     result['installation_state_sha256'] != '' and
     result['source_iso_sha256'] != '' and
-    result['migration_vm_id'] != ''
+    result['migration_vm_id'] != '' and
+    # Lifecycle evidence validation — all phases must have vm-state and shutdown evidence
+    result.get('lifecycle_evidence_sha256', {}).get('premig', '') != '' and
+    result.get('lifecycle_evidence_sha256', {}).get('premig_shutdown', '') != '' and
+    result.get('lifecycle_evidence_sha256', {}).get('mig', '') != '' and
+    result.get('lifecycle_evidence_sha256', {}).get('mig_shutdown', '') != '' and
+    result.get('lifecycle_evidence_sha256', {}).get('rollback', '') != '' and
+    result.get('lifecycle_evidence_sha256', {}).get('rollback_shutdown', '') != '' and
+    result.get('lifecycle_evidence_sha256', {}).get('reupgrade', '') != '' and
+    result.get('lifecycle_evidence_sha256', {}).get('reupgrade_shutdown', '') != ''
 )
 result['migration_status'] = 'PASS' if all_pass else 'FAIL'
 result['final_status'] = 'PASS' if all_pass else 'FAIL'

@@ -125,7 +125,10 @@ preserve_install_evidence() {
       "$RUNTIME_EVIDENCE_DIR/qemu.stderr.log" 2>/dev/null || true
 
     cp -f "${state_dir}/vm-${VM_ID}.json" \
-      "$RUNTIME_EVIDENCE_DIR/vm-state.raw.json" 2>/dev/null || true
+      "$RUNTIME_EVIDENCE_DIR/installer-vm-state.raw.json" 2>/dev/null || true
+
+    cp -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" \
+      "$RUNTIME_EVIDENCE_DIR/installed-vm-state.raw.json" 2>/dev/null || true
 
     if [[ -S "$qmp_path" ]]; then
         bash "$(dirname "$0")/capture-screenshot.sh" \
@@ -192,11 +195,11 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 }
 
 cleanup_exit() {
-    local exit_code=$?
+    local exit_code="$1"
     INSTALL_EXIT_CODE=$exit_code
 
-    cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/vm-state.before-cleanup.json" 2>/dev/null || true
-    cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/shutdown-result.before-cleanup.json" 2>/dev/null || true
+    cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-vm-state.before-cleanup.json" 2>/dev/null || true
+    cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.before-cleanup.json" 2>/dev/null || true
 
     local installer_cleanup_state="NOT_STARTED"
     local installer_cleanup_exit=0
@@ -253,29 +256,47 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 
     preserve_install_evidence "$exit_code"
 
-    cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/shutdown-result.json" 2>/dev/null || true
-    cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/vm-state.final.json" 2>/dev/null || true
+    cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json" 2>/dev/null || true
+    cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json" 2>/dev/null || true
+
+    if [[ -f "${state_dir}/shutdown-${INSTALLED_VM_ID}.json" ]]; then
+        cp -f "${state_dir}/shutdown-${INSTALLED_VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json" 2>/dev/null || true
+    fi
+    if [[ -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" ]]; then
+        cp -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json" 2>/dev/null || true
+    fi
+    if [[ -f "${state_dir}/installed-guest-health.json" ]]; then
+        cp -f "${state_dir}/installed-guest-health.json" "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json" 2>/dev/null || true
+    fi
 
     rm -f "$pid_file" 2>/dev/null || true
     rm -f "$qmp_path" 2>/dev/null || true
 
-    # Preserve original installation failure if any; also capture cleanup failure
-    local overall_exit=$exit_code
+    # Determine cleanup exit code: nonzero if any cleanup failed
+    local cleanup_rc=0
     if [[ "$installer_cleanup_exit" -ne 0 ]]; then
-        overall_exit=$installer_cleanup_exit
+        cleanup_rc=$installer_cleanup_exit
     fi
     if [[ "$installed_cleanup_exit" -ne 0 ]]; then
-        overall_exit=$installed_cleanup_exit
+        cleanup_rc=$installed_cleanup_exit
+    fi
+    if [[ "$installer_alive" == "true" ]]; then
+        printf '[FAIL] Installer VM process still alive after cleanup\n' >&2
+        cleanup_rc=1
+    fi
+    if [[ "$installed_alive" == "true" ]]; then
+        printf '[FAIL] Installed VM process still alive after cleanup\n' >&2
+        cleanup_rc=1
     fi
 
-    if [[ "$overall_exit" -ne 0 ]]; then
+    if [[ "$exit_code" -ne 0 ]]; then
         C2_SOURCE_COMMIT="$C2_SOURCE_COMMIT" \
         WF_RUN_ID="$WORKFLOW_RUN_ID" \
         EXECUTION_ID="$EXECUTION_ID" \
         VM_ID="$VM_ID" \
         INSTALL_PHASE="$INSTALL_PHASE" \
         EXIT_CODE="$exit_code" \
-        CLEANUP_EXIT="$overall_exit" \
+        CLEANUP_EXIT="$cleanup_rc" \
         CAND2_VERIFIED_SHA="${CAND2_VERIFIED_SHA:-unknown}" \
         CAND2_VERIFIED_SHA512="${CAND2_VERIFIED_SHA512:-unknown}" \
         KERNEL_SHA256="${KERNEL_SHA256:-unknown}" \
@@ -332,9 +353,27 @@ with open(os.environ["FAILURE_SUMMARY_JSON"], "w", encoding="utf-8") as f:
     json.dump(summary, f, indent=2)
 PYEOF
     fi
+
+    return "$cleanup_rc"
 }
 
-trap cleanup_exit EXIT
+on_exit() {
+    local original_exit=$?
+
+    trap - EXIT
+    set +e
+    cleanup_exit "$original_exit"
+    local cleanup_rc=$?
+    set -e
+
+    if (( original_exit != 0 )); then
+        exit "$original_exit"
+    fi
+
+    exit "$cleanup_rc"
+}
+
+trap on_exit EXIT
 
 # --- End of trap setup ---
 
@@ -459,9 +498,9 @@ cp -f "$serial_log" "$stage_logs_dir/cand2-install-serial.log" 2>/dev/null || tr
 # 10. Stop installer VM cleanly (with --state-dir to capture lifecycle result)
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" --state-dir "$state_dir"
 
-# Copy final VM state and shutdown result to runtime evidence
-cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/vm-state.final.json" 2>/dev/null || true
-cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/shutdown-result.json" 2>/dev/null || true
+# Copy final VM state and shutdown result to runtime evidence with unambiguous names
+cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json" 2>/dev/null || true
+cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json" 2>/dev/null || true
 
 # 11. Inspect target virtual disk structure offline via guestfish (inspection only, no writes)
 bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE" --out-json "$disk_inspect_json"
@@ -538,13 +577,20 @@ cp -f "$installed_guest_cmd_log" "$stage_logs_dir/cand2-installed-guest-commands
 # 13. Stop installed guest VM cleanly
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$installed_pid_file" --qmp-socket "$installed_qmp_path" --state-dir "$state_dir"
 
+# Copy installed VM lifecycle evidence with unambiguous names
+cp -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json" 2>/dev/null || true
+cp -f "${state_dir}/shutdown-${INSTALLED_VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json" 2>/dev/null || true
+cp -f "${state_dir}/installed-guest-health.json" "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json" 2>/dev/null || true
+cp -f "$installed_serial_log" "$RUNTIME_EVIDENCE_DIR/installed-boot.serial.log" 2>/dev/null || true
+cp -f "$installed_guest_cmd_log" "$RUNTIME_EVIDENCE_DIR/installed-guest-commands.log" 2>/dev/null || true
+
 INSTALLED_BOOT_RESULT="SSH_AUTHENTICATED_PASS"
 printf '[PASS] Installed Candidate 2 guest authenticated and guest commands executed for VM %s (%s mode).\n' "$INSTALLED_VM_ID" "$MODE"
 
 # 14. ONLY AFTER all verification steps succeed, create cand2-install-state.json
 INSTALL_STATE_FILE="${state_dir}/cand2-install-state.json"
 TOKEN_HASH=$(printf '%s' "$INSTALL_TOKEN" | sha256sum | awk '{print $1}')
-CURR_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+CURR_SHA="$C2_SOURCE_COMMIT"
 
 DISK_INSPECT_JSON="$disk_inspect_json" \
 COMPLETION_JSON="$completion_json" \
