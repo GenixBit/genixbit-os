@@ -148,7 +148,9 @@ fi
 [[ "$EVIDENCE_PR" =~ ^[1-9][0-9]*$ ]] || fail "EVIDENCE_PR must be a positive integer: $EVIDENCE_PR"
 
 # 9. VALIDATION_STATUS check & Candidate 1 retirement enforcement
-if [[ "$CANDIDATE_BRANCH" == "validation/0.3.0-alpha-candidate-1" ]]; then
+if [[ "$VALIDATION_STATUS" == "RETIRED_INVALID_ZERO_FILLED" ]]; then
+    fail "Release manifest $MANIFEST_FILE records retired zero-filled Candidate 2 artifact and is not valid for release, installation, migration, or upgrade validation."
+elif [[ "$CANDIDATE_BRANCH" == "validation/0.3.0-alpha-candidate-1" ]]; then
     if [[ "$VALIDATION_STATUS" == "PASS" ]]; then
         fail "Candidate 1 (validation/0.3.0-alpha-candidate-1) is RETIRED due to INVALID_ZERO_FILLED_ISO and MUST NOT be marked PASS."
     fi

@@ -114,23 +114,21 @@
       <!-- 2. Download & Checksum -->
       <section id="download">
         <h2>2. Download & Checksum</h2>
-        <p>Download the official validated 0.2.0-alpha ISO image hosted on GCP Cloud Storage:</p>
-        <a class="download-btn" href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso">
-          ⬇ Download GenixBitOS-0.2.0-alpha-2607220558.iso (2.54 GB)
-        </a>
-        <p>Direct checksum link: <a href="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso.sha256" style="color:var(--accent)">GenixBitOS-0.2.0-alpha-2607220558.iso.sha256</a></p>
+        <p><strong>Retired:</strong> The previously listed 0.2.0-alpha object is not a valid ISO. It is exactly zero-filled and must not be downloaded for installation, migration, or upgrade validation.</p>
+        <p>Historical object name retained for audit: <code>GenixBitOS-0.2.0-alpha-2607220558.iso</code></p>
 
         <h3>Checksum Verification Command</h3>
         <div class="code-block">
 $ sha256sum GenixBitOS-0.2.0-alpha-2607220558.iso
-d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228  GenixBitOS-0.2.0-alpha-2607220558.iso
+1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669  GenixBitOS-0.2.0-alpha-2607220558.iso
+# Status: RETIRED_INVALID_ZERO_FILLED. Checksum match proves only invalid object identity.
         </div>
       </section>
 
       <!-- 3. Installation & USB -->
       <section id="installation">
         <h2>3. Installation & Bootable USB Creation</h2>
-        <p>GenixBit OS requires a 64-bit <code>amd64</code> architecture. Secure Boot setup should be disabled or set to Audit mode for custom kernel drivers.</p>
+        <p>No usable 0.2.0-alpha ISO is currently published. Do not write the retired object to USB media.</p>
         
         <h3>Creating a Bootable USB Flash Drive</h3>
         <div class="notice warn">
@@ -140,23 +138,16 @@ d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228  GenixBitOS-0.2
 # Identify your USB drive device path (e.g., /dev/sdX)
 sudo lsblk
 
-# Write ISO to USB drive
-sudo dd if=GenixBitOS-0.2.0-alpha-2607220558.iso of=/dev/sdX bs=4M status=progress conv=fsync
+# No command is provided for the retired zero-filled object.
         </div>
       </section>
 
       <!-- 4. VM Testing Guide -->
       <section id="vm-testing">
         <h2>4. Virtual Machine Testing Guide</h2>
-        <p>To test GenixBit OS inside a QEMU/KVM virtual machine:</p>
+        <p>The retired zero-filled object is not bootable and must not be used for QEMU validation.</p>
         <div class="code-block">
-qemu-system-x86_64 \
-  -enable-kvm \
-  -m 4096 \
-  -smp 4 \
-  -cpu host \
-  -cdrom GenixBitOS-0.2.0-alpha-2607220558.iso \
-  -boot d
+# No QEMU command is provided for the retired zero-filled object.
         </div>
       </section>
 
@@ -169,7 +160,7 @@ qemu-system-x86_64 \
           <tr><td>ISO Filename</td><td><code>GenixBitOS-0.2.0-alpha-2607220558.iso</code></td></tr>
           <tr><td>ISO Size</td><td><code>2,540,554,240</code> bytes (2.54 GB)</td></tr>
           <tr><td>Candidate SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td></tr>
-          <tr><td>ISO SHA-256</td><td><code>d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228</code></td></tr>
+          <tr><td>ISO SHA-256</td><td><code>1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669</code> (retired invalid zero-filled object)</td></tr>
           <tr><td>Base OS Platform</td><td>Ubuntu 26.04 Resolute Development Base</td></tr>
           <tr><td>Architecture</td><td>amd64 (x86_64)</td></tr>
         </table>

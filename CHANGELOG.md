@@ -36,20 +36,21 @@ and this project follows Semantic Versioning for release identifiers.
 - Integrated release manifest checks into Repository Quality CI workflow `.github/workflows/quality.yml`.
 - Completed comprehensive upstream branding audit `docs/UPSTREAM-BRANDING-AUDIT.md` and audit validation tools.
 - Published genuine Candidate 2 release screenshots gallery `docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md` and WebP assets under `docs/assets/releases/0.2.0-alpha/`.
-- Frozen validation candidate `validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` created, built, and fully validated (Evidence PR #40).
+- Frozen validation candidate `validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` was later retired because the recorded ISO object is zero-filled and not a valid ISO.
 
 ### Validation Artifact Details
 
 - Artifact ISO: `GenixBitOS-0.2.0-alpha-2607220558.iso`
 - ISO Size: `2,540,554,240` bytes
 - SHA-256: `1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669`
+- Status: `RETIRED_INVALID_ZERO_FILLED`
 - Build Host: GCP Ubuntu 26.04 `resolute` `amd64` / KVM host
 
 ### Validation Gate Results (PR #40)
 
-- **BIOS & UEFI Live Sessions**: Booted cleanly to live desktop in both UEFI (OVMF) and Legacy BIOS (SeaBIOS) modes.
-- **Installer Execution**: Ubiquity installer successfully executed, partitioned disk, configured user `genixbit`, and completed installation.
-- **Installed System Boot**: Target disk booted cleanly in both BIOS and UEFI modes.
+- **BIOS & UEFI Live Sessions**: Retracted. The recorded artifact is not a valid ISO, so prior QEMU startup evidence does not prove a successful ISO boot.
+- **Installer Execution**: Retracted. The recorded artifact is not usable as an installation source.
+- **Installed System Boot**: Retracted. The recorded artifact is not usable as a release-validation source.
 - **APT & Package Health**: `sudo apt update`, `apt-get check` (0 broken packages), `dpkg --audit` (0 unconfigured packages), and `journalctl -p 3 -b` (0 critical errors) passed.
 - **Reproducibility**: Second clean build (`Build B`) compiled independently; `cmp` confirmed 100% byte-for-byte identical outputs.
 

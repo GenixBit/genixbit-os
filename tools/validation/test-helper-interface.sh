@@ -184,30 +184,32 @@ fi
 info "Test 11: collect-migration-evidence.py must fail on missing stage JSON..."
 DUMMY_EVIDENCE="$TMP/evidence_test"
 mkdir -p "$DUMMY_EVIDENCE"
+ACTIVE_PROVENANCE="$TMP/active-candidate2-provenance.json"
+echo '{"verification_status":"PASS","usable_as_migration_source":true,"sha256":"09a00e22c73d91ce0bf6f1e8558dbc80a7f9061ca6b36edc434281c761aeb204"}' > "$ACTIVE_PROVENANCE"
 # Write only 3 of the 4 required stage files to trigger failure
 echo '{"status":"PASS","source_commit":"abc"}' > "$DUMMY_EVIDENCE/stage-package-build.json"
 echo '{"status":"PASS","source_commit":"abc"}' > "$DUMMY_EVIDENCE/stage-test-iso-build.json"
 echo '{"status":"PASS","source_commit":"abc"}' > "$DUMMY_EVIDENCE/stage-test-iso-boot.json"
 # stage-candidate-upgrade.json is intentionally missing
 COLLECT_PY="$REPO_ROOT/tools/validation/collect-migration-evidence.py"
-if python3 "$COLLECT_PY" --stage-logs-dir "$DUMMY_EVIDENCE" --output "$TMP/evidence-out.json" > /dev/null 2>&1; then
+if python3 "$COLLECT_PY" --stage-logs-dir "$DUMMY_EVIDENCE" --current-dir "$TMP/evidence-out" --candidate2-provenance-file "$ACTIVE_PROVENANCE" > /dev/null 2>&1; then
     fail_test "Test 11: collect-migration-evidence.py did NOT fail on missing stage-candidate-upgrade.json"
 else
     pass_test "Test 11: collect-migration-evidence.py correctly failed with missing required stage JSON"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 12: Candidate 2 provenance file exists and contains single pinned SHA
+# Test 12: Candidate 2 provenance file exists and records retired status
 # ─────────────────────────────────────────────────────────────────────────────
-info "Test 12: 0.2.0-alpha-artifact.json must exist with correct pinned SHA..."
+info "Test 12: 0.2.0-alpha-artifact.json must exist with retired status..."
 if [[ ! -f "$PROVENANCE" ]]; then
     fail_test "Test 12: docs/releases/0.2.0-alpha-artifact.json is missing"
 else
-    PINNED_SHA=$(python3 -c "import json; print(json.load(open('$PROVENANCE'))['sha256'])" 2>/dev/null || echo "")
-    if [[ "$PINNED_SHA" == "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
-        pass_test "Test 12: Provenance file exists with correct canonical SHA 1cb79fbf"
+    STATUS=$(python3 -c "import json; print(json.load(open('$PROVENANCE'))['verification_status'])" 2>/dev/null || echo "")
+    if [[ "$STATUS" == "RETIRED_INVALID_ZERO_FILLED" ]]; then
+        pass_test "Test 12: Provenance file records retired invalid Candidate 2 status"
     else
-        fail_test "Test 12: Provenance file sha256='$PINNED_SHA' — expected 1cb79fbf (confirmed by GCS downloads)"
+        fail_test "Test 12: Provenance file verification_status='$STATUS' — expected RETIRED_INVALID_ZERO_FILLED"
     fi
 fi
 
@@ -222,13 +224,13 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 14: install-candidate2.sh pins Cand2 ISO to 1cb79fbf (real GCS hash)
+# Test 14: install-candidate2.sh rejects retired Cand2 ISO hash
 # ─────────────────────────────────────────────────────────────────────────────
-info "Test 14: install-candidate2.sh must pin to 1cb79fbf only..."
+info "Test 14: install-candidate2.sh must reject retired 1cb79fbf hash..."
 if grep -q 'd9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228' "$INSTALL_CAND2" 2>/dev/null; then
     fail_test "Test 14: install-candidate2.sh still contains fabricated d9aa0d2e SHA"
-elif grep -q '1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669' "$INSTALL_CAND2" 2>/dev/null; then
-    pass_test "Test 14: install-candidate2.sh pins to canonical 1cb79fbf SHA only"
+elif grep -q 'Candidate 2 artifact is retired' "$INSTALL_CAND2" 2>/dev/null && grep -q '1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669' "$INSTALL_CAND2" 2>/dev/null; then
+    pass_test "Test 14: install-candidate2.sh rejects retired 1cb79fbf SHA"
 else
     fail_test "Test 14: install-candidate2.sh does not contain expected 1cb79fbf SHA reference"
 fi

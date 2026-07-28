@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "release_version": "0.2.0-alpha",
+  "candidate_branch": "validation/0.2.0-alpha-candidate-2",
+  "candidate_source_commit": "88a1550a9129a80ffd2c4cf73838122020a782cb",
+  "filename": "GenixBitOS-0.2.0-alpha-2607220558.iso",
+  "size_bytes": 2540554240,
+  "sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669",
+  "sha512": "51bdb60298460d1204dd6b641ed7d531c9d34da98fecf90fbfbbabf9beeef0dc42fe86e59646c7cd4c8746b1c5e48d05afc81712758c51cb2096a77c45e0902e",
+  "gcp_object_generation": "1784810864397202",
+  "status": "RETIRED_INVALID_ZERO_FILLED",
+  "usable_as_release_artifact": false,
+  "usable_as_migration_source": false,
+  "invalidity_reason": "The recorded SHA-256 and SHA-512 exactly equal the hashes of 2540554240 zero bytes. Sector 16 contains no ISO9660 Primary Volume Descriptor and the complete object is zero-filled.",
+  "discovered_by_run_id": "30353932394",
+  "discovered_by_job_id": "90265712830",
+  "discovered_from_source_sha": "4a81847f451bb3a9fa8cee99b0bcf3e3aeea2161",
+  "retirement_timestamp_utc": "2026-07-28T13:11:36Z"
+}

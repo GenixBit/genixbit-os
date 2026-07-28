@@ -11,7 +11,10 @@
   "checksum_file_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669",
   "downloaded_file_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669",
   "hash_match": true,
-  "verification_resolution": "Candidate 2 ISO hash verified matching approved release manifest 1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669.",
+  "artifact_status": "RETIRED_INVALID_ZERO_FILLED",
+  "usable_as_release_artifact": false,
+  "usable_as_migration_source": false,
+  "verification_resolution": "Checksum verification matched the stored GCS object only. The object is retired because it is exactly 2540554240 zero bytes and lacks an ISO9660 Primary Volume Descriptor.",
   "gcp_storage_details": {
     "gcp_project_id": "genixbit-growth-os",
     "bucket_name": "genixbit-growth-os-downloads",
@@ -30,5 +33,5 @@
     "temporary_file_removed": true,
     "reviewer_confirmation": "Security & Release Integrity Audit"
   },
-  "overall_verification_status": "PASS"
+  "overall_verification_status": "RETIRED_INVALID_ZERO_FILLED"
 }

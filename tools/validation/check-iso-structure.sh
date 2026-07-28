@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Strict ISO Structural & Boot Artifact Validation Suite for GenixBit OS
-# Rejects zero-filled, sparse, undersized, or invalid ISO files.
+# Rejects undersized or invalid ISO files without treating valid ISO padding as corruption.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -75,48 +75,31 @@ if ((ACTUAL_SIZE < MIN_BYTES)); then
     fail "ISO size ($ACTUAL_SIZE bytes) is below minimum threshold of $MIN_BYTES bytes ($MIN_SIZE_MB MiB). Dummy/placeholder files are rejected."
 fi
 
-# 2. Non-Zero Content Sampling (Reject zero-filled or sparse placeholder files)
-info "Performing non-zero content sampling across ISO file..."
-set +e
-python3 - "$ISO_PATH" <<'PYEOF'
-import sys, os
+# 2. ISO9660 Primary Volume Descriptor signature check
+info "Verifying ISO9660 Primary Volume Descriptor at sector 16..."
+python3 - "$ISO_PATH" <<'PYEOF' || fail "ISO9660 Primary Volume Descriptor signature missing at sector 16. Zero-filled, sparse, random, or forged non-ISO files are rejected."
+import sys
 
 iso_file = sys.argv[1]
-size = os.path.getsize(iso_file)
-
-# Sample 10 chunks of 64KB at various offsets across the file
-num_samples = 10
-chunk_size = 65536
-offsets = [int(size * i / num_samples) for i in range(num_samples)]
-
-total_sampled_bytes = 0
-non_zero_bytes = 0
-
 with open(iso_file, "rb") as f:
-    for offset in offsets:
-        f.seek(offset)
-        chunk = f.read(chunk_size)
-        total_sampled_bytes += len(chunk)
-        non_zero_bytes += sum(1 for b in chunk if b != 0)
+    f.seek(16 * 2048)
+    header = f.read(6)
 
-if total_sampled_bytes == 0:
-    print("ERROR: Sampled 0 bytes from file.")
+if len(header) != 6:
+    print("ERROR: Unable to read ISO9660 descriptor header at sector 16.", file=sys.stderr)
     sys.exit(1)
 
-non_zero_ratio = non_zero_bytes / total_sampled_bytes
-print(f"Non-zero byte ratio across sampled regions: {non_zero_ratio:.2%}")
-
-if non_zero_ratio < 0.10:
-    print(f"ERROR: File is zero-filled or sparse placeholder (non-zero byte ratio: {non_zero_ratio:.2%}).")
+descriptor_type = header[0]
+signature = header[1:6]
+if descriptor_type != 1 or signature != b"CD001":
+    print(
+        "ERROR: Expected Primary Volume Descriptor type 1 followed by CD001 at sector 16; "
+        f"got type={descriptor_type} signature={signature!r}.",
+        file=sys.stderr,
+    )
     sys.exit(1)
 PYEOF
-sampling_exit=$?
-set -e
-
-if ((sampling_exit != 0)); then
-    fail "ISO failed non-zero content sampling check. Zero-filled/placeholder files are rejected."
-fi
-pass "1. Non-zero file content sampling passed."
+pass "1. ISO9660 Primary Volume Descriptor signature verified."
 
 # 3. File Type & ISO9660 Inspection
 if command -v file >/dev/null 2>&1; then
@@ -128,15 +111,25 @@ if command -v file >/dev/null 2>&1; then
     pass "2. File type verified as ISO9660."
 fi
 
-# 4. ISO9660 / xorriso Inspection
+# 4. ISO9660 parser inspection
+if ! command -v xorriso >/dev/null 2>&1 && ! command -v isoinfo >/dev/null 2>&1; then
+    fail "No supported ISO parser available. Install xorriso or isoinfo."
+fi
+
 if command -v xorriso >/dev/null 2>&1; then
+    info "Running xorriso ISO filesystem inspection..."
+    if ! xorriso -indev "$ISO_PATH" -find / >/dev/null 2>&1; then
+        fail "xorriso failed to parse ISO filesystem in $ISO_PATH"
+    fi
+    pass "3. xorriso parsed ISO filesystem successfully."
+
     info "Running xorriso El Torito boot catalog report..."
     XORRISO_REPORT=$(xorriso -indev "$ISO_PATH" -report_el_torito as_mkisofs 2>&1 || true)
-    
-    if [[ "$XORRISO_REPORT" != *"-eltorito-boot"* && "$XORRISO_REPORT" != *"boot"* ]]; then
+
+    if [[ "$XORRISO_REPORT" != *"-eltorito-boot"* && "$XORRISO_REPORT" != *"-e "* && "$XORRISO_REPORT" != *"El Torito"* ]]; then
         fail "xorriso failed to detect El Torito boot catalog structure in $ISO_PATH"
     fi
-    pass "3. xorriso El Torito boot catalog inspection passed."
+    pass "4. xorriso El Torito boot catalog inspection passed."
 elif command -v isoinfo >/dev/null 2>&1; then
     info "Running isoinfo header inspection..."
     ISOINFO_OUT=$(isoinfo -d -i "$ISO_PATH" 2>&1 || true)
@@ -144,6 +137,7 @@ elif command -v isoinfo >/dev/null 2>&1; then
         fail "isoinfo failed to read ISO volume descriptor"
     fi
     pass "3. isoinfo header inspection passed."
+    fail "xorriso is required for boot catalog, required file, EFI image, and SquashFS validation. isoinfo alone is insufficient for GenixBit OS release validation."
 fi
 
 # 5. Internal Boot File Structure Verification
@@ -154,8 +148,8 @@ cleanup() {
 trap cleanup EXIT
 
 if command -v xorriso >/dev/null 2>&1; then
-    info "Verifying required internal boot files (vmlinuz, initrd, efiboot.img, filesystem.squashfs)..."
-    
+    info "Verifying required internal boot files (vmlinuz, initrd, filesystem.squashfs)..."
+
     files_to_check=(
         "/casper/vmlinuz"
         "/casper/initrd"
@@ -164,29 +158,27 @@ if command -v xorriso >/dev/null 2>&1; then
     
     for rel_file in "${files_to_check[@]}"; do
         if ! xorriso -osirrox on -indev "$ISO_PATH" -extract "$rel_file" "$TMP_DIR/extracted_file" >/dev/null 2>&1; then
-            # Also try without /casper/ prefix or with alternate extensions
-            if ! xorriso -indev "$ISO_PATH" -find / -name "$(basename "$rel_file")*" | grep -q "$(basename "$rel_file")"; then
-                fail "Required ISO internal file missing: $rel_file"
-            fi
+            fail "Required ISO internal file missing: $rel_file"
         fi
+        [[ -s "$TMP_DIR/extracted_file" ]] || fail "Required ISO internal file is empty: $rel_file"
         rm -f "$TMP_DIR/extracted_file"
     done
-    pass "4. Kernel (vmlinuz), initrd, and SquashFS files present inside ISO."
+    pass "5. Kernel (vmlinuz), initrd, and SquashFS files present inside ISO."
 
     # Extract EFI boot image and check for BOOTX64.EFI
     EFI_IMG="$TMP_DIR/efiboot.img"
     if xorriso -osirrox on -indev "$ISO_PATH" -extract /isolinux/efiboot.img "$EFI_IMG" >/dev/null 2>&1 || \
        xorriso -osirrox on -indev "$ISO_PATH" -extract /EFI/efiboot.img "$EFI_IMG" >/dev/null 2>&1; then
-        
+
         if command -v mdir >/dev/null 2>&1; then
             if mdir -i "$EFI_IMG" ::/EFI/BOOT/BOOTX64.EFI >/dev/null 2>&1 || \
                mdir -i "$EFI_IMG" ::/EFI/BOOT >/dev/null 2>&1; then
-                pass "5. EFI boot image contains valid EFI/BOOT/BOOTX64.EFI executable."
+                pass "6. EFI boot image contains valid EFI/BOOT/BOOTX64.EFI executable."
             else
                 fail "EFI boot image extracted, but EFI/BOOT/BOOTX64.EFI was not found inside."
             fi
         else
-            pass "5. EFI boot image extracted successfully."
+            pass "6. EFI boot image extracted successfully."
         fi
     else
         fail "Unable to extract EFI boot image (efiboot.img) from ISO."
@@ -197,7 +189,7 @@ if command -v xorriso >/dev/null 2>&1; then
     if xorriso -osirrox on -indev "$ISO_PATH" -extract /casper/filesystem.squashfs "$SQUASH_FILE" >/dev/null 2>&1; then
         if command -v unsquashfs >/dev/null 2>&1; then
             if unsquashfs -s "$SQUASH_FILE" >/dev/null 2>&1; then
-                pass "6. SquashFS filesystem integrity verified via unsquashfs."
+                pass "7. SquashFS filesystem integrity verified via unsquashfs."
             else
                 fail "SquashFS filesystem inside ISO is corrupt."
             fi

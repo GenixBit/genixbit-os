@@ -25,7 +25,9 @@
     "v0.2.0-alpha": "88a1550a9129a80ffd2c4cf73838122020a782cb",
     "validation/0.2.0-alpha-candidate-2": "88a1550a9129a80ffd2c4cf73838122020a782cb",
     "candidate2_iso": "GenixBitOS-0.2.0-alpha-2607220558.iso",
-    "candidate2_iso_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
+    "candidate2_iso_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669",
+    "candidate2_artifact_status": "RETIRED_INVALID_ZERO_FILLED",
+    "candidate2_usable_as_migration_source": false
   },
   "categories": {
     "package_infrastructure": {

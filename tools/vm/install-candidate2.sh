@@ -21,6 +21,7 @@ MODE="uefi"
 TIMEOUT_SEC=2700
 RUNTIME_EVIDENCE_DIR=""
 C2_SOURCE_COMMIT=""
+RETIRED_CANDIDATE2_SHA="1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
 
 fail() {
     printf '[FAIL] install-candidate2.sh: %s\n' "$*" >&2
@@ -109,6 +110,59 @@ stage_logs_dir="$state_log_base/stage-logs"
 mkdir -p "$stage_logs_dir" 2>/dev/null || true
 
 [[ -n "$C2_SOURCE_COMMIT" ]] || C2_SOURCE_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+
+load_candidate2_provenance() {
+    local provenance_file="$1"
+    [[ -f "$provenance_file" && -r "$provenance_file" ]] || fail "Candidate 2 provenance file missing or unreadable: $provenance_file"
+
+    local parsed rc
+    set +e
+    parsed=$(PROVENANCE_FILE="$provenance_file" python3 - <<'PYEOF'
+import json
+import os
+import re
+import sys
+
+try:
+    with open(os.environ["PROVENANCE_FILE"], encoding="utf-8") as f:
+        data = json.load(f)
+except Exception as exc:
+    print(exc, file=sys.stderr)
+    sys.exit(1)
+
+status = str(data.get("verification_status", ""))
+usable = data.get("usable_as_migration_source") is True
+sha256 = str(data.get("sha256", ""))
+if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+    sys.exit(2)
+print(status)
+print("true" if usable else "false")
+print(sha256)
+PYEOF
+)
+    rc=$?
+    set -e
+
+    if ((rc == 2)); then
+        fail "Candidate 2 provenance file sha256 field is missing or invalid."
+    elif ((rc != 0)); then
+        fail "Candidate 2 provenance file is malformed: $provenance_file"
+    fi
+
+    CAND2_METADATA_STATUS=$(printf '%s\n' "$parsed" | sed -n '1p')
+    CAND2_METADATA_USABLE=$(printf '%s\n' "$parsed" | sed -n '2p')
+    CAND2_EXPECTED_SHA=$(printf '%s\n' "$parsed" | sed -n '3p')
+
+    if [[ "$CAND2_METADATA_STATUS" == "RETIRED_INVALID_ZERO_FILLED" || "$CAND2_METADATA_USABLE" != "true" ]]; then
+        fail "Candidate 2 artifact is retired or unusable: recorded object must not be used as an installation or migration source."
+    fi
+    if [[ "$CAND2_EXPECTED_SHA" == "$RETIRED_CANDIDATE2_SHA" ]]; then
+        fail "Candidate 2 artifact is retired: recorded object is exactly 2540554240 zero bytes and is not an ISO."
+    fi
+    if [[ "$CAND2_METADATA_STATUS" != "PASS" ]]; then
+        fail "Candidate 2 provenance status '$CAND2_METADATA_STATUS' is not an active artifact status."
+    fi
+}
 
 # --- Helper functions ---
 
@@ -421,6 +475,25 @@ INSTALL_PHASE="validation_iso_path"
 INSTALL_PHASE="validation_disk_arg"
 [[ -n "$DISK_PATH" ]] || fail '--disk path is required.'
 
+INSTALL_PHASE="validation_artifact_status"
+artifact_file="${CANDIDATE2_PROVENANCE_FILE:-$REPO_TOP/docs/releases/0.2.0-alpha-artifact.json}"
+CAND2_METADATA_STATUS=""
+CAND2_METADATA_USABLE=""
+CAND2_EXPECTED_SHA=""
+load_candidate2_provenance "$artifact_file"
+
+INSTALL_PHASE="validation_iso_nonempty"
+[[ -s "$ISO_PATH" ]] || fail 'Candidate 2 ISO file is empty.'
+
+INSTALL_PHASE="validation_iso_checksum"
+CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
+if [[ "$CAND2_VERIFIED_SHA" == "$RETIRED_CANDIDATE2_SHA" ]]; then
+    fail "Candidate 2 artifact is retired: recorded object is exactly 2540554240 zero bytes and is not an ISO."
+fi
+if [[ "$CAND2_VERIFIED_SHA" != "$CAND2_EXPECTED_SHA" ]]; then
+    fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA}; expected ${CAND2_EXPECTED_SHA}."
+fi
+
 # Lifecycle variables — remaining setup after validation inputs are safe.
 VM_ID="cand2_${MODE}_$(date +%s)_$$"
 state_dir="$(dirname "$DISK_PATH")/cand2-${MODE}-state"
@@ -434,15 +507,6 @@ disk_inspect_json="${RUNTIME_EVIDENCE_DIR}/disk-inspection-${MODE}.json"
 completion_json="${RUNTIME_EVIDENCE_DIR}/install-completion.json"
 kernel_extraction_json="${RUNTIME_EVIDENCE_DIR}/kernel-extraction.json"
 
-# 1. Validate Candidate 2 ISO checksum
-INSTALL_PHASE="validation_iso_nonempty"
-[[ -s "$ISO_PATH" ]] || fail 'Candidate 2 ISO file is empty.'
-
-INSTALL_PHASE="validation_iso_checksum"
-CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
-if [[ "$CAND2_VERIFIED_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
-    fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA} — expected 1cb79fbf..."
-fi
 CAND2_VERIFIED_SHA512=$(sha512sum "$ISO_PATH" | awk '{print $1}')
 info "Candidate 2 ISO SHA-256 verified: $CAND2_VERIFIED_SHA"
 info "Candidate 2 ISO SHA-512 verified: ${CAND2_VERIFIED_SHA512:0:16}..."

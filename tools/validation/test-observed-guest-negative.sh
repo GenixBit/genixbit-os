@@ -50,7 +50,7 @@ EOF
 {"command": "apt-get update && apt-get install -y genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config && apt-get check && dpkg --audit && dpkg-query -W -f='\${binary:Package}\t\${Version}\t\${db:Status-Abbrev}\n'", "exit_code": 0, "status": "PASS", "source_commit": "$CURR_SHA", "environment_id": "Disposable Ubuntu 26.04 amd64 client container (docker)", "observations": {"captured_apt_output": "Reading package lists... Done\nGet:1 http://127.0.0.1:8080 resolute-alpha main\ngenixbit-os-archive-keyring\t0.3.0-alpha-1\tii\ngenixbit-os-apt-config\t0.3.0-alpha-1\tii\ngenixbit-os-base-files\t0.3.0-alpha-1\tii\ngenixbit-os-desktop\t0.3.0-alpha-1\tii\ngenixbit-os-theme\t0.3.0-alpha-1\tii\ngenixbit-os-wallpapers\t0.3.0-alpha-1\tii\ngenixbit-os-installer-config\t0.3.0-alpha-1\tii"}}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-candidate-upgrade.json"
-{"command": "./tools/vm/install-candidate2.sh && ./tools/vm/migrate-candidate2.sh --staging-url http://127.0.0.1:8080", "exit_code": 0, "status": "PASS", "source_commit": "$CURR_SHA", "observations": {"candidate2_iso_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"}}
+{"command": "./tools/vm/install-candidate2.sh && ./tools/vm/migrate-candidate2.sh --staging-url http://127.0.0.1:8080", "exit_code": 0, "status": "PASS", "source_commit": "$CURR_SHA", "observations": {"candidate2_iso_sha256": "09a00e22c73d91ce0bf6f1e8558dbc80a7f9061ca6b36edc434281c761aeb204"}}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-tamper.json"
 {"command": "./tests/repository/test-negative-security.sh", "exit_code": 0, "status": "PASS", "source_commit": "$CURR_SHA"}
@@ -159,12 +159,14 @@ if [[ -f "$OUT_JSON_5C" ]]; then
 fi
 pass "Test 5c PASS: Serial token without target-filesystem token correctly rejected."
 
-# Test 5d: Candidate 2 state generation does not reference undefined shell variable
-info "Test 5d: Testing Candidate 2 script does not reference undefined CAND2_EXPECTED_SHA..."
-if grep -F '$CAND2_EXPECTED_SHA' "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
-    fail "install-candidate2.sh still references undefined variable CAND2_EXPECTED_SHA!"
+# Test 5d: Candidate 2 expected hash must be defined from active provenance before comparison
+info "Test 5d: Testing Candidate 2 script binds expected SHA to validated provenance..."
+if ! grep -F 'CAND2_EXPECTED_SHA=""' "$REPO_ROOT/tools/vm/install-candidate2.sh" >/dev/null 2>&1 || \
+   ! grep -F 'load_candidate2_provenance "$artifact_file"' "$REPO_ROOT/tools/vm/install-candidate2.sh" >/dev/null 2>&1 || \
+   ! grep -F 'CAND2_VERIFIED_SHA" != "$CAND2_EXPECTED_SHA' "$REPO_ROOT/tools/vm/install-candidate2.sh" >/dev/null 2>&1; then
+    fail "install-candidate2.sh does not bind CAND2_EXPECTED_SHA from validated provenance before comparing the observed ISO hash!"
 fi
-pass "Test 5d PASS: install-candidate2.sh uses verified CAND2_VERIFIED_SHA variable."
+pass "Test 5d PASS: install-candidate2.sh binds expected SHA to validated provenance."
 
 # Test 5e: Completion JSON token_source verification (reads generated JSON, not source format)
 info "Test 5e: Verifying token_source in completion JSON output from Test 5c..."
@@ -224,13 +226,16 @@ pass "Test 13-16 PASS: Fail-closed snapshot rollback enforcement verified."
 # Fixtures stay entirely within $TEST_DIR — never touch the production STAGE_LOGS_DIR.
 info "Test 17-21: Testing rejection of shared UEFI/BIOS evidence logs (using private test dir)..."
 setup_valid_stage_logs
+ACTIVE_PROVENANCE="$TEST_DIR/active-candidate2-provenance.json"
+printf '{"verification_status":"PASS","usable_as_migration_source":true,"sha256":"09a00e22c73d91ce0bf6f1e8558dbc80a7f9061ca6b36edc434281c761aeb204"}\n' > "$ACTIVE_PROVENANCE"
 # Override the iso-boot fixture to use shared evidence (rejected by collector)
 cat <<EOF > "$TEST_DIR/stage-logs/stage-test-iso-boot.json"
 {"command": "boot", "exit_code": 0, "status": "PASS", "observations": {"vm_command_logs": "qemu boot pass"}, "assertions": [{"assertion": "uefi_boot", "status": "PASS", "firmware_mode": "uefi", "evidence_file": "same.log"}, {"assertion": "bios_boot", "status": "PASS", "firmware_mode": "bios", "evidence_file": "same.log"}]}
 EOF
 if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" \
     --stage-logs-dir "$TEST_DIR/stage-logs" \
-    --current-dir "$TEST_DIR/current" 2>/dev/null; then
+    --current-dir "$TEST_DIR/current" \
+    --candidate2-provenance-file "$ACTIVE_PROVENANCE" 2>/dev/null; then
     fail "Collector failed to reject shared UEFI/BIOS evidence log!"
 fi
 pass "Test 17-21 PASS: Shared UEFI/BIOS evidence log correctly rejected."

@@ -47,10 +47,11 @@ Cloud resource identifiers, public build-host addresses, SSH access details, and
 | ISO filename | `GenixBitOS-0.2.0-alpha-2607220558.iso` |
 | ISO size | 2,540,554,240 bytes |
 | SHA-256 | `1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669` |
+| Artifact status | `RETIRED_INVALID_ZERO_FILLED`; checksum matching confirmed object identity only, not ISO validity |
 
 | Test / Gate | Status | Requirement / Evidence |
 | --- | :---: | --- |
-| Candidate branch created | **PASS** | `validation/0.2.0-alpha-candidate-2` branch created at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` |
+| Candidate branch created | **HISTORICAL** | `validation/0.2.0-alpha-candidate-2` branch created at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`; recorded artifact retired as invalid zero-filled object |
 | Full candidate SHA recorded | **PASS** | `88a1550a9129a80ffd2c4cf73838122020a782cb` verified via `git rev-parse HEAD` |
 | Candidate checkout clean | **PASS** | Verified clean git status prior to candidate freeze |
 | Checksum verification | **PASS** | Independent sha256 checksum calculation matched generated digest |

@@ -26,7 +26,7 @@ jobs:
       - name: Install ShellCheck
         run: |
           sudo apt-get update
-          sudo apt-get install --yes shellcheck squashfs-tools
+          sudo apt-get install --yes shellcheck squashfs-tools xorriso mtools
 
       - name: Validate Bash syntax
         shell: bash
@@ -184,6 +184,18 @@ jobs:
       - name: mksquashfs runner compatibility behavioral test
         shell: bash
         run: bash tests/infrastructure/test-mksquashfs-runner.sh
+
+      - name: ISO structure validation behavioral tests
+        shell: bash
+        run: bash tools/validation/test-iso-structure.sh
+
+      - name: Release preflight evidence behavioral tests
+        shell: bash
+        run: bash tools/validation/test-release-preflight-evidence.sh
+
+      - name: Candidate 2 retirement behavioral tests
+        shell: bash
+        run: bash tools/validation/test-candidate2-retirement.sh
 
 
 

@@ -31,6 +31,13 @@ trap cleanup EXIT
 
 STAGE_LOGS_DIR="$REPO_ROOT/infra/package-staging/results/stage-logs"
 mkdir -p "$STAGE_LOGS_DIR"
+ACTIVE_CANDIDATE2_SHA="09a00e22c73d91ce0bf6f1e8558dbc80a7f9061ca6b36edc434281c761aeb204"
+ACTIVE_PROVENANCE="$TEST_DIR/active-candidate2-provenance.json"
+printf '{"verification_status":"PASS","usable_as_migration_source":true,"sha256":"%s"}\n' "$ACTIVE_CANDIDATE2_SHA" > "$ACTIVE_PROVENANCE"
+
+run_collector() {
+    python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" --candidate2-provenance-file "$ACTIVE_PROVENANCE" "$@"
+}
 
 # Helper to create valid stage logs in TEST_DIR
 setup_valid_logs() {
@@ -44,10 +51,10 @@ EOF
 {"command": "pub", "exit_code": 0, "status": "PASS"}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-clean-install.json"
-{"command": "install", "exit_code": 0, "status": "PASS", "observations": {"captured_apt_output": "Reading package lists... Done"}}
+{"command": "apt-get update && apt-get install -y genixbit-os-desktop && apt-get check", "exit_code": 0, "status": "PASS", "environment_id": "Disposable Ubuntu client", "observations": {"captured_apt_output": "Reading package lists... Done\nGet:1 http://127.0.0.1 resolute-alpha main"}}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-candidate-upgrade.json"
-{"command": "upgrade", "exit_code": 0, "status": "PASS", "observations": {"candidate2_iso_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"}}
+{"command": "upgrade", "exit_code": 0, "status": "PASS", "observations": {"candidate2_iso_sha256": "$ACTIVE_CANDIDATE2_SHA"}}
 EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-tamper.json"
 {"command": "tamper", "exit_code": 0, "status": "PASS"}
@@ -73,7 +80,7 @@ info "Test 1: Testing rejection of fake_hash value..."
 setup_valid_logs
 echo '{"command": "build", "exit_code": 0, "status": "PASS", "hash": "fake_hash"}' > "$TEST_DIR/stage-logs/stage-package-build.json"
 cp -r "$TEST_DIR/stage-logs"/* "$STAGE_LOGS_DIR/"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject fake_hash!"
 fi
 pass "Test 1 PASS: Fake hash correctly rejected."
@@ -82,7 +89,7 @@ pass "Test 1 PASS: Fake hash correctly rejected."
 info "Test 2: Testing rejection of missing result stage file..."
 setup_valid_logs
 rm -f "$STAGE_LOGS_DIR/stage-tamper.json"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject missing stage file!"
 fi
 pass "Test 2 PASS: Missing stage file correctly rejected."
@@ -91,7 +98,7 @@ pass "Test 2 PASS: Missing stage file correctly rejected."
 info "Test 3: Testing rejection of placeholder GPG fingerprint..."
 setup_valid_logs
 echo '{"command": "pub", "exit_code": 0, "status": "PASS", "fingerprint": "0000000000000000000000000000000000000000"}' > "$STAGE_LOGS_DIR/stage-repository-publication.json"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject placeholder fingerprint!"
 fi
 pass "Test 3 PASS: Placeholder fingerprint correctly rejected."
@@ -100,7 +107,7 @@ pass "Test 3 PASS: Placeholder fingerprint correctly rejected."
 info "Test 4: Testing rejection of false PASS with non-zero exit code..."
 setup_valid_logs
 echo '{"command": "clean", "exit_code": 1, "status": "PASS"}' > "$STAGE_LOGS_DIR/stage-clean-install.json"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject non-zero exit code with PASS status!"
 fi
 pass "Test 4 PASS: False PASS with non-zero exit code correctly rejected."
@@ -109,7 +116,7 @@ pass "Test 4 PASS: False PASS with non-zero exit code correctly rejected."
 info "Test 5: Testing rejection of incorrect source commit SHA..."
 setup_valid_logs
 echo '{"command": "iso", "exit_code": 0, "status": "PASS", "observations": {"source_commit": "1111111111111111111111111111111111111111"}}' > "$STAGE_LOGS_DIR/stage-test-iso-build.json"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject mismatched source commit SHA!"
 fi
 pass "Test 5 PASS: Incorrect source commit SHA correctly rejected."
@@ -118,7 +125,7 @@ pass "Test 5 PASS: Incorrect source commit SHA correctly rejected."
 info "Test 6: Testing rejection of dry-run QEMU execution log..."
 setup_valid_logs
 echo '{"command": "boot", "exit_code": 0, "status": "PASS", "observations": {"vm_command_logs": "[COMMAND] qemu-system-x86_64 --mode uefi --dry-run"}}' > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject dry-run QEMU VM log!"
 fi
 pass "Test 6 PASS: Dry-run QEMU VM execution log correctly rejected."
@@ -127,7 +134,7 @@ pass "Test 6 PASS: Dry-run QEMU VM execution log correctly rejected."
 info "Test 7: Testing rejection of synthetic echo-generated APT log..."
 setup_valid_logs
 echo '{"command": "install", "exit_code": 0, "status": "PASS", "observations": {"captured_apt_output": "0 upgraded, 7 newly installed, 0 to remove and 0 not upgraded."}}' > "$STAGE_LOGS_DIR/stage-clean-install.json"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject synthetic echo-generated APT log!"
 fi
 pass "Test 7 PASS: Synthetic echo-generated APT log correctly rejected."
@@ -136,7 +143,7 @@ pass "Test 7 PASS: Synthetic echo-generated APT log correctly rejected."
 info "Test 8: Testing rejection of command containing || true..."
 setup_valid_logs
 echo '{"command": "run-qemu.sh --mode uefi || true", "exit_code": 0, "status": "PASS", "observations": {"vm_command_logs": "qemu boot pass"}}' > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject command containing || true!"
 fi
 pass "Test 8 PASS: Command containing || true correctly rejected."
@@ -145,7 +152,7 @@ pass "Test 8 PASS: Command containing || true correctly rejected."
 info "Test 9: Testing rejection of mismatched Candidate 2 ISO SHA-256..."
 setup_valid_logs
 echo '{"command": "upgrade", "exit_code": 0, "status": "PASS", "observations": {"candidate2_iso_sha256": "0000000000000000000000000000000000000000000000000000000000000000"}}' > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject mismatched Candidate 2 ISO SHA!"
 fi
 pass "Test 9 PASS: Mismatched Candidate 2 ISO SHA correctly rejected."
@@ -154,7 +161,7 @@ pass "Test 9 PASS: Mismatched Candidate 2 ISO SHA correctly rejected."
 info "Test 10: Testing rejection of apt-get install --dry-run command..."
 setup_valid_logs
 echo '{"command": "apt-get install -y --dry-run genixbit-os-desktop", "exit_code": 0, "status": "PASS", "observations": {"captured_apt_output": "Reading package lists..."}}' > "$STAGE_LOGS_DIR/stage-clean-install.json"
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if run_collector 2>/dev/null; then
     fail "Collector failed to reject apt-get --dry-run command!"
 fi
 pass "Test 10 PASS: APT --dry-run flag in command string correctly rejected."
@@ -168,4 +175,3 @@ fi
 
 pass "=== All Evidence Collector Negative Security Tests Passed ==="
 exit 0
-

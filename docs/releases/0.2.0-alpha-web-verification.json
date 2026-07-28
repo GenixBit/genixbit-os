@@ -28,6 +28,8 @@
       "robots_status": 200,
       "download_button_visible": true,
       "download_url_match": "https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso",
+      "download_artifact_status": "RETIRED_INVALID_ZERO_FILLED",
+      "download_artifact_usable": false,
       "placeholder_text_absent": true,
       "displayed_filename": "GenixBitOS-0.2.0-alpha-2607220558.iso",
       "displayed_sha256": "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
@@ -56,9 +58,9 @@
       "sitemap_status": 200,
       "robots_url": "https://packages.os.genixbit.com/robots.txt",
       "robots_status": 200,
-      "iso_distribution_status": "AVAILABLE",
+      "iso_distribution_status": "AVAILABLE_RETIRED_INVALID_ZERO_FILLED",
       "production_repository_status": "NOT DEPLOYED"
     }
   ],
-  "overall_web_verification_status": "PASS"
+  "overall_web_verification_status": "RETIRED_INVALID_ZERO_FILLED"
 }

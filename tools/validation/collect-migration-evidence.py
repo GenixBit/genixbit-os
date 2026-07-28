@@ -10,6 +10,8 @@ import subprocess
 import hashlib
 from datetime import datetime, timezone
 
+RETIRED_CANDIDATE2_SHA = "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
+
 def fail(msg):
     print(f"[FAIL] Evidence Collector Error: {msg}", file=sys.stderr)
     sys.exit(1)
@@ -99,6 +101,28 @@ def verify_iso_structure(repo_root, iso_path):
     if res.returncode != 0:
         fail(f"ISO structure check failed for {iso_path}:\n{res.stderr}\n{res.stdout}")
 
+def load_candidate2_provenance(path):
+    if not os.path.isfile(path):
+        fail(f"Candidate 2 provenance file missing: {path}")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        fail(f"Candidate 2 provenance file is malformed: {e}")
+
+    status = str(data.get("verification_status", ""))
+    usable = data.get("usable_as_migration_source") is True
+    sha256 = str(data.get("sha256", ""))
+    if status == "RETIRED_INVALID_ZERO_FILLED" or not usable:
+        fail("Candidate 2 provenance is retired or unusable and cannot support successful migration evidence")
+    if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+        fail("Candidate 2 provenance sha256 field is missing or invalid")
+    if sha256 == RETIRED_CANDIDATE2_SHA:
+        fail("Candidate 2 provenance references retired zero-filled artifact SHA-256")
+    if status != "PASS":
+        fail(f"Candidate 2 provenance status '{status}' is not an active artifact status")
+    return sha256
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="GenixBit OS evidence collector")
@@ -106,12 +130,16 @@ def main():
                         help="Override stage-logs directory (for testing; default: infra/package-staging/results/stage-logs)")
     parser.add_argument("--current-dir", default=None,
                         help="Override current evidence output directory (for testing; default: infra/package-staging/results/current)")
+    parser.add_argument("--candidate2-provenance-file", default=None,
+                        help="Override Candidate 2 provenance file (for testing; default: docs/releases/0.2.0-alpha-artifact.json)")
     args = parser.parse_args()
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     logs_dir = args.stage_logs_dir or os.path.join(repo_root, "infra/package-staging/results/stage-logs")
     out_dir = args.current_dir or os.path.join(repo_root, "infra/package-staging/results/current")
     debs_dir = os.path.join(repo_root, "packages/build-debs")
+    candidate2_provenance_file = args.candidate2_provenance_file or os.path.join(repo_root, "docs/releases/0.2.0-alpha-artifact.json")
+    expected_cand_sha = load_candidate2_provenance(candidate2_provenance_file)
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -235,9 +263,12 @@ def main():
         if not cand_sha:
             cand_hashes = stage_data["candidate-upgrade"].get("artifact_hashes", {})
             cand_sha = cand_hashes.get("candidate2_iso_sha256")
-    expected_cand_sha = "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
+    if cand_sha == RETIRED_CANDIDATE2_SHA:
+        fail("Candidate 2 upgrade stage used retired zero-filled artifact SHA-256 as a successful migration source")
+    if not cand_sha:
+        fail("Candidate 2 upgrade stage log SHA-256 is missing")
     if cand_sha != expected_cand_sha:
-        fail(f"Candidate 2 upgrade stage log SHA-256 '{cand_sha}' does not match expected '{expected_cand_sha}'")
+        fail(f"Candidate 2 upgrade stage log SHA-256 '{cand_sha}' does not match active provenance SHA-256 '{expected_cand_sha}'")
 
     # Rejection 15: Migration script without staging URL
     cand_cmd = str(stage_data["candidate-upgrade"].get("command", ""))

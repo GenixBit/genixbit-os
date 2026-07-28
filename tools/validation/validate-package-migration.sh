@@ -27,6 +27,56 @@ info() {
 
 info "=== Starting GenixBit OS Package Migration & Staging Validation Suite ==="
 
+CURRENT_COMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD)
+BUILD_VERSION=$(grep -E '^export TARGET_BUILD_VERSION=' "$REPO_ROOT/args.sh" | cut -d'"' -f2)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Fail closed before any package, VM, or migration work when the historical
+# Candidate 2 object has been retired as a zero-filled non-ISO artifact.
+CAND2_PROVENANCE_FILE="${CANDIDATE2_PROVENANCE_FILE:-$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json}"
+[[ -f "$CAND2_PROVENANCE_FILE" && -r "$CAND2_PROVENANCE_FILE" ]] || fail "Candidate 2 provenance file missing or unreadable: $CAND2_PROVENANCE_FILE"
+set +e
+candidate2_provenance=$(PROVENANCE_FILE="$CAND2_PROVENANCE_FILE" python3 - <<'PYEOF'
+import json
+import os
+import re
+import sys
+
+try:
+    with open(os.environ["PROVENANCE_FILE"], encoding="utf-8") as f:
+        data = json.load(f)
+except Exception as exc:
+    print(exc, file=sys.stderr)
+    sys.exit(1)
+
+sha256 = str(data.get("sha256", ""))
+if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+    sys.exit(2)
+print(str(data.get("verification_status", "")))
+print("true" if data.get("usable_as_migration_source") is True else "false")
+print(sha256)
+PYEOF
+)
+candidate2_provenance_rc=$?
+set -e
+if ((candidate2_provenance_rc == 2)); then
+    fail "Candidate 2 provenance file sha256 field is missing or invalid!"
+elif ((candidate2_provenance_rc != 0)); then
+    fail "Candidate 2 provenance file is malformed: $CAND2_PROVENANCE_FILE"
+fi
+CAND2_STATUS=$(printf '%s\n' "$candidate2_provenance" | sed -n '1p')
+CAND2_USABLE=$(printf '%s\n' "$candidate2_provenance" | sed -n '2p')
+CAND2_PINNED_SHA=$(printf '%s\n' "$candidate2_provenance" | sed -n '3p')
+if [[ "$CAND2_STATUS" == "RETIRED_INVALID_ZERO_FILLED" || "$CAND2_PINNED_SHA" == "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
+    fail "Candidate 2 artifact is retired: recorded object is exactly 2540554240 zero bytes and is not an ISO."
+fi
+if [[ "$CAND2_STATUS" != "PASS" ]]; then
+    fail "Candidate 2 provenance status '$CAND2_STATUS' is not an active artifact status."
+fi
+if [[ "$CAND2_USABLE" != "true" ]]; then
+    fail "Candidate 2 provenance is not usable as a migration source."
+fi
+
 # Directories
 TMP_DIR=$(mktemp -d)
 TMP_GPG="$TMP_DIR/gpg"
@@ -55,10 +105,6 @@ trap cleanup EXIT
 mkdir -p "$TMP_GPG" "$TMP_REPO" "$DEBS_DIR"
 chmod 700 "$TMP_GPG"
 export GNUPGHOME="$TMP_GPG"
-
-CURRENT_COMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD)
-BUILD_VERSION=$(grep -E '^export TARGET_BUILD_VERSION=' "$REPO_ROOT/args.sh" | cut -d'"' -f2)
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 if command -v gpg >/dev/null 2>&1; then
     info "Generating passphrase-protected isolated test GPG key pair..."
@@ -209,10 +255,6 @@ EOF
 # Skipping any phase causes evidence collection to fail with missing stage JSON.
 
 # Read canonical Candidate 2 SHA from provenance record (single source of truth)
-CAND2_PROVENANCE_FILE="$REPO_ROOT/docs/releases/0.2.0-alpha-artifact.json"
-[[ -f "$CAND2_PROVENANCE_FILE" ]] || fail "Candidate 2 provenance file missing: $CAND2_PROVENANCE_FILE"
-CAND2_PINNED_SHA=$(python3 -c "import json; print(json.load(open('$CAND2_PROVENANCE_FILE'))['sha256'])")
-[[ -n "$CAND2_PINNED_SHA" ]] || fail "Candidate 2 provenance file sha256 field is empty!"
 info "Candidate 2 canonical SHA-256 (from provenance): $CAND2_PINNED_SHA"
 
 # D14: Validate immutable_url has generation pin (checked before download, no ISO needed)

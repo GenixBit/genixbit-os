@@ -2,7 +2,7 @@
 
 ## Summary & Provenance
 
-All screenshots in this gallery represent direct visual evidence captured interactively from **GenixBit OS 0.2.0-alpha Candidate 2** (Candidate SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`, ISO `GenixBitOS-0.2.0-alpha-2607220558.iso`).
+This gallery is retained as historical audit material only. The recorded **GenixBit OS 0.2.0-alpha Candidate 2** object (Candidate SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`, ISO `GenixBitOS-0.2.0-alpha-2607220558.iso`) is retired because the stored ISO object is exactly zero-filled and invalid.
 
 No screens were simulated, redrawn, or altered with artificial UI elements. High-resolution raw PNG captures remain retained in the private release validation evidence bundle outside Git.
 

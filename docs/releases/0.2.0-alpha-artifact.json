@@ -16,8 +16,10 @@
   "gcp_bucket": "genixbit-growth-os-downloads",
   "gcp_project": "genixbit-growth-os",
   "immutable_url": "https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso?generation=1784810864397202",
-  "verification_status": "PASS",
-  "verification_timestamp": "2026-07-27T12:00:00Z",
+  "verification_status": "RETIRED_INVALID_ZERO_FILLED",
+  "verification_timestamp": "2026-07-28T13:11:36Z",
+  "usable_as_release_artifact": false,
+  "usable_as_migration_source": false,
   "verification_sources": [
     "docs/releases/0.2.0-alpha.env",
     "docs/releases/0.2.0-alpha-distribution-verification.json",
@@ -25,6 +27,7 @@
     "docs/releases/GenixBitOS-0.2.0-alpha-2607220558.iso.sha256",
     "docs/TESTING.md"
   ],
-  "note": "This is the single canonical pinned Candidate 2 artifact SHA-256, confirmed by two independent GCS downloads in release gate runs 30267222850 and 30268427931. The value d9aa0d2e850fdbcfb87beeaecb1ea2762a4d9522aa48d3bc6aa2bd0c6ee6f228 was a fabricated hash present in docs from PRs #96-#104 that never matched the actual GCS object. All validation tooling must pin exclusively to 1cb79fbf. The immutable_url includes ?generation=1784810864397202 which pins to the exact GCS object generation.",
-  "sha512_source": "Observed from release gate run 30270363240 (2026-07-27), download from generation-pinned GCS URL"
+  "note": "This record identifies the retired invalid Candidate 2 object. The SHA-256 and SHA-512 values are preserved for audit only and exactly match 2540554240 zero bytes. Checksum matching proved object identity, not release-artifact validity. The immutable_url includes ?generation=1784810864397202 and must not be used as a release, installation, migration, or upgrade source.",
+  "sha512_source": "Observed from release gate run 30270363240 (2026-07-27), download from generation-pinned GCS URL",
+  "retirement_record": "docs/releases/0.2.0-alpha-candidate-2-retirement.json"
 }
