@@ -126,12 +126,12 @@ run_case "invalid-mode" "validation_mode" \
     --disk "$TEST_DIR/invalid-mode.qcow2" \
     --mode invalid
 
-run_case "empty-iso" "validation_iso_nonempty" \
+run_case "empty-iso" "validation_artifact_status" \
     --iso "$EMPTY_ISO" \
     --disk "$TEST_DIR/empty-iso.qcow2" \
     --mode uefi
 
-run_case "incorrect-sha" "validation_iso_checksum" \
+run_case "incorrect-sha" "validation_artifact_status" \
     --iso "$BAD_SHA_ISO" \
     --disk "$TEST_DIR/bad-sha.qcow2" \
     --mode uefi

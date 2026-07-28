@@ -184,13 +184,15 @@ fi
 info "Test 11: collect-migration-evidence.py must fail on missing stage JSON..."
 DUMMY_EVIDENCE="$TMP/evidence_test"
 mkdir -p "$DUMMY_EVIDENCE"
+ACTIVE_PROVENANCE="$TMP/active-candidate2-provenance.json"
+echo '{"verification_status":"PASS","usable_as_migration_source":true,"sha256":"09a00e22c73d91ce0bf6f1e8558dbc80a7f9061ca6b36edc434281c761aeb204"}' > "$ACTIVE_PROVENANCE"
 # Write only 3 of the 4 required stage files to trigger failure
 echo '{"status":"PASS","source_commit":"abc"}' > "$DUMMY_EVIDENCE/stage-package-build.json"
 echo '{"status":"PASS","source_commit":"abc"}' > "$DUMMY_EVIDENCE/stage-test-iso-build.json"
 echo '{"status":"PASS","source_commit":"abc"}' > "$DUMMY_EVIDENCE/stage-test-iso-boot.json"
 # stage-candidate-upgrade.json is intentionally missing
 COLLECT_PY="$REPO_ROOT/tools/validation/collect-migration-evidence.py"
-if python3 "$COLLECT_PY" --stage-logs-dir "$DUMMY_EVIDENCE" --output "$TMP/evidence-out.json" > /dev/null 2>&1; then
+if python3 "$COLLECT_PY" --stage-logs-dir "$DUMMY_EVIDENCE" --current-dir "$TMP/evidence-out" --candidate2-provenance-file "$ACTIVE_PROVENANCE" > /dev/null 2>&1; then
     fail_test "Test 11: collect-migration-evidence.py did NOT fail on missing stage-candidate-upgrade.json"
 else
     pass_test "Test 11: collect-migration-evidence.py correctly failed with missing required stage JSON"
