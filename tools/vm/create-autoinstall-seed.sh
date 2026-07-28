@@ -210,9 +210,9 @@ if errs:
     for e in errs:
         print(f'[FAIL] user-data validation: {e}', file=sys.stderr)
     sys.exit(1)
-print('[INFO] user-data YAML validation passed (via PyYAML)')
+print('[INFO] user-data YAML validation passed (via PyYAML)', file=sys.stderr)
 "
-printf '[INFO] user-data schema validation passed.\n'
+printf '[INFO] user-data schema validation passed.\n' >&2
 
 # Find ISO9660 creation tool (FAIL CLOSED - NO synthetic Python or tar fallbacks!)
 ISO_TOOL=""
@@ -229,7 +229,7 @@ else
 fi
 
 if [[ "$ISO_TOOL" == "cloud-localds" ]]; then
-    cloud-localds "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE"
+    cloud-localds "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
 elif [[ "$ISO_TOOL" == "xorriso" ]]; then
     xorriso -as mkisofs -V "cidata" -J -r -o "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
 else
