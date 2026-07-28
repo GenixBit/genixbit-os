@@ -411,6 +411,8 @@ PYEOF
         PROCESS_ALIVE=false
         QMP_PRESENT=false
 
+        ORIGINAL_QEMU_PID="$QEMU_PID"
+
         if kill -0 "$QEMU_PID" 2>/dev/null; then
             PROCESS_ALIVE=true
             if [[ -S "$QMP_SOCKET" ]]; then
@@ -452,12 +454,26 @@ PYEOF
             PROCESS_ALIVE=false
         fi
 
+        # Verify process directly via original PID (not inferred from PID file)
+        PROCESS_ALIVE_AFTER=false
+        if [[ -n "$ORIGINAL_QEMU_PID" ]] && kill -0 "$ORIGINAL_QEMU_PID" 2>/dev/null; then
+            PROCESS_ALIVE_AFTER=true
+        fi
+
+        if [[ "$PROCESS_ALIVE_AFTER" == "true" ]]; then
+            SHUTDOWN_STATE="STOP_FAILED"
+            PROCESS_ALIVE=true
+            # Preserve PID file as evidence when STOP_FAILED
+        else
+            rm -f "$PID_FILE" 2>/dev/null || true
+        fi
+
+        # Remove QMP socket, then verify it is gone
+        rm -f "$QMP_SOCKET" 2>/dev/null || true
         QMP_PRESENT_AFTER=false
         if [[ -S "$QMP_SOCKET" ]]; then
             QMP_PRESENT_AFTER=true
-            rm -f "$QMP_SOCKET"
         fi
-        rm -f "$PID_FILE" 2>/dev/null || true
 
         SHUTDOWN_STATUS="PASS"
         if [[ "$SHUTDOWN_STATE" == "FORCED_SIGTERM" || "$SHUTDOWN_STATE" == "FORCED_SIGKILL" || "$SHUTDOWN_STATE" == "STOP_FAILED" ]]; then
@@ -516,6 +532,16 @@ data["shutdown_status"] = os.environ["SHUTDOWN_STATUS"]
 with open(path, "w") as f:
     json.dump(data, f, indent=2)
 PYEOF
+            fi
+        fi
+
+        # Before returning PASS, require process and QMP socket are both gone
+        if [[ "$SHUTDOWN_STATUS" == "PASS" ]]; then
+            if [[ "$PROCESS_ALIVE" == "true" ]]; then
+                fail "Shutdown recorded PASS but process is still alive!"
+            fi
+            if [[ "$QMP_PRESENT_AFTER" == "true" ]]; then
+                fail "Shutdown recorded PASS but QMP socket is still present!"
             fi
         fi
 

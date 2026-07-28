@@ -166,12 +166,30 @@ if grep -F '$CAND2_EXPECTED_SHA' "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/
 fi
 pass "Test 5d PASS: install-candidate2.sh uses verified CAND2_VERIFIED_SHA variable."
 
-# Test 5e: Completion JSON token_source verification
-info "Test 5e: Verifying token_source schema field in wait-for-install-completion.sh..."
-if ! grep -F "'token_source': 'installed_root_filesystem'" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" >/dev/null 2>&1; then
-    fail "wait-for-install-completion.sh missing token_source=installed_root_filesystem field!"
+# Test 5e: Completion JSON token_source verification (reads generated JSON, not source format)
+info "Test 5e: Verifying token_source in completion JSON output from Test 5c..."
+if [[ ! -f "$OUT_JSON_5C" ]]; then
+    fail "Test 5c did not produce completion JSON at $OUT_JSON_5C — cannot verify token_source!"
 fi
-pass "Test 5e PASS: token_source=installed_root_filesystem verified in completion JSON schema."
+
+# Validate JSON is well-formed
+python3 -m json.tool "$OUT_JSON_5C" >/dev/null ||
+    fail "completion JSON is invalid (Test 5c output at $OUT_JSON_5C)"
+
+# Read token_source from the JSON, not from source formatting
+TOKEN_SOURCE=$(python3 -c '
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+print(data.get("token_source", ""))
+' "$OUT_JSON_5C")
+
+[[ "$TOKEN_SOURCE" == "installed_root_filesystem" ]] ||
+    fail "completion JSON token_source must be installed_root_filesystem, got: $TOKEN_SOURCE"
+pass "Test 5e PASS: token_source=installed_root_filesystem verified in Test 5c completion JSON."
 
 # Test 6: Missing authorized SSH key in candidate 2 migration
 info "Test 6: Testing rejection of migration without provisioned SSH key..."

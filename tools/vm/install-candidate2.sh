@@ -78,6 +78,10 @@ INSTALL_EXIT_CODE=0
 INSTALLER_VM_STARTED=false
 INSTALLED_VM_STARTED=false
 CLEANUP_RUNNING=false
+INSTALLER_VM_PID=""
+INSTALLED_VM_PID=""
+WORKFLOW_RUN_ID="${GITHUB_RUN_ID:-local}"
+EXECUTION_ID="${WORKFLOW_RUN_ID}-$(date +%s)-$$"
 
 # Setup state directory and unique run identifiers BEFORE trap
 VM_ID="cand2_${MODE}_$(date +%s)_$$"
@@ -138,6 +142,8 @@ cleanup_managed_vm() {
     local vm_state_dir="$4"
     local vm_label="$5"
 
+    local shutdown_json="$vm_state_dir/shutdown-${vm_id}.json"
+
     if [[ -f "$vm_pid_file" ]]; then
         local vpid
         vpid=$(cat "$vm_pid_file" 2>/dev/null || echo "")
@@ -149,12 +155,34 @@ cleanup_managed_vm() {
                   --output "${RUNTIME_EVIDENCE_DIR}/final-${vm_label}.ppm" \
                   2>/dev/null || true
             fi
+            set +e
             bash "$(dirname "$0")/run-qemu.sh" stop \
                 --vm-id "$vm_id" \
                 --pid-file "$vm_pid_file" \
                 --qmp-socket "$vm_qmp_socket" \
-                --state-dir "$vm_state_dir" || true
-            return 0
+                --state-dir "$vm_state_dir"
+            stop_rc=$?
+            set -e
+
+            local shutdown_state="MISSING_EVIDENCE"
+            if [[ -f "$shutdown_json" ]]; then
+                shutdown_state=$(python3 -c '
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    print(json.load(handle).get("shutdown_state", "MISSING"))
+' "$shutdown_json" 2>/dev/null || echo "MISSING")
+            fi
+
+            case "$shutdown_state" in
+                FORCED_SIGTERM|FORCED_SIGKILL|STOP_FAILED|MISSING|MISSING_EVIDENCE)
+                    printf '[FAIL] Cleanup of %s VM (%s) resulted in %s (rc=%s)\n' "$vm_label" "$vm_id" "$shutdown_state" "$stop_rc" >&2
+                    return 1
+                    ;;
+                *)
+                    printf '[PASS] Cleanup of %s VM (%s) state=%s (rc=%s)\n' "$vm_label" "$vm_id" "$shutdown_state" "$stop_rc"
+                    return 0
+                    ;;
+            esac
         fi
     fi
     if [[ -S "$vm_qmp_socket" ]]; then
@@ -170,37 +198,57 @@ cleanup_exit() {
     cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/vm-state.before-cleanup.json" 2>/dev/null || true
     cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/shutdown-result.before-cleanup.json" 2>/dev/null || true
 
-    local installer_cleanup_state="not_attempted"
+    local installer_cleanup_state="NOT_STARTED"
+    local installer_cleanup_exit=0
     if [[ "$INSTALLER_VM_STARTED" == "true" ]]; then
-        cleanup_managed_vm "$VM_ID" "$pid_file" "$qmp_path" "$state_dir" "installer"
-        installer_cleanup_state="attempted"
+        local shutdown_json="$state_dir/shutdown-${VM_ID}.json"
+        if cleanup_managed_vm "$VM_ID" "$pid_file" "$qmp_path" "$state_dir" "installer"; then
+            installer_cleanup_exit=0
+        else
+            installer_cleanup_exit=$?
+        fi
+        if [[ -f "$shutdown_json" ]]; then
+            installer_cleanup_state=$(python3 -c '
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    print(json.load(handle).get("shutdown_state", "MISSING_EVIDENCE"))
+' "$shutdown_json" 2>/dev/null || echo "MISSING_EVIDENCE")
+        else
+            installer_cleanup_state="MISSING_EVIDENCE"
+        fi
     fi
 
-    local installed_cleanup_state="not_attempted"
+    local installed_cleanup_state="NOT_STARTED"
+    local installed_cleanup_exit=0
     if [[ "$INSTALLED_VM_STARTED" == "true" ]]; then
         local inst_pid="${state_dir}/qemu-${VM_ID}_inst.pid"
         local inst_qmp="${state_dir}/qmp-${VM_ID}_inst.sock"
-        cleanup_managed_vm "${VM_ID}_inst" "$inst_pid" "$inst_qmp" "$state_dir" "installed"
-        installed_cleanup_state="attempted"
+        local shutdown_json="$state_dir/shutdown-${VM_ID}_inst.json"
+        if cleanup_managed_vm "${VM_ID}_inst" "$inst_pid" "$inst_qmp" "$state_dir" "installed"; then
+            installed_cleanup_exit=0
+        else
+            installed_cleanup_exit=$?
+        fi
+        if [[ -f "$shutdown_json" ]]; then
+            installed_cleanup_state=$(python3 -c '
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    print(json.load(handle).get("shutdown_state", "MISSING_EVIDENCE"))
+' "$shutdown_json" 2>/dev/null || echo "MISSING_EVIDENCE")
+        else
+            installed_cleanup_state="MISSING_EVIDENCE"
+        fi
     fi
 
+    # Verify original PIDs directly — not inferred from PID file
     local installer_alive=false
-    if [[ -f "$pid_file" ]]; then
-        local apid
-        apid=$(cat "$pid_file" 2>/dev/null || echo "")
-        if [[ -n "$apid" ]] && kill -0 "$apid" 2>/dev/null; then
-            installer_alive=true
-        fi
+    if [[ -n "$INSTALLER_VM_PID" ]] && kill -0 "$INSTALLER_VM_PID" 2>/dev/null; then
+        installer_alive=true
     fi
 
     local installed_alive=false
-    local inst_pid="${state_dir}/qemu-${VM_ID}_inst.pid"
-    if [[ -f "$inst_pid" ]]; then
-        local bpid
-        bpid=$(cat "$inst_pid" 2>/dev/null || echo "")
-        if [[ -n "$bpid" ]] && kill -0 "$bpid" 2>/dev/null; then
-            installed_alive=true
-        fi
+    if [[ -n "$INSTALLED_VM_PID" ]] && kill -0 "$INSTALLED_VM_PID" 2>/dev/null; then
+        installed_alive=true
     fi
 
     preserve_install_evidence "$exit_code"
@@ -211,13 +259,23 @@ cleanup_exit() {
     rm -f "$pid_file" 2>/dev/null || true
     rm -f "$qmp_path" 2>/dev/null || true
 
-    if [[ "$exit_code" -ne 0 ]]; then
-        local wf_run_id="${GITHUB_RUN_ID:-local}"
+    # Preserve original installation failure if any; also capture cleanup failure
+    local overall_exit=$exit_code
+    if [[ "$installer_cleanup_exit" -ne 0 ]]; then
+        overall_exit=$installer_cleanup_exit
+    fi
+    if [[ "$installed_cleanup_exit" -ne 0 ]]; then
+        overall_exit=$installed_cleanup_exit
+    fi
+
+    if [[ "$overall_exit" -ne 0 ]]; then
         C2_SOURCE_COMMIT="$C2_SOURCE_COMMIT" \
-        WF_RUN_ID="$wf_run_id" \
+        WF_RUN_ID="$WORKFLOW_RUN_ID" \
+        EXECUTION_ID="$EXECUTION_ID" \
         VM_ID="$VM_ID" \
         INSTALL_PHASE="$INSTALL_PHASE" \
         EXIT_CODE="$exit_code" \
+        CLEANUP_EXIT="$overall_exit" \
         CAND2_VERIFIED_SHA="${CAND2_VERIFIED_SHA:-unknown}" \
         CAND2_VERIFIED_SHA512="${CAND2_VERIFIED_SHA512:-unknown}" \
         KERNEL_SHA256="${KERNEL_SHA256:-unknown}" \
@@ -229,6 +287,8 @@ cleanup_exit() {
         INSTALLED_VM_STARTED="$INSTALLED_VM_STARTED" \
         INSTALLER_CLEANUP_STATE="$installer_cleanup_state" \
         INSTALLED_CLEANUP_STATE="$installed_cleanup_state" \
+        INSTALLER_CLEANUP_EXIT="$installer_cleanup_exit" \
+        INSTALLED_CLEANUP_EXIT="$installed_cleanup_exit" \
         INSTALLER_ALIVE="$installer_alive" \
         INSTALLED_ALIVE="$installed_alive" \
         FAILURE_SUMMARY_JSON="$failure_summary_json" \
@@ -244,9 +304,11 @@ def boolean(name: str) -> bool:
 summary = {
     "source_commit": os.environ["C2_SOURCE_COMMIT"],
     "workflow_run_id": os.environ["WF_RUN_ID"],
+    "execution_id": os.environ["EXECUTION_ID"],
     "vm_id": os.environ["VM_ID"],
     "phase": os.environ["INSTALL_PHASE"],
     "exit_code": int(os.environ["EXIT_CODE"]),
+    "cleanup_exit_code": int(os.environ.get("CLEANUP_EXIT", "0")),
     "failure_reason": f"install-candidate2.sh failed during phase {os.environ['INSTALL_PHASE']} with exit code {os.environ['EXIT_CODE']}",
     "source_iso_sha256": os.environ.get("CAND2_VERIFIED_SHA", "unknown"),
     "source_iso_sha512": os.environ.get("CAND2_VERIFIED_SHA512", "unknown"),
@@ -259,6 +321,8 @@ summary = {
     "installed_vm_started": boolean("INSTALLED_VM_STARTED"),
     "installer_cleanup_state": os.environ["INSTALLER_CLEANUP_STATE"],
     "installed_cleanup_state": os.environ["INSTALLED_CLEANUP_STATE"],
+    "installer_cleanup_exit_code": int(os.environ.get("INSTALLER_CLEANUP_EXIT", "0")),
+    "installed_cleanup_exit_code": int(os.environ.get("INSTALLED_CLEANUP_EXIT", "0")),
     "installer_process_alive_after_cleanup": boolean("INSTALLER_ALIVE"),
     "installed_process_alive_after_cleanup": boolean("INSTALLED_ALIVE"),
     "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -359,6 +423,7 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
+INSTALLER_VM_PID=$(cat "$pid_file" 2>/dev/null || echo "")
 INSTALLER_VM_STARTED=true
 INSTALL_PHASE="installer_running"
 
@@ -425,6 +490,7 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
+INSTALLED_VM_PID=$(cat "$installed_pid_file" 2>/dev/null || echo "")
 INSTALLED_VM_STARTED=true
 INSTALL_PHASE="installed_boot_verification"
 
@@ -483,7 +549,8 @@ CURR_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 DISK_INSPECT_JSON="$disk_inspect_json" \
 COMPLETION_JSON="$completion_json" \
 CURR_SHA="$CURR_SHA" \
-RUN_ID="$RUN_ID" \
+WORKFLOW_RUN_ID="$WORKFLOW_RUN_ID" \
+EXECUTION_ID="$EXECUTION_ID" \
 ISO_PATH="$ISO_PATH" \
 CAND2_VERIFIED_SHA="$CAND2_VERIFIED_SHA" \
 CAND2_VERIFIED_SHA512="$CAND2_VERIFIED_SHA512" \
@@ -516,7 +583,8 @@ if overall_status != "PASS":
 state = {
     "schema_version": "1.0",
     "source_commit": os.environ["CURR_SHA"],
-    "workflow_run_id": os.environ["RUN_ID"],
+    "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
+    "execution_id": os.environ["EXECUTION_ID"],
     "candidate2_iso_path": os.environ["ISO_PATH"],
     "source_iso_sha256": os.environ["CAND2_VERIFIED_SHA"],
     "source_iso_sha512": os.environ["CAND2_VERIFIED_SHA512"],

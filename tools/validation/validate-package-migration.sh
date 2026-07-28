@@ -544,25 +544,39 @@ fi
     if [[ -z "$MIG_PRE_SHA" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} pre_sha_empty"; fi
     if [[ "$MIG_PRE_SHA" != "$MIG_ROLLBACK_SHA" ]]; then MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} sha_mismatch"; fi
 
-    # Read binding fields from migration result
-    MIG_INSTALL_SOURCE_COMMIT=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_source_commit',''))" 2>/dev/null || echo "")
-    MIG_INSTALL_ISO_SHA256=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_source_iso_sha256',''))" 2>/dev/null || echo "")
-    MIG_INSTALL_ISO_SHA512=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_source_iso_sha512',''))" 2>/dev/null || echo "")
-    MIG_INSTALL_INSTALLER_VM=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_installer_vm_id',''))" 2>/dev/null || echo "")
-    MIG_INSTALL_INSTALLED_VM=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_installed_vm_id',''))" 2>/dev/null || echo "")
+    # Read binding fields from migration result (using new comprehensive field names)
+    MIG_SOURCE_COMMIT=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('source_commit',''))" 2>/dev/null || echo "")
+    MIG_WORKFLOW_RUN_ID=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('workflow_run_id',''))" 2>/dev/null || echo "")
+    MIG_INSTALL_STATE_SHA256=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_state_sha256',''))" 2>/dev/null || echo "")
+    MIG_SOURCE_ISO_SHA256=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('source_iso_sha256',''))" 2>/dev/null || echo "")
+    MIG_SOURCE_ISO_SHA512=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('source_iso_sha512',''))" 2>/dev/null || echo "")
+    MIG_INSTALLER_VM_ID=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_installer_vm_id',''))" 2>/dev/null || echo "")
+    MIG_INSTALLED_VM_ID=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('installation_installed_vm_id',''))" 2>/dev/null || echo "")
 
     # Read corresponding fields from installation state for binding validation
     STATE_SOURCE_COMMIT=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('source_commit',''))" 2>/dev/null || echo "")
+    STATE_WORKFLOW_RUN_ID=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('workflow_run_id',''))" 2>/dev/null || echo "")
     STATE_ISO_SHA256=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('source_iso_sha256',''))" 2>/dev/null || echo "")
     STATE_ISO_SHA512=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('source_iso_sha512',''))" 2>/dev/null || echo "")
     STATE_INSTALLER_VM=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('vm_id',''))" 2>/dev/null || echo "")
     STATE_INSTALLED_VM=$(python3 -c "import json; d=json.load(open('$CAND2_STATE_FILE')); print(d.get('installed_vm_id',''))" 2>/dev/null || echo "")
 
-    [[ "$MIG_INSTALL_SOURCE_COMMIT" == "$STATE_SOURCE_COMMIT" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} source_commit_binding: mig=$MIG_INSTALL_SOURCE_COMMIT != state=$STATE_SOURCE_COMMIT"
-    [[ "$MIG_INSTALL_ISO_SHA256" == "$STATE_ISO_SHA256" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} iso_sha256_binding: mig=$MIG_INSTALL_ISO_SHA256 != state=$STATE_ISO_SHA256"
-    [[ "$MIG_INSTALL_ISO_SHA512" == "$STATE_ISO_SHA512" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} iso_sha512_binding: mig=$MIG_INSTALL_ISO_SHA512 != state=$STATE_ISO_SHA512"
-    [[ "$MIG_INSTALL_INSTALLER_VM" == "$STATE_INSTALLER_VM" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} installer_vm_binding: mig=$MIG_INSTALL_INSTALLER_VM != state=$STATE_INSTALLER_VM"
-    [[ "$MIG_INSTALL_INSTALLED_VM" == "$STATE_INSTALLED_VM" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} installed_vm_binding: mig=$MIG_INSTALL_INSTALLED_VM != state=$STATE_INSTALLED_VM"
+    # Calculate expected values from the current execution context
+    EXPECTED_INSTALLATION_STATE_SHA256=$(sha256sum "$CAND2_STATE_FILE" | awk '{print $1}')
+    EXPECTED_WORKFLOW_RUN_ID="${GITHUB_RUN_ID:-local}"
+
+    # Comprehensive binding validation — every field must match
+    [[ "$MIG_SOURCE_COMMIT" == "$CURRENT_COMMIT" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} mig_source_commit: $MIG_SOURCE_COMMIT != expected $CURRENT_COMMIT"
+    [[ "$STATE_SOURCE_COMMIT" == "$CURRENT_COMMIT" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} state_source_commit: $STATE_SOURCE_COMMIT != expected $CURRENT_COMMIT"
+    [[ "$MIG_WORKFLOW_RUN_ID" == "$EXPECTED_WORKFLOW_RUN_ID" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} mig_workflow_run_id: $MIG_WORKFLOW_RUN_ID != expected $EXPECTED_WORKFLOW_RUN_ID"
+    [[ "$STATE_WORKFLOW_RUN_ID" == "$EXPECTED_WORKFLOW_RUN_ID" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} state_workflow_run_id: $STATE_WORKFLOW_RUN_ID != expected $EXPECTED_WORKFLOW_RUN_ID"
+    [[ "$MIG_INSTALL_STATE_SHA256" == "$EXPECTED_INSTALLATION_STATE_SHA256" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} install_state_sha256: $MIG_INSTALL_STATE_SHA256 != expected $EXPECTED_INSTALLATION_STATE_SHA256"
+    [[ "$MIG_SOURCE_ISO_SHA256" == "$CAND2_ACTUAL_SHA" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} mig_iso_sha256: $MIG_SOURCE_ISO_SHA256 != expected $CAND2_ACTUAL_SHA"
+    [[ "$MIG_SOURCE_ISO_SHA512" == "$CAND2_ACTUAL_SHA512" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} mig_iso_sha512: $MIG_SOURCE_ISO_SHA512 != expected $CAND2_ACTUAL_SHA512"
+    [[ "$STATE_ISO_SHA256" == "$CAND2_ACTUAL_SHA" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} state_iso_sha256: $STATE_ISO_SHA256 != expected $CAND2_ACTUAL_SHA"
+    [[ "$STATE_ISO_SHA512" == "$CAND2_ACTUAL_SHA512" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} state_iso_sha512: $STATE_ISO_SHA512 != expected $CAND2_ACTUAL_SHA512"
+    [[ "$MIG_INSTALLER_VM_ID" == "$STATE_INSTALLER_VM" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} installer_vm: $MIG_INSTALLER_VM_ID != state $STATE_INSTALLER_VM"
+    [[ "$MIG_INSTALLED_VM_ID" == "$STATE_INSTALLED_VM" ]] || MIG_VALIDATION_FAILURES="${MIG_VALIDATION_FAILURES} installed_vm: $MIG_INSTALLED_VM_ID != state $STATE_INSTALLED_VM"
 
     if [[ -n "$MIG_VALIDATION_FAILURES" ]]; then
         write_candidate_stage_failure "invalid_migration_result" "$CAND2_MIG_EXIT" "Migration result validation failures:${MIG_VALIDATION_FAILURES}"
@@ -571,6 +585,58 @@ fi
 
     # Copy validated migration result into runtime evidence dir
     cp -f "$MIG_RESULT_FILE" "$RUNTIME_EVIDENCE_DIR/migration-result.json" 2>/dev/null || true
+
+    # === Mandatory evidence validation ===
+    # 1. All mandatory artifacts must exist and be nonempty
+    MANDATORY_EVIDENCE=(
+        "$RUNTIME_EVIDENCE_DIR/install-completion.json"
+        "$RUNTIME_EVIDENCE_DIR/installer.serial.log"
+        "$RUNTIME_EVIDENCE_DIR/vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-result.json"
+    )
+    EVIDENCE_FAILURES=""
+    for ev in "${MANDATORY_EVIDENCE[@]}"; do
+        if [[ ! -f "$ev" ]]; then
+            EVIDENCE_FAILURES="${EVIDENCE_FAILURES} missing:$ev"
+        elif [[ ! -s "$ev" ]]; then
+            EVIDENCE_FAILURES="${EVIDENCE_FAILURES} empty:$ev"
+        fi
+    done
+
+    # 2. Validate every JSON file with json.tool
+    JSON_EVIDENCE=(
+        "$RUNTIME_EVIDENCE_DIR/install-completion.json"
+        "$RUNTIME_EVIDENCE_DIR/vm-state.final.json"
+        "$RUNTIME_EVIDENCE_DIR/shutdown-result.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-result.json"
+    )
+    for je in "${JSON_EVIDENCE[@]}"; do
+        if [[ -f "$je" ]]; then
+            python3 -m json.tool "$je" >/dev/null 2>&1 || EVIDENCE_FAILURES="${EVIDENCE_FAILURES} invalid_json:$je"
+        fi
+    done
+
+    # 3. Final VM state must not be "running" (VM must have stopped cleanly)
+    FINAL_VM_STATE=$(python3 -c "import json; d=json.load(open('$RUNTIME_EVIDENCE_DIR/vm-state.final.json')); print(d.get('state',''))" 2>/dev/null || echo "")
+    if [[ "$FINAL_VM_STATE" == "running" ]]; then
+        EVIDENCE_FAILURES="${EVIDENCE_FAILURES} vm_still_running"
+    fi
+
+    # 4. Shutdown result must confirm clean stop
+    SHUTDOWN_ALIVE=$(python3 -c "import json; d=json.load(open('$RUNTIME_EVIDENCE_DIR/shutdown-result.json')); print(str(d.get('process_alive_after_stop', '')).lower())" 2>/dev/null || echo "")
+    SHUTDOWN_QMP=$(python3 -c "import json; d=json.load(open('$RUNTIME_EVIDENCE_DIR/shutdown-result.json')); print(str(d.get('qmp_socket_present_after_stop', '')).lower())" 2>/dev/null || echo "")
+    if [[ "$SHUTDOWN_ALIVE" != "false" ]]; then
+        EVIDENCE_FAILURES="${EVIDENCE_FAILURES} process_alive_after_stop=$SHUTDOWN_ALIVE"
+    fi
+    if [[ "$SHUTDOWN_QMP" != "false" ]]; then
+        EVIDENCE_FAILURES="${EVIDENCE_FAILURES} qmp_socket_present_after_stop=$SHUTDOWN_QMP"
+    fi
+
+    if [[ -n "$EVIDENCE_FAILURES" ]]; then
+        write_candidate_stage_failure "invalid_evidence" "$CAND2_MIG_EXIT" "Mandatory evidence validation failures:${EVIDENCE_FAILURES}"
+        fail "Mandatory evidence validation failures:${EVIDENCE_FAILURES}"
+    fi
 
     # Only reached when both installation AND migration succeeded
     CAND2_EXIT_CODE=0

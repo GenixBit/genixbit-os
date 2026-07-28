@@ -701,10 +701,13 @@ fi
 # Test 67 -- migrate-candidate2.sh includes installation binding fields
 T=67
 DESC="migrate-candidate2.sh migration-result.json includes installation binding fields"
-if grep -q "installation_source_commit" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
-   grep -q "installation_source_iso_sha256" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
-   grep -q "installation_installer_vm_id" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
-   grep -q "installation_installed_vm_id" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
+if grep -q "'source_commit'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "'workflow_run_id'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "'installation_state_sha256'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "'source_iso_sha256'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "'installation_installer_vm_id'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "'installation_installed_vm_id'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "'migration_vm_id'" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
     pass_test $T "$DESC"
 else
     fail_test $T "$DESC" "migrate-candidate2.sh missing installation binding fields"
@@ -713,7 +716,7 @@ fi
 # Test 68 -- validate-package-migration.sh validates migration binding fields
 T=68
 DESC="validate-package-migration.sh validates source_commit and iso_sha256 binding"
-if grep -q "source_commit_binding\|iso_sha256_binding\|installer_vm_binding\|installed_vm_binding" \
+if grep -q "source_commit.*!=.*CURRENT_COMMIT\|mig_workflow_run_id\|install_state_sha256\|mig_iso_sha256" \
    "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
     pass_test $T "$DESC"
 else
@@ -802,15 +805,15 @@ else
     fail_test $T "$DESC" "wait-for-install-completion.sh write_out_json missing Python boolean() function"
 fi
 
-# Test 76 -- run-qemu.sh stop captures QMP_PRESENT_AFTER before socket cleanup
+# Test 76 -- run-qemu.sh stop removes QMP socket THEN captures QMP_PRESENT_AFTER
 T=76
-DESC="run-qemu.sh stop captures QMP_PRESENT_AFTER before deleting socket"
+DESC="run-qemu.sh stop removes QMP socket before QMP_PRESENT_AFTER capture"
 RUN_QEMU="$REPO_ROOT/tools/vm/run-qemu.sh"
-# QMP_PRESENT_AFTER=true is set inside an if block, followed by rm -f "$QMP_SOCKET"
-if grep -A2 "QMP_PRESENT_AFTER=true" "$RUN_QEMU" 2>/dev/null | grep -q 'rm -f "\$QMP_SOCKET"'; then
+# rm -f "$QMP_SOCKET" comes before QMP_PRESENT_AFTER=false/true
+if grep -A3 'rm -f "\$QMP_SOCKET"' "$RUN_QEMU" 2>/dev/null | grep -q 'QMP_PRESENT_AFTER='; then
     pass_test $T "$DESC"
 else
-    fail_test $T "$DESC" "QMP_PRESENT_AFTER=true not followed by rm -f QMP_SOCKET"
+    fail_test $T "$DESC" "rm -f QMP_SOCKET not followed by QMP_PRESENT_AFTER capture"
 fi
 
 # Test 77 -- validate-package-migration.sh no failure-summary.json in PASS artifacts

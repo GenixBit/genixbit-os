@@ -141,6 +141,9 @@ if [[ -z "$SSH_USER" ]]; then
     SSH_USER=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('ssh_username', 'genixbit'))")
 fi
 
+# Compute installation-state SHA-256 for binding (must match exactly between install and migrate)
+INSTALLATION_STATE_SHA256=$(sha256sum "$INSTALLATION_STATE_JSON" | awk '{print $1}')
+
 # Read binding fields from installation state for migration-result attestation
 INSTALL_SOURCE_COMMIT=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('source_commit', 'unknown'))")
 INSTALL_SOURCE_ISO_SHA256=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('source_iso_sha256', 'unknown'))")
@@ -148,6 +151,10 @@ INSTALL_SOURCE_ISO_SHA512=$(python3 -c "import sys, json; print(json.load(open('
 INSTALL_INSTALLER_VM_ID=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('vm_id', 'unknown'))")
 INSTALL_INSTALLED_VM_ID=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('installed_vm_id', 'unknown'))")
 INSTALL_WORKFLOW_RUN_ID=$(python3 -c "import sys, json; print(json.load(open('$INSTALLATION_STATE_JSON')).get('workflow_run_id', 'unknown'))")
+
+# Current execution context
+MIG_WORKFLOW_RUN_ID="${GITHUB_RUN_ID:-local}"
+MIG_SOURCE_COMMIT=$(git -C "$(dirname "$(readlink -f "$0")")/../.." rev-parse HEAD 2>/dev/null || echo "unknown")
 
 [[ -n "$DISK_PATH" && -f "$DISK_PATH" ]] || fail "Installed disk path ($DISK_PATH) is required and must exist."
 [[ -n "$SSH_KEY" && -f "$SSH_KEY" ]] || fail "Provisioned SSH private key ($SSH_KEY) is required and must exist."
@@ -599,16 +606,19 @@ result = {
         '$REUPGRADE_GUEST_LOG'
     ],
     'execution_timestamp': '$EXEC_TIMESTAMP',
-    # Binding fields from installation state — attest that migration ran on the same candidate2 build
-    'installation_source_commit': '$INSTALL_SOURCE_COMMIT',
-    'installation_source_iso_sha256': '$INSTALL_SOURCE_ISO_SHA256',
-    'installation_source_iso_sha512': '$INSTALL_SOURCE_ISO_SHA512',
+    # Binding fields — attest that migration ran on the exact same candidate2 build
+    'source_commit': '$MIG_SOURCE_COMMIT',
+    'workflow_run_id': '$MIG_WORKFLOW_RUN_ID',
+    'installation_state_sha256': '$INSTALLATION_STATE_SHA256',
+    'source_iso_sha256': '$INSTALL_SOURCE_ISO_SHA256',
+    'source_iso_sha512': '$INSTALL_SOURCE_ISO_SHA512',
     'installation_installer_vm_id': '$INSTALL_INSTALLER_VM_ID',
     'installation_installed_vm_id': '$INSTALL_INSTALLED_VM_ID',
     'installation_workflow_run_id': '$INSTALL_WORKFLOW_RUN_ID',
+    'migration_vm_id': '$VM_ID',
 }
 
-# Final status: ALL 18 observed conditions plus binding fields must be satisfied
+# Final status: ALL observed conditions plus binding fields must be satisfied
 all_pass = (
     result['apt_install_exit_code'] == '0' and
     result['apt_check_exit_code'] == '0' and
@@ -627,7 +637,13 @@ all_pass = (
     result['reupgrade_dpkg_query'] not in ('', 'unavailable') and
     result['final_os_release'] not in ('', 'unavailable') and
     result['observed_staging_fingerprint'] != '' and
-    result['vm_id'] != ''
+    result['vm_id'] != '' and
+    # Binding field validation
+    result['source_commit'] != '' and
+    result['workflow_run_id'] != '' and
+    result['installation_state_sha256'] != '' and
+    result['source_iso_sha256'] != '' and
+    result['migration_vm_id'] != ''
 )
 result['migration_status'] = 'PASS' if all_pass else 'FAIL'
 result['final_status'] = 'PASS' if all_pass else 'FAIL'

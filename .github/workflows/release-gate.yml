@@ -208,6 +208,7 @@ jobs:
           set -euo pipefail
           bash tools/validation/test-release-evidence-integrity.sh
           bash tools/validation/test-observed-guest-negative.sh
+          bash tests/infrastructure/test-qmp-json-parsing.sh
           echo "[PASS] Regression tests passed — no fabricated evidence patterns detected."
 
       - name: Execute Full Package Migration & Staging Validation Suite
