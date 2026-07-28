@@ -18,7 +18,8 @@ IFS=$'\n\t'
 ISO_PATH=""
 DISK_PATH=""
 MODE="uefi"
-TIMEOUT_SEC=900
+TIMEOUT_SEC=2700
+RUNTIME_EVIDENCE_DIR=""
 
 fail() {
     printf '[FAIL] install-candidate2.sh: %s\n' "$*" >&2
@@ -51,6 +52,11 @@ while (($# > 0)); do
             TIMEOUT_SEC=$2
             shift 2
             ;;
+        --runtime-evidence-dir)
+            (($# >= 2)) || fail '--runtime-evidence-dir requires a path.'
+            RUNTIME_EVIDENCE_DIR=$2
+            shift 2
+            ;;
         *)
             fail "Unknown argument: $1"
             ;;
@@ -65,19 +71,32 @@ CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')
 if [[ "$CAND2_VERIFIED_SHA" != "1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669" ]]; then
     fail "Candidate 2 ISO SHA-256 mismatch! Got ${CAND2_VERIFIED_SHA} — expected 1cb79fbf..."
 fi
+CAND2_VERIFIED_SHA512=$(sha512sum "$ISO_PATH" | awk '{print $1}')
+info "Candidate 2 ISO SHA-256 verified: $CAND2_VERIFIED_SHA"
+info "Candidate 2 ISO SHA-512 verified: ${CAND2_VERIFIED_SHA512:0:16}..."
 
 # 2. Setup state directory and unique run identifiers
 VM_ID="cand2_${MODE}_$(date +%s)_$$"
 state_dir="$(dirname "$DISK_PATH")/cand2-${MODE}-state"
-stage_logs_dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/infra/package-staging/results/stage-logs"
+REPO_TOP=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+stage_logs_dir="$REPO_TOP/infra/package-staging/results/stage-logs"
 mkdir -p "$state_dir" "$stage_logs_dir"
 
-serial_log="${state_dir}/install-serial.log"
+# Persistent runtime evidence dir (survives TMP cleanup)
+if [[ -z "$RUNTIME_EVIDENCE_DIR" ]]; then
+    RUNTIME_EVIDENCE_DIR="$REPO_TOP/infra/package-staging/results/runtime/local-$(date +%s)-$$"
+fi
+mkdir -p "$RUNTIME_EVIDENCE_DIR"
+info "Runtime evidence directory: $RUNTIME_EVIDENCE_DIR"
+
+serial_log="${RUNTIME_EVIDENCE_DIR}/installer.serial.log"
 qmp_path="${state_dir}/qmp-${VM_ID}.sock"
 pid_file="${state_dir}/qemu-${VM_ID}.pid"
-screenshot_path="${state_dir}/cand2-installer.ppm"
-disk_inspect_json="${state_dir}/disk-inspection-${MODE}.json"
-completion_json="${state_dir}/install-completion-result-${VM_ID}.json"
+screenshot_path="${RUNTIME_EVIDENCE_DIR}/installer.ppm"
+disk_inspect_json="${RUNTIME_EVIDENCE_DIR}/disk-inspection-${MODE}.json"
+completion_json="${RUNTIME_EVIDENCE_DIR}/install-completion.json"
+kernel_extraction_json="${RUNTIME_EVIDENCE_DIR}/kernel-extraction.json"
+failure_summary_json="${RUNTIME_EVIDENCE_DIR}/failure-summary.json"
 
 # 3. Create GENUINELY BLANK target QCOW2 disk.
 # The target disk must be blank. The installer running inside QEMU is the ONLY entity
@@ -95,7 +114,7 @@ SSH_FP=$(ssh-keygen -lf "$SSH_PUB" 2>/dev/null | awk '{print $2}')
 # 5. Allocate unique loopback SSH port
 SSH_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
 
-# 6. Build autoinstall seed media — token will be written by the installer, not the host
+# 6. Build autoinstall seed media
 RUN_ID="$(date +%s)_$$"
 INSTALL_TOKEN="GENIXBIT_INSTALL_COMPLETE_${RUN_ID}_${MODE}_cand2"
 
@@ -105,14 +124,38 @@ SEED_JSON=$(bash "$(dirname "$0")/create-autoinstall-seed.sh" \
     --username "genixbit" \
     --ssh-key "$SSH_PUB" \
     --token "$INSTALL_TOKEN" \
-    --out-dir "${state_dir}/seed" \
+    --out-dir "${RUNTIME_EVIDENCE_DIR}/seed" \
     --mode "$MODE")
 
 SEED_ISO=$(echo "$SEED_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['seed_iso_path'])")
+SEED_SHA256=$(echo "$SEED_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['seed_iso_sha256'])")
 
-info "Booting Candidate 2 ISO in $MODE mode as managed background process (VM: $VM_ID, Port: $SSH_PORT)..."
+# Copy seed user-data/meta-data to runtime evidence dir for forensics
+cp -f "${RUNTIME_EVIDENCE_DIR}/seed/user-data" "${RUNTIME_EVIDENCE_DIR}/seed-user-data.yaml" 2>/dev/null || true
+cp -f "${RUNTIME_EVIDENCE_DIR}/seed/meta-data" "${RUNTIME_EVIDENCE_DIR}/seed-meta-data.yaml" 2>/dev/null || true
 
-# 7. Start QEMU in managed background lifecycle mode
+# Step 6 + 8: Extract installer kernel and initrd from the canonical ISO
+info "Extracting /casper/vmlinuz and /casper/initrd from verified Candidate 2 ISO..."
+KERNEL_EXTRACTION_OUT=$(bash "$(dirname "$0")/extract-installer-kernel.sh" \
+    --iso "$ISO_PATH" \
+    --out-dir "${RUNTIME_EVIDENCE_DIR}/kernel" \
+    --out-json "$kernel_extraction_json")
+
+INSTALLER_VMLINUZ=$(echo "$KERNEL_EXTRACTION_OUT" | grep '"vmlinuz_path"' | python3 -c "import sys,json; d=json.load(open('$kernel_extraction_json')); print(d['vmlinuz_path'])" 2>/dev/null || \
+    python3 -c "import json; d=json.load(open('$kernel_extraction_json')); print(d['vmlinuz_path'])")
+INSTALLER_INITRD=$(python3 -c "import json; d=json.load(open('$kernel_extraction_json')); print(d['initrd_path'])")
+KERNEL_SHA256=$(python3 -c "import json; d=json.load(open('$kernel_extraction_json')); print(d['vmlinuz_sha256'])")
+INITRD_SHA256=$(python3 -c "import json; d=json.load(open('$kernel_extraction_json')); print(d['initrd_sha256'])")
+
+info "Kernel SHA-256: $KERNEL_SHA256"
+info "Initrd SHA-256: $INITRD_SHA256"
+
+# Kernel append: autoinstall + NoCloud seed from virtio drive (/dev/vdb = cidata ISO)
+KERNEL_APPEND="boot=casper autoinstall ds=nocloud console=ttyS0,115200n8 ---"
+
+info "Booting Candidate 2 ISO in $MODE mode with direct-kernel autoinstall (VM: $VM_ID, Port: $SSH_PORT)..."
+
+# 7. Start QEMU with direct-kernel boot (canonical ISO still attached read-only as CDROM)
 bash "$(dirname "$0")/run-qemu.sh" start \
     --vm-id "$VM_ID" \
     --mode "$MODE" \
@@ -124,6 +167,10 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --qmp-socket "$qmp_path" \
     --pid-file "$pid_file" \
     --ssh-port "$SSH_PORT" \
+    --kernel "$INSTALLER_VMLINUZ" \
+    --initrd "$INSTALLER_INITRD" \
+    --append "$KERNEL_APPEND" \
+    --no-reboot \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
@@ -144,10 +191,18 @@ bash "$(dirname "$0")/wait-for-install-completion.sh" \
     --ssh-key "$SSH_KEY" \
     --disk "$DISK_PATH" \
     --mode "$MODE" \
+    --natural-shutdown-grace 180 \
     --timeout "$TIMEOUT_SEC" \
     --out-json "$completion_json"
 
-cp -f "$serial_log" "$stage_logs_dir/cand2-install-serial.log"
+# Preserve evidence files in runtime dir
+cp -f "$serial_log" "$RUNTIME_EVIDENCE_DIR/installer.serial.log" 2>/dev/null || true
+cp -f "${state_dir}/qemu-${VM_ID}.stderr" "$RUNTIME_EVIDENCE_DIR/qemu.stderr.log" 2>/dev/null || true
+cp -f "$screenshot_path" "$RUNTIME_EVIDENCE_DIR/installer.ppm" 2>/dev/null || true
+cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/vm-state.json" 2>/dev/null || true
+
+# Copy to stage-logs for CI artifact upload
+cp -f "$serial_log" "$stage_logs_dir/cand2-install-serial.log" 2>/dev/null || true
 
 # 10. Stop installer VM cleanly
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
@@ -247,10 +302,16 @@ state = {
     'source_commit': '$CURR_SHA',
     'workflow_run_id': '$RUN_ID',
     'candidate2_iso_path': '$ISO_PATH',
-    'candidate2_iso_sha256': '$CAND2_VERIFIED_SHA',
+    'source_iso_sha256': '$CAND2_VERIFIED_SHA',
+    'source_iso_sha512': '$CAND2_VERIFIED_SHA512',
+    'kernel_sha256': '$KERNEL_SHA256',
+    'initrd_sha256': '$INITRD_SHA256',
+    'seed_iso_sha256': '$SEED_SHA256',
+    'kernel_command_line': '$KERNEL_APPEND',
     'vm_id': '$VM_ID',
     'firmware_mode': '$MODE',
     'installed_disk_path': '$DISK_PATH',
+    'target_disk': '$DISK_PATH',
     'disk_inspection_result': '$disk_inspect_json',
     'install_completion_result': '$completion_json',
     'installed_guest_commands_log': '$installed_guest_cmd_log',
@@ -260,12 +321,14 @@ state = {
     'ssh_public_key_fingerprint': '$SSH_FP',
     'installation_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
     'installed_boot_result': 'SSH_AUTHENTICATED_PASS',
+    'runtime_evidence_dir': '$RUNTIME_EVIDENCE_DIR',
     'status': 'PASS'
 }
 with open('$INSTALL_STATE_FILE', 'w') as f:
     json.dump(state, f, indent=2)
 "
 chmod 0600 "$INSTALL_STATE_FILE"
+cp -f "$INSTALL_STATE_FILE" "$RUNTIME_EVIDENCE_DIR/cand2-install-state.json" 2>/dev/null || true
 
 printf 'GENIXBIT_CANDIDATE2_INSTALL_STATE=%s\n' "$INSTALL_STATE_FILE"
 printf '[PASS] Candidate 2 guest installation and installed-boot verified for %s mode: %s\n' "$MODE" "$DISK_PATH"

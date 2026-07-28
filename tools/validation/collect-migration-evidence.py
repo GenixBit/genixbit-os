@@ -100,15 +100,24 @@ def verify_iso_structure(repo_root, iso_path):
         fail(f"ISO structure check failed for {iso_path}:\n{res.stderr}\n{res.stdout}")
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="GenixBit OS evidence collector")
+    parser.add_argument("--stage-logs-dir", default=None,
+                        help="Override stage-logs directory (for testing; default: infra/package-staging/results/stage-logs)")
+    parser.add_argument("--current-dir", default=None,
+                        help="Override current evidence output directory (for testing; default: infra/package-staging/results/current)")
+    args = parser.parse_args()
+
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-    logs_dir = os.path.join(repo_root, "infra/package-staging/results/stage-logs")
-    out_dir = os.path.join(repo_root, "infra/package-staging/results/current")
+    logs_dir = args.stage_logs_dir or os.path.join(repo_root, "infra/package-staging/results/stage-logs")
+    out_dir = args.current_dir or os.path.join(repo_root, "infra/package-staging/results/current")
     debs_dir = os.path.join(repo_root, "packages/build-debs")
-    
+
     os.makedirs(out_dir, exist_ok=True)
-    
+
     current_commit = get_git_head(repo_root)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
     # Rejection 31: Candidate 1 MUST NOT be marked PASS!
     cand1_env = os.path.join(repo_root, "docs/releases/0.3.0-alpha-candidate-1.env")

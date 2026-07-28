@@ -17,6 +17,7 @@ SSH_KEY=""
 DISK_PATH=""
 MODE="uefi"
 TIMEOUT_SEC=600
+NATURAL_SHUTDOWN_GRACE=180
 OUT_JSON=""
 
 fail() {
@@ -86,6 +87,11 @@ while (($# > 0)); do
             OUT_JSON=$2
             shift 2
             ;;
+        --natural-shutdown-grace)
+            (($# >= 2)) || fail '--natural-shutdown-grace requires seconds.'
+            NATURAL_SHUTDOWN_GRACE=$2
+            shift 2
+            ;;
         *)
             fail "Unknown argument: $1"
             ;;
@@ -122,14 +128,55 @@ while true; do
     # Check serial token signal
     if [[ -f "$SERIAL_LOG" ]] && grep -F "$TOKEN" "$SERIAL_LOG" >/dev/null 2>&1; then
         serial_token_observed=true
+        printf '[INFO] Completion token observed in serial log after %ss — waiting for natural installer shutdown (grace: %ss)...\n' "$elapsed" "$NATURAL_SHUTDOWN_GRACE" >&2
+
+        # Step 9: After seeing the token, do NOT immediately force-stop.
+        # Wait up to NATURAL_SHUTDOWN_GRACE seconds for QEMU to exit naturally (poweroff from installer).
+        natural_shutdown_ok=false
+        grace_start=$(date +%s)
+        while true; do
+            grace_now=$(date +%s)
+            grace_elapsed=$(( grace_now - grace_start ))
+
+            if [[ -f "$PID_FILE" ]]; then
+                qpid=$(cat "$PID_FILE" 2>/dev/null || echo "")
+                if [[ -n "$qpid" ]] && ! kill -0 "$qpid" 2>/dev/null; then
+                    natural_shutdown_ok=true
+                    qemu_process_stopped=true
+                    printf '[INFO] QEMU exited naturally after installer poweroff (%ss after token).\n' "$grace_elapsed" >&2
+                    break
+                fi
+            else
+                # No PID file — already gone
+                natural_shutdown_ok=true
+                qemu_process_stopped=true
+                break
+            fi
+
+            if (( grace_elapsed >= NATURAL_SHUTDOWN_GRACE )); then
+                printf '[FAIL] QEMU did not exit naturally within %ss after completion token — installer failed to poweroff.\n' "$NATURAL_SHUTDOWN_GRACE" >&2
+                natural_shutdown_ok=false
+                break
+            fi
+            sleep 2
+        done
+
+        if [[ "$natural_shutdown_ok" != "true" ]]; then
+            # Preserve evidence before failing
+            printf '[FAIL] Natural installer shutdown grace period expired. VM must NOT be force-stopped and inspected.\n' >&2
+            printf '[FAIL] Stage: FAIL — installer did not poweroff naturally. Evidence preserved. Do not inspect disk.\n' >&2
+            fail "Installer did not power off naturally after completion token. Completion cannot be verified."
+        fi
+
         break
     fi
 
-    # Check QEMU process status
+    # Check if QEMU already exited before token observed
     if [[ -f "$PID_FILE" ]]; then
         pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
         if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
             qemu_process_stopped=true
+            printf '[INFO] QEMU process exited (no serial token yet) after %ss.\n' "$elapsed" >&2
             break
         fi
     fi
@@ -142,26 +189,20 @@ while true; do
     sleep 2
 done
 
-# Ensure VM process is stopped safely before offline disk inspection.
-# Fail-closed: only STOPPED_GRACEFULLY and ALREADY_STOPPED_VERIFIED may proceed.
+# At this point: either token observed + natural shutdown, or timeout/early exit.
+# Fail-closed: verify QEMU process is truly stopped before offline disk inspection.
+# SIGTERM or SIGKILL to stop the VM after token observation = FAIL.
 if [[ -f "$PID_FILE" ]]; then
     pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-        STOP_OUTPUT=$(bash "$(dirname "$0")/run-qemu.sh" stop \
-            --vm-id "$VM_ID" \
-            --pid-file "$PID_FILE" \
-            --qmp-socket "$QMP_SOCKET" 2>&1) || {
-            fail "Installer VM stop failed: ${STOP_OUTPUT} — cannot proceed to offline disk inspection!"
-        }
-        ACTUAL_STOP_STATE=$(printf '%s' "$STOP_OUTPUT" | \
-            grep -oE '(STOPPED_GRACEFULLY|ALREADY_STOPPED_VERIFIED|STOPPED_BY_SIGTERM|STOPPED_BY_SIGKILL|STOP_FAILED)' | \
-            head -n1 || echo "UNKNOWN")
-        if [[ "$ACTUAL_STOP_STATE" != "STOPPED_GRACEFULLY" && \
-              "$ACTUAL_STOP_STATE" != "ALREADY_STOPPED_VERIFIED" ]]; then
-            fail "Installer VM did not stop gracefully ($ACTUAL_STOP_STATE) — cannot proceed to disk inspection!"
-        fi
+        # QEMU still alive — we must NOT kill it and claim success
+        # Record SIGTERM as failure state
+        ACTUAL_STOP_STATE="STOPPED_BY_SIGTERM"
+        printf '[FAIL] QEMU still alive after wait loop — recording STOP_BY_SIGTERM as evidence.\n' >&2
+        kill "$pid" 2>/dev/null || true
+        fail "Installer VM still alive after wait period — SIGTERM recorded as FAIL. Disk inspection prohibited."
     else
-        # PID not running — already stopped
+        # PID not running — already stopped naturally
         ACTUAL_STOP_STATE="ALREADY_STOPPED_VERIFIED"
     fi
 else

@@ -30,8 +30,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Production stage-log directory — fixtures MUST NOT be written here
 STAGE_LOGS_DIR="$REPO_ROOT/infra/package-staging/results/stage-logs"
-mkdir -p "$STAGE_LOGS_DIR"
+# Do not create or touch STAGE_LOGS_DIR here — it may not exist yet, and that is correct.
+# Tests that need stage-logs use the private $TEST_DIR/stage-logs only.
 
 setup_valid_stage_logs() {
     rm -rf "${TEST_DIR:?}"/*
@@ -65,7 +67,8 @@ EOF
     cat <<EOF > "$TEST_DIR/stage-logs/stage-test-iso-boot.json"
 {"command": "./tools/vm/install-current-iso.sh --mode uefi && ./tools/vm/install-current-iso.sh --mode bios", "exit_code": 0, "status": "PASS", "source_commit": "$CURR_SHA", "observations": {"vm_command_logs": "qemu uefi bios pass"}, "assertions": [{"assertion": "uefi_boot_and_installation", "status": "PASS", "firmware_mode": "uefi", "evidence_file": "uefi-installed-boot.serial.log"}, {"assertion": "legacy_bios_boot_and_installation", "status": "PASS", "firmware_mode": "bios", "evidence_file": "bios-installed-boot.serial.log"}]}
 EOF
-    cp -r "$TEST_DIR/stage-logs"/* "$STAGE_LOGS_DIR/"
+    # NEVER copy fixture files to the production STAGE_LOGS_DIR.
+    # All fixture-based tests must use $TEST_DIR/stage-logs exclusively.
 }
 
 # Test 1: Rejection of token existing only in serial log without target filesystem token
@@ -200,15 +203,37 @@ fi
 pass "Test 13-16 PASS: Fail-closed snapshot rollback enforcement verified."
 
 # Test 17-21: Static PASS JSON and shared UEFI/BIOS evidence rejection
-info "Test 17-21: Testing rejection of shared UEFI/BIOS evidence logs..."
+# Fixtures stay entirely within $TEST_DIR — never touch the production STAGE_LOGS_DIR.
+info "Test 17-21: Testing rejection of shared UEFI/BIOS evidence logs (using private test dir)..."
 setup_valid_stage_logs
-cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
+# Override the iso-boot fixture to use shared evidence (rejected by collector)
+cat <<EOF > "$TEST_DIR/stage-logs/stage-test-iso-boot.json"
 {"command": "boot", "exit_code": 0, "status": "PASS", "observations": {"vm_command_logs": "qemu boot pass"}, "assertions": [{"assertion": "uefi_boot", "status": "PASS", "firmware_mode": "uefi", "evidence_file": "same.log"}, {"assertion": "bios_boot", "status": "PASS", "firmware_mode": "bios", "evidence_file": "same.log"}]}
 EOF
-if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" 2>/dev/null; then
+if python3 "$REPO_ROOT/tools/validation/collect-migration-evidence.py" \
+    --stage-logs-dir "$TEST_DIR/stage-logs" \
+    --current-dir "$TEST_DIR/current" 2>/dev/null; then
     fail "Collector failed to reject shared UEFI/BIOS evidence log!"
 fi
 pass "Test 17-21 PASS: Shared UEFI/BIOS evidence log correctly rejected."
+
+# Post-suite cleanup assertion: production STAGE_LOGS_DIR must not contain any fixture files
+# written by this test suite.
+info "Post-suite: Asserting no fixture files leaked into production stage-log directory..."
+if [[ -d "$STAGE_LOGS_DIR" ]]; then
+    # Check if any JSON in the production dir was written after test start (via $TEST_DIR timestamp)
+    LEAK_COUNT=0
+    while IFS= read -r f; do
+        if find "$f" -newer "$TEST_DIR" -maxdepth 0 2>/dev/null | grep -q .; then
+            LEAK_COUNT=$((LEAK_COUNT + 1))
+            printf '[FAIL] Fixture file leaked into production directory: %s\n' "$f" >&2
+        fi
+    done < <(find "$STAGE_LOGS_DIR" -name "*.json" -maxdepth 1 2>/dev/null || true)
+    if (( LEAK_COUNT > 0 )); then
+        fail "Test suite leaked $LEAK_COUNT fixture file(s) into production stage-log directory: $STAGE_LOGS_DIR"
+    fi
+fi
+pass "Post-suite cleanup assertion: no fixture files in production stage-log directory."
 
 # Re-verify Candidate 1 retirement, candidate 2 branch absence, and release gate status
 info "Verifying release policy invariants..."

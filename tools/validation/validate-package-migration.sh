@@ -34,13 +34,25 @@ TMP_REPO="$TMP_DIR/repo"
 DEBS_DIR="$REPO_ROOT/packages/build-debs"
 STAGE_LOGS_DIR="$REPO_ROOT/infra/package-staging/results/stage-logs"
 
+# Step 4: Start every real gate with an empty evidence directory.
+# Any stale stage JSON from a previous run must not contaminate this run.
+rm -rf "$STAGE_LOGS_DIR"
+mkdir -p "$STAGE_LOGS_DIR"
+
+# Create a run-specific persistent runtime directory that survives TMP cleanup.
+RELEASE_RUN_ID="${GITHUB_RUN_ID:-local}-$(date +%s)-$$"
+RUNTIME_EVIDENCE_DIR="$REPO_ROOT/infra/package-staging/results/runtime/$RELEASE_RUN_ID"
+mkdir -p "$RUNTIME_EVIDENCE_DIR"
+info "Runtime evidence directory: $RUNTIME_EVIDENCE_DIR"
+
 cleanup() {
     chmod -R 777 "$TMP_DIR" 2>/dev/null || true
     rm -rf "$TMP_DIR" 2>/dev/null || true
+    # RUNTIME_EVIDENCE_DIR is intentionally NOT deleted here.
 }
 trap cleanup EXIT
 
-mkdir -p "$TMP_GPG" "$TMP_REPO" "$DEBS_DIR" "$STAGE_LOGS_DIR"
+mkdir -p "$TMP_GPG" "$TMP_REPO" "$DEBS_DIR"
 chmod 700 "$TMP_GPG"
 export GNUPGHOME="$TMP_GPG"
 
@@ -339,6 +351,14 @@ EOF
 # Candidate 2 Migration (mandatory)
 info "Executing real Candidate 2 system migration..."
 CAND2_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Step 11: Write RUNNING sentinel before any real execution begins.
+# On any failure the sentinel will remain or be replaced by a FAIL JSON.
+# Only after full success (install + migration + rollback + re-upgrade) is PASS written.
+cat <<'RUNNING_EOF' > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
+{"status": "RUNNING", "exit_code": null}
+RUNNING_EOF
+
 CAND2_ISO=$(find "$REPO_ROOT/dist" "$TMP_DIR" -name "GenixBitOS-0.2.0-alpha-2607220558.iso" 2>/dev/null | head -n 1 || echo "")
 if [[ -z "$CAND2_ISO" || ! -f "$CAND2_ISO" ]]; then
     # Priority: provenance immutable_url (generation-pinned) > CANDIDATE2_ISO_URL env (operator pre-cache) > staging server fallback
@@ -386,8 +406,36 @@ fi
         fail "Candidate 2 ISO download returned invalid MIME type: $MIME_TYPE"
     fi
 
-    # 1. Install Candidate 2 ISO in VM
-    CAND2_INSTALL_OUT=$(bash "$REPO_ROOT/tools/vm/install-candidate2.sh" --iso "$CAND2_ISO" --disk "$TMP_DIR/cand2-uefi.qcow2" --mode uefi 2>&1 | tee "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
+    # 1. Install Candidate 2 ISO in VM (fail-closed: capture actual exit code)
+    CAND2_INSTALL_EXIT=0
+    CAND2_INSTALL_OUT=$(
+        bash "$REPO_ROOT/tools/vm/install-candidate2.sh" \
+            --iso "$CAND2_ISO" \
+            --disk "$TMP_DIR/cand2-uefi.qcow2" \
+            --mode uefi \
+            --runtime-evidence-dir "$RUNTIME_EVIDENCE_DIR" \
+            2>&1 | tee "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log"
+    ) || CAND2_INSTALL_EXIT=$?
+
+    if (( CAND2_INSTALL_EXIT != 0 )); then
+        # Extract observed failure reason from last FAIL line
+        CAND2_FAIL_REASON=$(grep '\[FAIL\]' "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log" 2>/dev/null | tail -1 || echo "non-zero exit $CAND2_INSTALL_EXIT")
+        CAND2_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        cat <<EOF > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
+{
+  "source_commit": "$CURRENT_COMMIT",
+  "status": "FAIL",
+  "exit_code": $CAND2_INSTALL_EXIT,
+  "failed_phase": "candidate2_install",
+  "failure_reason": "$(printf '%s' "$CAND2_FAIL_REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))" | tr -d '"')",
+  "start_timestamp": "$CAND2_START",
+  "completion_timestamp": "$CAND2_END",
+  "candidate2_iso_sha256": "${CAND2_ACTUAL_SHA:-unknown}",
+  "candidate2_iso_sha512": "${CAND2_ACTUAL_SHA512:-unknown}"
+}
+EOF
+        fail "Candidate 2 installation failed (exit $CAND2_INSTALL_EXIT): $CAND2_FAIL_REASON"
+    fi
 
     CAND2_STATE_FILE=$(echo "$CAND2_INSTALL_OUT" | grep "GENIXBIT_CANDIDATE2_INSTALL_STATE=" | cut -d'=' -f2- || echo "")
     [[ -n "$CAND2_STATE_FILE" && -f "$CAND2_STATE_FILE" ]] || fail "Candidate 2 installation state file missing from install-candidate2.sh output!"
@@ -397,27 +445,53 @@ fi
 
     # 2. Execute migration using installation state file, staging public key, and signing fingerprint
     # D3: Use GUEST_STAGING_URL (10.0.2.2:PORT) so QEMU VMs can reach the staging repo
-    MIG_OUT=$(bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" \
-        --installation-state-json "$CAND2_STATE_FILE" \
-        --staging-url "$GUEST_STAGING_URL" \
-        --staging-key "$PUB_KEYRING" \
-        --staging-fingerprint "$FPR" 2>&1 | tee -a "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log")
+    CAND2_MIG_EXIT=0
+    MIG_OUT=$(
+        bash "$REPO_ROOT/tools/vm/migrate-candidate2.sh" \
+            --installation-state-json "$CAND2_STATE_FILE" \
+            --staging-url "$GUEST_STAGING_URL" \
+            --staging-key "$PUB_KEYRING" \
+            --staging-fingerprint "$FPR" \
+            2>&1 | tee -a "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log"
+    ) || CAND2_MIG_EXIT=$?
 
     CAND2_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     MIG_RESULT_FILE=$(echo "$MIG_OUT" | grep "recorded in " | awk '{print $9}' || echo "")
 
+    # Determine actual status from state file (never assume PASS from exit code alone)
     CAND2_STATUS="FAIL"
     if [[ -n "$CAND2_STATE_FILE" && -f "$CAND2_STATE_FILE" ]]; then
         CAND2_STATUS=$(python3 -c "import sys, json; print(json.load(open('$CAND2_STATE_FILE')).get('status', 'FAIL'))")
     fi
 
+    if [[ "$CAND2_STATUS" != "PASS" || $CAND2_MIG_EXIT -ne 0 ]]; then
+        CAND2_STATUS="FAIL"
+        CAND2_FAIL_REASON=$(grep '\[FAIL\]' "$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log" 2>/dev/null | tail -1 || echo "migration exit $CAND2_MIG_EXIT")
+        cat <<EOF > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
+{
+  "source_commit": "$CURRENT_COMMIT",
+  "status": "FAIL",
+  "exit_code": $CAND2_MIG_EXIT,
+  "failed_phase": "candidate2_migration",
+  "failure_reason": "$(printf '%s' "$CAND2_FAIL_REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))" | tr -d '"')",
+  "start_timestamp": "$CAND2_START",
+  "completion_timestamp": "$CAND2_END",
+  "candidate2_iso_sha256": "$CAND2_ACTUAL_SHA",
+  "candidate2_iso_sha512": "$CAND2_ACTUAL_SHA512"
+}
+EOF
+        fail "Candidate 2 migration failed (exit $CAND2_MIG_EXIT): $CAND2_FAIL_REASON"
+    fi
+
+    # Only reached when both installation AND migration succeeded
+    CAND2_EXIT_CODE=0
     cat <<EOF > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
 {
   "source_commit": "$CURRENT_COMMIT",
   "command": "./tools/vm/install-candidate2.sh --iso ... --disk ... --mode uefi && ./tools/vm/migrate-candidate2.sh --installation-state-json ... --staging-url ...",
   "start_timestamp": "$CAND2_START",
   "completion_timestamp": "$CAND2_END",
-  "exit_code": 0,
+  "exit_code": $CAND2_EXIT_CODE,
   "environment_id": "Disposable Candidate 2 legacy VM container",
   "environment": "Disposable Candidate 2 legacy VM container",
   "stdout_path": "infra/package-staging/results/stage-logs/stage-candidate-upgrade.stdout.log",

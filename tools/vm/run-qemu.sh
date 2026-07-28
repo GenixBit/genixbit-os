@@ -21,6 +21,11 @@ SSH_PORT=""
 HEADLESS=true
 TIMEOUT_SEC=600
 INSTALLED=false
+# Direct-kernel boot options (Step 7: activate autoinstall)
+KERNEL_PATH=""
+INITRD_PATH=""
+KERNEL_APPEND="boot=casper autoinstall console=ttyS0,115200n8 ---"
+NO_REBOOT=false
 
 fail() {
     printf '[FAIL] run-qemu.sh (%s): %s\n' "${ACTION:-unknown}" "$*" >&2
@@ -91,6 +96,25 @@ while (($# > 0)); do
             (($# >= 2)) || fail '--timeout requires seconds.'
             TIMEOUT_SEC=$2
             shift 2
+            ;;
+        --kernel)
+            (($# >= 2)) || fail '--kernel requires a path.'
+            KERNEL_PATH=$2
+            shift 2
+            ;;
+        --initrd)
+            (($# >= 2)) || fail '--initrd requires a path.'
+            INITRD_PATH=$2
+            shift 2
+            ;;
+        --append)
+            (($# >= 2)) || fail '--append requires a kernel cmdline string.'
+            KERNEL_APPEND=$2
+            shift 2
+            ;;
+        --no-reboot)
+            NO_REBOOT=true
+            shift
             ;;
         *)
             fail "Unknown argument: $1"
@@ -180,11 +204,35 @@ case "$ACTION" in
         )
 
         if [[ "$INSTALLED" == "false" && -n "$ISO_PATH" ]]; then
+            # ISO always attached read-only as CDROM (even with direct-kernel boot,
+            # the installer squashfs must come from this exact ISO).
             qemu_args+=("-drive" "file=$ISO_PATH,format=raw,media=cdrom,readonly=on" "-boot" "d")
         fi
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
             qemu_args+=("-drive" "file=$SEED_ISO_PATH,format=raw,if=virtio")
+        fi
+
+        # Step 7: Direct-kernel autoinstall boot.
+        # When --kernel and --initrd are supplied, use QEMU's -kernel/-initrd/-append
+        # to force subiquity into autoinstall mode without relying on the GRUB menu.
+        # The canonical ISO is STILL attached read-only above; its squashfs provides
+        # the installer payload. This only bootstraps the autoinstall flow.
+        if [[ -n "$KERNEL_PATH" && -n "$INITRD_PATH" ]]; then
+            [[ -f "$KERNEL_PATH" && -s "$KERNEL_PATH" ]] || fail "--kernel path does not exist or is empty: $KERNEL_PATH"
+            [[ -f "$INITRD_PATH" && -s "$INITRD_PATH" ]] || fail "--initrd path does not exist or is empty: $INITRD_PATH"
+            # Require 'autoinstall' in the kernel append string — fail closed if missing
+            echo "$KERNEL_APPEND" | grep -q 'autoinstall' || fail "--append must contain 'autoinstall' keyword for direct-kernel boot. Got: $KERNEL_APPEND"
+            qemu_args+=(
+                "-kernel" "$KERNEL_PATH"
+                "-initrd" "$INITRD_PATH"
+                "-append" "$KERNEL_APPEND"
+            )
+            printf '[INFO] Direct-kernel autoinstall boot: kernel=%s initrd=%s append=%s\n' "$KERNEL_PATH" "$INITRD_PATH" "$KERNEL_APPEND"
+        fi
+
+        if [[ "$NO_REBOOT" == "true" ]]; then
+            qemu_args+=("-no-reboot")
         fi
 
         if [[ "$HEADLESS" == "true" ]]; then
@@ -224,8 +272,13 @@ case "$ACTION" in
             fail "QEMU process failed QMP readiness check (VM ID: $VM_ID)!"
         fi
 
-        # Write per-VM state JSON file
+        # Write per-VM state JSON file (record full argument vector)
         STATE_FILE="${STATE_DIR}/vm-${VM_ID}.json"
+        QEMU_ARGS_JSON=$(python3 -c "
+import json, sys
+args = $(python3 -c "import sys,json; print(json.dumps($(printf '%s ' "${qemu_args[@]}" | python3 -c 'import sys; words=sys.stdin.read().split(); print(words)')))") 
+print(json.dumps(args))
+" 2>/dev/null || echo '[]')
         python3 -c "
 import json, time
 state = {
@@ -239,6 +292,10 @@ state = {
     'disk_path': '$DISK_PATH',
     'iso_path': '$ISO_PATH',
     'seed_iso_path': '$SEED_ISO_PATH',
+    'kernel_path': '$KERNEL_PATH',
+    'initrd_path': '$INITRD_PATH',
+    'kernel_cmdline': '$KERNEL_APPEND',
+    'no_reboot': $([ '$NO_REBOOT' = 'true' ] && echo True || echo False),
     'start_timestamp': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
     'state': 'running',
     'qmp_ready': True
