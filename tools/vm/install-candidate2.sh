@@ -69,33 +69,60 @@ while (($# > 0)); do
     esac
 done
 
-[[ -n "$ISO_PATH" && -f "$ISO_PATH" ]] || fail 'Valid --iso path is required.'
-[[ -n "$DISK_PATH" ]] || fail '--disk path is required.'
-
-# Lifecycle variables — set BEFORE trap so cleanup_exit always has safe defaults
-INSTALL_PHASE="initialization"
-INSTALL_EXIT_CODE=0
-INSTALLER_VM_STARTED=false
-INSTALLED_VM_STARTED=false
-CLEANUP_RUNNING=false
+# Initialize every lifecycle variable before EXIT trap can run
+VM_ID="not-created"
+INSTALLED_VM_ID="not-created"
+state_dir=""
+serial_log=""
+qmp_path=""
+pid_file=""
+installed_pid_file=""
+installed_qmp_path=""
 INSTALLER_VM_PID=""
 INSTALLED_VM_PID=""
+INSTALLER_VM_STARTED=false
+INSTALLED_VM_STARTED=false
+INSTALL_PHASE="initialization"
+INSTALL_EXIT_CODE=0
+CLEANUP_RUNNING=false
 WORKFLOW_RUN_ID="${GITHUB_RUN_ID:-local}"
 EXECUTION_ID="${WORKFLOW_RUN_ID}-$(date +%s)-$$"
+screenshot_path=""
+disk_inspect_json=""
+completion_json=""
+kernel_extraction_json=""
+failure_summary_json=""
 
-# Setup state directory and unique run identifiers BEFORE trap
-VM_ID="cand2_${MODE}_$(date +%s)_$$"
-state_dir="$(dirname "$DISK_PATH")/cand2-${MODE}-state"
+# 1. Resolve repository root
 REPO_TOP=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-stage_logs_dir="$REPO_TOP/infra/package-staging/results/stage-logs"
-mkdir -p "$state_dir" "$stage_logs_dir"
 
-# Persistent runtime evidence dir (survives TMP cleanup)
+# 2. Create a fallback persistent runtime directory
 if [[ -z "$RUNTIME_EVIDENCE_DIR" ]]; then
     RUNTIME_EVIDENCE_DIR="$REPO_TOP/infra/package-staging/results/runtime/local-$(date +%s)-$$"
 fi
 mkdir -p "$RUNTIME_EVIDENCE_DIR"
-info "Runtime evidence directory: $RUNTIME_EVIDENCE_DIR"
+failure_summary_json="${RUNTIME_EVIDENCE_DIR}/failure-summary.json"
+
+# 3. Initialize safe VM IDs and paths (placeholder values for early-exit safety)
+state_log_base="$REPO_TOP/infra/package-staging/results"
+stage_logs_dir="$state_log_base/stage-logs"
+mkdir -p "$stage_logs_dir" 2>/dev/null || true
+
+[[ -n "$C2_SOURCE_COMMIT" ]] || C2_SOURCE_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+
+# 4. Install EXIT trap — before any fallible validation
+trap on_exit EXIT
+
+# --- End of trap setup ---
+
+# 5. Now validate ISO, disk, mode, checksums, dependencies
+[[ -n "$ISO_PATH" && -f "$ISO_PATH" ]] || fail 'Valid --iso path is required.'
+[[ -n "$DISK_PATH" ]] || fail '--disk path is required.'
+
+# Lifecycle variables — remaining setup after validation
+VM_ID="cand2_${MODE}_$(date +%s)_$$"
+state_dir="$(dirname "$DISK_PATH")/cand2-${MODE}-state"
+mkdir -p "$state_dir"
 
 serial_log="${RUNTIME_EVIDENCE_DIR}/installer.serial.log"
 qmp_path="${state_dir}/qmp-${VM_ID}.sock"
@@ -104,9 +131,6 @@ screenshot_path="${RUNTIME_EVIDENCE_DIR}/installer.ppm"
 disk_inspect_json="${RUNTIME_EVIDENCE_DIR}/disk-inspection-${MODE}.json"
 completion_json="${RUNTIME_EVIDENCE_DIR}/install-completion.json"
 kernel_extraction_json="${RUNTIME_EVIDENCE_DIR}/kernel-extraction.json"
-failure_summary_json="${RUNTIME_EVIDENCE_DIR}/failure-summary.json"
-
-[[ -n "$C2_SOURCE_COMMIT" ]] || C2_SOURCE_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
 # --- Helper functions ---
 
@@ -118,19 +142,25 @@ preserve_install_evidence() {
 
     mkdir -p "$RUNTIME_EVIDENCE_DIR"
 
-    cp -f "$serial_log" \
-      "$RUNTIME_EVIDENCE_DIR/installer.serial.log" 2>/dev/null || true
+    if [[ -n "${serial_log:-}" && -f "$serial_log" ]]; then
+        cp -f "$serial_log" \
+          "$RUNTIME_EVIDENCE_DIR/installer.serial.log" 2>/dev/null || true
+    fi
 
-    cp -f "${state_dir}/qemu-${VM_ID}.stderr" \
-      "$RUNTIME_EVIDENCE_DIR/qemu.stderr.log" 2>/dev/null || true
+    if [[ -n "${state_dir:-}" && "${VM_ID:-not-created}" != "not-created" ]]; then
+        cp -f "${state_dir}/qemu-${VM_ID}.stderr" \
+          "$RUNTIME_EVIDENCE_DIR/qemu.stderr.log" 2>/dev/null || true
 
-    cp -f "${state_dir}/vm-${VM_ID}.json" \
-      "$RUNTIME_EVIDENCE_DIR/installer-vm-state.raw.json" 2>/dev/null || true
+        cp -f "${state_dir}/vm-${VM_ID}.json" \
+          "$RUNTIME_EVIDENCE_DIR/installer-vm-state.raw.json" 2>/dev/null || true
+    fi
 
-    cp -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" \
-      "$RUNTIME_EVIDENCE_DIR/installed-vm-state.raw.json" 2>/dev/null || true
+    if [[ -n "${state_dir:-}" && "${INSTALLED_VM_ID:-not-created}" != "not-created" ]]; then
+        cp -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" \
+          "$RUNTIME_EVIDENCE_DIR/installed-vm-state.raw.json" 2>/dev/null || true
+    fi
 
-    if [[ -S "$qmp_path" ]]; then
+    if [[ -n "${qmp_path:-}" && -S "$qmp_path" ]]; then
         bash "$(dirname "$0")/capture-screenshot.sh" \
           --socket "$qmp_path" \
           --output "$RUNTIME_EVIDENCE_DIR/final-installer.ppm" \
@@ -198,8 +228,10 @@ cleanup_exit() {
     local exit_code="$1"
     INSTALL_EXIT_CODE=$exit_code
 
-    cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-vm-state.before-cleanup.json" 2>/dev/null || true
-    cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.before-cleanup.json" 2>/dev/null || true
+    if [[ -n "${state_dir:-}" && "${VM_ID:-not-created}" != "not-created" ]]; then
+        cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-vm-state.before-cleanup.json" 2>/dev/null || true
+        cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.before-cleanup.json" 2>/dev/null || true
+    fi
 
     local installer_cleanup_state="NOT_STARTED"
     local installer_cleanup_exit=0
@@ -256,21 +288,29 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 
     preserve_install_evidence "$exit_code"
 
-    cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json" 2>/dev/null || true
-    cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json" 2>/dev/null || true
-
-    if [[ -f "${state_dir}/shutdown-${INSTALLED_VM_ID}.json" ]]; then
-        cp -f "${state_dir}/shutdown-${INSTALLED_VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json" 2>/dev/null || true
-    fi
-    if [[ -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" ]]; then
-        cp -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json" 2>/dev/null || true
-    fi
-    if [[ -f "${state_dir}/installed-guest-health.json" ]]; then
-        cp -f "${state_dir}/installed-guest-health.json" "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json" 2>/dev/null || true
+    if [[ -n "${state_dir:-}" && "${VM_ID:-not-created}" != "not-created" ]]; then
+        cp -f "${state_dir}/shutdown-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-shutdown-result.json" 2>/dev/null || true
+        cp -f "${state_dir}/vm-${VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json" 2>/dev/null || true
     fi
 
-    rm -f "$pid_file" 2>/dev/null || true
-    rm -f "$qmp_path" 2>/dev/null || true
+    if [[ -n "${state_dir:-}" && "${INSTALLED_VM_ID:-not-created}" != "not-created" ]]; then
+        if [[ -f "${state_dir}/shutdown-${INSTALLED_VM_ID}.json" ]]; then
+            cp -f "${state_dir}/shutdown-${INSTALLED_VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json" 2>/dev/null || true
+        fi
+        if [[ -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" ]]; then
+            cp -f "${state_dir}/vm-${INSTALLED_VM_ID}.json" "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json" 2>/dev/null || true
+        fi
+        if [[ -f "${state_dir}/installed-guest-health.json" ]]; then
+            cp -f "${state_dir}/installed-guest-health.json" "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json" 2>/dev/null || true
+        fi
+    fi
+
+    if [[ -n "${pid_file:-}" ]]; then
+        rm -f "$pid_file" 2>/dev/null || true
+    fi
+    if [[ -n "${qmp_path:-}" ]]; then
+        rm -f "$qmp_path" 2>/dev/null || true
+    fi
 
     # Determine cleanup exit code: nonzero if any cleanup failed
     local cleanup_rc=0
@@ -289,14 +329,23 @@ with open(sys.argv[1], encoding="utf-8") as handle:
         cleanup_rc=1
     fi
 
-    if [[ "$exit_code" -ne 0 ]]; then
+    if (( exit_code != 0 || cleanup_rc != 0 )); then
+        local failure_class="functional_failure"
+        local functional_exit_code="$exit_code"
+        local cleanup_exit_code="$cleanup_rc"
+        if (( exit_code == 0 && cleanup_rc != 0 )); then
+            failure_class="cleanup_failure"
+        elif (( exit_code != 0 && cleanup_rc != 0 )); then
+            failure_class="both_failed"
+        fi
         C2_SOURCE_COMMIT="$C2_SOURCE_COMMIT" \
         WF_RUN_ID="$WORKFLOW_RUN_ID" \
         EXECUTION_ID="$EXECUTION_ID" \
         VM_ID="$VM_ID" \
         INSTALL_PHASE="$INSTALL_PHASE" \
-        EXIT_CODE="$exit_code" \
-        CLEANUP_EXIT="$cleanup_rc" \
+        EXIT_CODE="$functional_exit_code" \
+        CLEANUP_EXIT="$cleanup_exit_code" \
+        FAILURE_CLASS="$failure_class" \
         CAND2_VERIFIED_SHA="${CAND2_VERIFIED_SHA:-unknown}" \
         CAND2_VERIFIED_SHA512="${CAND2_VERIFIED_SHA512:-unknown}" \
         KERNEL_SHA256="${KERNEL_SHA256:-unknown}" \
@@ -328,8 +377,10 @@ summary = {
     "execution_id": os.environ["EXECUTION_ID"],
     "vm_id": os.environ["VM_ID"],
     "phase": os.environ["INSTALL_PHASE"],
-    "exit_code": int(os.environ["EXIT_CODE"]),
+    "functional_exit_code": int(os.environ["EXIT_CODE"]),
     "cleanup_exit_code": int(os.environ.get("CLEANUP_EXIT", "0")),
+    "final_exit_code": int(os.environ["EXIT_CODE"]) if int(os.environ["EXIT_CODE"]) != 0 else int(os.environ.get("CLEANUP_EXIT", "0")),
+    "failure_class": os.environ["FAILURE_CLASS"],
     "failure_reason": f"install-candidate2.sh failed during phase {os.environ['INSTALL_PHASE']} with exit code {os.environ['EXIT_CODE']}",
     "source_iso_sha256": os.environ.get("CAND2_VERIFIED_SHA", "unknown"),
     "source_iso_sha512": os.environ.get("CAND2_VERIFIED_SHA512", "unknown"),
@@ -372,10 +423,6 @@ on_exit() {
 
     exit "$cleanup_rc"
 }
-
-trap on_exit EXIT
-
-# --- End of trap setup ---
 
 # 1. Validate Candidate 2 ISO checksum
 CAND2_VERIFIED_SHA=$(sha256sum "$ISO_PATH" | awk '{print $1}')

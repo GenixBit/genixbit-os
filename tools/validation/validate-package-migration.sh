@@ -365,23 +365,35 @@ write_candidate_stage_failure() {
     local reason="$3"
     local end_ts
     end_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    python3 -c "
-import json, sys
+    FAILURE_REASON="$reason" \
+    FAILURE_PHASE="$phase" \
+    CURR_COMMIT="$CURRENT_COMMIT" \
+    C2_START="${CAND2_START:-unknown}" \
+    END_TS="$end_ts" \
+    EXIT_CODE="$exit_code" \
+    RUNTIME_EVIDENCE_DIR="$RUNTIME_EVIDENCE_DIR" \
+    CAND2_ACTUAL_SHA="${CAND2_ACTUAL_SHA:-unknown}" \
+    CAND2_ACTUAL_SHA512="${CAND2_ACTUAL_SHA512:-unknown}" \
+    STAGE_LOGS_DIR="$STAGE_LOGS_DIR" \
+    python3 - <<'PYEOF'
+import json
+import os
+
 d = {
-    'source_commit': '$CURRENT_COMMIT',
-    'start_timestamp': '$CAND2_START',
-    'completion_timestamp': '$end_ts',
-    'status': 'FAIL',
-    'exit_code': $exit_code,
-    'failed_phase': '$phase',
-    'failure_reason': '''$(printf '%s' "$reason" | sed "s/'/\\\\'/g")''',
-    'runtime_evidence_dir': '$RUNTIME_EVIDENCE_DIR',
-    'candidate2_iso_sha256': '${CAND2_ACTUAL_SHA:-unknown}',
-    'candidate2_iso_sha512': '${CAND2_ACTUAL_SHA512:-unknown}'
+    "source_commit": os.environ["CURR_COMMIT"],
+    "start_timestamp": os.environ["C2_START"],
+    "completion_timestamp": os.environ["END_TS"],
+    "status": "FAIL",
+    "exit_code": int(os.environ["EXIT_CODE"]),
+    "failed_phase": os.environ["FAILURE_PHASE"],
+    "failure_reason": os.environ["FAILURE_REASON"],
+    "runtime_evidence_dir": os.environ["RUNTIME_EVIDENCE_DIR"],
+    "candidate2_iso_sha256": os.environ["CAND2_ACTUAL_SHA"],
+    "candidate2_iso_sha512": os.environ.get("CAND2_ACTUAL_SHA512", "unknown"),
 }
-with open('$STAGE_LOGS_DIR/stage-candidate-upgrade.json', 'w') as f:
+with open(os.path.join(os.environ["STAGE_LOGS_DIR"], "stage-candidate-upgrade.json"), "w") as f:
     json.dump(d, f, indent=2)
-"
+PYEOF
 }
 
 CAND2_STDOUT_LOG="$STAGE_LOGS_DIR/stage-candidate-upgrade.stdout.log"
@@ -623,6 +635,14 @@ fi
         "$RUNTIME_EVIDENCE_DIR/installed-shutdown-result.json"
         "$RUNTIME_EVIDENCE_DIR/installed-guest-health.json"
         "$RUNTIME_EVIDENCE_DIR/migration-result.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-premig-vm-state.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-premig-shutdown.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-mig-vm-state.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-mig-shutdown.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-rollback-vm-state.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-rollback-shutdown.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-reupgrade-vm-state.json"
+        "$RUNTIME_EVIDENCE_DIR/migration-reupgrade-shutdown.json"
     )
     for je in "${JSON_EVIDENCE[@]}"; do
         if [[ -f "$je" ]]; then
@@ -671,6 +691,42 @@ fi
     }
     validate_vm_state "$RUNTIME_EVIDENCE_DIR/installer-vm-state.final.json" "installer"
     validate_vm_state "$RUNTIME_EVIDENCE_DIR/installed-vm-state.final.json" "installed"
+
+    # 5. Validate migration lifecycle evidence files (all 8)
+    for mig_label in premig mig rollback reupgrade; do
+        mig_vm_file="$RUNTIME_EVIDENCE_DIR/migration-${mig_label}-vm-state.json"
+        mig_sd_file="$RUNTIME_EVIDENCE_DIR/migration-${mig_label}-shutdown.json"
+        if [[ -f "$mig_vm_file" ]]; then
+            mig_vm_state=$(python3 -c "import json; d=json.load(open('$mig_vm_file')); print(d.get('state','missing'))" 2>/dev/null || echo "missing")
+            if [[ "$mig_vm_state" == "running" ]]; then
+                EVIDENCE_FAILURES="${EVIDENCE_FAILURES} migration_${mig_label}_vmstate_running"
+            fi
+            mig_vm_sha256=$(sha256sum "$mig_vm_file" | awk '{print $1}')
+            if [[ -n "$mig_vm_sha256" ]]; then
+                mig_vm_recorded_sha=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('lifecycle_evidence_sha256',{}).get('${mig_label}',''))" 2>/dev/null || echo "")
+                if [[ -n "$mig_vm_recorded_sha" && "$mig_vm_recorded_sha" != "$mig_vm_sha256" ]]; then
+                    EVIDENCE_FAILURES="${EVIDENCE_FAILURES} migration_${mig_label}_vmstate_sha256_mismatch"
+                fi
+            fi
+        fi
+        if [[ -f "$mig_sd_file" ]]; then
+            mig_sd_status=$(python3 -c "import json; d=json.load(open('$mig_sd_file')); print(d.get('status','missing'))" 2>/dev/null || echo "missing")
+            mig_sd_state=$(python3 -c "import json; d=json.load(open('$mig_sd_file')); print(d.get('shutdown_state','missing'))" 2>/dev/null || echo "missing")
+            mig_sd_alive=$(python3 -c "import json; d=json.load(open('$mig_sd_file')); print(str(d.get('process_alive_after_stop','')).lower())" 2>/dev/null || echo "")
+            mig_sd_qmp=$(python3 -c "import json; d=json.load(open('$mig_sd_file')); print(str(d.get('qmp_socket_present_after_stop','')).lower())" 2>/dev/null || echo "")
+            [[ "$mig_sd_status" == "PASS" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} mig_${mig_label}_sdstatus=$mig_sd_status"; }
+            [[ "$mig_sd_state" == "NATURAL_EXIT" || "$mig_sd_state" == "ALREADY_STOPPED_VERIFIED" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} mig_${mig_label}_sdstate=$mig_sd_state"; }
+            [[ "$mig_sd_alive" == "false" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} mig_${mig_label}_alive=$mig_sd_alive"; }
+            [[ "$mig_sd_qmp" == "false" ]] || { EVIDENCE_FAILURES="${EVIDENCE_FAILURES} mig_${mig_label}_qmp=$mig_sd_qmp"; }
+            mig_sd_sha256=$(sha256sum "$mig_sd_file" | awk '{print $1}')
+            if [[ -n "$mig_sd_sha256" ]]; then
+                mig_sd_recorded_sha=$(python3 -c "import json; d=json.load(open('$MIG_RESULT_FILE')); print(d.get('lifecycle_evidence_sha256',{}).get('${mig_label}_shutdown',''))" 2>/dev/null || echo "")
+                if [[ -n "$mig_sd_recorded_sha" && "$mig_sd_recorded_sha" != "$mig_sd_sha256" ]]; then
+                    EVIDENCE_FAILURES="${EVIDENCE_FAILURES} migration_${mig_label}_sd_sha256_mismatch"
+                fi
+            fi
+        fi
+    done
 
     if [[ -n "$EVIDENCE_FAILURES" ]]; then
         write_candidate_stage_failure "invalid_evidence" "$CAND2_MIG_EXIT" "Mandatory evidence validation failures:${EVIDENCE_FAILURES}"

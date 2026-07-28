@@ -40,31 +40,8 @@ if [[ ! -S "$SOCKET_PATH" ]]; then
     fail "QMP socket does not exist or is not a socket: $SOCKET_PATH"
 fi
 
-if ! python3 - "$SOCKET_PATH" "$OUTPUT_PATH" <<'PYEOF'
-import socket, json, sys, os
-
-sock_path = sys.argv[1]
-out_path = sys.argv[2]
-
-try:
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.settimeout(10)
-    s.connect(sock_path)
-    s.recv(4096)
-    s.sendall(b'{"execute": "qmp_capabilities"}\n')
-    s.recv(4096)
-    cmd = json.dumps({"execute": "screendump", "arguments": {"filename": out_path}})
-    s.sendall(cmd.encode() + b'\n')
-    res = json.loads(s.recv(4096).decode())
-    s.close()
-    if "error" in res:
-        print(f"QMP screendump error: {res['error']}", file=sys.stderr)
-        sys.exit(1)
-except Exception as e:
-    print(f"Failed to capture screenshot via QMP: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
-then
+QMP_CLIENT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/qmp-client.py"
+if ! python3 "$QMP_CLIENT" --socket "$SOCKET_PATH" screendump --file "$OUTPUT_PATH" 2>/dev/null; then
     fail "QMP screendump execution failed."
 fi
 
