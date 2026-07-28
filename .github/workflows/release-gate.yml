@@ -209,6 +209,8 @@ jobs:
           bash tools/validation/test-release-evidence-integrity.sh
           bash tools/validation/test-observed-guest-negative.sh
           bash tests/infrastructure/test-qmp-json-parsing.sh
+          bash tests/infrastructure/test-candidate2-failure-evidence.sh
+          bash tests/infrastructure/test-mksquashfs-runner.sh
           echo "[PASS] Regression tests passed — no fabricated evidence patterns detected."
 
       - name: Execute Full Package Migration & Staging Validation Suite

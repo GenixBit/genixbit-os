@@ -7,6 +7,7 @@ Uses a persistent receive buffer that preserves unread bytes between calls.
 
 Usage:
   python3 tools/vm/qmp-client.py --socket SOCKET query-status
+  python3 tools/vm/qmp-client.py --socket SOCKET query-active-status
   python3 tools/vm/qmp-client.py --socket SOCKET system-powerdown
   python3 tools/vm/qmp-client.py --socket SOCKET screendump --file PATH
 """
@@ -130,6 +131,13 @@ class QMPConnection:
             raise QMPError(f"Unexpected QMP status: {status!r}")
         return status
 
+    def query_active_status(self):
+        """Query status and require a VM state that is active for readiness."""
+        status = self.query_status()
+        if status not in {"running", "prelaunch"}:
+            raise QMPError(f"VM is not active for readiness: {status!r}")
+        return status
+
     def system_powerdown(self):
         """Request system powerdown. Returns the response."""
         return self.send_request("system_powerdown")
@@ -184,7 +192,7 @@ def main():
         elif args[i] == "--file" and i + 1 < len(args):
             screendump_file = args[i + 1]
             i += 2
-        elif args[i] in ("query-status", "system-powerdown", "screendump"):
+        elif args[i] in ("query-status", "query-active-status", "system-powerdown", "screendump"):
             command = args[i]
             i += 1
         else:
@@ -196,14 +204,16 @@ def main():
         sys.exit(2)
 
     if not command:
-        print("No command specified. Use: query-status | system-powerdown | screendump", file=sys.stderr)
+        print("No command specified. Use: query-status | query-active-status | system-powerdown | screendump", file=sys.stderr)
         sys.exit(2)
 
-    conn = connect(socket_path, timeout=timeout)
-
     try:
+        conn = connect(socket_path, timeout=timeout)
         if command == "query-status":
             status = conn.query_status()
+            print(status)
+        elif command == "query-active-status":
+            status = conn.query_active_status()
             print(status)
         elif command == "system-powerdown":
             conn.system_powerdown()
@@ -217,8 +227,12 @@ def main():
         else:
             print(f"Unknown command: {command}", file=sys.stderr)
             sys.exit(2)
+    except (QMPError, TimeoutError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
     finally:
-        conn.close()
+        if "conn" in locals():
+            conn.close()
 
 
 if __name__ == "__main__":
