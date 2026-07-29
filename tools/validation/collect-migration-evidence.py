@@ -162,7 +162,7 @@ def main():
     expected_branch = os.environ.get("EXPECTED_CANDIDATE_BRANCH", "")
     expected_sha = os.environ.get("EXPECTED_CANDIDATE_SHA", "")
     if expected_branch or expected_sha:
-        if expected_branch != "validation/0.3.0-alpha-candidate-2":
+        if not re.match(r"^validation/0\.3\.0-alpha-candidate-[1-9][0-9]*$", expected_branch):
             fail(f"Unexpected candidate branch: {expected_branch}")
         if not re.fullmatch(r"[0-9a-f]{40}", expected_sha):
             fail("EXPECTED_CANDIDATE_SHA must be a full 40-character SHA")

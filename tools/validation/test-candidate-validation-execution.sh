@@ -81,9 +81,9 @@ EOF
     chmod +x "$work/build.sh"
     git -C "$work" add .
     git -C "$work" commit -m "initial commit" >/dev/null 2>&1
-    git -C "$work" branch -M validation/0.3.0-alpha-candidate-2
+    git -C "$work" branch -M validation/0.3.0-alpha-candidate-3
     git -C "$work" remote add origin "$origin"
-    git -C "$work" push -u origin validation/0.3.0-alpha-candidate-2 >/dev/null 2>&1
+    git -C "$work" push -u origin validation/0.3.0-alpha-candidate-3 >/dev/null 2>&1
 }
 
 fixture_base="$TMP_DIR/fixture_base"
@@ -105,6 +105,7 @@ create_full_fixture_evidence() {
     local sha="${2:-$fixture_sha}"
     local run_id="${3:-100}"
     local run_attempt="${4:-1}"
+    local cand_branch="${5:-validation/0.3.0-alpha-candidate-3}"
 
     local stage_logs="$dir/stage-logs"
     local builds="$dir/builds"
@@ -127,7 +128,7 @@ create_full_fixture_evidence() {
     cat > "$stage_logs/stage-candidate-selection.json" <<JSON
 {
   "source_commit": "$sha",
-  "candidate_branch": "validation/0.3.0-alpha-candidate-2",
+  "candidate_branch": "$cand_branch",
   "candidate_sha": "$sha",
   "remote_candidate_sha": "$sha",
   "git_head": "$sha",
@@ -146,7 +147,7 @@ JSON
   "active_release_source_commit": "$sha",
   "git_head": "$sha",
   "expected_candidate_sha": "$sha",
-  "expected_candidate_branch": "validation/0.3.0-alpha-candidate-2",
+  "expected_candidate_branch": "$cand_branch",
   "active_release_version": "0.3.0-alpha",
   "active_release_mode": "fresh-install-only",
   "architecture": "x86_64",
@@ -175,7 +176,7 @@ JSON
   "build_script": "./build.sh",
   "build_exit_code": 0,
   "status": "PASS",
-  "candidate_branch": "validation/0.3.0-alpha-candidate-2",
+  "candidate_branch": "$cand_branch",
   "source_commit": "$sha",
   "target_version": "0.3.0-alpha",
   "worktree_dir": "$dir/worktree-a",
@@ -199,7 +200,7 @@ JSON
   "build_script": "./build.sh",
   "build_exit_code": 0,
   "status": "PASS",
-  "candidate_branch": "validation/0.3.0-alpha-candidate-2",
+  "candidate_branch": "$cand_branch",
   "source_commit": "$sha",
   "target_version": "0.3.0-alpha",
   "worktree_dir": "$dir/worktree-b",
@@ -220,7 +221,7 @@ JSON
     cat > "$builds/build-a-iso-structure.json" <<JSON
 {
   "source_commit": "$sha",
-  "candidate_branch": "validation/0.3.0-alpha-candidate-2",
+  "candidate_branch": "$cand_branch",
   "iso_path": "$iso_a",
   "iso_sha256": "$sha256_a",
   "iso_sha512": "$sha512_a",
@@ -235,7 +236,7 @@ JSON
     cat > "$builds/build-b-iso-structure.json" <<JSON
 {
   "source_commit": "$sha",
-  "candidate_branch": "validation/0.3.0-alpha-candidate-2",
+  "candidate_branch": "$cand_branch",
   "iso_path": "$iso_b",
   "iso_sha256": "$sha256_b",
   "iso_sha512": "$sha512_b",

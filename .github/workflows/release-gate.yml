@@ -6,7 +6,7 @@ on:
       candidate_branch:
         description: 'Frozen candidate branch'
         required: true
-        default: 'validation/0.3.0-alpha-candidate-2'
+        default: 'validation/0.3.0-alpha-candidate-3'
       candidate_sha:
         description: 'Full 40-character candidate commit SHA'
         required: true
@@ -71,7 +71,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ '${{ inputs.candidate_branch }}' == 'validation/0.3.0-alpha-candidate-2' ]]
+          CANDIDATE_BRANCH='${{ inputs.candidate_branch }}'
+          [[ "$CANDIDATE_BRANCH" =~ ^validation/0\.3\.0-alpha-candidate-[1-9][0-9]*$ ]] || {
+            echo "[FAIL] Invalid candidate branch: $CANDIDATE_BRANCH" >&2
+            exit 1
+          }
           [[ '${{ inputs.target_version }}' == '0.3.0-alpha' ]]
           [[ '${{ inputs.candidate_sha }}' =~ ^[0-9a-f]{40}$ ]]
           git fetch origin '${{ inputs.candidate_branch }}:${{ inputs.candidate_branch }}'

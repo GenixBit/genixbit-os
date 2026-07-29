@@ -67,6 +67,22 @@ print(value)
 PYEOF
 }
 
+assert_field() {
+    local file="$1"
+    local field="$2"
+    local expected="$3"
+    local actual
+
+    actual=$(json_get "$file" "$field")
+
+    [[ "$actual" == "$expected" ]] || {
+        printf \
+          '[FAIL] evidence field mismatch: %s expected=%s actual=%s\n' \
+          "$field" "$expected" "$actual" >&2
+        return 1
+    }
+}
+
 assert_json() {
     local file="$1"
     local status="$2"
@@ -75,20 +91,32 @@ assert_json() {
     local source_commit="$5"
     local run_id="$6"
     local run_attempt="$7"
-    "$REAL_PYTHON" -m json.tool "$file" >/dev/null
+    local fixture_branch="$8"
 
-    [[ "$(json_get "$file" status)" == "$status" ]] || return 1
-    [[ "$(json_get "$file" source_commit)" == "$source_commit" ]] || return 1
-    [[ "$(json_get "$file" workflow_run_id)" == "$run_id" ]] || return 1
-    [[ "$(json_get "$file" workflow_run_attempt)" == "$run_attempt" ]] || return 1
+    if ! "$REAL_PYTHON" -m json.tool "$file" >/dev/null; then
+        printf '[FAIL] %s produced syntactically invalid JSON\n' "$name" >&2
+        cat "$file" >&2
+        exit 1
+    fi
+
+    assert_field "$file" "status" "$status" || return 1
+    assert_field "$file" "source_commit" "$source_commit" || return 1
+    assert_field "$file" "expected_candidate_branch" "$fixture_branch" || return 1
+    assert_field "$file" "expected_candidate_sha" "$source_commit" || return 1
+    assert_field "$file" "workflow_run_id" "$run_id" || return 1
+    assert_field "$file" "workflow_run_attempt" "$run_attempt" || return 1
+    assert_field "$file" "workflow_dispatch_ref_sha" "$source_commit" || return 1
 
     local exit_code
     exit_code=$(json_get "$file" exit_code)
     if [[ "$expected_exit_zero" == "yes" ]]; then
-        [[ "$exit_code" == "0" ]] || return 1
+        assert_field "$file" "exit_code" "0" || return 1
     else
-        [[ "$exit_code" != "0" ]] || return 1
-        [[ "$(json_get "$file" failed_phase)" == "$phase" ]] || return 1
+        [[ "$exit_code" != "0" ]] || {
+            printf '[FAIL] evidence field mismatch: exit_code expected nonzero actual=%s\n' "$exit_code" >&2
+            return 1
+        }
+        assert_field "$file" "failed_phase" "$phase" || return 1
     fi
 }
 
@@ -120,6 +148,7 @@ run_case() {
     printf '{"schema_version":"1.0","release_version":"0.3.0-alpha","candidate_branch":null,"candidate_source_commit":null,"filename":null,"size_bytes":null,"sha256":null,"sha512":null,"object_generation":null,"verification_status":"PENDING_BUILD","usable_as_release_artifact":false,"usable_as_migration_source":false}\n' > "$artifact_provenance"
 
     local source_commit="abcdef1234567890abcdef1234567890abcdef12"
+    local fixture_branch="validation/0.3.0-alpha-candidate-99"
     local run_id="preflight-test-run"
     local run_attempt="7"
     local secret="top-secret-passphrase-value"
@@ -139,6 +168,14 @@ run_case() {
         esac
     done
 
+    unset \
+      ACTIVE_RELEASE_SOURCE_COMMIT \
+      EXPECTED_CANDIDATE_BRANCH \
+      EXPECTED_CANDIDATE_SHA \
+      WORKFLOW_RUN_ID \
+      WORKFLOW_RUN_ATTEMPT \
+      WORKFLOW_DISPATCH_REF_SHA
+
     set +e
     PATH="$bin_dir:/usr/bin:/bin:/sbin" \
     PREFLIGHT_STRICT_HEAD_MATCH="false" \
@@ -153,6 +190,12 @@ run_case() {
     ACTIVE_RELEASE_PROVENANCE_FILE="$artifact_provenance" \
     ACTIVE_RELEASE_VERSION="0.3.0-alpha" \
     ACTIVE_RELEASE_MODE="fresh-install-only" \
+    ACTIVE_RELEASE_SOURCE_COMMIT="$source_commit" \
+    EXPECTED_CANDIDATE_BRANCH="$fixture_branch" \
+    EXPECTED_CANDIDATE_SHA="$source_commit" \
+    WORKFLOW_RUN_ID="$run_id" \
+    WORKFLOW_RUN_ATTEMPT="$run_attempt" \
+    WORKFLOW_DISPATCH_REF_SHA="$source_commit" \
     GITHUB_SHA="$source_commit" \
     GITHUB_RUN_ID="$run_id" \
     GITHUB_RUN_ATTEMPT="$run_attempt" \
@@ -170,17 +213,15 @@ run_case() {
         printf '[FAIL] %s did not write preflight-results.json\n' "$name" >&2
         exit 1
     }
-    assert_json "$result_file" "$expected_status" "$expected_phase" "$expected_exit_zero" "$source_commit" "$run_id" "$run_attempt" || {
-        printf '[FAIL] %s produced invalid JSON evidence\n' "$name" >&2
-        cat "$result_file" >&2
+    assert_json "$result_file" "$expected_status" "$expected_phase" "$expected_exit_zero" "$source_commit" "$run_id" "$run_attempt" "$fixture_branch" || {
         exit 1
     }
 
     if [[ "$expected_rc_zero" == "yes" ]]; then
         [[ "$rc" == "0" ]] || { printf '[FAIL] %s returned rc=%s, expected 0\n' "$name" "$rc" >&2; exit 1; }
     else
-        [[ "$rc" != "0" ]] || { printf '[FAIL] %s returned rc=0, expected nonzero\n' "$name" >&2; exit 1; }
-        [[ "$(json_get "$result_file" exit_code)" == "$rc" ]] || { printf '[FAIL] %s did not preserve original rc\n' "$name" >&2; exit 1; }
+        [[ "$rc" != "0" ]] || { printf '[FAIL] %s returned rc=0, expected nonzero\n' "$name" "$rc" >&2; exit 1; }
+        [[ "$(json_get "$result_file" exit_code)" == "$rc" ]] || { printf '[FAIL] %s did not preserve original rc\n' "$name" "$rc" >&2; exit 1; }
     fi
 
     if /usr/bin/grep -R "top-secret-passphrase-value" "$result_file" "$case_dir/stdout.log" "$case_dir/stderr.log" >/dev/null 2>&1; then
@@ -210,5 +251,13 @@ run_case "JSON source commit and workflow identity match supplied values" PASS "
 run_case "failure JSON contains the real first failed phase" FAIL architecture no no "" --arch arm64
 run_case "script returns the original non-zero exit code" FAIL kvm no no "" --missing-kvm
 run_case "no private key passphrase or unredacted secret appears in evidence" FAIL secret no no "" --no-secret
+
+ACTIVE_RELEASE_SOURCE_COMMIT="67b3ac9b48e4421973e834dff9dfd6b7f74c5a1f" \
+EXPECTED_CANDIDATE_BRANCH="validation/0.3.0-alpha-candidate-2" \
+EXPECTED_CANDIDATE_SHA="67b3ac9b48e4421973e834dff9dfd6b7f74c5a1f" \
+WORKFLOW_RUN_ID="30431469447" \
+WORKFLOW_RUN_ATTEMPT="1" \
+WORKFLOW_DISPATCH_REF_SHA="67b3ac9b48e4421973e834dff9dfd6b7f74c5a1f" \
+run_case "hostile parent workflow identity cannot contaminate preflight fixtures" PASS "" yes yes ""
 
 printf '[PASS] Release preflight evidence tests passed: %s/%s\n' "$PASS" "$TOTAL"

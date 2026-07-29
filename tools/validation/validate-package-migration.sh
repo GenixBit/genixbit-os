@@ -44,7 +44,7 @@ EXPECTED_CANDIDATE_SHA="${EXPECTED_CANDIDATE_SHA:-}"
 NOT_APPLICABLE_REASON="No valid prior GenixBit OS release artifact exists from which to execute an upgrade or rollback test."
 
 if [[ -n "$EXPECTED_CANDIDATE_BRANCH" || -n "$EXPECTED_CANDIDATE_SHA" ]]; then
-    [[ "$EXPECTED_CANDIDATE_BRANCH" == "validation/0.3.0-alpha-candidate-2" ]] || fail "EXPECTED_CANDIDATE_BRANCH must be validation/0.3.0-alpha-candidate-2"
+    [[ "$EXPECTED_CANDIDATE_BRANCH" =~ ^validation/0\.3\.0-alpha-candidate-[1-9][0-9]*$ ]] || fail "EXPECTED_CANDIDATE_BRANCH must match candidate pattern"
     [[ "$EXPECTED_CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "EXPECTED_CANDIDATE_SHA must be a full 40-character SHA"
     current_branch=$(git -C "$REPO_ROOT" symbolic-ref --quiet --short HEAD || true)
     [[ "$current_branch" == "$EXPECTED_CANDIDATE_BRANCH" ]] || fail "current branch '$current_branch' is not expected candidate branch '$EXPECTED_CANDIDATE_BRANCH'"
@@ -127,7 +127,7 @@ mkdir -p "$STAGE_LOGS_DIR" "$BUILD_OUTPUT_DIR" "$CURRENT_RESULTS_DIR" "$RUNTIME_
 
 if [[ "$ACTIVE_RELEASE_MODE" != "candidate2-retirement-test" && ! -f "$STAGE_LOGS_DIR/stage-candidate-selection.json" ]]; then
     bash "$REPO_ROOT/tools/validation/generate-candidate-selection.sh" \
-        --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}" \
+        --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-3}" \
         --candidate-sha "${EXPECTED_CANDIDATE_SHA:-$CURRENT_COMMIT}" \
         --target-build-version "$ACTIVE_RELEASE_VERSION" \
         --workflow-run-id "${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}" \
@@ -1042,7 +1042,7 @@ cp "$STAGE_LOGS_DIR/stage-installer-branding.json" "$STAGE_LOGS_DIR/stage-instal
 # ─────────────────────────────────────────────────────────────────────────────
 # Real ISO Build — two independent clean builds from the exact candidate SHA.
 # ─────────────────────────────────────────────────────────────────────────────
-candidate_branch_for_build="${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}"
+candidate_branch_for_build="${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-3}"
 candidate_sha_for_build="${EXPECTED_CANDIDATE_SHA:-$CURRENT_COMMIT}"
 BUILD_OUTPUT_DIR="$REPO_ROOT/infra/package-staging/results/builds"
 mkdir -p "$BUILD_OUTPUT_DIR" "$REPO_ROOT/infra/package-staging/results/current"
@@ -1338,7 +1338,7 @@ python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" \
     --current-dir "$CURRENT_RESULTS_DIR" \
     --output-gate "$GATE_RESULT_FILE" \
     --provenance-file "$PROVENANCE_FILE" \
-    --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}" \
+    --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-3}" \
     --candidate-sha "$candidate_sha_for_build" \
     --workflow-run-id "${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}" \
     --workflow-run-attempt "${WORKFLOW_RUN_ATTEMPT:-${GITHUB_RUN_ATTEMPT:-1}}"
