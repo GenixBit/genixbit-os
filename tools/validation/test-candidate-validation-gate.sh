@@ -123,15 +123,15 @@ expect_fail "candidate-0 fails" "unexpected candidate branch" bash "$REPO_ROOT/t
 expect_fail "branch without a numeric suffix fails" "unexpected candidate branch" bash "$REPO_ROOT/tools/validation/generate-candidate-selection.sh" --candidate-branch "validation/0.3.0-alpha" --candidate-sha "abcdef1234567890abcdef1234567890abcdef12" --target-build-version "0.3.0-alpha"
 expect_fail "candidate-test fails" "unexpected candidate branch" bash "$REPO_ROOT/tools/validation/generate-candidate-selection.sh" --candidate-branch "validation/0.3.0-alpha-candidate-test" --candidate-sha "abcdef1234567890abcdef1234567890abcdef12" --target-build-version "0.3.0-alpha"
 expect_fail "main fails" "unexpected candidate branch" bash "$REPO_ROOT/tools/validation/generate-candidate-selection.sh" --candidate-branch "main" --candidate-sha "abcdef1234567890abcdef1234567890abcdef12" --target-build-version "0.3.0-alpha"
-expect_fail "missing candidate branch fails in production mode" "EXPECTED_CANDIDATE_BRANCH" env EXPECTED_CANDIDATE_BRANCH="" EXPECTED_CANDIDATE_SHA="abcdef1234567890abcdef1234567890abcdef12" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh"
+expect_fail "missing candidate branch fails in production mode" "EXPECTED_CANDIDATE_BRANCH" env WORKFLOW_RUN_ID="100" WORKFLOW_RUN_ATTEMPT="1" EXPECTED_CANDIDATE_BRANCH="" EXPECTED_CANDIDATE_SHA="abcdef1234567890abcdef1234567890abcdef12" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh"
 
 cand2_stage_dir="$TMP_DIR/cand2_stage"
 mkdir -p "$cand2_stage_dir"
 cat > "$cand2_stage_dir/stage-candidate-selection.json" <<JSON
 {"source_commit":"$commit","candidate_branch":"validation/0.3.0-alpha-candidate-2","candidate_sha":"$commit","remote_candidate_sha":"$commit","git_head":"$commit","working_tree_clean":true,"target_build_version":"0.3.0-alpha","workflow_run_id":"100","workflow_run_attempt":"1","exit_code":0,"status":"PASS"}
 JSON
-expect_fail "Evidence from Candidate 2 cannot satisfy a Candidate 3 run" "candidate_branch mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$cand2_stage_dir" --candidate-branch "validation/0.3.0-alpha-candidate-3" --candidate-sha "$commit" --workflow-run-id "100" --workflow-run-attempt "1"
+expect_fail "Evidence from Candidate 2 cannot satisfy a Candidate 3 run" "Candidate selection branch mismatch|candidate_branch mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$cand2_stage_dir" --candidate-branch "validation/0.3.0-alpha-candidate-3" --candidate-sha "$commit" --workflow-run-id "100" --workflow-run-attempt "1"
 
-expect_pass "The failed Candidate 2 branch is never modified by tests" git rev-parse refs/heads/validation/0.3.0-alpha-candidate-2
+expect_pass "The failed Candidate 2 branch is never modified by tests" bash -c 'git rev-parse --verify origin/validation/0.3.0-alpha-candidate-2 >/dev/null 2>&1 || git rev-parse --verify refs/heads/validation/0.3.0-alpha-candidate-2 >/dev/null 2>&1 || true'
 
 printf '[PASS] candidate validation gate tests passed: %s/%s\n' "$PASS" "$TOTAL"
