@@ -39,6 +39,14 @@ done
 [[ -n "$output_dir" ]] || fail "--output-dir is required"
 [[ -n "$build_label" ]] || fail "--build-label is required"
 
+for var in $(compgen -v GENIXBIT_FAKE || true); do
+    fail "fake build environment variable detected: $var"
+done
+
+if env | grep -qE '^GENIXBIT_FAKE'; then
+    fail "fake build environment variables are prohibited"
+fi
+
 remote_sha=$(git -C "$REPO_ROOT" rev-parse "origin/$candidate_branch" 2>/dev/null || true)
 [[ "$remote_sha" == "$candidate_sha" ]] || fail "origin/$candidate_branch resolves to ${remote_sha:-missing}, expected $candidate_sha"
 git -C "$REPO_ROOT" cat-file -e "$candidate_sha^{commit}" || fail "candidate SHA is not a commit: $candidate_sha"
@@ -65,27 +73,15 @@ start_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 stdout_log="$output_dir/$build_label-build.stdout.log"
 stderr_log="$output_dir/$build_label-build.stderr.log"
 
-if [[ "${GENIXBIT_FAKE_ACTIVE_BUILD:-}" == "1" ]]; then
-    ts="${GENIXBIT_FAKE_ACTIVE_BUILD_TIMESTAMP:-2607290000}"
-    iso_path="$worktree/dist/GenixBitOS-$TARGET_VERSION-$ts.iso"
-    if [[ -n "${GENIXBIT_FAKE_ACTIVE_BUILD_SOURCE:-}" ]]; then
-        cp "$GENIXBIT_FAKE_ACTIVE_BUILD_SOURCE" "$iso_path"
-    else
-        printf 'fake build fixture for %s %s\n' "$build_label" "$candidate_sha" > "$iso_path"
-    fi
-    printf '[INFO] fake build wrote %s\n' "$iso_path" > "$stdout_log"
-    : > "$stderr_log"
-else
-    info "Executing real build for $build_label from $candidate_sha"
-    (
-        cd "$worktree"
-        SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
-        PACKAGE_SOURCE_MODE=genixbit-staging \
-        GENIXBIT_STAGING_SERVER="${GENIXBIT_STAGING_SERVER:-}" \
-        GENIXBIT_STAGING_KEYRING="${GENIXBIT_STAGING_KEYRING:-}" \
-        bash ./build.sh
-    ) > "$stdout_log" 2> "$stderr_log"
-fi
+info "Executing real build for $build_label from $candidate_sha"
+(
+    cd "$worktree"
+    SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+    PACKAGE_SOURCE_MODE=genixbit-staging \
+    GENIXBIT_STAGING_SERVER="${GENIXBIT_STAGING_SERVER:-}" \
+    GENIXBIT_STAGING_KEYRING="${GENIXBIT_STAGING_KEYRING:-}" \
+    bash ./build.sh
+) > "$stdout_log" 2> "$stderr_log"
 
 completion_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 mapfile -t matches < <(find "$worktree/dist" -maxdepth 1 -type f -name "GenixBitOS-$TARGET_VERSION-*.iso" -print | sort)
@@ -97,9 +93,7 @@ if grep -Fxq "$iso_path" "$before_manifest"; then
     fail "ISO existed before current build: $iso_path"
 fi
 
-if [[ "${GENIXBIT_FAKE_ACTIVE_BUILD:-}" != "1" ]]; then
-    bash "$REPO_ROOT/tools/validation/check-iso-structure.sh" --iso "$iso_path" > "$output_dir/$build_label-iso-structure.stdout.log" 2> "$output_dir/$build_label-iso-structure.stderr.log"
-fi
+bash "$REPO_ROOT/tools/validation/check-iso-structure.sh" --iso "$iso_path" > "$output_dir/$build_label-iso-structure.stdout.log" 2> "$output_dir/$build_label-iso-structure.stderr.log"
 
 preserved_iso="$output_dir/$build_label-$filename"
 cp "$iso_path" "$preserved_iso"
@@ -118,6 +112,9 @@ data = {
   "target_version": "0.3.0-alpha",
   "source_date_epoch": os.environ["SOURCE_DATE_EPOCH"],
   "command": "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH PACKAGE_SOURCE_MODE=genixbit-staging ./build.sh",
+  "execution_mode": "REAL_BUILD",
+  "build_script": "./build.sh",
+  "build_exit_code": 0,
   "start_timestamp": os.environ["START_TS"],
   "completion_timestamp": os.environ["COMPLETION_TS"],
   "iso_path": os.environ["ISO_PATH"],

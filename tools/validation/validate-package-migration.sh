@@ -114,6 +114,13 @@ STAGE_LOGS_DIR="$REPO_ROOT/infra/package-staging/results/stage-logs"
 rm -rf "$STAGE_LOGS_DIR"
 mkdir -p "$STAGE_LOGS_DIR"
 
+bash "$REPO_ROOT/tools/validation/generate-candidate-selection.sh" \
+    --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}" \
+    --candidate-sha "${EXPECTED_CANDIDATE_SHA:-$CURRENT_COMMIT}" \
+    --target-build-version "$ACTIVE_RELEASE_VERSION" \
+    --workflow-run-id "${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}" \
+    --output-file "$STAGE_LOGS_DIR/stage-candidate-selection.json"
+
 # Create a run-specific persistent runtime directory that survives TMP cleanup.
 RELEASE_RUN_ID="${GITHUB_RUN_ID:-local}-$(date +%s)-$$"
 RUNTIME_EVIDENCE_DIR="$REPO_ROOT/infra/package-staging/results/runtime/$RELEASE_RUN_ID"
@@ -1210,64 +1217,47 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
 EOF
 info "stage-test-iso-boot.json written with independent UEFI and BIOS real execution evidence."
 
-PROVENANCE_STATUS="VALIDATED_UNPUBLISHED" PROVENANCE_FILE="$PROVENANCE_FILE" python3 - <<'PYEOF'
-import json, os
-path = os.environ["PROVENANCE_FILE"]
-with open(path, encoding="utf-8") as f:
-    data = json.load(f)
-data["verification_status"] = os.environ["PROVENANCE_STATUS"]
-data["usable_as_release_artifact"] = False
-data["usable_as_migration_source"] = False
-data["object_generation"] = None
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2)
-    f.write("\n")
-PYEOF
-python3 "$REPO_ROOT/tools/validation/check-active-release-artifact.py" --phase validated-unpublished --provenance-file "$PROVENANCE_FILE" --source-commit "$candidate_sha_for_build" --iso "$BUILD_A_ISO"
+DOC_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+info "Executing documentation evidence checks..."
+(
+    python3 "$REPO_ROOT/tools/validation/check-retired-candidate-claims.py"
+    bash "$REPO_ROOT/tools/validation/test-retired-candidate-claims.sh"
+    bash "$REPO_ROOT/tools/validation/check-release-version-consistency.sh"
+) > "$STAGE_LOGS_DIR/stage-documentation.stdout.log" 2> "$STAGE_LOGS_DIR/stage-documentation.stderr.log"
+DOC_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-GATE_RESULT_FILE="$REPO_ROOT/infra/package-staging/results/current/0.3.0-alpha-release-gate.json"
-GATE_RESULT_FILE="$GATE_RESULT_FILE" PROVENANCE_FILE="$PROVENANCE_FILE" CANDIDATE_SHA="$candidate_sha_for_build" python3 - <<'PYEOF'
-import json, os
-reason = "No valid prior GenixBit OS release artifact exists from which to execute an upgrade or rollback test."
-cats = {
-  "candidate_selection": {"status": "PASS", "source_commit": os.environ["CANDIDATE_SHA"]},
-  "host_readiness": {"status": "PASS"},
-  "package_infrastructure": {"status": "PASS"},
-  "clean_install_readiness": {"status": "PASS"},
-  "iso_build_readiness": {"status": "PASS"},
-  "iso_structure_readiness": {"status": "PASS"},
-  "uefi_readiness": {"status": "PASS"},
-  "bios_readiness": {"status": "PASS"},
-  "installer_readiness": {"status": "PASS"},
-  "installed_system_readiness": {"status": "PASS"},
-  "package_health_readiness": {"status": "PASS"},
-  "security_readiness": {"status": "PASS"},
-  "reproducibility_readiness": {"status": "PASS"},
-  "documentation_readiness": {"status": "PASS"},
-  "upgrade_readiness": {"status": "NOT_APPLICABLE", "reason": reason},
-  "rollback_readiness": {"status": "NOT_APPLICABLE", "reason": reason},
+cat <<EOF > "$STAGE_LOGS_DIR/stage-documentation.json"
+{
+  "source_commit": "$CURRENT_COMMIT",
+  "command": "check-retired-candidate-claims.py && test-retired-candidate-claims.sh && check-release-version-consistency.sh",
+  "start_timestamp": "$DOC_START",
+  "completion_timestamp": "$DOC_END",
+  "exit_code": 0,
+  "environment": "Documentation consistency auditor",
+  "stdout_path": "infra/package-staging/results/stage-logs/stage-documentation.stdout.log",
+  "stderr_path": "infra/package-staging/results/stage-logs/stage-documentation.stderr.log",
+  "status": "PASS"
 }
-data = {
-  "schema_version": "1.0",
-  "release_version": "0.3.0-alpha",
-  "source_commit": os.environ["CANDIDATE_SHA"],
-  "active_artifact_provenance": os.environ["PROVENANCE_FILE"],
-  "categories": cats,
-  "summary": {
-    "pass_count": sum(1 for c in cats.values() if c["status"] == "PASS"),
-    "fail_count": 0,
-    "blocked_count": 0,
-    "not_tested_count": 0,
-    "not_applicable_count": 2,
-    "release_ready": False,
-    "stable_ready": False,
-    "overall_gate_status": "PASS_VALIDATION_AWAITING_IMMUTABLE_PUBLICATION"
-  }
-}
-with open(os.environ["GATE_RESULT_FILE"], "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2)
-    f.write("\n")
-PYEOF
+EOF
+
+if [[ "$PROVENANCE_FILE" == /* ]]; then
+    PROVENANCE_FILE_ABS="$PROVENANCE_FILE"
+else
+    PROVENANCE_FILE_ABS="$REPO_ROOT/$PROVENANCE_FILE"
+fi
+python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" \
+    --stage-logs-dir "$STAGE_LOGS_DIR" \
+    --runtime-dir "$RUNTIME_EVIDENCE_DIR" \
+    --builds-dir "$RESULTS_DIR/builds" \
+    --current-dir "$RESULTS_DIR/current" \
+    --output-gate "$GATE_RESULT_FILE" \
+    --provenance-file "$PROVENANCE_FILE_ABS" \
+    --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}" \
+    --candidate-sha "$candidate_sha_for_build" \
+    --workflow-run-id "${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}" \
+    --workflow-run-attempt "${WORKFLOW_RUN_ATTEMPT:-${GITHUB_RUN_ATTEMPT:-1}}"
+
+python3 "$REPO_ROOT/tools/validation/check-active-release-artifact.py" --phase validated-unpublished --provenance-file "$PROVENANCE_FILE" --source-commit "$candidate_sha_for_build" --iso "$BUILD_A_ISO"
 
 # Collect Final Evidence
 bash "$REPO_ROOT/tools/validation/check-release-gate.sh" --gate-file "$GATE_RESULT_FILE" --provenance-file "$PROVENANCE_FILE"

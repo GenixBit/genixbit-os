@@ -77,6 +77,26 @@ jobs:
           [[ "$(git symbolic-ref --quiet --short HEAD)" == '${{ inputs.candidate_branch }}' ]]
           [[ "$(git rev-parse HEAD)" == '${{ inputs.candidate_sha }}' ]]
 
+      - name: Reject fake-build environment variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -qE '^GENIXBIT_FAKE'; then
+            echo "[FAIL] Fake build environment variables detected in workflow environment!" >&2
+            exit 1
+          fi
+          echo "[PASS] No fake-build environment variables detected."
+
+      - name: Generate candidate-selection evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/validation/generate-candidate-selection.sh \
+            --candidate-branch "${{ inputs.candidate_branch }}" \
+            --candidate-sha "${{ inputs.candidate_sha }}" \
+            --target-build-version "${{ inputs.target_version }}" \
+            --workflow-run-id "${{ github.run_id }}"
+
       - name: Install Build Dependencies
         run: |
           set -euo pipefail

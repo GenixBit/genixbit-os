@@ -141,6 +141,7 @@ run_case() {
 
     set +e
     PATH="$bin_dir:/usr/bin:/bin:/sbin" \
+    PREFLIGHT_STRICT_HEAD_MATCH="false" \
     PREFLIGHT_RESULTS_DIR="$results_dir" \
     PREFLIGHT_KVM_PATH="$kvm_path" \
     PREFLIGHT_MIN_DISK_KB=1 \
