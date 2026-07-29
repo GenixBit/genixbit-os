@@ -30,8 +30,8 @@ info "=== Starting GenixBit OS Package Migration & Staging Validation Suite ==="
 CURRENT_COMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD)
 BUILD_VERSION=$(grep -E '^export TARGET_BUILD_VERSION=' "$REPO_ROOT/args.sh" | cut -d'"' -f2)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-WORKFLOW_RUN_ID="${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-100}}"
-WORKFLOW_RUN_ATTEMPT="${WORKFLOW_RUN_ATTEMPT:-${GITHUB_RUN_ATTEMPT:-1}}"
+WORKFLOW_RUN_ID="${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-}}"
+WORKFLOW_RUN_ATTEMPT="${WORKFLOW_RUN_ATTEMPT:-${GITHUB_RUN_ATTEMPT:-}}"
 
 [[ -n "$WORKFLOW_RUN_ID" ]] || fail "workflow run ID is required"
 [[ -n "$WORKFLOW_RUN_ATTEMPT" ]] || fail "workflow run attempt is required"

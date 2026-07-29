@@ -187,7 +187,7 @@ run_install_failure_case "install-candidate2.sh rejects arbitrary nonmatching IS
 
 TOTAL=$((TOTAL + 1))
 snapshot_results "$TMP_DIR/results-before.txt"
-if ACTIVE_RELEASE_MODE=candidate2-retirement-test bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/migration.out" 2> "$TMP_DIR/migration.err"; then
+if ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/migration.out" 2> "$TMP_DIR/migration.err"; then
     printf '[FAIL] migration validation accepted retired artifact\n' >&2
     exit 1
 fi
@@ -207,7 +207,7 @@ write_provenance "$active_migration_provenance" "PASS" true "$ACTIVE_SHA"
 
 TOTAL=$((TOTAL + 1))
 snapshot_results "$TMP_DIR/pending-results-before.txt"
-if ACTIVE_RELEASE_MODE=candidate2-retirement-test CANDIDATE2_PROVENANCE_FILE="$pending_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/pending-migration.out" 2> "$TMP_DIR/pending-migration.err"; then
+if ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 CANDIDATE2_PROVENANCE_FILE="$pending_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/pending-migration.out" 2> "$TMP_DIR/pending-migration.err"; then
     printf '[FAIL] migration validation accepted PENDING artifact status\n' >&2
     exit 1
 fi
@@ -218,7 +218,7 @@ pass "migration validation rejects PENDING usable provenance and preserves produ
 
 TOTAL=$((TOTAL + 1))
 snapshot_results "$TMP_DIR/unknown-results-before.txt"
-if ACTIVE_RELEASE_MODE=candidate2-retirement-test CANDIDATE2_PROVENANCE_FILE="$unknown_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/unknown-migration.out" 2> "$TMP_DIR/unknown-migration.err"; then
+if ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 CANDIDATE2_PROVENANCE_FILE="$unknown_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/unknown-migration.out" 2> "$TMP_DIR/unknown-migration.err"; then
     printf '[FAIL] migration validation accepted UNKNOWN artifact status\n' >&2
     exit 1
 fi
@@ -229,7 +229,7 @@ pass "migration validation rejects UNKNOWN usable provenance and preserves produ
 
 TOTAL=$((TOTAL + 1))
 snapshot_results "$TMP_DIR/empty-status-results-before.txt"
-if ACTIVE_RELEASE_MODE=candidate2-retirement-test CANDIDATE2_PROVENANCE_FILE="$empty_status_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/empty-status-migration.out" 2> "$TMP_DIR/empty-status-migration.err"; then
+if ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 CANDIDATE2_PROVENANCE_FILE="$empty_status_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/empty-status-migration.out" 2> "$TMP_DIR/empty-status-migration.err"; then
     printf '[FAIL] migration validation accepted empty artifact status\n' >&2
     exit 1
 fi
@@ -257,7 +257,7 @@ for binary in bash dirname pwd git grep cut date python3 sed mktemp rm mkdir chm
     fi
     chmod +x "$active_migration_bin/$binary"
 done
-if PATH="$active_migration_bin" ACTIVE_RELEASE_MODE=candidate2-retirement-test CANDIDATE2_PROVENANCE_FILE="$active_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/active-migration.out" 2> "$TMP_DIR/active-migration.err"; then
+if PATH="$active_migration_bin" ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 CANDIDATE2_PROVENANCE_FILE="$active_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/active-migration.out" 2> "$TMP_DIR/active-migration.err"; then
     printf '[FAIL] active migration fixture unexpectedly completed full validation\n' >&2
     exit 1
 fi
