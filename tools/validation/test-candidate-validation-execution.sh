@@ -16,7 +16,7 @@ trap cleanup EXIT
 pass() { PASS=$((PASS + 1)); printf '[PASS] Test %d: %s\n' "$PASS" "$1"; }
 fail() { printf '[FAIL] %s\n' "$1" >&2; exit 1; }
 
-expect_pass() { local name="$1"; shift; TOTAL=$((TOTAL + 1)); "$@" >/dev/null 2>&1 || fail "$name (command failed)"; pass "$name"; }
+expect_pass() { local name="$1"; shift; TOTAL=$((TOTAL + 1)); if ! "$@" > "$TMP_DIR/out" 2> "$TMP_DIR/err"; then echo "=== STDOUT ($name) ===" >&2; cat "$TMP_DIR/out" >&2; echo "=== STDERR ($name) ===" >&2; cat "$TMP_DIR/err" >&2; fail "$name (command failed)"; fi; pass "$name"; }
 expect_fail() { local name="$1" pat="$2"; shift 2; TOTAL=$((TOTAL + 1)); if "$@" > "$TMP_DIR/out" 2> "$TMP_DIR/err"; then fail "$name (unexpectedly succeeded)"; fi; grep -qE "$pat" "$TMP_DIR/out" "$TMP_DIR/err" || fail "$name (error pattern '$pat' not found in output)"; pass "$name"; }
 
 make_fixture_repo() {
@@ -31,13 +31,52 @@ make_fixture_repo() {
     git -C "$work" config user.email "test@example.com"
     git -C "$work" config user.name "Test Runner"
     mkdir -p "$work/tools/validation" "$work/infra/package-staging/results/stage-logs"
+    cp "$REPO_ROOT/tools/validation/check-iso-structure.sh" "$work/tools/validation/check-iso-structure.sh"
+    chmod +x "$work/tools/validation/check-iso-structure.sh"
     cat > "$work/args.sh" <<'EOF'
 export TARGET_BUILD_VERSION="0.3.0-alpha"
 EOF
     cat > "$work/build.sh" <<'EOF'
 #!/usr/bin/env bash
+set -euo pipefail
 mkdir -p dist
-echo "synthetic iso content for test" > "dist/GenixBitOS-0.3.0-alpha-2607290000.iso"
+iso_dir=$(mktemp -d)
+mkdir -p "$iso_dir/casper" "$iso_dir/EFI/BOOT"
+dd if=/dev/zero of="$iso_dir/casper/vmlinuz" bs=1K count=10 status=none
+dd if=/dev/zero of="$iso_dir/casper/initrd" bs=1K count=10 status=none
+
+sq_dir=$(mktemp -d)
+echo "rootfs" > "$sq_dir/root.txt"
+mksquashfs "$sq_dir" "$iso_dir/casper/filesystem.squashfs" -noappend >/dev/null 2>&1
+rm -rf "$sq_dir"
+
+fat_img=$(mktemp)
+dd if=/dev/zero of="$fat_img" bs=1K count=1440 status=none
+mformat -i "$fat_img" -C -f 1440 :: >/dev/null 2>&1
+mmd -i "$fat_img" ::EFI ::EFI/BOOT >/dev/null 2>&1
+tbin=$(mktemp)
+echo "BOOTX64" > "$tbin"
+mcopy -i "$fat_img" "$tbin" ::EFI/BOOT/BOOTX64.EFI
+rm -f "$tbin"
+
+mkdir -p "$iso_dir/EFI"
+cp "$fat_img" "$iso_dir/EFI/efiboot.img"
+rm -f "$fat_img"
+
+out_iso="dist/GenixBitOS-0.3.0-alpha-2607290000.iso"
+xorriso -as mkisofs \
+    -r -V "GENIXBIT_OS" \
+    -J -joliet-long \
+    -b casper/vmlinuz \
+    -no-emul-boot -boot-load-size 4 -boot-info-table \
+    -eltorito-alt-boot \
+    -e EFI/efiboot.img \
+    -no-emul-boot \
+    -o "$out_iso" \
+    "$iso_dir" >/dev/null 2>&1
+
+truncate -s 501M "$out_iso"
+rm -rf "$iso_dir"
 EOF
     chmod +x "$work/build.sh"
     git -C "$work" add .
@@ -205,7 +244,36 @@ JSON
 }
 JSON
 
+    cat > "$stage_logs/stage-installer-branding.json" <<JSON
+{"source_commit":"$sha","workflow_run_id":"$run_id","workflow_run_attempt":"$run_attempt","exit_code":0,"status":"PASS"}
+JSON
     cat > "$stage_logs/stage-installer.json" <<JSON
+{"source_commit":"$sha","workflow_run_id":"$run_id","workflow_run_attempt":"$run_attempt","exit_code":0,"status":"PASS"}
+JSON
+    cat > "$stage_logs/stage-real-installation.json" <<JSON
+{
+  "source_commit": "$sha",
+  "candidate_sha": "$sha",
+  "workflow_run_id": "$run_id",
+  "workflow_run_attempt": "$run_attempt",
+  "iso_sha256": "$sha256_a",
+  "uefi_installation_result": "PASS",
+  "bios_installation_result": "PASS",
+  "uefi_installed_disk": "$dir/genixbit-0.3.0-uefi.qcow2",
+  "bios_installed_disk": "$dir/genixbit-0.3.0-bios.qcow2",
+  "uefi_first_boot_result": "PASS",
+  "bios_first_boot_result": "PASS",
+  "uefi_second_boot_result": "PASS",
+  "bios_second_boot_result": "PASS",
+  "authenticated_guest_validation_result": "PASS",
+  "exit_code": 0,
+  "status": "PASS"
+}
+JSON
+    cat > "$stage_logs/stage-tamper.json" <<JSON
+{"source_commit":"$sha","workflow_run_id":"$run_id","workflow_run_attempt":"$run_attempt","exit_code":0,"status":"PASS"}
+JSON
+    cat > "$stage_logs/stage-documentation.json" <<JSON
 {"source_commit":"$sha","workflow_run_id":"$run_id","workflow_run_attempt":"$run_attempt","exit_code":0,"status":"PASS"}
 JSON
     cat > "$stage_logs/stage-tamper.json" <<JSON

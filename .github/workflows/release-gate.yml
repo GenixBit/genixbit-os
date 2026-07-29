@@ -127,13 +127,15 @@ jobs:
       - name: Regression Test — Verify No Fabricated Evidence Patterns
         run: |
           set -euo pipefail
+          python3 -m py_compile tools/validation/generate-candidate-gate.py
+          bash tools/validation/test-candidate-validation-execution.sh
+          bash tools/validation/test-candidate-validation-gate.sh
           bash tools/validation/test-release-evidence-integrity.sh
           bash tools/validation/test-observed-guest-negative.sh
           bash tools/validation/test-iso-structure.sh
           bash tools/validation/test-release-preflight-evidence.sh
           bash tools/validation/test-candidate2-retirement.sh
           bash tools/validation/test-active-release-artifact.sh
-          bash tools/validation/test-candidate-validation-gate.sh
           bash tests/infrastructure/test-qmp-json-parsing.sh
           bash tests/infrastructure/test-candidate2-failure-evidence.sh
           bash tests/infrastructure/test-mksquashfs-runner.sh

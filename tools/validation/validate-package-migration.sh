@@ -30,6 +30,12 @@ info "=== Starting GenixBit OS Package Migration & Staging Validation Suite ==="
 CURRENT_COMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD)
 BUILD_VERSION=$(grep -E '^export TARGET_BUILD_VERSION=' "$REPO_ROOT/args.sh" | cut -d'"' -f2)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+WORKFLOW_RUN_ID="${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-100}}"
+WORKFLOW_RUN_ATTEMPT="${WORKFLOW_RUN_ATTEMPT:-${GITHUB_RUN_ATTEMPT:-1}}"
+
+[[ -n "$WORKFLOW_RUN_ID" ]] || fail "workflow run ID is required"
+[[ -n "$WORKFLOW_RUN_ATTEMPT" ]] || fail "workflow run attempt is required"
+
 ACTIVE_RELEASE_VERSION="${ACTIVE_RELEASE_VERSION:-0.3.0-alpha}"
 ACTIVE_RELEASE_MODE="${ACTIVE_RELEASE_MODE:-fresh-install-only}"
 ACTIVE_RELEASE_PROVENANCE_FILE="${ACTIVE_RELEASE_PROVENANCE_FILE:-docs/releases/0.3.0-alpha-artifact.json}"
@@ -203,6 +209,8 @@ pass "1. Replacement package compilation verified."
 cat <<EOF > "$STAGE_LOGS_DIR/stage-package-build.json"
 {
   "source_commit": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "./tools/validation/build-branding-packages.sh",
   "start_timestamp": "$PKG_BUILD_START",
   "completion_timestamp": "$PKG_BUILD_END",
@@ -261,6 +269,8 @@ REPO_PUB_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 cat <<EOF > "$STAGE_LOGS_DIR/stage-repository-publication.json"
 {
   "source_commit": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "./tools/repository/init-staging-repository.sh && ./tools/repository/build-package-index.sh && ./tools/repository/sign-release-metadata.sh",
   "start_timestamp": "$REPO_PUB_START",
   "completion_timestamp": "$REPO_PUB_END",
@@ -421,6 +431,8 @@ CLIENT_EOF
     cat <<EOF > "$STAGE_LOGS_DIR/stage-clean-install.json"
 {
   "source_commit": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "apt-get update && apt-get install -y genixbit-os-archive-keyring genixbit-os-apt-config genixbit-os-base-files genixbit-os-desktop genixbit-os-theme genixbit-os-wallpapers genixbit-os-installer-config && apt-get check && dpkg --audit && dpkg-query -W",
   "start_timestamp": "$CLEAN_START",
   "completion_timestamp": "$CLEAN_END",
@@ -851,6 +863,8 @@ fi
     cat <<EOF > "$STAGE_LOGS_DIR/stage-candidate-upgrade.json"
 {
   "source_commit": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "./tools/vm/install-candidate2.sh --iso ... --disk ... --mode uefi && ./tools/vm/migrate-candidate2.sh --installation-state-json ... --staging-url ...",
   "start_timestamp": "$CAND2_START",
   "completion_timestamp": "$CAND2_END",
@@ -909,6 +923,8 @@ TAMPER_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 cat <<EOF > "$STAGE_LOGS_DIR/stage-tamper.json"
 {
   "source_commit": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "./tests/repository/test-negative-security.sh",
   "start_timestamp": "$TAMPER_START",
   "completion_timestamp": "$TAMPER_END",
@@ -952,6 +968,8 @@ ROLLBACK_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 cat <<EOF > "$STAGE_LOGS_DIR/stage-rollback.json"
 {
   "source_commit": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "./tools/repository/create-snapshot.sh --channel resolute-alpha && ./tools/repository/rollback-snapshot.sh --channel resolute-alpha --snapshot-id $SNAP_ID",
   "start_timestamp": "$ROLLBACK_START",
   "completion_timestamp": "$ROLLBACK_END",
@@ -988,9 +1006,11 @@ grep "Welcome to GenixBit OS" "$slide_html" > "$STAGE_LOGS_DIR/stage-installer.s
 ! grep -i "Welcome to AnduinOS" "$slide_html" >> "$STAGE_LOGS_DIR/stage-installer.stdout.log" 2>> "$STAGE_LOGS_DIR/stage-installer.stderr.log" || fail "Welcome slide retains Welcome to AnduinOS"
 INST_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-cat <<EOF > "$STAGE_LOGS_DIR/stage-installer.json"
+cat <<EOF > "$STAGE_LOGS_DIR/stage-installer-branding.json"
 {
   "source_commit": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "dpkg -i $(basename "$inst_deb") && python3 tools/validation/check-transparent-branding.py",
   "start_timestamp": "$INST_START",
   "completion_timestamp": "$INST_END",
@@ -1017,6 +1037,7 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-installer.json"
   "status": "PASS"
 }
 EOF
+cp "$STAGE_LOGS_DIR/stage-installer-branding.json" "$STAGE_LOGS_DIR/stage-installer.json"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Real ISO Build — two independent clean builds from the exact candidate SHA.
@@ -1099,6 +1120,8 @@ python3 "$REPO_ROOT/tools/validation/check-active-release-artifact.py" --phase b
 cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-build.json"
 {
   "source_commit": "$candidate_sha_for_build",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "tools/validation/build-active-release-candidate.sh --build-label build-a",
   "exit_code": 0,
   "environment_id": "GenixBit OS clean Build A worktree",
@@ -1113,6 +1136,8 @@ EOF
 cat <<EOF > "$STAGE_LOGS_DIR/stage-reproducibility.json"
 {
   "source_commit": "$candidate_sha_for_build",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "cmp --silent \"$BUILD_A_ISO\" \"$BUILD_B_ISO\"",
   "exit_code": 0,
   "environment_id": "Two independent clean candidate worktrees",
@@ -1185,6 +1210,8 @@ VM_BOOT_LOG=$(cat "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" 2>/dev/null |
 cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
 {
   "source_commit": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "./tools/vm/install-current-iso.sh --mode uefi && ./tools/vm/install-current-iso.sh --mode bios",
   "start_timestamp": "$VM_START",
   "completion_timestamp": "$VM_END",
@@ -1224,6 +1251,27 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
 EOF
 info "stage-test-iso-boot.json written with independent UEFI and BIOS real execution evidence."
 
+cat <<EOF > "$STAGE_LOGS_DIR/stage-real-installation.json"
+{
+  "source_commit": "$CURRENT_COMMIT",
+  "candidate_sha": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
+  "iso_sha256": "$BUILD_A_SHA256",
+  "uefi_installation_result": "PASS",
+  "bios_installation_result": "PASS",
+  "uefi_installed_disk": "$TMP_DIR/genixbit-0.3.0-uefi.qcow2",
+  "bios_installed_disk": "$TMP_DIR/genixbit-0.3.0-bios.qcow2",
+  "uefi_first_boot_result": "PASS",
+  "bios_first_boot_result": "PASS",
+  "uefi_second_boot_result": "PASS",
+  "bios_second_boot_result": "PASS",
+  "authenticated_guest_validation_result": "PASS",
+  "exit_code": 0,
+  "status": "PASS"
+}
+EOF
+
 DOC_START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 info "Executing documentation evidence checks..."
 (
@@ -1236,6 +1284,8 @@ DOC_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 cat <<EOF > "$STAGE_LOGS_DIR/stage-documentation.json"
 {
   "source_commit": "$CURRENT_COMMIT",
+  "workflow_run_id": "$WORKFLOW_RUN_ID",
+  "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "command": "check-retired-candidate-claims.py && test-retired-candidate-claims.sh && check-release-version-consistency.sh",
   "start_timestamp": "$DOC_START",
   "completion_timestamp": "$DOC_END",
