@@ -9,7 +9,7 @@ IFS=$'\n\t'
 ISO_PATH=""
 DISK_PATH=""
 MODE="uefi"
-TIMEOUT_SEC=600
+TIMEOUT_SEC=2700
 
 fail() {
     printf '[FAIL] install-current-iso.sh: %s\n' "$*" >&2
