@@ -99,5 +99,7 @@ jobs:
           bash tools/validation/test-candidate2-retirement.sh
           bash tools/validation/test-active-release-artifact.sh
           bash tools/validation/test-candidate-validation-gate.sh
+          python3 -m py_compile tools/validation/generate-candidate-gate.py
+          bash tools/validation/test-candidate-validation-execution.sh
           python3 tools/validation/check-retired-candidate-claims.py
           bash tools/validation/test-retired-candidate-claims.sh

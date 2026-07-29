@@ -203,6 +203,7 @@ def main():
     ]
     
     req_stage_logs = [
+        "stage-candidate-selection.json",
         "stage-package-build.json",
         "stage-repository-publication.json",
         "stage-clean-install.json",
@@ -210,7 +211,8 @@ def main():
         "stage-installer.json",
         "stage-test-iso-build.json",
         "stage-test-iso-boot.json",
-        "stage-reproducibility.json"
+        "stage-reproducibility.json",
+        "stage-documentation.json"
     ]
     if args.active_release_mode == "fresh-install-only":
         req_stage_logs.extend(["stage-candidate-upgrade.json", "stage-rollback.json"])
@@ -416,6 +418,15 @@ def main():
     prod_apt_status = "NOT DEPLOYED (packages.os.genixbit.com status page unchanged)"
 
     evidences = {
+        "candidate-selection-result.json": {
+            "source_commit": current_commit,
+            "command": stage_data["candidate-selection"]["command"] if "command" in stage_data["candidate-selection"] else "./tools/validation/generate-candidate-selection.sh",
+            "exit_code": 0,
+            "timestamp": timestamp,
+            "environment": "Git checkout candidate selection auditor",
+            "observations": stage_data["candidate-selection"],
+            "status": "PASS"
+        },
         "package-build-results.json": {
             "source_commit": current_commit,
             "command": "./tools/validation/build-branding-packages.sh",
@@ -508,6 +519,15 @@ def main():
             "timestamp": timestamp,
             "environment": stage_data["reproducibility"].get("environment"),
             "observations": stage_data["reproducibility"].get("observations", {}),
+            "status": "PASS"
+        },
+        "documentation-result.json": {
+            "source_commit": current_commit,
+            "command": stage_data["documentation"]["command"],
+            "exit_code": stage_data["documentation"]["exit_code"],
+            "timestamp": timestamp,
+            "environment": stage_data["documentation"].get("environment", "Documentation auditor"),
+            "observations": stage_data["documentation"].get("observations", {}),
             "status": "PASS"
         },
         "final-package-migration-result.json": {

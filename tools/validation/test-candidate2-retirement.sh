@@ -120,6 +120,8 @@ write_collector_stage_logs() {
     mkdir -p "$stage_dir"
     local head_sha
     head_sha=$(git -C "$REPO_ROOT" rev-parse HEAD)
+    printf '{"candidate_branch":"validation/0.3.0-alpha-candidate-2","candidate_sha":"%s","remote_candidate_sha":"%s","git_head":"%s","working_tree_clean":true,"target_build_version":"0.3.0-alpha","workflow_run_id":"100","exit_code":0,"status":"PASS"}\n' "$candidate_sha" "$candidate_sha" "$candidate_sha" > "$stage_dir/stage-candidate-selection.json"
+    printf '{"command":"check-retired-candidate-claims.py","exit_code":0,"status":"PASS","source_commit":"%s","environment":"fixture"}\n' "$head_sha" > "$stage_dir/stage-documentation.json"
     for stage in package-build repository-publication tamper rollback installer test-iso-boot; do
         printf '{"command":"%s","exit_code":0,"status":"PASS","environment":"fixture","observations":{"captured_apt_output":"Reading package lists... Done","source_commit":"%s","iso_sha256":"abc","slideshow_verified":true,"vm_command_logs":"qemu"}}\n' "$stage" "$head_sha" > "$stage_dir/stage-${stage}.json"
     done
@@ -185,7 +187,7 @@ run_install_failure_case "install-candidate2.sh rejects arbitrary nonmatching IS
 
 TOTAL=$((TOTAL + 1))
 snapshot_results "$TMP_DIR/results-before.txt"
-if ACTIVE_RELEASE_MODE=candidate2-retirement-test bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/migration.out" 2> "$TMP_DIR/migration.err"; then
+if ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/migration.out" 2> "$TMP_DIR/migration.err"; then
     printf '[FAIL] migration validation accepted retired artifact\n' >&2
     exit 1
 fi
@@ -205,7 +207,7 @@ write_provenance "$active_migration_provenance" "PASS" true "$ACTIVE_SHA"
 
 TOTAL=$((TOTAL + 1))
 snapshot_results "$TMP_DIR/pending-results-before.txt"
-if ACTIVE_RELEASE_MODE=candidate2-retirement-test CANDIDATE2_PROVENANCE_FILE="$pending_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/pending-migration.out" 2> "$TMP_DIR/pending-migration.err"; then
+if ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 CANDIDATE2_PROVENANCE_FILE="$pending_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/pending-migration.out" 2> "$TMP_DIR/pending-migration.err"; then
     printf '[FAIL] migration validation accepted PENDING artifact status\n' >&2
     exit 1
 fi
@@ -216,7 +218,7 @@ pass "migration validation rejects PENDING usable provenance and preserves produ
 
 TOTAL=$((TOTAL + 1))
 snapshot_results "$TMP_DIR/unknown-results-before.txt"
-if ACTIVE_RELEASE_MODE=candidate2-retirement-test CANDIDATE2_PROVENANCE_FILE="$unknown_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/unknown-migration.out" 2> "$TMP_DIR/unknown-migration.err"; then
+if ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 CANDIDATE2_PROVENANCE_FILE="$unknown_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/unknown-migration.out" 2> "$TMP_DIR/unknown-migration.err"; then
     printf '[FAIL] migration validation accepted UNKNOWN artifact status\n' >&2
     exit 1
 fi
@@ -227,7 +229,7 @@ pass "migration validation rejects UNKNOWN usable provenance and preserves produ
 
 TOTAL=$((TOTAL + 1))
 snapshot_results "$TMP_DIR/empty-status-results-before.txt"
-if ACTIVE_RELEASE_MODE=candidate2-retirement-test CANDIDATE2_PROVENANCE_FILE="$empty_status_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/empty-status-migration.out" 2> "$TMP_DIR/empty-status-migration.err"; then
+if ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 CANDIDATE2_PROVENANCE_FILE="$empty_status_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/empty-status-migration.out" 2> "$TMP_DIR/empty-status-migration.err"; then
     printf '[FAIL] migration validation accepted empty artifact status\n' >&2
     exit 1
 fi
@@ -255,7 +257,7 @@ for binary in bash dirname pwd git grep cut date python3 sed mktemp rm mkdir chm
     fi
     chmod +x "$active_migration_bin/$binary"
 done
-if PATH="$active_migration_bin" ACTIVE_RELEASE_MODE=candidate2-retirement-test CANDIDATE2_PROVENANCE_FILE="$active_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/active-migration.out" 2> "$TMP_DIR/active-migration.err"; then
+if PATH="$active_migration_bin" ACTIVE_RELEASE_MODE=candidate2-retirement-test WORKFLOW_RUN_ID=100 WORKFLOW_RUN_ATTEMPT=1 CANDIDATE2_PROVENANCE_FILE="$active_migration_provenance" bash "$REPO_ROOT/tools/validation/validate-package-migration.sh" > "$TMP_DIR/active-migration.out" 2> "$TMP_DIR/active-migration.err"; then
     printf '[FAIL] active migration fixture unexpectedly completed full validation\n' >&2
     exit 1
 fi
@@ -315,8 +317,9 @@ SHIM_DF
 printf '#!/usr/bin/env bash\nif [[ "${1:-}" == "MemAvailable" ]]; then printf "MemAvailable: 20000000 kB\\n"; exit 0; fi\nexec /usr/bin/grep "$@"\n' > "$shim_bin/grep"
 printf '#!/usr/bin/env bash\nif [[ "${1:-}" == "-c" && "${2:-}" == "import jsonschema" ]]; then exit 0; fi\nexec %q "$@"\n' "$(command -v python3)" > "$shim_bin/python3"
 chmod +x "$shim_bin"/*
-touch "$TMP_DIR/kvm" "$TMP_DIR/ovmf-code" "$TMP_DIR/ovmf-vars" "$TMP_DIR/seabios"
-if ! PATH="$shim_bin:/usr/bin:/bin:/sbin" PREFLIGHT_RESULTS_DIR="$TMP_DIR/preflight" PREFLIGHT_KVM_PATH="$TMP_DIR/kvm" PREFLIGHT_MIN_DISK_KB=1 PREFLIGHT_MIN_MEMORY_KB=1 PREFLIGHT_MIN_CPU_THREADS=1 PREFLIGHT_OVMF_CODE_CANDIDATES="$TMP_DIR/ovmf-code" PREFLIGHT_OVMF_VARS_CANDIDATES="$TMP_DIR/ovmf-vars" PREFLIGHT_SEABIOS_CANDIDATES="$TMP_DIR/seabios" ACTIVE_RELEASE_PROVENANCE_FILE="$REPO_ROOT/docs/releases/0.3.0-alpha-artifact.json" STAGING_SIGNING_PASSPHRASE=secret GENIXBIT_STAGING_SERVER=http://127.0.0.1:18080 GITHUB_SHA=test-sha GITHUB_RUN_ID=test-run GITHUB_RUN_ATTEMPT=1 bash "$REPO_ROOT/tools/validation/run-release-preflight.sh" > "$TMP_DIR/preflight.out" 2> "$TMP_DIR/preflight.err"; then
+touch "$TMP_DIR/kvm" "$TMP_DIR/ovmf-code.fd" "$TMP_DIR/ovmf-vars.fd" "$TMP_DIR/seabios.bin"
+FIXTURE_SHA=$(git -C "$REPO_ROOT" rev-parse HEAD)
+if ! PATH="$shim_bin:/usr/bin:/bin:/sbin" PREFLIGHT_TEST_ARCH=x86_64 PREFLIGHT_RESULTS_DIR="$TMP_DIR/preflight" PREFLIGHT_KVM_PATH="$TMP_DIR/kvm" PREFLIGHT_MIN_DISK_KB=1 PREFLIGHT_MIN_MEMORY_KB=1 PREFLIGHT_MIN_CPU_THREADS=1 PREFLIGHT_OVMF_CODE_CANDIDATES="$TMP_DIR/ovmf-code.fd" PREFLIGHT_OVMF_VARS_CANDIDATES="$TMP_DIR/ovmf-vars.fd" PREFLIGHT_SEABIOS_CANDIDATES="$TMP_DIR/seabios.bin" ACTIVE_RELEASE_PROVENANCE_FILE="$REPO_ROOT/docs/releases/0.3.0-alpha-artifact.json" STAGING_SIGNING_PASSPHRASE=secret GENIXBIT_STAGING_SERVER=http://127.0.0.1:18080 ACTIVE_RELEASE_SOURCE_COMMIT="$FIXTURE_SHA" EXPECTED_CANDIDATE_SHA="$FIXTURE_SHA" GITHUB_SHA="$FIXTURE_SHA" GITHUB_RUN_ID=test-run GITHUB_RUN_ATTEMPT=1 bash "$REPO_ROOT/tools/validation/run-release-preflight.sh" > "$TMP_DIR/preflight.out" 2> "$TMP_DIR/preflight.err"; then
     printf '[FAIL] preflight rejected pending active artifact metadata\n' >&2
     exit 1
 fi

@@ -174,7 +174,7 @@ bash "$(dirname "$0")/guest-command.sh" \
     --pid-file "$pid_file"
 
 bash "$(dirname "$0")/guest-command.sh" \
-    --cmd "cat /etc/os-release && dpkg-query -W && apt-get check && dpkg --audit" \
+    --cmd "cat /etc/os-release && dpkg-query -W && apt-get update && apt-get check && dpkg --audit && systemctl --failed" \
     --ssh-port "$INSTALLED_PORT" \
     --ssh-user "genixbit" \
     --ssh-key "$SSH_KEY" \

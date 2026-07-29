@@ -25,10 +25,16 @@ SEABIOS=""
 STAGING_STATUS="NOT_CHECKED"
 ACTIVE_RELEASE_VERSION="${ACTIVE_RELEASE_VERSION:-0.3.0-alpha}"
 ACTIVE_RELEASE_MODE="${ACTIVE_RELEASE_MODE:-fresh-install-only}"
-ACTIVE_RELEASE_SOURCE_COMMIT="${ACTIVE_RELEASE_SOURCE_COMMIT:-${GITHUB_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || printf unknown)}}"
+ACTIVE_RELEASE_SOURCE_COMMIT="${ACTIVE_RELEASE_SOURCE_COMMIT:-${EXPECTED_CANDIDATE_SHA:-${GITHUB_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || printf unknown)}}}"
 ACTIVE_RELEASE_PROVENANCE_FILE="${ACTIVE_RELEASE_PROVENANCE_FILE:-docs/releases/0.3.0-alpha-artifact.json}"
 ACTIVE_ARTIFACT_STATUS="PENDING_BUILD"
 RETIRED_CANDIDATE2_SHA="1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"
+EXPECTED_CANDIDATE_BRANCH="${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}"
+EXPECTED_CANDIDATE_SHA="${EXPECTED_CANDIDATE_SHA:-$ACTIVE_RELEASE_SOURCE_COMMIT}"
+WORKFLOW_RUN_ID="${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}"
+WORKFLOW_RUN_ATTEMPT="${WORKFLOW_RUN_ATTEMPT:-${GITHUB_RUN_ATTEMPT:-unknown}}"
+WORKFLOW_DISPATCH_REF_SHA="${WORKFLOW_DISPATCH_REF_SHA:-${GITHUB_SHA:-$ACTIVE_RELEASE_SOURCE_COMMIT}}"
+GIT_HEAD="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || printf unknown)"
 
 write_result() {
     local status="$1"
@@ -44,9 +50,13 @@ write_result() {
     EXIT_CODE="$exit_code" \
     FAILED_PHASE="$failed_phase" \
     FAILURE_REASON="$failure_reason" \
-    SOURCE_COMMIT="${GITHUB_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || printf unknown)}" \
-    WORKFLOW_RUN_ID="${GITHUB_RUN_ID:-unknown}" \
-    WORKFLOW_RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-unknown}" \
+    SOURCE_COMMIT="$ACTIVE_RELEASE_SOURCE_COMMIT" \
+    GIT_HEAD="$GIT_HEAD" \
+    EXPECTED_CANDIDATE_BRANCH="$EXPECTED_CANDIDATE_BRANCH" \
+    EXPECTED_CANDIDATE_SHA="$EXPECTED_CANDIDATE_SHA" \
+    WORKFLOW_RUN_ID="$WORKFLOW_RUN_ID" \
+    WORKFLOW_RUN_ATTEMPT="$WORKFLOW_RUN_ATTEMPT" \
+    WORKFLOW_DISPATCH_REF_SHA="$WORKFLOW_DISPATCH_REF_SHA" \
     RUNNER_NAME_VALUE="${RUNNER_NAME:-self-hosted}" \
     ARCH="$ARCH" \
     CPU_THREADS="$CPU_THREADS" \
@@ -80,8 +90,12 @@ def as_bool(name):
 
 data = {
     "source_commit": os.environ["SOURCE_COMMIT"],
+    "git_head": os.environ["GIT_HEAD"],
+    "expected_candidate_branch": os.environ["EXPECTED_CANDIDATE_BRANCH"],
+    "expected_candidate_sha": os.environ["EXPECTED_CANDIDATE_SHA"],
     "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
     "workflow_run_attempt": os.environ["WORKFLOW_RUN_ATTEMPT"],
+    "workflow_dispatch_ref_sha": os.environ["WORKFLOW_DISPATCH_REF_SHA"],
     "runner_name": os.environ["RUNNER_NAME_VALUE"],
     "architecture": os.environ["ARCH"],
     "cpu_threads": as_int("CPU_THREADS"),
@@ -155,8 +169,17 @@ repo_path() {
 
 echo "=== Executing Operator Release Gate Strict Preflight Checks ==="
 
+PHASE="candidate_sha_binding"
+[[ "$ACTIVE_RELEASE_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || fail_phase "ACTIVE_RELEASE_SOURCE_COMMIT must be a 40-character lowercase hexadecimal SHA."
+if [[ "${PREFLIGHT_STRICT_HEAD_MATCH:-true}" == "true" ]]; then
+    [[ "$GIT_HEAD" == "$ACTIVE_RELEASE_SOURCE_COMMIT" ]] || fail_phase "git HEAD ($GIT_HEAD) does not match ACTIVE_RELEASE_SOURCE_COMMIT ($ACTIVE_RELEASE_SOURCE_COMMIT)."
+fi
+if [[ -n "${EXPECTED_CANDIDATE_SHA:-}" && "$EXPECTED_CANDIDATE_SHA" != "unknown" ]]; then
+    [[ "$EXPECTED_CANDIDATE_SHA" == "$ACTIVE_RELEASE_SOURCE_COMMIT" ]] || fail_phase "EXPECTED_CANDIDATE_SHA ($EXPECTED_CANDIDATE_SHA) does not match ACTIVE_RELEASE_SOURCE_COMMIT ($ACTIVE_RELEASE_SOURCE_COMMIT)."
+fi
+
 PHASE="architecture"
-ARCH=$(uname -m)
+ARCH="${PREFLIGHT_TEST_ARCH:-$(uname -m)}"
 [[ "$ARCH" == "x86_64" ]] || fail_phase "Runner architecture is $ARCH, required x86_64."
 
 PHASE="kvm"

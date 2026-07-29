@@ -50,11 +50,16 @@ jobs:
 
 
     steps:
-      - name: Clean stale root-owned build artifacts
+      - name: Clean result tree and stale build artifacts
         run: |
           # build.sh (debootstrap) may leave root-owned new_building_os/ from previous runs.
           # Remove it with sudo before checkout so git can clean the workspace.
-          sudo rm -rf new_building_os/ || true
+          sudo rm -rf new_building_os/ infra/package-staging/results || true
+          mkdir -p \
+            infra/package-staging/results/stage-logs \
+            infra/package-staging/results/builds \
+            infra/package-staging/results/current \
+            infra/package-staging/results/runtime
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -76,6 +81,27 @@ jobs:
           git switch -C '${{ inputs.candidate_branch }}' '${{ inputs.candidate_sha }}'
           [[ "$(git symbolic-ref --quiet --short HEAD)" == '${{ inputs.candidate_branch }}' ]]
           [[ "$(git rev-parse HEAD)" == '${{ inputs.candidate_sha }}' ]]
+
+      - name: Reject fake-build environment variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -qE '^GENIXBIT_FAKE'; then
+            echo "[FAIL] Fake build environment variables detected in workflow environment!" >&2
+            exit 1
+          fi
+          echo "[PASS] No fake-build environment variables detected."
+
+      - name: Generate candidate-selection evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/validation/generate-candidate-selection.sh \
+            --candidate-branch "${{ inputs.candidate_branch }}" \
+            --candidate-sha "${{ inputs.candidate_sha }}" \
+            --target-build-version "${{ inputs.target_version }}" \
+            --workflow-run-id "${{ github.run_id }}" \
+            --workflow-run-attempt "${{ github.run_attempt }}"
 
       - name: Install Build Dependencies
         run: |
@@ -101,13 +127,15 @@ jobs:
       - name: Regression Test — Verify No Fabricated Evidence Patterns
         run: |
           set -euo pipefail
+          python3 -m py_compile tools/validation/generate-candidate-gate.py
+          bash tools/validation/test-candidate-validation-execution.sh
+          bash tools/validation/test-candidate-validation-gate.sh
           bash tools/validation/test-release-evidence-integrity.sh
           bash tools/validation/test-observed-guest-negative.sh
           bash tools/validation/test-iso-structure.sh
           bash tools/validation/test-release-preflight-evidence.sh
           bash tools/validation/test-candidate2-retirement.sh
           bash tools/validation/test-active-release-artifact.sh
-          bash tools/validation/test-candidate-validation-gate.sh
           bash tests/infrastructure/test-qmp-json-parsing.sh
           bash tests/infrastructure/test-candidate2-failure-evidence.sh
           bash tests/infrastructure/test-mksquashfs-runner.sh

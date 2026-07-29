@@ -209,13 +209,13 @@ else
     pass_test $T "$DESC"
 fi
 
-# Test 20 -- Real gate deletes stale stage evidence before execution
+# Test 20 -- Real gate preserves current-run preflight evidence and does NOT wipe STAGE_LOGS_DIR with rm -rf
 T=20
-DESC="validate-package-migration.sh starts with rm -rf STAGE_LOGS_DIR"
+DESC="validate-package-migration.sh does NOT wipe STAGE_LOGS_DIR with rm -rf"
 if grep -q "rm -rf.*STAGE_LOGS_DIR\|rm -rf.*stage-logs" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
-    pass_test $T "$DESC"
+    fail_test $T "$DESC" "validate-package-migration.sh still wipes STAGE_LOGS_DIR with rm -rf"
 else
-    fail_test $T "$DESC" "validate-package-migration.sh does not clear STAGE_LOGS_DIR at start"
+    pass_test $T "$DESC"
 fi
 
 # Test 21 -- allow-passwords is rejected in create-autoinstall-seed.sh
