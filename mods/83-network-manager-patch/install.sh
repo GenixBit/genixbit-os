@@ -5,6 +5,7 @@ set -o pipefail         # exit on pipeline error
 set -u                  # treat unset variable as error
 
 print_ok "Configuring netplan..."
+mkdir -p /etc/netplan
 cat << EOF > /etc/netplan/01-network-manager-all.yaml
 network:
   version: 2
