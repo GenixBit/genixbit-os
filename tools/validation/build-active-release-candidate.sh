@@ -59,9 +59,16 @@ git -C "$REPO_ROOT" cat-file -e "$candidate_sha^{commit}" || fail "candidate SHA
 
 mkdir -p "$output_dir"
 worktree="$output_dir/worktree-$build_label"
-rm -rf "$worktree"
+sudo rm -rf "$worktree" 2>/dev/null || rm -rf "$worktree" 2>/dev/null || true
 git -C "$REPO_ROOT" worktree add --detach "$worktree" "$candidate_sha" >/dev/null
-cleanup() { git -C "$REPO_ROOT" worktree remove --force "$worktree" >/dev/null 2>&1 || rm -rf "$worktree"; }
+cleanup() {
+    sudo umount "$worktree/new_building_os/sys" 2>/dev/null || sudo umount -lf "$worktree/new_building_os/sys" 2>/dev/null || true
+    sudo umount "$worktree/new_building_os/proc" 2>/dev/null || sudo umount -lf "$worktree/new_building_os/proc" 2>/dev/null || true
+    sudo umount "$worktree/new_building_os/dev" 2>/dev/null || sudo umount -lf "$worktree/new_building_os/dev" 2>/dev/null || true
+    sudo umount "$worktree/new_building_os/run" 2>/dev/null || sudo umount -lf "$worktree/new_building_os/run" 2>/dev/null || true
+    sudo rm -rf "$worktree/new_building_os" "$worktree/image" 2>/dev/null || true
+    git -C "$REPO_ROOT" worktree remove --force "$worktree" >/dev/null 2>&1 || sudo rm -rf "$worktree" 2>/dev/null || rm -rf "$worktree" 2>/dev/null || true
+}
 trap cleanup EXIT
 
 head_sha=$(git -C "$worktree" rev-parse HEAD)
@@ -70,7 +77,7 @@ build_version=$(grep -E '^export TARGET_BUILD_VERSION=' "$worktree/args.sh" | cu
 [[ "$build_version" == "$TARGET_VERSION" ]] || fail "TARGET_BUILD_VERSION is $build_version, expected $TARGET_VERSION"
 [[ -z "$(git -C "$worktree" status --porcelain)" ]] || fail "candidate checkout is dirty before build"
 
-rm -rf "$worktree/dist" "$worktree/new_building_os" "$worktree/image"
+sudo rm -rf "$worktree/dist" "$worktree/new_building_os" "$worktree/image" 2>/dev/null || rm -rf "$worktree/dist" "$worktree/new_building_os" "$worktree/image" 2>/dev/null || true
 mkdir -p "$worktree/dist"
 before_manifest="$output_dir/$build_label-before.txt"
 find "$worktree/dist" -maxdepth 1 -type f -name "GenixBitOS-$TARGET_VERSION-*.iso" -print | sort > "$before_manifest"
@@ -108,6 +115,12 @@ fi
 preserved_iso="$output_dir/$build_label-$filename"
 cp "$iso_path" "$preserved_iso"
 iso_path="$preserved_iso"
+
+sudo umount "$worktree/new_building_os/sys" 2>/dev/null || sudo umount -lf "$worktree/new_building_os/sys" 2>/dev/null || true
+sudo umount "$worktree/new_building_os/proc" 2>/dev/null || sudo umount -lf "$worktree/new_building_os/proc" 2>/dev/null || true
+sudo umount "$worktree/new_building_os/dev" 2>/dev/null || sudo umount -lf "$worktree/new_building_os/dev" 2>/dev/null || true
+sudo umount "$worktree/new_building_os/run" 2>/dev/null || sudo umount -lf "$worktree/new_building_os/run" 2>/dev/null || true
+sudo rm -rf "$worktree/new_building_os" "$worktree/image" 2>/dev/null || true
 
 STRUCTURE_CHECKER="$REPO_ROOT/tools/validation/check-iso-structure.sh"
 [[ -x "$STRUCTURE_CHECKER" || -f "$STRUCTURE_CHECKER" ]] || fail "required ISO structure checker is missing: $STRUCTURE_CHECKER"
