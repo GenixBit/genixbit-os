@@ -20,7 +20,7 @@ elif [[ "$mode" == "genixbit-staging" ]]; then
     apt install $INTERACTIVE \
         $APT_CONFIG_PACKAGE \
         genixbit-os-archive-keyring \
-        base-files
+        genixbit-os-base-files
     judge "Install GenixBit OS basic packages"
 else
     echo "Error: Invalid PACKAGE_SOURCE_MODE: $mode" >&2
