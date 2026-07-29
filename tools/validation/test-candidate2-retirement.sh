@@ -4,6 +4,16 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
+unset \
+  EXPECTED_CANDIDATE_BRANCH \
+  EXPECTED_CANDIDATE_SHA \
+  ACTIVE_RELEASE_SOURCE_COMMIT \
+  WORKFLOW_RUN_ID \
+  WORKFLOW_RUN_ATTEMPT \
+  WORKFLOW_DISPATCH_REF_SHA \
+  GITHUB_RUN_ID \
+  GITHUB_RUN_ATTEMPT
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
 TMP_DIR=$(mktemp -d)
