@@ -1176,6 +1176,7 @@ bash "$REPO_ROOT/tools/vm/install-current-iso.sh" \
     --mode uefi \
     --iso "$ISO_FILE_PATH" \
     --disk "$TMP_DIR/genixbit-0.3.0-uefi.qcow2" \
+    --timeout 2700 \
     > "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" \
     2> "$STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log" \
     || fail "UEFI ISO installation failed. See $STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log"
@@ -1185,6 +1186,7 @@ bash "$REPO_ROOT/tools/vm/install-current-iso.sh" \
     --mode bios \
     --iso "$ISO_FILE_PATH" \
     --disk "$TMP_DIR/genixbit-0.3.0-bios.qcow2" \
+    --timeout 2700 \
     >> "$STAGE_LOGS_DIR/stage-test-iso-boot.stdout.log" \
     2>> "$STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log" \
     || fail "BIOS ISO installation failed. See $STAGE_LOGS_DIR/stage-test-iso-boot.stderr.log"
