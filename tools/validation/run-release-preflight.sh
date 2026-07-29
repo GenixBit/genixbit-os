@@ -195,6 +195,9 @@ fi
 PHASE="required_binaries"
 req_binaries=(qemu-system-x86_64 qemu-img timeout socat jq curl sha256sum sha512sum xorriso isoinfo mksquashfs unsquashfs gpg gpgv dpkg-deb apt-get python3)
 for b in "${req_binaries[@]}"; do
+    if [[ -n "${PREFLIGHT_TEST_MISSING_BINARY:-}" && "$b" == "$PREFLIGHT_TEST_MISSING_BINARY" ]]; then
+        fail_phase "Required preflight binary missing: $b"
+    fi
     command -v "$b" >/dev/null 2>&1 || fail_phase "Required preflight binary missing: $b"
 done
 
