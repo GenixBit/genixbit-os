@@ -141,7 +141,7 @@ autoinstall:
       - "${PUB_CONTENT}"
     allow-pw: false
 
-  updates: security
+  updates: off
   shutdown: poweroff
 
   late-commands:
