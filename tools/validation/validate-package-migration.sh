@@ -102,24 +102,31 @@ else
     CAND2_PINNED_SHA="NOT_APPLICABLE"
 fi
 
+RESULTS_ROOT="$REPO_ROOT/infra/package-staging/results"
+STAGE_LOGS_DIR="$RESULTS_ROOT/stage-logs"
+BUILD_OUTPUT_DIR="$RESULTS_ROOT/builds"
+CURRENT_RESULTS_DIR="$RESULTS_ROOT/current"
+RUNTIME_RESULTS_ROOT="$RESULTS_ROOT/runtime"
+
+PROVENANCE_FILE="$CURRENT_RESULTS_DIR/0.3.0-alpha-artifact.json"
+GATE_RESULT_FILE="$CURRENT_RESULTS_DIR/0.3.0-alpha-release-gate.json"
+
 # Directories
 TMP_DIR=$(mktemp -d)
 TMP_GPG="$TMP_DIR/gpg"
 TMP_REPO="$TMP_DIR/repo"
 DEBS_DIR="$REPO_ROOT/packages/build-debs"
-STAGE_LOGS_DIR="$REPO_ROOT/infra/package-staging/results/stage-logs"
 
-# Step 4: Start every real gate with an empty evidence directory.
-# Any stale stage JSON from a previous run must not contaminate this run.
-rm -rf "$STAGE_LOGS_DIR"
-mkdir -p "$STAGE_LOGS_DIR"
+mkdir -p "$STAGE_LOGS_DIR" "$BUILD_OUTPUT_DIR" "$CURRENT_RESULTS_DIR" "$RUNTIME_RESULTS_ROOT"
 
-bash "$REPO_ROOT/tools/validation/generate-candidate-selection.sh" \
-    --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}" \
-    --candidate-sha "${EXPECTED_CANDIDATE_SHA:-$CURRENT_COMMIT}" \
-    --target-build-version "$ACTIVE_RELEASE_VERSION" \
-    --workflow-run-id "${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}" \
-    --output-file "$STAGE_LOGS_DIR/stage-candidate-selection.json"
+if [[ "$ACTIVE_RELEASE_MODE" != "candidate2-retirement-test" && ! -f "$STAGE_LOGS_DIR/stage-candidate-selection.json" ]]; then
+    bash "$REPO_ROOT/tools/validation/generate-candidate-selection.sh" \
+        --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}" \
+        --candidate-sha "${EXPECTED_CANDIDATE_SHA:-$CURRENT_COMMIT}" \
+        --target-build-version "$ACTIVE_RELEASE_VERSION" \
+        --workflow-run-id "${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}" \
+        --output-file "$STAGE_LOGS_DIR/stage-candidate-selection.json"
+fi
 
 # Create a run-specific persistent runtime directory that survives TMP cleanup.
 RELEASE_RUN_ID="${GITHUB_RUN_ID:-local}-$(date +%s)-$$"
@@ -1240,18 +1247,13 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-documentation.json"
 }
 EOF
 
-if [[ "$PROVENANCE_FILE" == /* ]]; then
-    PROVENANCE_FILE_ABS="$PROVENANCE_FILE"
-else
-    PROVENANCE_FILE_ABS="$REPO_ROOT/$PROVENANCE_FILE"
-fi
 python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" \
     --stage-logs-dir "$STAGE_LOGS_DIR" \
     --runtime-dir "$RUNTIME_EVIDENCE_DIR" \
-    --builds-dir "$RESULTS_DIR/builds" \
-    --current-dir "$RESULTS_DIR/current" \
+    --builds-dir "$BUILD_OUTPUT_DIR" \
+    --current-dir "$CURRENT_RESULTS_DIR" \
     --output-gate "$GATE_RESULT_FILE" \
-    --provenance-file "$PROVENANCE_FILE_ABS" \
+    --provenance-file "$PROVENANCE_FILE" \
     --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}" \
     --candidate-sha "$candidate_sha_for_build" \
     --workflow-run-id "${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}" \

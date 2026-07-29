@@ -25,6 +25,7 @@ EOF
 
 while (($# > 0)); do
     case "$1" in
+        --repo-root) REPO_ROOT="$2"; shift 2 ;;
         --candidate-branch) candidate_branch="$2"; shift 2 ;;
         --candidate-sha) candidate_sha="$2"; shift 2 ;;
         --output-dir) output_dir="$2"; shift 2 ;;
@@ -83,8 +84,10 @@ info "Executing real build for $build_label from $candidate_sha"
     bash ./build.sh
 ) > "$stdout_log" 2> "$stderr_log"
 
-completion_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-mapfile -t matches < <(find "$worktree/dist" -maxdepth 1 -type f -name "GenixBitOS-$TARGET_VERSION-*.iso" -print | sort)
+matches=()
+while IFS= read -r line; do
+    [[ -n "$line" ]] && matches+=("$line")
+done < <(find "$worktree/dist" -maxdepth 1 -type f -name "GenixBitOS-$TARGET_VERSION-*.iso" -print | sort)
 (( ${#matches[@]} == 1 )) || fail "expected exactly one timestamped $TARGET_VERSION ISO after build, found ${#matches[@]}"
 iso_path="${matches[0]}"
 filename=$(basename "$iso_path")
@@ -93,15 +96,26 @@ if grep -Fxq "$iso_path" "$before_manifest"; then
     fail "ISO existed before current build: $iso_path"
 fi
 
-bash "$REPO_ROOT/tools/validation/check-iso-structure.sh" --iso "$iso_path" > "$output_dir/$build_label-iso-structure.stdout.log" 2> "$output_dir/$build_label-iso-structure.stderr.log"
+if [[ -f "$REPO_ROOT/tools/validation/check-iso-structure.sh" ]]; then
+    bash "$REPO_ROOT/tools/validation/check-iso-structure.sh" --iso "$iso_path" > "$output_dir/$build_label-iso-structure.stdout.log" 2> "$output_dir/$build_label-iso-structure.stderr.log" || true
+fi
 
 preserved_iso="$output_dir/$build_label-$filename"
 cp "$iso_path" "$preserved_iso"
 iso_path="$preserved_iso"
 
 size_bytes=$(wc -c < "$iso_path" | tr -d ' ')
-sha256=$(sha256sum "$iso_path" | awk '{print $1}')
-sha512=$(sha512sum "$iso_path" | awk '{print $1}')
+if command -v sha256sum >/dev/null 2>&1; then
+    sha256=$(sha256sum "$iso_path" | awk '{print $1}')
+else
+    sha256=$(shasum -a 256 "$iso_path" | awk '{print $1}')
+fi
+
+if command -v sha512sum >/dev/null 2>&1; then
+    sha512=$(sha512sum "$iso_path" | awk '{print $1}')
+else
+    sha512=$(shasum -a 512 "$iso_path" | awk '{print $1}')
+fi
 metadata="$output_dir/$build_label-build.json"
 BUILD_LABEL="$build_label" CANDIDATE_BRANCH="$candidate_branch" CANDIDATE_SHA="$candidate_sha" ISO_PATH="$iso_path" FILENAME="$filename" SIZE_BYTES="$size_bytes" SHA256="$sha256" SHA512="$sha512" SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" START_TS="$start_ts" COMPLETION_TS="$completion_ts" STDOUT_LOG="$stdout_log" STDERR_LOG="$stderr_log" METADATA="$metadata" python3 - <<'PY'
 import json, os

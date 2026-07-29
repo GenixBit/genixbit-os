@@ -27,6 +27,15 @@ REQUIRED_HEALTH_COMMANDS = [
     "systemctl --failed"
 ]
 
+REQUIRED_PACKAGES = [
+    "genixbit-os-desktop",
+    "genixbit-os-base",
+    "linux-image-generic",
+    "systemd",
+    "apt",
+    "dpkg"
+]
+
 def fail(msg):
     print(f"[FAIL] Candidate Gate Generator Error: {msg}", file=sys.stderr)
     sys.exit(1)
@@ -40,13 +49,22 @@ def calc_sha256(filepath):
             h.update(chunk)
     return h.hexdigest()
 
+def calc_sha512(filepath):
+    if not os.path.isfile(filepath):
+        fail(f"File not found for SHA-512 calculation: {filepath}")
+    h = hashlib.sha512()
+    with open(filepath, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
+
 def check_retired_references(obj_or_str, context=""):
     s = json.dumps(obj_or_str) if not isinstance(obj_or_str, str) else obj_or_str
     for item in RETIRED_IDENTIFIERS:
         if item in s:
             fail(f"Retired Candidate 2 identifier '{item}' referenced in evidence context: {context}")
 
-def read_json_evidence(filepath, required_status="PASS", expected_sha=None):
+def read_bound_evidence(filepath, *, expected_sha, expected_run_id, expected_run_attempt, required_status="PASS"):
     if not os.path.isfile(filepath):
         fail(f"Required evidence file missing: {filepath}")
     try:
@@ -60,27 +78,83 @@ def read_json_evidence(filepath, required_status="PASS", expected_sha=None):
     status = data.get("status")
     if required_status and status != required_status:
         fail(f"Evidence file {filepath} status is '{status}', expected '{required_status}'")
-    if expected_sha and data.get("source_commit") and data.get("source_commit") != expected_sha:
-        fail(f"Source commit mismatch in {filepath}: {data.get('source_commit')} != {expected_sha}")
+
+    exit_code = data.get("exit_code")
+    if exit_code is not None and exit_code != 0:
+        fail(f"Evidence file {filepath} exit_code is {exit_code}, expected 0")
+
+    commit = data.get("source_commit") or data.get("candidate_sha") or data.get("active_release_source_commit")
+    if not commit or commit != expected_sha:
+        fail(f"Source commit mismatch in {filepath}: {commit} != {expected_sha}")
+
+    if data.get("git_head") and data.get("git_head") != expected_sha:
+        fail(f"Git HEAD mismatch in {filepath}: {data.get('git_head')} != {expected_sha}")
+
+    run_id_val = str(data.get("workflow_run_id", ""))
+    if expected_run_id and expected_run_id != "unknown":
+        if not run_id_val or run_id_val == "unknown":
+            fail(f"Workflow run ID missing or unknown in {filepath}")
+        elif run_id_val != expected_run_id:
+            fail(f"Workflow run ID mismatch in {filepath}: {run_id_val} != {expected_run_id}")
+
+    run_att_val = str(data.get("workflow_run_attempt", ""))
+    if expected_run_attempt and expected_run_attempt != "unknown":
+        if run_att_val and run_att_val != "unknown" and run_att_val != str(expected_run_attempt):
+            fail(f"Workflow run attempt mismatch in {filepath}: {run_att_val} != {expected_run_attempt}")
+
     return data
 
 def find_file_recursive(directory, filename):
+    if not directory or not os.path.exists(directory):
+        return None
     for root, _, files in os.walk(directory):
         if filename in files:
             return os.path.join(root, filename)
     return None
 
-def check_runtime_log_commands(log_path, label):
+def check_guest_health_log(log_path, label):
     if not os.path.isfile(log_path):
-        fail(f"Runtime health evidence log missing for {label}: {log_path}")
+        fail(f"Runtime guest health log missing for {label}: {log_path}")
     if os.path.getsize(log_path) == 0:
-        fail(f"Runtime health evidence log is empty for {label}: {log_path}")
+        fail(f"Runtime guest health log is empty for {label}: {log_path}")
     with open(log_path, "r", encoding="utf-8", errors="replace") as f:
         content = f.read()
     check_retired_references(content, context=log_path)
+
     for cmd in REQUIRED_HEALTH_COMMANDS:
         if cmd not in content:
             fail(f"Required package/system health command '{cmd}' missing from {label} log ({log_path})")
+
+    if "GenixBit" not in content and "genixbit" not in content.lower():
+        fail(f"GenixBit OS product identity missing from {label} log ({log_path})")
+
+    for pkg in REQUIRED_PACKAGES:
+        if pkg not in content:
+            fail(f"Required package '{pkg}' missing from {label} log ({log_path})")
+
+def check_serial_log(log_path, label):
+    if not os.path.isfile(log_path):
+        fail(f"Serial boot log missing for {label}: {log_path}")
+    if os.path.getsize(log_path) == 0:
+        fail(f"Serial boot log is empty for {label}: {log_path}")
+    with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+        content = f.read()
+    check_retired_references(content, context=log_path)
+
+    lower_content = content.lower()
+    if "kernel panic" in lower_content:
+        fail(f"Kernel panic detected in {label} serial log ({log_path})")
+    if "emergency mode" in lower_content:
+        fail(f"Emergency mode detected in {label} serial log ({log_path})")
+    if "initramfs" in lower_content and "unable to mount" in lower_content:
+        fail(f"Initramfs boot failure detected in {label} serial log ({log_path})")
+    if "placeholder" in lower_content or "dummy" in lower_content:
+        fail(f"Fabricated placeholder marker detected in {label} serial log ({log_path})")
+
+    # Verify boot milestone presence
+    boot_milestones = ["Linux version", "Reached target", "login:", "Welcome", "GenixBit", "systemd[1]", "GRUB"]
+    if not any(m in content for m in boot_milestones):
+        fail(f"No valid boot milestones found in {label} serial log ({log_path})")
 
 def main():
     parser = argparse.ArgumentParser(description="GenixBit OS candidate gate generator")
@@ -102,7 +176,7 @@ def main():
     builds_dir = args.builds_dir or os.path.join(repo_root, "infra/package-staging/results/builds")
     current_dir = args.current_dir or os.path.join(repo_root, "infra/package-staging/results/current")
     output_gate = args.output_gate or os.path.join(current_dir, "0.3.0-alpha-release-gate.json")
-    provenance_file = args.provenance-file if hasattr(args, "provenance-file") and args.provenance-file else (args.provenance_file or os.path.join(current_dir, "0.3.0-alpha-artifact.json"))
+    provenance_file = args.provenance_file or os.path.join(current_dir, "0.3.0-alpha-artifact.json")
 
     cand_branch = args.candidate_branch
     cand_sha = args.candidate_sha
@@ -116,7 +190,7 @@ def main():
 
     # 1. candidate_selection evidence
     cand_sel_path = os.path.join(stage_logs_dir, "stage-candidate-selection.json")
-    cand_sel = read_json_evidence(cand_sel_path, expected_sha=cand_sha)
+    cand_sel = read_bound_evidence(cand_sel_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
     if cand_sel.get("candidate_branch") != cand_branch:
         fail(f"Candidate selection branch mismatch: {cand_sel.get('candidate_branch')} != {cand_branch}")
     if cand_sel.get("candidate_sha") != cand_sha:
@@ -125,105 +199,249 @@ def main():
         fail(f"Candidate selection git HEAD mismatch: {cand_sel.get('git_head')} != {cand_sha}")
     if cand_sel.get("working_tree_clean") is not True:
         fail("Candidate selection working tree was not clean")
-    if run_id != "unknown" and str(cand_sel.get("workflow_run_id", "unknown")) not in (run_id, "unknown"):
-        fail(f"Candidate selection workflow run ID mismatch: {cand_sel.get('workflow_run_id')} != {run_id}")
 
     # 2. host_readiness (preflight)
     preflight_path = os.path.join(stage_logs_dir, "preflight-results.json")
-    preflight = read_json_evidence(preflight_path, expected_sha=cand_sha)
+    preflight = read_bound_evidence(preflight_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
+
+    # Strictly validate preflight fields (no default fallbacks)
+    if preflight.get("status") != "PASS":
+        fail("Preflight status is not PASS")
+    if preflight.get("exit_code") != 0:
+        fail(f"Preflight exit_code is {preflight.get('exit_code')}, expected 0")
     if preflight.get("source_commit") != cand_sha:
-        fail(f"Preflight source commit mismatch: {preflight.get('source_commit')} != {cand_sha}")
-    if preflight.get("git_head") and preflight.get("git_head") != cand_sha:
-        fail(f"Preflight git HEAD mismatch: {preflight.get('git_head')} != {cand_sha}")
-    if run_id != "unknown" and str(preflight.get("workflow_run_id", "unknown")) not in (run_id, "unknown"):
-        fail(f"Preflight workflow run ID mismatch: {preflight.get('workflow_run_id')} != {run_id}")
+        fail(f"Preflight source_commit mismatch: {preflight.get('source_commit')} != {cand_sha}")
+    if preflight.get("active_release_source_commit") != cand_sha:
+        fail(f"Preflight active_release_source_commit mismatch: {preflight.get('active_release_source_commit')} != {cand_sha}")
+    if preflight.get("git_head") != cand_sha:
+        fail(f"Preflight git_head mismatch: {preflight.get('git_head')} != {cand_sha}")
+    if preflight.get("expected_candidate_sha") and preflight.get("expected_candidate_sha") != cand_sha:
+        fail(f"Preflight expected_candidate_sha mismatch: {preflight.get('expected_candidate_sha')} != {cand_sha}")
+    if preflight.get("expected_candidate_branch") and preflight.get("expected_candidate_branch") != cand_branch:
+        fail(f"Preflight expected_candidate_branch mismatch: {preflight.get('expected_candidate_branch')} != {cand_branch}")
+    if preflight.get("active_release_version") != "0.3.0-alpha":
+        fail(f"Preflight active_release_version is '{preflight.get('active_release_version')}', expected '0.3.0-alpha'")
+    if preflight.get("active_release_mode") != "fresh-install-only":
+        fail(f"Preflight active_release_mode is '{preflight.get('active_release_mode')}', expected 'fresh-install-only'")
+    if preflight.get("architecture") != "x86_64":
+        fail(f"Preflight architecture is '{preflight.get('architecture')}', expected 'x86_64'")
+    if preflight.get("kvm_available") is not True:
+        fail(f"Preflight kvm_available is '{preflight.get('kvm_available')}', expected True")
+    if preflight.get("staging_status") != "REACHABLE":
+        fail(f"Preflight staging_status is '{preflight.get('staging_status')}', expected 'REACHABLE'")
 
     # 3. package_infrastructure
     pkg_build_path = os.path.join(stage_logs_dir, "stage-package-build.json")
-    pkg_build = read_json_evidence(pkg_build_path, expected_sha=cand_sha)
+    pkg_build = read_bound_evidence(pkg_build_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
     repo_pub_path = os.path.join(stage_logs_dir, "stage-repository-publication.json")
-    repo_pub = read_json_evidence(repo_pub_path, expected_sha=cand_sha)
+    repo_pub = read_bound_evidence(repo_pub_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
 
     # 4. clean_install_readiness
     clean_install_path = os.path.join(stage_logs_dir, "stage-clean-install.json")
-    clean_install = read_json_evidence(clean_install_path, expected_sha=cand_sha)
+    clean_install = read_bound_evidence(clean_install_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
 
-    # 5. iso_build_readiness & Build B verification
-    iso_build_path = os.path.join(stage_logs_dir, "stage-test-iso-build.json")
-    iso_build = read_json_evidence(iso_build_path, expected_sha=cand_sha)
+    # 5. Build A & Build B metadata validation
+    build_a_json_path = find_file_recursive(builds_dir, "build-a-build.json") or find_file_recursive(stage_logs_dir, "build-a-build.json")
+    if not build_a_json_path:
+        # Fallback check for single build log if build-a-build.json not separated
+        build_a_json_path = os.path.join(stage_logs_dir, "stage-test-iso-build.json")
+    build_a_meta = read_bound_evidence(build_a_json_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
 
-    build_b_json = find_file_recursive(builds_dir, "build-b-build.json") or find_file_recursive(stage_logs_dir, "build-b-build.json")
+    build_b_json_path = find_file_recursive(builds_dir, "build-b-build.json") or find_file_recursive(stage_logs_dir, "build-b-build.json")
+    if not build_b_json_path:
+        fail("Build B metadata file (build-b-build.json) missing")
+    build_b_meta = read_bound_evidence(build_b_json_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
+
+    # Validate build-a & build-b fields
+    for label, meta, pth in [("Build A", build_a_meta, build_a_json_path), ("Build B", build_b_meta, build_b_json_path)]:
+        if meta.get("execution_mode") != "REAL_BUILD":
+            fail(f"{label} metadata ({pth}) execution_mode is '{meta.get('execution_mode')}', expected 'REAL_BUILD'")
+        if meta.get("build_script") != "./build.sh":
+            fail(f"{label} metadata ({pth}) build_script is '{meta.get('build_script')}', expected './build.sh'")
+        if meta.get("build_exit_code") != 0:
+            fail(f"{label} metadata ({pth}) build_exit_code is {meta.get('build_exit_code')}, expected 0")
+        if meta.get("candidate_branch") != cand_branch:
+            fail(f"{label} metadata ({pth}) candidate_branch is '{meta.get('candidate_branch')}', expected '{cand_branch}'")
+        if meta.get("target_version") and meta.get("target_version") != "0.3.0-alpha":
+            fail(f"{label} metadata ({pth}) target_version is '{meta.get('target_version')}', expected '0.3.0-alpha'")
+
+    worktree_a = build_a_meta.get("worktree_dir") or build_a_meta.get("build_dir") or ""
+    worktree_b = build_b_meta.get("worktree_dir") or build_b_meta.get("build_dir") or ""
+    if worktree_a and worktree_b and worktree_a == worktree_b:
+        fail(f"Build A and Build B used identical worktree path: {worktree_a}")
+
+    iso_a = build_a_meta.get("iso_path") or build_a_meta.get("output_file") or build_a_meta.get("observations", {}).get("iso_path") or ""
+    iso_b = build_b_meta.get("iso_path") or build_b_meta.get("output_file") or build_b_meta.get("observations", {}).get("iso_path") or ""
+    if not iso_a or not iso_b:
+        fail("ISO output paths missing from Build A or Build B metadata")
+    if iso_a == iso_b:
+        fail(f"Build A and Build B used identical ISO output path: {iso_a}")
+
+    if not os.path.isfile(iso_a) or os.path.getsize(iso_a) == 0:
+        fail(f"Build A ISO file missing or empty: {iso_a}")
+    if not os.path.isfile(iso_b) or os.path.getsize(iso_b) == 0:
+        fail(f"Build B ISO file missing or empty: {iso_b}")
+
+    filename_a = os.path.basename(iso_a)
+    filename_b = os.path.basename(iso_b)
+    if not re.match(r"^GenixBitOS-0\.3\.0-alpha-.*\.iso$", filename_a):
+        fail(f"Build A ISO filename '{filename_a}' does not match GenixBitOS-0.3.0-alpha-*.iso")
+    if not re.match(r"^GenixBitOS-0\.3\.0-alpha-.*\.iso$", filename_b):
+        fail(f"Build B ISO filename '{filename_b}' does not match GenixBitOS-0.3.0-alpha-*.iso")
+
+    actual_size_a = os.path.getsize(iso_a)
+    actual_size_b = os.path.getsize(iso_b)
+    if actual_size_a != actual_size_b:
+        fail(f"Build A size ({actual_size_a}) does not match Build B size ({actual_size_b})")
+
+    sha256_a = calc_sha256(iso_a)
+    sha256_b = calc_sha256(iso_b)
+    if sha256_a != sha256_b:
+        fail(f"Build A SHA-256 ({sha256_a}) does not match Build B SHA-256 ({sha256_b})")
+
+    sha512_a = calc_sha512(iso_a)
+    sha512_b = calc_sha512(iso_b)
+    if sha512_a != sha512_b:
+        fail(f"Build A SHA-512 ({sha512_a}) does not match Build B SHA-512 ({sha512_b})")
+
+    # Reproducibility check
     repro_path = os.path.join(stage_logs_dir, "stage-reproducibility.json")
-    repro = read_json_evidence(repro_path, expected_sha=cand_sha)
+    repro = read_bound_evidence(repro_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
     repro_hashes = repro.get("artifact_hashes", {})
-    if not repro_hashes.get("build_b_sha256"):
-        fail("Build B SHA-256 hash missing from reproducibility evidence")
     if repro_hashes.get("cmp_exit_code") != 0:
         fail(f"Reproducibility cmp exit code is {repro_hashes.get('cmp_exit_code')}, expected 0")
-    if repro_hashes.get("build_a_sha256") != repro_hashes.get("build_b_sha256"):
-        fail("Build A and Build B SHA-256 mismatch")
 
-    # 6. iso_structure_readiness
-    iso_struct_obs = iso_build.get("observations", {})
-    struct_status = iso_struct_obs.get("iso_structure_check") or iso_struct_obs.get("structure_validation")
-    if struct_status not in ("PASS", True, None):
-        fail("ISO structure check failed in test-iso-build evidence")
+    # 6. Separate ISO Structure Evidence
+    struct_a_path = find_file_recursive(builds_dir, "build-a-iso-structure.json") or find_file_recursive(stage_logs_dir, "build-a-iso-structure.json") or os.path.join(stage_logs_dir, "stage-test-iso-build.json")
+    struct_a = read_bound_evidence(struct_a_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
 
-    # 7. UEFI & BIOS evidence & runtime health verification
-    boot_path = os.path.join(stage_logs_dir, "stage-test-iso-boot.json")
-    boot_data = read_json_evidence(boot_path, expected_sha=cand_sha)
+    struct_b_path = find_file_recursive(builds_dir, "build-b-iso-structure.json") or find_file_recursive(stage_logs_dir, "build-b-iso-structure.json") or struct_a_path
+    struct_b = read_bound_evidence(struct_b_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
 
-    req_runtime_logs = [
+    # 7. Guest Health Logs & Serial Logs
+    guest_health_logs = [
         ("uefi-guest-validation.log", "UEFI Guest Validation"),
         ("bios-guest-validation.log", "BIOS Guest Validation"),
         ("uefi-second-boot-validation.log", "UEFI Second Boot Validation"),
-        ("bios-second-boot-validation.log", "BIOS Second Boot Validation"),
-        ("uefi-installed-boot.serial.log", "UEFI Installed Boot Serial"),
-        ("bios-installed-boot.serial.log", "BIOS Installed Boot Serial"),
+        ("bios-second-boot-validation.log", "BIOS Second Boot Validation")
     ]
-
-    for log_filename, label in req_runtime_logs:
+    for log_filename, label in guest_health_logs:
         found_log = find_file_recursive(runtime_dir, log_filename) or find_file_recursive(stage_logs_dir, log_filename) or find_file_recursive(current_dir, log_filename)
         if not found_log:
-            fail(f"Required runtime health log missing: {log_filename} ({label})")
-        check_runtime_log_commands(found_log, label)
+            fail(f"Required guest health log missing: {log_filename} ({label})")
+        check_guest_health_log(found_log, label)
 
-    # 8. installer_readiness
+    serial_logs = [
+        ("uefi-installed-boot.serial.log", "UEFI Installed Boot Serial"),
+        ("bios-installed-boot.serial.log", "BIOS Installed Boot Serial")
+    ]
+    serial_paths = []
+    for log_filename, label in serial_logs:
+        found_log = find_file_recursive(runtime_dir, log_filename) or find_file_recursive(stage_logs_dir, log_filename) or find_file_recursive(current_dir, log_filename)
+        if not found_log:
+            fail(f"Required serial boot log missing: {log_filename} ({label})")
+        check_serial_log(found_log, label)
+        serial_paths.append(found_log)
+
+    hash_serial_uefi = calc_sha256(serial_paths[0])
+    hash_serial_bios = calc_sha256(serial_paths[1])
+    if hash_serial_uefi == hash_serial_bios:
+        fail("UEFI and BIOS serial boot logs have identical SHA-256 hashes")
+
+    # 8. Installer readiness & Security readiness
     inst_path = os.path.join(stage_logs_dir, "stage-installer.json")
-    inst_data = read_json_evidence(inst_path, expected_sha=cand_sha)
+    inst_data = read_bound_evidence(inst_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
 
-    # 9. security_readiness
     tamper_path = os.path.join(stage_logs_dir, "stage-tamper.json")
-    tamper_data = read_json_evidence(tamper_path, expected_sha=cand_sha)
+    tamper_data = read_bound_evidence(tamper_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
 
-    # 10. documentation_readiness
+    # 9. Documentation readiness
     doc_path = os.path.join(stage_logs_dir, "stage-documentation.json")
-    doc_data = read_json_evidence(doc_path, expected_sha=cand_sha)
-    if doc_data.get("status") != "PASS":
-        fail("Documentation evidence stage status is not PASS")
+    doc_data = read_bound_evidence(doc_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
 
-    # Calculate SHA256 of evidence files for provenance binding
+    # Calculate evidence hashes
     cand_sel_sha = calc_sha256(cand_sel_path)
     preflight_sha = calc_sha256(preflight_path)
-    iso_build_sha = calc_sha256(iso_build_path)
-    vm_evid_sha = calc_sha256(boot_path)
+    build_a_sha = calc_sha256(build_a_json_path)
+    build_b_sha = calc_sha256(build_b_json_path)
     repro_evid_sha = calc_sha256(repro_path)
+    doc_sha = calc_sha256(doc_path)
 
     categories = {
-        "candidate_selection": {"status": "PASS", "evidence_file": "stage-candidate-selection.json", "candidate_branch": cand_branch, "candidate_sha": cand_sha},
-        "host_readiness": {"status": "PASS", "evidence_file": "preflight-results.json", "architecture": preflight.get("architecture", "x86_64"), "kvm_available": preflight.get("kvm_available", True)},
-        "package_infrastructure": {"status": "PASS", "evidence_file": "stage-repository-publication.json"},
-        "clean_install_readiness": {"status": "PASS", "evidence_file": "stage-clean-install.json"},
-        "iso_build_readiness": {"status": "PASS", "evidence_file": "stage-test-iso-build.json"},
-        "iso_structure_readiness": {"status": "PASS", "evidence_file": "stage-test-iso-build.json"},
-        "uefi_readiness": {"status": "PASS", "evidence_file": "uefi-guest-validation.log"},
-        "bios_readiness": {"status": "PASS", "evidence_file": "bios-guest-validation.log"},
-        "installer_readiness": {"status": "PASS", "evidence_file": "stage-installer.json"},
-        "installed_system_readiness": {"status": "PASS", "evidence_file": "stage-installer.json"},
-        "package_health_readiness": {"status": "PASS", "evidence_file": "stage-clean-install.json"},
-        "security_readiness": {"status": "PASS", "evidence_file": "stage-tamper.json"},
-        "reproducibility_readiness": {"status": "PASS", "evidence_file": "stage-reproducibility.json"},
-        "documentation_readiness": {"status": "PASS", "evidence_file": "stage-documentation.json"},
+        "candidate_selection": {
+            "status": "PASS",
+            "evidence_files": [cand_sel_path],
+            "evidence_hashes": [cand_sel_sha],
+            "candidate_branch": cand_branch,
+            "candidate_sha": cand_sha
+        },
+        "host_readiness": {
+            "status": "PASS",
+            "evidence_files": [preflight_path],
+            "evidence_hashes": [preflight_sha],
+            "architecture": "x86_64",
+            "kvm_available": True
+        },
+        "package_infrastructure": {
+            "status": "PASS",
+            "evidence_files": [pkg_build_path, repo_pub_path],
+            "evidence_hashes": [calc_sha256(pkg_build_path), calc_sha256(repo_pub_path)]
+        },
+        "clean_install_readiness": {
+            "status": "PASS",
+            "evidence_files": [clean_install_path],
+            "evidence_hashes": [calc_sha256(clean_install_path)]
+        },
+        "iso_build_readiness": {
+            "status": "PASS",
+            "evidence_files": [build_a_json_path, build_b_json_path],
+            "evidence_hashes": [build_a_sha, build_b_sha]
+        },
+        "iso_structure_readiness": {
+            "status": "PASS",
+            "evidence_files": [struct_a_path, struct_b_path],
+            "evidence_hashes": [calc_sha256(struct_a_path), calc_sha256(struct_b_path)]
+        },
+        "uefi_readiness": {
+            "status": "PASS",
+            "evidence_files": [serial_paths[0]],
+            "evidence_hashes": [hash_serial_uefi]
+        },
+        "bios_readiness": {
+            "status": "PASS",
+            "evidence_files": [serial_paths[1]],
+            "evidence_hashes": [hash_serial_bios]
+        },
+        "installer_readiness": {
+            "status": "PASS",
+            "evidence_files": [inst_path],
+            "evidence_hashes": [calc_sha256(inst_path)]
+        },
+        "installed_system_readiness": {
+            "status": "PASS",
+            "evidence_files": [inst_path],
+            "evidence_hashes": [calc_sha256(inst_path)]
+        },
+        "package_health_readiness": {
+            "status": "PASS",
+            "evidence_files": [clean_install_path],
+            "evidence_hashes": [calc_sha256(clean_install_path)]
+        },
+        "security_readiness": {
+            "status": "PASS",
+            "evidence_files": [tamper_path],
+            "evidence_hashes": [calc_sha256(tamper_path)]
+        },
+        "reproducibility_readiness": {
+            "status": "PASS",
+            "evidence_files": [repro_path],
+            "evidence_hashes": [repro_evid_sha]
+        },
+        "documentation_readiness": {
+            "status": "PASS",
+            "evidence_files": [doc_path],
+            "evidence_hashes": [doc_sha]
+        },
         "upgrade_readiness": {"status": "NOT_APPLICABLE", "reason": NA_REASON},
         "rollback_readiness": {"status": "NOT_APPLICABLE", "reason": NA_REASON}
     }
@@ -259,13 +477,6 @@ def main():
         json.dump(gate_data, f, indent=2)
         f.write("\n")
 
-    iso_obs_file = iso_build.get("observations", {})
-    build_a_iso = iso_obs_file.get("iso_path") or iso_obs_file.get("build_a_iso") or ""
-    build_a_filename = os.path.basename(build_a_iso) if build_a_iso else "GenixBitOS-0.3.0-alpha-2607290000.iso"
-    build_a_size = iso_obs_file.get("iso_size_bytes") or iso_obs_file.get("size_bytes") or (os.path.getsize(build_a_iso) if os.path.isfile(build_a_iso) else 0)
-    build_a_sha256 = iso_obs_file.get("iso_sha256") or iso_obs_file.get("sha256") or (calc_sha256(build_a_iso) if os.path.isfile(build_a_iso) else "")
-    build_a_sha512 = iso_obs_file.get("iso_sha512") or iso_obs_file.get("sha512") or ""
-
     prov_data = {
         "schema_version": "1.0",
         "release_version": "0.3.0-alpha",
@@ -273,10 +484,10 @@ def main():
         "candidate_source_commit": cand_sha,
         "workflow_run_id": run_id,
         "workflow_run_attempt": run_attempt,
-        "filename": build_a_filename,
-        "size_bytes": build_a_size,
-        "sha256": build_a_sha256,
-        "sha512": build_a_sha512,
+        "filename": filename_a,
+        "size_bytes": actual_size_a,
+        "sha256": sha256_a,
+        "sha512": sha512_a,
         "object_generation": None,
         "verification_status": "VALIDATED_UNPUBLISHED",
         "usable_as_release_artifact": False,
@@ -284,9 +495,10 @@ def main():
         "validation_evidence": {
             "candidate_selection_sha256": cand_sel_sha,
             "preflight_sha256": preflight_sha,
-            "iso_build_sha256": iso_build_sha,
-            "vm_evidence_sha256": vm_evid_sha,
-            "reproducibility_sha256": repro_evid_sha
+            "build_a_sha256": build_a_sha,
+            "build_b_sha256": build_b_sha,
+            "reproducibility_sha256": repro_evid_sha,
+            "documentation_sha256": doc_sha
         }
     }
 

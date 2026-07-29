@@ -50,11 +50,16 @@ jobs:
 
 
     steps:
-      - name: Clean stale root-owned build artifacts
+      - name: Clean result tree and stale build artifacts
         run: |
           # build.sh (debootstrap) may leave root-owned new_building_os/ from previous runs.
           # Remove it with sudo before checkout so git can clean the workspace.
-          sudo rm -rf new_building_os/ || true
+          sudo rm -rf new_building_os/ infra/package-staging/results || true
+          mkdir -p \
+            infra/package-staging/results/stage-logs \
+            infra/package-staging/results/builds \
+            infra/package-staging/results/current \
+            infra/package-staging/results/runtime
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -95,7 +100,8 @@ jobs:
             --candidate-branch "${{ inputs.candidate_branch }}" \
             --candidate-sha "${{ inputs.candidate_sha }}" \
             --target-build-version "${{ inputs.target_version }}" \
-            --workflow-run-id "${{ github.run_id }}"
+            --workflow-run-id "${{ github.run_id }}" \
+            --workflow-run-attempt "${{ github.run_attempt }}"
 
       - name: Install Build Dependencies
         run: |

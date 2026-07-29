@@ -11,6 +11,7 @@ CANDIDATE_BRANCH="${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-
 CANDIDATE_SHA="${EXPECTED_CANDIDATE_SHA:-${ACTIVE_RELEASE_SOURCE_COMMIT:-}}"
 TARGET_BUILD_VERSION="${ACTIVE_RELEASE_VERSION:-0.3.0-alpha}"
 WORKFLOW_RUN_ID="${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}"
+WORKFLOW_RUN_ATTEMPT="${WORKFLOW_RUN_ATTEMPT:-${GITHUB_RUN_ATTEMPT:-1}}"
 RESULTS_DIR="${RESULTS_DIR:-$REPO_ROOT/infra/package-staging/results/stage-logs}"
 OUTPUT_FILE="$RESULTS_DIR/stage-candidate-selection.json"
 
@@ -23,6 +24,7 @@ while (($# > 0)); do
         --candidate-sha) CANDIDATE_SHA="$2"; shift 2 ;;
         --target-build-version) TARGET_BUILD_VERSION="$2"; shift 2 ;;
         --workflow-run-id) WORKFLOW_RUN_ID="$2"; shift 2 ;;
+        --workflow-run-attempt) WORKFLOW_RUN_ATTEMPT="$2"; shift 2 ;;
         --output-file) OUTPUT_FILE="$2"; shift 2 ;;
         -h|--help) exit 0 ;;
         *) fail "unknown argument: $1" ;;
@@ -43,11 +45,15 @@ fi
 [[ "$git_head" == "$CANDIDATE_SHA" ]] || fail "git HEAD ($git_head) does not match candidate SHA ($CANDIDATE_SHA)"
 
 curr_branch=$(git -C "$REPO_ROOT" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
-if [[ -n "$curr_branch" ]]; then
-    [[ "$curr_branch" == "$CANDIDATE_BRANCH" ]] || fail "current git branch ($curr_branch) does not match expected candidate branch ($CANDIDATE_BRANCH)"
-fi
+[[ -n "$curr_branch" ]] || fail "git HEAD is detached"
+[[ "$curr_branch" == "$CANDIDATE_BRANCH" ]] || fail "current git branch ($curr_branch) does not match expected candidate branch ($CANDIDATE_BRANCH)"
 
-remote_candidate_sha=$(git -C "$REPO_ROOT" rev-parse "origin/$CANDIDATE_BRANCH" 2>/dev/null || echo "$CANDIDATE_SHA")
+remote_lines=$(git -C "$REPO_ROOT" ls-remote --heads origin "refs/heads/$CANDIDATE_BRANCH" 2>/dev/null || true)
+[[ -n "$remote_lines" ]] || fail "remote candidate branch origin/$CANDIDATE_BRANCH is unavailable or missing"
+line_count=$(printf '%s\n' "$remote_lines" | wc -l | tr -d ' ')
+[[ "$line_count" == "1" ]] || fail "expected exactly 1 line from ls-remote for origin/$CANDIDATE_BRANCH, got $line_count"
+remote_candidate_sha=$(printf '%s\n' "$remote_lines" | awk '{print $1}')
+
 [[ "$remote_candidate_sha" =~ ^[0-9a-f]{40}$ ]] || fail "remote candidate SHA is not a 40-character SHA: $remote_candidate_sha"
 [[ "$remote_candidate_sha" == "$CANDIDATE_SHA" ]] || fail "remote candidate SHA ($remote_candidate_sha) does not match candidate SHA ($CANDIDATE_SHA)"
 
@@ -67,11 +73,13 @@ GIT_HEAD="$git_head" \
 WORKING_TREE_CLEAN="$working_tree_clean" \
 TARGET_BUILD_VERSION="$TARGET_BUILD_VERSION" \
 WORKFLOW_RUN_ID="$WORKFLOW_RUN_ID" \
+WORKFLOW_RUN_ATTEMPT="$WORKFLOW_RUN_ATTEMPT" \
 OUTPUT_FILE="$OUTPUT_FILE" \
 python3 - <<'PYEOF'
 import json, os
 
 data = {
+    "source_commit": os.environ["CANDIDATE_SHA"],
     "candidate_branch": os.environ["CANDIDATE_BRANCH"],
     "candidate_sha": os.environ["CANDIDATE_SHA"],
     "remote_candidate_sha": os.environ["REMOTE_CANDIDATE_SHA"],
@@ -79,6 +87,8 @@ data = {
     "working_tree_clean": os.environ["WORKING_TREE_CLEAN"].lower() == "true",
     "target_build_version": os.environ["TARGET_BUILD_VERSION"],
     "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
+    "workflow_run_attempt": os.environ["WORKFLOW_RUN_ATTEMPT"],
+    "exit_code": 0,
     "status": "PASS"
 }
 

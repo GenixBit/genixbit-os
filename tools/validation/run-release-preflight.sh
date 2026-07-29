@@ -179,7 +179,7 @@ if [[ -n "${EXPECTED_CANDIDATE_SHA:-}" && "$EXPECTED_CANDIDATE_SHA" != "unknown"
 fi
 
 PHASE="architecture"
-ARCH=$(uname -m)
+ARCH="${PREFLIGHT_TEST_ARCH:-$(uname -m)}"
 [[ "$ARCH" == "x86_64" ]] || fail_phase "Runner architecture is $ARCH, required x86_64."
 
 PHASE="kvm"
