@@ -177,7 +177,7 @@ def main():
     parser.add_argument("--current-dir", default=None, help="Path to current evidence output directory")
     parser.add_argument("--output-gate", default=None, help="Output path for release gate JSON")
     parser.add_argument("--provenance-file", default=None, help="Path for active artifact provenance JSON")
-    parser.add_argument("--candidate-branch", default=os.environ.get("EXPECTED_CANDIDATE_BRANCH", "validation/0.3.0-alpha-candidate-2"))
+    parser.add_argument("--candidate-branch", default=os.environ.get("EXPECTED_CANDIDATE_BRANCH", "validation/0.3.0-alpha-candidate-3"))
     parser.add_argument("--candidate-sha", default=os.environ.get("EXPECTED_CANDIDATE_SHA", os.environ.get("ACTIVE_RELEASE_SOURCE_COMMIT", "")))
     parser.add_argument("--workflow-run-id", default=os.environ.get("WORKFLOW_RUN_ID", os.environ.get("GITHUB_RUN_ID", None)))
     parser.add_argument("--workflow-run-attempt", default=os.environ.get("WORKFLOW_RUN_ATTEMPT", os.environ.get("GITHUB_RUN_ATTEMPT", None)))
@@ -201,7 +201,7 @@ def main():
     if not run_attempt or run_attempt in ("unknown", "local", "0"):
         fail("workflow_run_attempt is required and cannot be empty or 'unknown'")
 
-    if cand_branch != "validation/0.3.0-alpha-candidate-2":
+    if not re.match(r"^validation/0\.3\.0-alpha-candidate-[1-9][0-9]*$", cand_branch):
         fail(f"Unexpected candidate branch: {cand_branch}")
     if not re.fullmatch(r"[0-9a-f]{40}", cand_sha):
         fail("Candidate SHA must be a 40-character lowercase hexadecimal string")

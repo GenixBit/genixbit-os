@@ -40,7 +40,7 @@ while (($# > 0)); do
     esac
 done
 
-[[ "$candidate_branch" == "validation/0.3.0-alpha-candidate-2" ]] || fail "unexpected candidate branch: $candidate_branch"
+[[ "$candidate_branch" =~ ^validation/0\.3\.0-alpha-candidate-[1-9][0-9]*$ ]] || fail "unexpected candidate branch: $candidate_branch"
 [[ "$candidate_sha" =~ ^[0-9a-f]{40}$ ]] || fail "candidate SHA must be a full 40-character lowercase SHA"
 [[ -n "$output_dir" ]] || fail "--output-dir is required"
 [[ -n "$build_label" ]] || fail "--build-label is required"

@@ -7,7 +7,7 @@ IFS=$'\n\t'
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
 
-CANDIDATE_BRANCH="${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-2}"
+CANDIDATE_BRANCH="${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-3}"
 CANDIDATE_SHA="${EXPECTED_CANDIDATE_SHA:-${ACTIVE_RELEASE_SOURCE_COMMIT:-}}"
 TARGET_BUILD_VERSION="${ACTIVE_RELEASE_VERSION:-0.3.0-alpha}"
 WORKFLOW_RUN_ID="${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}"
@@ -31,7 +31,7 @@ while (($# > 0)); do
     esac
 done
 
-[[ "$CANDIDATE_BRANCH" == "validation/0.3.0-alpha-candidate-2" ]] || fail "unexpected candidate branch: $CANDIDATE_BRANCH"
+[[ "$CANDIDATE_BRANCH" =~ ^validation/0\.3\.0-alpha-candidate-[1-9][0-9]*$ ]] || fail "unexpected candidate branch: $CANDIDATE_BRANCH"
 [[ "$TARGET_BUILD_VERSION" == "0.3.0-alpha" ]] || fail "unexpected target build version: $TARGET_BUILD_VERSION"
 
 git_head=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || fail "failed to query git HEAD")
