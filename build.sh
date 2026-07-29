@@ -186,7 +186,7 @@ function run_chroot() {
     print_warn "============================================"
     print_warn "   The following will run in chroot ENV!"
     print_warn "============================================"
-    sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH chroot new_building_os /usr/bin/env DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-readline} SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH /root/mods/install_all_mods.sh -
+    sudo env SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH PACKAGE_SOURCE_MODE="$PACKAGE_SOURCE_MODE" GENIXBIT_STAGING_SERVER="${GENIXBIT_STAGING_SERVER:-}" chroot new_building_os /usr/bin/env DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-readline} SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH PACKAGE_SOURCE_MODE="$PACKAGE_SOURCE_MODE" GENIXBIT_STAGING_SERVER="${GENIXBIT_STAGING_SERVER:-}" /root/mods/install_all_mods.sh -
     print_warn "============================================"
     print_warn "   chroot ENV execution completed!"
     print_warn "============================================"
