@@ -498,7 +498,7 @@ EOF
     judge "Create .disk/info"
 
     print_ok "Creating md5sum.txt..."
-    sudo /bin/bash -c "(find . -type f -print0 | xargs -0 md5sum | grep -v -e 'md5sum.txt' -e 'bios.img' -e 'efiboot.img' > md5sum.txt)"
+    sudo /bin/bash -c "(find . -type f -print0 | sort -z | xargs -0 md5sum | grep -v -e 'md5sum.txt' -e 'bios.img' -e 'efiboot.img' > md5sum.txt)"
     judge "Create md5sum.txt"
 
     print_ok "Clamping file timestamps in image directory..."
