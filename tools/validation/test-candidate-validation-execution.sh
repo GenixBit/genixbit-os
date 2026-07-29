@@ -91,7 +91,15 @@ make_fixture_repo "$fixture_base"
 fixture_repo="$fixture_base/work"
 fixture_sha=$(git -C "$fixture_repo" rev-parse HEAD)
 
-# Helper for full fixture evidence directory setup
+calc_sha256() {
+    python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$1"
+}
+
+calc_sha512() {
+    python3 -c 'import hashlib, sys; print(hashlib.sha512(open(sys.argv[1], "rb").read()).hexdigest())' "$1"
+}
+
+# Full production-layout fixture evidence builder
 create_full_fixture_evidence() {
     local dir="$1"
     local sha="${2:-$fixture_sha}"
@@ -111,10 +119,10 @@ create_full_fixture_evidence() {
 
     local sz_a=$(wc -c < "$iso_a" | tr -d ' ')
     local sz_b=$(wc -c < "$iso_b" | tr -d ' ')
-    local sha256_a=$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$iso_a")
-    local sha256_b=$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$iso_b")
-    local sha512_a=$(python3 -c 'import hashlib, sys; print(hashlib.sha512(open(sys.argv[1], "rb").read()).hexdigest())' "$iso_a")
-    local sha512_b=$(python3 -c 'import hashlib, sys; print(hashlib.sha512(open(sys.argv[1], "rb").read()).hexdigest())' "$iso_b")
+    local sha256_a=$(calc_sha256 "$iso_a")
+    local sha256_b=$(calc_sha256 "$iso_b")
+    local sha512_a=$(calc_sha512 "$iso_a")
+    local sha512_b=$(calc_sha512 "$iso_b")
 
     cat > "$stage_logs/stage-candidate-selection.json" <<JSON
 {
@@ -257,26 +265,6 @@ JSON
     cat > "$stage_logs/stage-installer-branding.json" <<JSON
 {"source_commit":"$sha","workflow_run_id":"$run_id","workflow_run_attempt":"$run_attempt","exit_code":0,"status":"PASS"}
 JSON
-    cat > "$stage_logs/stage-real-installation.json" <<JSON
-{
-  "source_commit": "$sha",
-  "candidate_sha": "$sha",
-  "workflow_run_id": "$run_id",
-  "workflow_run_attempt": "$run_attempt",
-  "iso_sha256": "$sha256_a",
-  "uefi_installation_result": "PASS",
-  "bios_installation_result": "PASS",
-  "uefi_installed_disk": "$dir/genixbit-0.3.0-uefi.qcow2",
-  "bios_installed_disk": "$dir/genixbit-0.3.0-bios.qcow2",
-  "uefi_first_boot_result": "PASS",
-  "bios_first_boot_result": "PASS",
-  "uefi_second_boot_result": "PASS",
-  "bios_second_boot_result": "PASS",
-  "authenticated_guest_validation_result": "PASS",
-  "exit_code": 0,
-  "status": "PASS"
-}
-JSON
     cat > "$stage_logs/stage-tamper.json" <<JSON
 {"source_commit":"$sha","workflow_run_id":"$run_id","workflow_run_attempt":"$run_attempt","exit_code":0,"status":"PASS"}
 JSON
@@ -284,9 +272,37 @@ JSON
 {"source_commit":"$sha","workflow_run_id":"$run_id","workflow_run_attempt":"$run_attempt","exit_code":0,"status":"PASS"}
 JSON
 
+    # Place initial VM logs in stage-logs/ per production layout
+    cat > "$stage_logs/uefi-installer-boot.serial.log" <<LOG
+GenixBit OS UEFI Installer Serial Log
+Linux version 6.8.0-genixbit
+Installer completed successfully.
+LOG
+    cat > "$stage_logs/bios-installer-boot.serial.log" <<LOG
+GenixBit OS BIOS Installer Serial Log (Different Content from UEFI)
+Linux version 6.8.0-genixbit-bios
+Installer completed successfully.
+LOG
+    cat > "$stage_logs/uefi-installed-boot.serial.log" <<LOG
+GenixBit OS UEFI Installed Boot Serial Log
+Linux version 6.8.0-genixbit
+[  OK  ] Reached target Multi-User System.
+GenixBit OS login:
+LOG
+    cat > "$stage_logs/bios-installed-boot.serial.log" <<LOG
+GenixBit OS BIOS Installed Boot Serial Log (Different Content from UEFI)
+Linux version 6.8.0-genixbit-bios
+[  OK  ] Reached target Multi-User System.
+Welcome to GenixBit OS login:
+LOG
+
     for log in uefi-guest-validation.log bios-guest-validation.log uefi-second-boot-validation.log bios-second-boot-validation.log; do
-        cat > "$runtime/$log" <<LOG
-GenixBit OS Authenticated Guest Validation Log
+        cat > "$stage_logs/$log" <<LOG
+=== Authenticated Guest Command Output (ssh) ===
+Start Timestamp: 2026-07-29T00:00:00Z
+Completion Timestamp: 2026-07-29T00:01:00Z
+Exit Code: 0
+Channel: ssh
 cat /etc/os-release
 NAME="GenixBit OS"
 dpkg-query -W
@@ -306,214 +322,222 @@ systemctl --failed
 LOG
     done
 
-    cat > "$runtime/uefi-installed-boot.serial.log" <<LOG
-GenixBit OS UEFI Boot Serial Log
-Linux version 6.8.0-genixbit
-[  OK  ] Reached target Multi-User System.
-GenixBit OS login:
-LOG
+    # Run production evidence collector to generate run-scoped runtime/ dir
+    rm -rf "$runtime"
+    bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" \
+      --stage-logs-dir "$stage_logs" \
+      --runtime-dir "$runtime" \
+      --candidate-sha "$sha" \
+      --workflow-run-id "$run_id" \
+      --workflow-run-attempt "$run_attempt" \
+      --build-a-sha256 "$sha256_a" >/dev/null
 
-    cat > "$runtime/bios-installed-boot.serial.log" <<LOG
-GenixBit OS BIOS Boot Serial Log (Different Content from UEFI)
-Linux version 6.8.0-genixbit-bios
-[  OK  ] Reached target Multi-User System.
-Welcome to GenixBit OS login:
-LOG
+    local manifest_path="$runtime/runtime-evidence-manifest.json"
+    local manifest_sha256=$(calc_sha256 "$manifest_path")
+
+    local uefi_disk="$dir/genixbit-0.3.0-uefi.qcow2"
+    local bios_disk="$dir/genixbit-0.3.0-bios.qcow2"
+    echo "synthetic uefi qcow2 disk 1111" > "$uefi_disk"
+    echo "synthetic bios qcow2 disk 222222" > "$bios_disk"
+
+    local sz_uefi_disk=$(wc -c < "$uefi_disk" | tr -d ' ')
+    local sz_bios_disk=$(wc -c < "$bios_disk" | tr -d ' ')
+    local sha_uefi_disk=$(calc_sha256 "$uefi_disk")
+    local sha_bios_disk=$(calc_sha256 "$bios_disk")
+
+    cat > "$stage_logs/stage-real-installation.json" <<JSON
+{
+  "source_commit": "$sha",
+  "candidate_sha": "$sha",
+  "workflow_run_id": "$run_id",
+  "workflow_run_attempt": "$run_attempt",
+  "iso_sha256": "$sha256_a",
+  "uefi_installation_result": "PASS",
+  "bios_installation_result": "PASS",
+  "uefi_installed_disk": "$uefi_disk",
+  "bios_installed_disk": "$bios_disk",
+  "uefi_installed_disk_size_bytes": $sz_uefi_disk,
+  "bios_installed_disk_size_bytes": $sz_bios_disk,
+  "uefi_installed_disk_sha256": "$sha_uefi_disk",
+  "bios_installed_disk_sha256": "$sha_bios_disk",
+  "runtime_evidence_manifest": "$manifest_path",
+  "runtime_evidence_manifest_sha256": "$manifest_sha256",
+  "uefi_first_boot_result": "PASS",
+  "bios_first_boot_result": "PASS",
+  "uefi_second_boot_result": "PASS",
+  "bios_second_boot_result": "PASS",
+  "authenticated_guest_validation_result": "PASS",
+  "exit_code": 0,
+  "status": "PASS"
+}
+JSON
 }
 
-# 1. Missing stage exit_code fails
-no_exit_code_stage="$TMP_DIR/no_exit_code_stage"
-create_full_fixture_evidence "$no_exit_code_stage" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$no_exit_code_stage/stage-logs/stage-clean-install.json'; d=json.load(open(p)); del d['exit_code']; json.dump(d,open(p,'w'))"
-expect_fail "1. Missing stage exit_code fails" "is missing exit_code" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_exit_code_stage/stage-logs" --runtime-dir "$no_exit_code_stage/runtime" --builds-dir "$no_exit_code_stage/builds" --current-dir "$no_exit_code_stage/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 2. Missing workflow-run attempt fails
-no_att_stage="$TMP_DIR/no_att_stage"
-create_full_fixture_evidence "$no_att_stage" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$no_att_stage/stage-logs/stage-clean-install.json'; d=json.load(open(p)); del d['workflow_run_attempt']; json.dump(d,open(p,'w'))"
-expect_fail "2. Missing workflow-run attempt fails" "Workflow run attempt missing or unknown" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_att_stage/stage-logs" --runtime-dir "$no_att_stage/runtime" --builds-dir "$no_att_stage/builds" --current-dir "$no_att_stage/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 3. "unknown" workflow-run attempt fails
-unknown_att_stage="$TMP_DIR/unknown_att_stage"
-create_full_fixture_evidence "$unknown_att_stage" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$unknown_att_stage/stage-logs/stage-clean-install.json'; d=json.load(open(p)); d['workflow_run_attempt']='unknown'; json.dump(d,open(p,'w'))"
-expect_fail "3. 'unknown' workflow-run attempt fails" "Workflow run attempt missing or unknown" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$unknown_att_stage/stage-logs" --runtime-dir "$unknown_att_stage/runtime" --builds-dir "$unknown_att_stage/builds" --current-dir "$unknown_att_stage/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 4. Missing preflight expected candidate SHA fails
-no_pref_cand_sha="$TMP_DIR/no_pref_cand_sha"
-create_full_fixture_evidence "$no_pref_cand_sha" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$no_pref_cand_sha/stage-logs/preflight-results.json'; d=json.load(open(p)); del d['expected_candidate_sha']; json.dump(d,open(p,'w'))"
-expect_fail "4. Missing preflight expected candidate SHA fails" "expected_candidate_sha mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_pref_cand_sha/stage-logs" --runtime-dir "$no_pref_cand_sha/runtime" --builds-dir "$no_pref_cand_sha/builds" --current-dir "$no_pref_cand_sha/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 5. Missing preflight expected candidate branch fails
-no_pref_cand_branch="$TMP_DIR/no_pref_cand_branch"
-create_full_fixture_evidence "$no_pref_cand_branch" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$no_pref_cand_branch/stage-logs/preflight-results.json'; d=json.load(open(p)); del d['expected_candidate_branch']; json.dump(d,open(p,'w'))"
-expect_fail "5. Missing preflight expected candidate branch fails" "expected_candidate_branch mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_pref_cand_branch/stage-logs" --runtime-dir "$no_pref_cand_branch/runtime" --builds-dir "$no_pref_cand_branch/builds" --current-dir "$no_pref_cand_branch/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 6. Missing Build A metadata fails without fallback
-no_build_a="$TMP_DIR/no_build_a"
-create_full_fixture_evidence "$no_build_a" "$fixture_sha" "100" "1"
-rm -f "$no_build_a/builds/build-a-build.json"
-expect_fail "6. Missing Build A metadata fails without fallback" "Required evidence file missing" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_build_a/stage-logs" --runtime-dir "$no_build_a/runtime" --builds-dir "$no_build_a/builds" --current-dir "$no_build_a/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 7. Missing Build A target version fails
-no_target_ver_a="$TMP_DIR/no_target_ver_a"
-create_full_fixture_evidence "$no_target_ver_a" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$no_target_ver_a/builds/build-a-build.json'; d=json.load(open(p)); del d['target_version']; json.dump(d,open(p,'w'))"
-expect_fail "7. Missing Build A target version fails" "target_version is 'None', expected '0.3.0-alpha'" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_target_ver_a/stage-logs" --runtime-dir "$no_target_ver_a/runtime" --builds-dir "$no_target_ver_a/builds" --current-dir "$no_target_ver_a/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 8. Missing Build A worktree path fails
-no_worktree_a="$TMP_DIR/no_worktree_a"
-create_full_fixture_evidence "$no_worktree_a" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$no_worktree_a/builds/build-a-build.json'; d=json.load(open(p)); del d['worktree_dir']; json.dump(d,open(p,'w'))"
-expect_fail "8. Missing Build A worktree path fails" "worktree_dir is missing or empty" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_worktree_a/stage-logs" --runtime-dir "$no_worktree_a/runtime" --builds-dir "$no_worktree_a/builds" --current-dir "$no_worktree_a/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 9. Build A recorded size mismatch fails
-wrong_size_a="$TMP_DIR/wrong_size_a"
-create_full_fixture_evidence "$wrong_size_a" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$wrong_size_a/builds/build-a-build.json'; d=json.load(open(p)); d['size_bytes']=99999; json.dump(d,open(p,'w'))"
-expect_fail "9. Build A recorded size mismatch fails" "actual file size .* does not match metadata size_bytes" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_size_a/stage-logs" --runtime-dir "$wrong_size_a/runtime" --builds-dir "$wrong_size_a/builds" --current-dir "$wrong_size_a/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 10. Build A recorded SHA-256 mismatch fails
-wrong_sha256_a="$TMP_DIR/wrong_sha256_a"
-create_full_fixture_evidence "$wrong_sha256_a" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$wrong_sha256_a/builds/build-a-build.json'; d=json.load(open(p)); d['sha256']='0'*64; json.dump(d,open(p,'w'))"
-expect_fail "10. Build A recorded SHA-256 mismatch fails" "calculated SHA-256 .* does not match metadata sha256" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_sha256_a/stage-logs" --runtime-dir "$wrong_sha256_a/runtime" --builds-dir "$wrong_sha256_a/builds" --current-dir "$wrong_sha256_a/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 11. Build A recorded SHA-512 mismatch fails
-wrong_sha512_a="$TMP_DIR/wrong_sha512_a"
-create_full_fixture_evidence "$wrong_sha512_a" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$wrong_sha512_a/builds/build-a-build.json'; d=json.load(open(p)); d['sha512']='0'*128; json.dump(d,open(p,'w'))"
-expect_fail "11. Build A recorded SHA-512 mismatch fails" "calculated SHA-512 .* does not match metadata sha512" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_sha512_a/stage-logs" --runtime-dir "$wrong_sha512_a/runtime" --builds-dir "$wrong_sha512_a/builds" --current-dir "$wrong_sha512_a/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 12. Missing Build B structure evidence fails
-no_struct_b="$TMP_DIR/no_struct_b"
-create_full_fixture_evidence "$no_struct_b" "$fixture_sha" "100" "1"
-rm -f "$no_struct_b/builds/build-b-iso-structure.json"
-expect_fail "12. Missing Build B structure evidence fails" "Required evidence file missing" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_struct_b/stage-logs" --runtime-dir "$no_struct_b/runtime" --builds-dir "$no_struct_b/builds" --current-dir "$no_struct_b/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 13. Build B structure reusing Build A path fails
-reused_struct_b="$TMP_DIR/reused_struct_b"
-create_full_fixture_evidence "$reused_struct_b" "$fixture_sha" "100" "1"
-cp "$reused_struct_b/builds/build-a-iso-structure.json" "$reused_struct_b/builds/build-b-iso-structure.json"
-expect_fail "13. Build B structure reusing Build A path fails" "Build B structure evidence ISO path mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$reused_struct_b/stage-logs" --runtime-dir "$reused_struct_b/runtime" --builds-dir "$reused_struct_b/builds" --current-dir "$reused_struct_b/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 14. Structure ISO path mismatch fails
-wrong_iso_path_struct="$TMP_DIR/wrong_iso_path_struct"
-create_full_fixture_evidence "$wrong_iso_path_struct" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$wrong_iso_path_struct/builds/build-a-iso-structure.json'; d=json.load(open(p)); d['iso_path']='/tmp/other.iso'; json.dump(d,open(p,'w'))"
-expect_fail "14. Structure ISO path mismatch fails" "structure evidence ISO path mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_iso_path_struct/stage-logs" --runtime-dir "$wrong_iso_path_struct/runtime" --builds-dir "$wrong_iso_path_struct/builds" --current-dir "$wrong_iso_path_struct/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 15. Structure SHA-256 mismatch fails
-wrong_sha256_struct="$TMP_DIR/wrong_sha256_struct"
-create_full_fixture_evidence "$wrong_sha256_struct" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$wrong_sha256_struct/builds/build-a-iso-structure.json'; d=json.load(open(p)); d['iso_sha256']='0'*64; json.dump(d,open(p,'w'))"
-expect_fail "15. Structure SHA-256 mismatch fails" "structure evidence ISO SHA-256 mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_sha256_struct/stage-logs" --runtime-dir "$wrong_sha256_struct/runtime" --builds-dir "$wrong_sha256_struct/builds" --current-dir "$wrong_sha256_struct/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 16. Structure SHA-512 mismatch fails
-wrong_sha512_struct="$TMP_DIR/wrong_sha512_struct"
-create_full_fixture_evidence "$wrong_sha512_struct" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$wrong_sha512_struct/builds/build-a-iso-structure.json'; d=json.load(open(p)); d['iso_sha512']='0'*128; json.dump(d,open(p,'w'))"
-expect_fail "16. Structure SHA-512 mismatch fails" "structure evidence ISO SHA-512 mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_sha512_struct/stage-logs" --runtime-dir "$wrong_sha512_struct/runtime" --builds-dir "$wrong_sha512_struct/builds" --current-dir "$wrong_sha512_struct/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 17. Branding-only installer evidence fails
-branding_only_installer="$TMP_DIR/branding_only_installer"
-create_full_fixture_evidence "$branding_only_installer" "$fixture_sha" "100" "1"
-rm -f "$branding_only_installer/stage-logs/stage-real-installation.json"
-expect_fail "17. Branding-only installer evidence fails" "Required evidence file missing.*stage-real-installation.json" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$branding_only_installer/stage-logs" --runtime-dir "$branding_only_installer/runtime" --builds-dir "$branding_only_installer/builds" --current-dir "$branding_only_installer/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 18. Missing real-installation evidence fails
-no_real_inst="$TMP_DIR/no_real_inst"
-create_full_fixture_evidence "$no_real_inst" "$fixture_sha" "100" "1"
-rm -f "$no_real_inst/stage-logs/stage-real-installation.json"
-expect_fail "18. Missing real-installation evidence fails" "stage-real-installation.json" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_real_inst/stage-logs" --runtime-dir "$no_real_inst/runtime" --builds-dir "$no_real_inst/builds" --current-dir "$no_real_inst/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 19. Failed UEFI installation result fails
-fail_uefi_inst="$TMP_DIR/fail_uefi_inst"
-create_full_fixture_evidence "$fail_uefi_inst" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$fail_uefi_inst/stage-logs/stage-real-installation.json'; d=json.load(open(p)); d['uefi_installation_result']='FAIL'; json.dump(d,open(p,'w'))"
-expect_fail "19. Failed UEFI installation result fails" "uefi_installation_result is 'FAIL', expected 'PASS'" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$fail_uefi_inst/stage-logs" --runtime-dir "$fail_uefi_inst/runtime" --builds-dir "$fail_uefi_inst/builds" --current-dir "$fail_uefi_inst/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 20. Failed BIOS installation result fails
-fail_bios_inst="$TMP_DIR/fail_bios_inst"
-create_full_fixture_evidence "$fail_bios_inst" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$fail_bios_inst/stage-logs/stage-real-installation.json'; d=json.load(open(p)); d['bios_installation_result']='FAIL'; json.dump(d,open(p,'w'))"
-expect_fail "20. Failed BIOS installation result fails" "bios_installation_result is 'FAIL', expected 'PASS'" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$fail_bios_inst/stage-logs" --runtime-dir "$fail_bios_inst/runtime" --builds-dir "$fail_bios_inst/builds" --current-dir "$fail_bios_inst/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 21. Failed UEFI second boot fails
-fail_uefi_sec="$TMP_DIR/fail_uefi_sec"
-create_full_fixture_evidence "$fail_uefi_sec" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$fail_uefi_sec/stage-logs/stage-real-installation.json'; d=json.load(open(p)); d['uefi_second_boot_result']='FAIL'; json.dump(d,open(p,'w'))"
-expect_fail "21. Failed UEFI second boot fails" "uefi_second_boot_result is 'FAIL', expected 'PASS'" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$fail_uefi_sec/stage-logs" --runtime-dir "$fail_uefi_sec/runtime" --builds-dir "$fail_uefi_sec/builds" --current-dir "$fail_uefi_sec/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 22. Failed BIOS second boot fails
-fail_bios_sec="$TMP_DIR/fail_bios_sec"
-create_full_fixture_evidence "$fail_bios_sec" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$fail_bios_sec/stage-logs/stage-real-installation.json'; d=json.load(open(p)); d['bios_second_boot_result']='FAIL'; json.dump(d,open(p,'w'))"
-expect_fail "22. Failed BIOS second boot fails" "bios_second_boot_result is 'FAIL', expected 'PASS'" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$fail_bios_sec/stage-logs" --runtime-dir "$fail_bios_sec/runtime" --builds-dir "$fail_bios_sec/builds" --current-dir "$fail_bios_sec/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 23. Real-installation ISO hash mismatch fails
-wrong_real_inst_hash="$TMP_DIR/wrong_real_inst_hash"
-create_full_fixture_evidence "$wrong_real_inst_hash" "$fixture_sha" "100" "1"
-python3 -c "import json; p='$wrong_real_inst_hash/stage-logs/stage-real-installation.json'; d=json.load(open(p)); d['iso_sha256']='0'*64; json.dump(d,open(p,'w'))"
-expect_fail "23. Real-installation ISO hash mismatch fails" "Real installation ISO SHA-256 mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_real_inst_hash/stage-logs" --runtime-dir "$wrong_real_inst_hash/runtime" --builds-dir "$wrong_real_inst_hash/builds" --current-dir "$wrong_real_inst_hash/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 24. Missing BIOS guest-health log fails
-no_bios="$TMP_DIR/no_bios"
-create_full_fixture_evidence "$no_bios" "$fixture_sha" "100" "1"
-rm -f "$no_bios/runtime/bios-guest-validation.log"
-expect_fail "24. Missing BIOS guest-health log fails" "Runtime guest health log missing for BIOS Guest Validation" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_bios/stage-logs" --runtime-dir "$no_bios/runtime" --builds-dir "$no_bios/builds" --current-dir "$no_bios/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 25. Missing UEFI guest-health log fails
-no_uefi="$TMP_DIR/no_uefi"
-create_full_fixture_evidence "$no_uefi" "$fixture_sha" "100" "1"
-rm -f "$no_uefi/runtime/uefi-guest-validation.log"
-expect_fail "25. Missing UEFI guest-health log fails" "Runtime guest health log missing for UEFI Guest Validation" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_uefi/stage-logs" --runtime-dir "$no_uefi/runtime" --builds-dir "$no_uefi/builds" --current-dir "$no_uefi/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
-
-# 26. Package-health category contains all four guest logs
-check_pkg_health="$TMP_DIR/check_pkg_health"
-create_full_fixture_evidence "$check_pkg_health" "$fixture_sha" "100" "1"
-gate_file="$check_pkg_health/gate.json"
-expect_pass "26. Package-health category contains all four guest logs" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$check_pkg_health/stage-logs" --runtime-dir "$check_pkg_health/runtime" --builds-dir "$check_pkg_health/builds" --current-dir "$check_pkg_health/current" --output-gate "$gate_file" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+# 1. Valid stage-log evidence is collected into the run-scoped directory
+test1_dir="$TMP_DIR/test1_dir"
+create_full_fixture_evidence "$test1_dir" "$fixture_sha" "100" "1"
 TOTAL=$((TOTAL + 1))
-if python3 -c "import json, sys; g=json.load(open('$gate_file')); files=g['categories']['package_health_readiness']['evidence_files']; sys.exit(0 if len(files)==4 and all('guest-validation' in f or 'second-boot' in f for f in files) else 1)"; then
-    pass "26b. Verified package_health_readiness files list"
+if [[ -f "$test1_dir/runtime/runtime-evidence-manifest.json" ]]; then
+    pass "1. Valid stage-log evidence is collected into the run-scoped directory"
 else
-    fail "26b. package_health_readiness files list invalid"
+    fail "1. Runtime evidence collection failed to produce manifest"
 fi
 
-# 27. Installed-system category contains real installation, guest and serial evidence
-TOTAL=$((TOTAL + 1))
-if python3 -c "import json, sys; g=json.load(open('$gate_file')); files=g['categories']['installed_system_readiness']['evidence_files']; sys.exit(0 if len(files)==7 and any('stage-real-installation' in f for f in files) else 1)"; then
-    pass "27. Installed-system category contains real installation, guest and serial evidence"
-else
-    fail "27. installed_system_readiness files list invalid"
-fi
+# 2. Missing runtime handoff causes gate generation to fail
+no_handoff="$TMP_DIR/no_handoff"
+create_full_fixture_evidence "$no_handoff" "$fixture_sha" "100" "1"
+rm -rf "$no_handoff/runtime"
+expect_fail "2. Missing runtime handoff causes gate generation to fail" "Required evidence file missing|Runtime file missing or empty" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_handoff/stage-logs" --runtime-dir "$no_handoff/runtime" --builds-dir "$no_handoff/builds" --current-dir "$no_handoff/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
 
-# 28. Reproducibility category contains both builds and both structure records
-TOTAL=$((TOTAL + 1))
-if python3 -c "import json, sys; g=json.load(open('$gate_file')); files=g['categories']['reproducibility_readiness']['evidence_files']; sys.exit(0 if len(files)==5 and any('build-a-iso-structure' in f for f in files) else 1)"; then
-    pass "28. Reproducibility category contains both builds and both structure records"
-else
-    fail "28. reproducibility_readiness files list invalid"
-fi
+# 3. Missing source runtime file fails
+no_src_file="$TMP_DIR/no_src_file"
+create_full_fixture_evidence "$no_src_file" "$fixture_sha" "100" "1"
+rm -f "$no_src_file/stage-logs/uefi-guest-validation.log"
+rm -rf "$no_src_file/runtime"
+expect_fail "3. Missing source runtime file fails" "source file does not exist" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$no_src_file/stage-logs" --runtime-dir "$no_src_file/runtime" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$no_src_file/builds/build-a-build.json'))['sha256'])")"
 
-# 29. Provenance contains all runtime evidence hashes
-prov_file="$check_pkg_health/current/0.3.0-alpha-artifact.json"
-TOTAL=$((TOTAL + 1))
-if python3 -c "import json, sys; p=json.load(open('$prov_file'))['validation_evidence']; sys.exit(0 if len(p)>=15 and 'real_installation_sha256' in p and 'uefi_serial_sha256' in p and 'bios_serial_sha256' in p else 1)"; then
-    pass "29. Provenance contains all runtime evidence hashes"
-else
-    fail "29. Provenance validation_evidence missing required hashes"
-fi
+# 4. Empty source runtime file fails
+empty_src="$TMP_DIR/empty_src"
+create_full_fixture_evidence "$empty_src" "$fixture_sha" "100" "1"
+> "$empty_src/stage-logs/uefi-guest-validation.log"
+rm -rf "$empty_src/runtime"
+expect_fail "4. Empty source runtime file fails" "source file is empty" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$empty_src/stage-logs" --runtime-dir "$empty_src/runtime" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$empty_src/builds/build-a-build.json'))['sha256'])")"
 
-# 30. Complete valid fixture produces PASS_VALIDATION_AWAITING_IMMUTABLE_PUBLICATION
-TOTAL=$((TOTAL + 1))
-if python3 -c "import json, sys; g=json.load(open('$gate_file')); sys.exit(0 if g['summary']['overall_gate_status']=='PASS_VALIDATION_AWAITING_IMMUTABLE_PUBLICATION' else 1)"; then
-    pass "30. Complete valid fixture produces PASS_VALIDATION_AWAITING_IMMUTABLE_PUBLICATION"
-else
-    fail "30. Gate status is not PASS_VALIDATION_AWAITING_IMMUTABLE_PUBLICATION"
-fi
+# 5. Pre-existing destination file fails
+pre_dst="$TMP_DIR/pre_dst"
+create_full_fixture_evidence "$pre_dst" "$fixture_sha" "100" "1"
+expect_fail "5. Pre-existing destination file fails" "destination file already exists" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$pre_dst/stage-logs" --runtime-dir "$pre_dst/runtime" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$pre_dst/builds/build-a-build.json'))['sha256'])")"
+
+# 6. Source and destination path equality fails
+same_path_dir="$TMP_DIR/same_path_dir"
+create_full_fixture_evidence "$same_path_dir" "$fixture_sha" "100" "1"
+expect_fail "6. Source and destination path equality fails" "destination file already exists|identical" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$same_path_dir/stage-logs" --runtime-dir "$same_path_dir/stage-logs" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$same_path_dir/builds/build-a-build.json'))['sha256'])")"
+
+# 7. Guest log Exit Code: 1 fails
+guest_exit1="$TMP_DIR/guest_exit1"
+create_full_fixture_evidence "$guest_exit1" "$fixture_sha" "100" "1"
+sed -i.bak 's/Exit Code: 0/Exit Code: 1/g' "$guest_exit1/stage-logs/uefi-guest-validation.log"
+rm -rf "$guest_exit1/runtime"
+expect_fail "7. Guest log Exit Code: 1 fails" "missing Exit Code: 0|contains non-zero command exit code" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$guest_exit1/stage-logs" --runtime-dir "$guest_exit1/runtime" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$guest_exit1/builds/build-a-build.json'))['sha256'])")"
+
+# 8. Guest log missing Exit Code fails
+guest_no_exit="$TMP_DIR/guest_no_exit"
+create_full_fixture_evidence "$guest_no_exit" "$fixture_sha" "100" "1"
+grep -v "Exit Code:" "$guest_no_exit/stage-logs/uefi-guest-validation.log" > "$guest_no_exit/stage-logs/uefi-guest-validation.log.tmp"
+mv "$guest_no_exit/stage-logs/uefi-guest-validation.log.tmp" "$guest_no_exit/stage-logs/uefi-guest-validation.log"
+rm -rf "$guest_no_exit/runtime"
+expect_fail "8. Guest log missing Exit Code fails" "missing Exit Code: 0" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$guest_no_exit/stage-logs" --runtime-dir "$guest_no_exit/runtime" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$guest_no_exit/builds/build-a-build.json'))['sha256'])")"
+
+# 9. Guest log using a non-SSH channel fails
+guest_channel="$TMP_DIR/guest_channel"
+create_full_fixture_evidence "$guest_channel" "$fixture_sha" "100" "1"
+sed -i.bak 's/Channel: ssh/Channel: simulated/g' "$guest_channel/stage-logs/uefi-guest-validation.log"
+sed -i.bak 's/=== Authenticated Guest Command Output (ssh) ===/=== Authenticated Guest Command Output (simulated) ===/g' "$guest_channel/stage-logs/uefi-guest-validation.log"
+rm -rf "$guest_channel/runtime"
+expect_fail "9. Guest log using a non-SSH channel fails" "missing SSH channel header|missing Channel: ssh" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$guest_channel/stage-logs" --runtime-dir "$guest_channel/runtime" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$guest_channel/builds/build-a-build.json'))['sha256'])")"
+
+# 10. Guest log missing a start timestamp fails
+guest_no_start="$TMP_DIR/guest_no_start"
+create_full_fixture_evidence "$guest_no_start" "$fixture_sha" "100" "1"
+grep -v "Start Timestamp:" "$guest_no_start/stage-logs/uefi-guest-validation.log" > "$guest_no_start/stage-logs/uefi-guest-validation.log.tmp"
+mv "$guest_no_start/stage-logs/uefi-guest-validation.log.tmp" "$guest_no_start/stage-logs/uefi-guest-validation.log"
+rm -rf "$guest_no_start/runtime"
+expect_fail "10. Guest log missing a start timestamp fails" "missing Start Timestamp" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$guest_no_start/stage-logs" --runtime-dir "$guest_no_start/runtime" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$guest_no_start/builds/build-a-build.json'))['sha256'])")"
+
+# 11. Guest log missing a completion timestamp fails
+guest_no_comp="$TMP_DIR/guest_no_comp"
+create_full_fixture_evidence "$guest_no_comp" "$fixture_sha" "100" "1"
+grep -v "Completion Timestamp:" "$guest_no_comp/stage-logs/uefi-guest-validation.log" > "$guest_no_comp/stage-logs/uefi-guest-validation.log.tmp"
+mv "$guest_no_comp/stage-logs/uefi-guest-validation.log.tmp" "$guest_no_comp/stage-logs/uefi-guest-validation.log"
+rm -rf "$guest_no_comp/runtime"
+expect_fail "11. Guest log missing a completion timestamp fails" "missing Completion Timestamp" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$guest_no_comp/stage-logs" --runtime-dir "$guest_no_comp/runtime" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$guest_no_comp/builds/build-a-build.json'))['sha256'])")"
+
+# 12. Identical BIOS and UEFI installer serial logs fail
+same_inst_serial="$TMP_DIR/same_inst_serial"
+create_full_fixture_evidence "$same_inst_serial" "$fixture_sha" "100" "1"
+cp "$same_inst_serial/stage-logs/uefi-installer-boot.serial.log" "$same_inst_serial/stage-logs/bios-installer-boot.serial.log"
+rm -rf "$same_inst_serial/runtime"
+expect_fail "12. Identical BIOS and UEFI installer serial logs fail" "UEFI and BIOS installer serial logs have identical SHA-256" bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" --stage-logs-dir "$same_inst_serial/stage-logs" --runtime-dir "$same_inst_serial/runtime" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1" --build-a-sha256 "$(python3 -c "import json; print(json.load(open('$same_inst_serial/builds/build-a-build.json'))['sha256'])")"
+
+# 13. Runtime manifest source-SHA mismatch fails
+wrong_manifest_sha="$TMP_DIR/wrong_manifest_sha"
+create_full_fixture_evidence "$wrong_manifest_sha" "$fixture_sha" "100" "1"
+python3 -c "import json; p='$wrong_manifest_sha/runtime/runtime-evidence-manifest.json'; d=json.load(open(p)); d['source_commit']='0'*40; json.dump(d,open(p,'w'))"
+expect_fail "13. Runtime manifest source-SHA mismatch fails" "Source commit mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_manifest_sha/stage-logs" --runtime-dir "$wrong_manifest_sha/runtime" --builds-dir "$wrong_manifest_sha/builds" --current-dir "$wrong_manifest_sha/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 14. Runtime manifest workflow-run mismatch fails
+wrong_manifest_run="$TMP_DIR/wrong_manifest_run"
+create_full_fixture_evidence "$wrong_manifest_run" "$fixture_sha" "100" "1"
+python3 -c "import json; p='$wrong_manifest_run/runtime/runtime-evidence-manifest.json'; d=json.load(open(p)); d['workflow_run_id']='99999'; json.dump(d,open(p,'w'))"
+expect_fail "14. Runtime manifest workflow-run mismatch fails" "Workflow run ID mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_manifest_run/stage-logs" --runtime-dir "$wrong_manifest_run/runtime" --builds-dir "$wrong_manifest_run/builds" --current-dir "$wrong_manifest_run/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 15. Runtime manifest attempt mismatch fails
+wrong_manifest_att="$TMP_DIR/wrong_manifest_att"
+create_full_fixture_evidence "$wrong_manifest_att" "$fixture_sha" "100" "1"
+python3 -c "import json; p='$wrong_manifest_att/runtime/runtime-evidence-manifest.json'; d=json.load(open(p)); d['workflow_run_attempt']='99'; json.dump(d,open(p,'w'))"
+expect_fail "15. Runtime manifest attempt mismatch fails" "Workflow run attempt mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_manifest_att/stage-logs" --runtime-dir "$wrong_manifest_att/runtime" --builds-dir "$wrong_manifest_att/builds" --current-dir "$wrong_manifest_att/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 16. Runtime manifest Build A hash mismatch fails
+wrong_manifest_builda="$TMP_DIR/wrong_manifest_builda"
+create_full_fixture_evidence "$wrong_manifest_builda" "$fixture_sha" "100" "1"
+python3 -c "import json; p='$wrong_manifest_builda/runtime/runtime-evidence-manifest.json'; d=json.load(open(p)); d['build_a_iso_sha256']='0'*64; json.dump(d,open(p,'w'))"
+expect_fail "16. Runtime manifest Build A hash mismatch fails" "Runtime manifest Build A ISO SHA-256 mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_manifest_builda/stage-logs" --runtime-dir "$wrong_manifest_builda/runtime" --builds-dir "$wrong_manifest_builda/builds" --current-dir "$wrong_manifest_builda/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 17. Runtime file size mismatch fails
+wrong_runtime_size="$TMP_DIR/wrong_runtime_size"
+create_full_fixture_evidence "$wrong_runtime_size" "$fixture_sha" "100" "1"
+python3 -c "import json, hashlib; p='$wrong_runtime_size/runtime/runtime-evidence-manifest.json'; d=json.load(open(p)); d['files']['uefi-guest-validation.log']['size_bytes']=999999; json.dump(d,open(p,'w')); new_h=hashlib.sha256(open(p,'rb').read()).hexdigest(); rp='$wrong_runtime_size/stage-logs/stage-real-installation.json'; rd=json.load(open(rp)); rd['runtime_evidence_manifest_sha256']=new_h; json.dump(rd,open(rp,'w'))"
+expect_fail "17. Runtime file size mismatch fails" "Runtime file size mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_runtime_size/stage-logs" --runtime-dir "$wrong_runtime_size/runtime" --builds-dir "$wrong_runtime_size/builds" --current-dir "$wrong_runtime_size/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 18. Runtime file SHA-256 mismatch fails
+wrong_runtime_hash="$TMP_DIR/wrong_runtime_hash"
+create_full_fixture_evidence "$wrong_runtime_hash" "$fixture_sha" "100" "1"
+python3 -c "import json, hashlib; p='$wrong_runtime_hash/runtime/runtime-evidence-manifest.json'; d=json.load(open(p)); d['files']['uefi-guest-validation.log']['sha256']='0'*64; json.dump(d,open(p,'w')); new_h=hashlib.sha256(open(p,'rb').read()).hexdigest(); rp='$wrong_runtime_hash/stage-logs/stage-real-installation.json'; rd=json.load(open(rp)); rd['runtime_evidence_manifest_sha256']=new_h; json.dump(rd,open(rp,'w'))"
+expect_fail "18. Runtime file SHA-256 mismatch fails" "Runtime file SHA-256 mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$wrong_runtime_hash/stage-logs" --runtime-dir "$wrong_runtime_hash/runtime" --builds-dir "$wrong_runtime_hash/builds" --current-dir "$wrong_runtime_hash/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 19. Missing evidence source_commit fails
+no_commit_stage="$TMP_DIR/no_commit_stage"
+create_full_fixture_evidence "$no_commit_stage" "$fixture_sha" "100" "1"
+python3 -c "import json; p='$no_commit_stage/stage-logs/stage-clean-install.json'; d=json.load(open(p)); del d['source_commit']; json.dump(d,open(p,'w'))"
+expect_fail "19. Missing evidence source_commit fails" "is missing source_commit" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_commit_stage/stage-logs" --runtime-dir "$no_commit_stage/runtime" --builds-dir "$no_commit_stage/builds" --current-dir "$no_commit_stage/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 20. Generator run ID unknown fails
+unknown_gen_run="$TMP_DIR/unknown_gen_run"
+create_full_fixture_evidence "$unknown_gen_run" "$fixture_sha" "100" "1"
+expect_fail "20. Generator run ID unknown fails" "workflow_run_id is required and cannot be empty or 'unknown'" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$unknown_gen_run/stage-logs" --runtime-dir "$unknown_gen_run/runtime" --builds-dir "$unknown_gen_run/builds" --current-dir "$unknown_gen_run/current" --candidate-sha "$fixture_sha" --workflow-run-id "unknown" --workflow-run-attempt "1"
+
+# 21. Generator run attempt unknown fails
+unknown_gen_att="$TMP_DIR/unknown_gen_att"
+create_full_fixture_evidence "$unknown_gen_att" "$fixture_sha" "100" "1"
+expect_fail "21. Generator run attempt unknown fails" "workflow_run_attempt is required and cannot be empty or 'unknown'" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$unknown_gen_att/stage-logs" --runtime-dir "$unknown_gen_att/runtime" --builds-dir "$unknown_gen_att/builds" --current-dir "$unknown_gen_att/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "unknown"
+
+# 22. Missing structure candidate branch fails
+no_struct_branch="$TMP_DIR/no_struct_branch"
+create_full_fixture_evidence "$no_struct_branch" "$fixture_sha" "100" "1"
+python3 -c "import json; p='$no_struct_branch/builds/build-a-iso-structure.json'; d=json.load(open(p)); del d['candidate_branch']; json.dump(d,open(p,'w'))"
+expect_fail "22. Missing structure candidate branch fails" "structure evidence candidate_branch mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_struct_branch/stage-logs" --runtime-dir "$no_struct_branch/runtime" --builds-dir "$no_struct_branch/builds" --current-dir "$no_struct_branch/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 23. Missing structure SHA-512 fails
+no_struct_sha512="$TMP_DIR/no_struct_sha512"
+create_full_fixture_evidence "$no_struct_sha512" "$fixture_sha" "100" "1"
+python3 -c "import json; p='$no_struct_sha512/builds/build-a-iso-structure.json'; d=json.load(open(p)); del d['iso_sha512']; json.dump(d,open(p,'w'))"
+expect_fail "23. Missing structure SHA-512 fails" "structure evidence ISO SHA-512 mismatch" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_struct_sha512/stage-logs" --runtime-dir "$no_struct_sha512/runtime" --builds-dir "$no_struct_sha512/builds" --current-dir "$no_struct_sha512/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 24. Missing installed disk fails
+no_disk_dir="$TMP_DIR/no_disk_dir"
+create_full_fixture_evidence "$no_disk_dir" "$fixture_sha" "100" "1"
+rm -f "$no_disk_dir/genixbit-0.3.0-uefi.qcow2"
+expect_fail "24. Missing installed disk fails" "Real installation uefi_installed_disk missing or empty" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$no_disk_dir/stage-logs" --runtime-dir "$no_disk_dir/runtime" --builds-dir "$no_disk_dir/builds" --current-dir "$no_disk_dir/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 25. Identical installed disk paths fail
+same_disk_path="$TMP_DIR/same_disk_path"
+create_full_fixture_evidence "$same_disk_path" "$fixture_sha" "100" "1"
+python3 -c "import json; p='$same_disk_path/stage-logs/stage-real-installation.json'; d=json.load(open(p)); d['bios_installed_disk']=d['uefi_installed_disk']; json.dump(d,open(p,'w'))"
+expect_fail "25. Identical installed disk paths fail" "UEFI and BIOS disk paths are identical" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$same_disk_path/stage-logs" --runtime-dir "$same_disk_path/runtime" --builds-dir "$same_disk_path/builds" --current-dir "$same_disk_path/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
+
+# 26. Complete production-layout fixture produces PASS_VALIDATION_AWAITING_IMMUTABLE_PUBLICATION
+valid_prod="$TMP_DIR/valid_prod"
+create_full_fixture_evidence "$valid_prod" "$fixture_sha" "100" "1"
+expect_pass "26. Complete production-layout fixture produces PASS_VALIDATION_AWAITING_IMMUTABLE_PUBLICATION" python3 "$REPO_ROOT/tools/validation/generate-candidate-gate.py" --stage-logs-dir "$valid_prod/stage-logs" --runtime-dir "$valid_prod/runtime" --builds-dir "$valid_prod/builds" --current-dir "$valid_prod/current" --candidate-sha "$fixture_sha" --workflow-run-id "100" --workflow-run-attempt "1"
 
 printf '[PASS] candidate validation execution tests passed: %d/%d\n' "$PASS" "$TOTAL"

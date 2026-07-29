@@ -1218,8 +1218,8 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
   "exit_code": 0,
   "environment_id": "QEMU virtual machine test harness (Ubuntu 26.04 amd64)",
   "environment": "QEMU virtual machine test harness (Ubuntu 26.04 amd64)",
-  "stdout_path": "infra/package-staging/results/stage-logs/stage-test-iso-boot.stdout.log",
-  "stderr_path": "infra/package-staging/results/stage-logs/stage-test-iso-boot.stderr.log",
+  "stdout_path": "infra/package-staging/results/stage-logs/uefi-installed-boot.serial.log",
+  "stderr_path": "infra/package-staging/results/stage-logs/bios-installed-boot.serial.log",
   "artifact_paths": ["infra/package-staging/results/stage-logs/uefi-installed-boot.serial.log", "infra/package-staging/results/stage-logs/bios-installed-boot.serial.log"],
   "artifact_hashes": {
     "uefi_serial_sha256": "$(sha256sum "$UEFI_SERIAL" 2>/dev/null | awk '{print $1}' || echo "unavailable")",
@@ -1251,17 +1251,51 @@ cat <<EOF > "$STAGE_LOGS_DIR/stage-test-iso-boot.json"
 EOF
 info "stage-test-iso-boot.json written with independent UEFI and BIOS real execution evidence."
 
+# Collect run-scoped runtime evidence
+info "Collecting run-scoped runtime evidence..."
+bash "$REPO_ROOT/tools/validation/collect-current-runtime-evidence.sh" \
+  --stage-logs-dir "$STAGE_LOGS_DIR" \
+  --runtime-dir "$RUNTIME_EVIDENCE_DIR" \
+  --candidate-sha "$candidate_sha_for_build" \
+  --workflow-run-id "$WORKFLOW_RUN_ID" \
+  --workflow-run-attempt "$WORKFLOW_RUN_ATTEMPT" \
+  --build-a-sha256 "$BUILD_A_SHA256"
+
+RUNTIME_MANIFEST="$RUNTIME_EVIDENCE_DIR/runtime-evidence-manifest.json"
+[[ -s "$RUNTIME_MANIFEST" ]] || fail "Runtime evidence manifest missing or empty: $RUNTIME_MANIFEST"
+MANIFEST_SHA256=$(sha256sum "$RUNTIME_MANIFEST" | awk '{print $1}')
+
+UEFI_DISK="$TMP_DIR/genixbit-0.3.0-uefi.qcow2"
+BIOS_DISK="$TMP_DIR/genixbit-0.3.0-bios.qcow2"
+
+[[ -s "$UEFI_DISK" ]] || fail "UEFI installed disk missing or empty: $UEFI_DISK"
+[[ -s "$BIOS_DISK" ]] || fail "BIOS installed disk missing or empty: $BIOS_DISK"
+[[ "$UEFI_DISK" != "$BIOS_DISK" ]] || fail "UEFI and BIOS installed disk paths are identical"
+
+UEFI_DISK_SIZE=$(stat -c %s "$UEFI_DISK" 2>/dev/null || stat -f %z "$UEFI_DISK" 2>/dev/null || wc -c < "$UEFI_DISK")
+BIOS_DISK_SIZE=$(stat -c %s "$BIOS_DISK" 2>/dev/null || stat -f %z "$BIOS_DISK" 2>/dev/null || wc -c < "$BIOS_DISK")
+
+UEFI_DISK_SHA256=$(sha256sum "$UEFI_DISK" | awk '{print $1}')
+BIOS_DISK_SHA256=$(sha256sum "$BIOS_DISK" | awk '{print $1}')
+[[ "$UEFI_DISK_SHA256" != "$BIOS_DISK_SHA256" ]] || fail "UEFI and BIOS installed disk SHA-256 hashes are identical"
+
 cat <<EOF > "$STAGE_LOGS_DIR/stage-real-installation.json"
 {
-  "source_commit": "$CURRENT_COMMIT",
-  "candidate_sha": "$CURRENT_COMMIT",
+  "source_commit": "$candidate_sha_for_build",
+  "candidate_sha": "$candidate_sha_for_build",
   "workflow_run_id": "$WORKFLOW_RUN_ID",
   "workflow_run_attempt": "$WORKFLOW_RUN_ATTEMPT",
   "iso_sha256": "$BUILD_A_SHA256",
   "uefi_installation_result": "PASS",
   "bios_installation_result": "PASS",
-  "uefi_installed_disk": "$TMP_DIR/genixbit-0.3.0-uefi.qcow2",
-  "bios_installed_disk": "$TMP_DIR/genixbit-0.3.0-bios.qcow2",
+  "uefi_installed_disk": "$UEFI_DISK",
+  "bios_installed_disk": "$BIOS_DISK",
+  "uefi_installed_disk_size_bytes": $UEFI_DISK_SIZE,
+  "bios_installed_disk_size_bytes": $BIOS_DISK_SIZE,
+  "uefi_installed_disk_sha256": "$UEFI_DISK_SHA256",
+  "bios_installed_disk_sha256": "$BIOS_DISK_SHA256",
+  "runtime_evidence_manifest": "$RUNTIME_MANIFEST",
+  "runtime_evidence_manifest_sha256": "$MANIFEST_SHA256",
   "uefi_first_boot_result": "PASS",
   "bios_first_boot_result": "PASS",
   "uefi_second_boot_result": "PASS",

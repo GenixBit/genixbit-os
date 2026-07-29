@@ -85,26 +85,26 @@ def read_bound_evidence(filepath, *, expected_sha, expected_run_id, expected_run
     if data["exit_code"] != 0:
         fail(f"Evidence file {filepath} exit_code is {data['exit_code']}, expected 0")
 
-    commit = data.get("source_commit") or data.get("candidate_sha") or data.get("active_release_source_commit")
-    if not commit or commit != expected_sha:
-        fail(f"Source commit mismatch in {filepath}: {commit} != {expected_sha}")
+    if "source_commit" not in data:
+        fail(f"Evidence file {filepath} is missing source_commit")
+
+    if data["source_commit"] != expected_sha:
+        fail(f"Source commit mismatch in {filepath}: {data['source_commit']} != {expected_sha}")
 
     if data.get("git_head") and data.get("git_head") != expected_sha:
         fail(f"Git HEAD mismatch in {filepath}: {data.get('git_head')} != {expected_sha}")
 
     run_id_val = str(data.get("workflow_run_id", ""))
-    if expected_run_id and expected_run_id != "unknown":
-        if not run_id_val or run_id_val == "unknown":
-            fail(f"Workflow run ID missing or unknown in {filepath}")
-        elif run_id_val != str(expected_run_id):
-            fail(f"Workflow run ID mismatch in {filepath}: {run_id_val} != {expected_run_id}")
+    if not run_id_val or run_id_val in ("unknown", "local", "0"):
+        fail(f"Workflow run ID missing or invalid in {filepath}")
+    elif run_id_val != str(expected_run_id):
+        fail(f"Workflow run ID mismatch in {filepath}: {run_id_val} != {expected_run_id}")
 
     run_att_val = str(data.get("workflow_run_attempt", ""))
-    if expected_run_attempt and str(expected_run_attempt) != "unknown":
-        if not run_att_val or run_att_val == "unknown":
-            fail(f"Workflow run attempt missing or unknown in {filepath}")
-        elif run_att_val != str(expected_run_attempt):
-            fail(f"Workflow run attempt mismatch in {filepath}: {run_att_val} != {expected_run_attempt}")
+    if not run_att_val or run_att_val in ("unknown", "local", "0"):
+        fail(f"Workflow run attempt missing or invalid in {filepath}")
+    elif run_att_val != str(expected_run_attempt):
+        fail(f"Workflow run attempt mismatch in {filepath}: {run_att_val} != {expected_run_attempt}")
 
     return data
 
@@ -117,6 +117,17 @@ def check_guest_health_log(log_path, label):
         content = f.read()
     check_retired_references(content, context=log_path)
 
+    if "=== Authenticated Guest Command Output (ssh) ===" not in content:
+        fail(f"{label} log ({log_path}) missing SSH header")
+    if "Start Timestamp:" not in content:
+        fail(f"{label} log ({log_path}) missing Start Timestamp")
+    if "Completion Timestamp:" not in content:
+        fail(f"{label} log ({log_path}) missing Completion Timestamp")
+    if "Exit Code: 0" not in content:
+        fail(f"{label} log ({log_path}) missing Exit Code: 0")
+    if "Channel: ssh" not in content:
+        fail(f"{label} log ({log_path}) missing Channel: ssh")
+
     for cmd in REQUIRED_HEALTH_COMMANDS:
         if cmd not in content:
             fail(f"Required package/system health command '{cmd}' missing from {label} log ({log_path})")
@@ -127,6 +138,13 @@ def check_guest_health_log(log_path, label):
     for pkg in REQUIRED_PACKAGES:
         if pkg not in content:
             fail(f"Required package '{pkg}' missing from {label} log ({log_path})")
+
+    if re.search(r"Exit Code:\s*(1|2|124|255)\b", content):
+        fail(f"{label} log ({log_path}) contains non-zero command exit code")
+    if re.search(r"Channel:\s*(simulated|host)\b", content):
+        fail(f"{label} log ({log_path}) contains forbidden non-SSH channel")
+    if "[FAIL]" in content or "Authenticated guest command failed" in content or "FAILED_BOOT_CHECK" in content:
+        fail(f"{label} log ({log_path}) contains failure markers")
 
 def check_serial_log(log_path, label):
     if not os.path.isfile(log_path):
@@ -161,8 +179,8 @@ def main():
     parser.add_argument("--provenance-file", default=None, help="Path for active artifact provenance JSON")
     parser.add_argument("--candidate-branch", default=os.environ.get("EXPECTED_CANDIDATE_BRANCH", "validation/0.3.0-alpha-candidate-2"))
     parser.add_argument("--candidate-sha", default=os.environ.get("EXPECTED_CANDIDATE_SHA", os.environ.get("ACTIVE_RELEASE_SOURCE_COMMIT", "")))
-    parser.add_argument("--workflow-run-id", default=os.environ.get("WORKFLOW_RUN_ID", os.environ.get("GITHUB_RUN_ID", "unknown")))
-    parser.add_argument("--workflow-run-attempt", default=os.environ.get("WORKFLOW_RUN_ATTEMPT", os.environ.get("GITHUB_RUN_ATTEMPT", "1")))
+    parser.add_argument("--workflow-run-id", default=os.environ.get("WORKFLOW_RUN_ID", os.environ.get("GITHUB_RUN_ID", None)))
+    parser.add_argument("--workflow-run-attempt", default=os.environ.get("WORKFLOW_RUN_ATTEMPT", os.environ.get("GITHUB_RUN_ATTEMPT", None)))
     args = parser.parse_args()
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -175,8 +193,13 @@ def main():
 
     cand_branch = args.candidate_branch
     cand_sha = args.candidate_sha
-    run_id = str(args.workflow_run_id)
-    run_attempt = str(args.workflow_run_attempt)
+    run_id = str(args.workflow_run_id) if args.workflow_run_id is not None else ""
+    run_attempt = str(args.workflow_run_attempt) if args.workflow_run_attempt is not None else ""
+
+    if not run_id or run_id in ("unknown", "local", "0"):
+        fail("workflow_run_id is required and cannot be empty or 'unknown'")
+    if not run_attempt or run_attempt in ("unknown", "local", "0"):
+        fail("workflow_run_attempt is required and cannot be empty or 'unknown'")
 
     if cand_branch != "validation/0.3.0-alpha-candidate-2":
         fail(f"Unexpected candidate branch: {cand_branch}")
@@ -349,26 +372,53 @@ def main():
         ("Build A", struct_a, iso_a, sha256_a, sha512_a),
         ("Build B", struct_b, iso_b, sha256_b, sha512_b)
     ]:
-        if struct_data.get("candidate_branch") and struct_data.get("candidate_branch") != cand_branch:
+        if "candidate_branch" not in struct_data or struct_data["candidate_branch"] != cand_branch:
             fail(f"{label} structure evidence candidate_branch mismatch: {struct_data.get('candidate_branch')} != {cand_branch}")
         if struct_data.get("iso_path") != expected_iso:
             fail(f"{label} structure evidence ISO path mismatch: {struct_data.get('iso_path')} != {expected_iso}")
         if struct_data.get("iso_sha256") != expected_sha256:
             fail(f"{label} structure evidence ISO SHA-256 mismatch: {struct_data.get('iso_sha256')} != {expected_sha256}")
-        if struct_data.get("iso_sha512") and struct_data.get("iso_sha512") != expected_sha512:
+        if "iso_sha512" not in struct_data or struct_data["iso_sha512"] != expected_sha512:
             fail(f"{label} structure evidence ISO SHA-512 mismatch: {struct_data.get('iso_sha512')} != {expected_sha512}")
 
-    # 7. Real Installation Evidence
+    # 7. Runtime Evidence Manifest Validation
+    manifest_path = os.path.join(runtime_dir, "runtime-evidence-manifest.json")
+    manifest = read_bound_evidence(manifest_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
+    if manifest.get("build_a_iso_sha256") != sha256_a:
+        fail(f"Runtime manifest Build A ISO SHA-256 mismatch: {manifest.get('build_a_iso_sha256')} != {sha256_a}")
+
+    manifest_files = manifest.get("files", {})
+    required_runtime_files = [
+        "uefi-installer-boot.serial.log",
+        "bios-installer-boot.serial.log",
+        "uefi-installed-boot.serial.log",
+        "bios-installed-boot.serial.log",
+        "uefi-guest-validation.log",
+        "bios-guest-validation.log",
+        "uefi-second-boot-validation.log",
+        "bios-second-boot-validation.log"
+    ]
+    for rfile in required_runtime_files:
+        if rfile not in manifest_files:
+            fail(f"Runtime manifest missing required file entry for {rfile}")
+        finfo = manifest_files[rfile]
+        expected_fpath = os.path.realpath(os.path.join(runtime_dir, rfile))
+        manifest_fpath = os.path.realpath(str(finfo.get("path", "")))
+        if manifest_fpath != expected_fpath:
+            fail(f"Runtime manifest path mismatch for {rfile}: {manifest_fpath} != {expected_fpath}")
+        if not os.path.isfile(expected_fpath) or os.path.getsize(expected_fpath) == 0:
+            fail(f"Runtime file missing or empty: {expected_fpath}")
+        if os.path.getsize(expected_fpath) != finfo.get("size_bytes"):
+            fail(f"Runtime file size mismatch for {rfile}: {os.path.getsize(expected_fpath)} != {finfo.get('size_bytes')}")
+        actual_rsha = calc_sha256(expected_fpath)
+        if actual_rsha != finfo.get("sha256"):
+            fail(f"Runtime file SHA-256 mismatch for {rfile}: {actual_rsha} != {finfo.get('sha256')}")
+
+    # 8. Real Installation Evidence Validation
     real_inst_path = os.path.join(stage_logs_dir, "stage-real-installation.json")
     real_inst = read_bound_evidence(real_inst_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
-    if real_inst.get("source_commit") != cand_sha:
-        fail(f"Real installation source_commit mismatch: {real_inst.get('source_commit')} != {cand_sha}")
     if real_inst.get("candidate_sha") != cand_sha:
         fail(f"Real installation candidate_sha mismatch: {real_inst.get('candidate_sha')} != {cand_sha}")
-    if str(real_inst.get("workflow_run_id")) != run_id:
-        fail(f"Real installation workflow_run_id mismatch: {real_inst.get('workflow_run_id')} != {run_id}")
-    if str(real_inst.get("workflow_run_attempt")) != run_attempt:
-        fail(f"Real installation workflow_run_attempt mismatch: {real_inst.get('workflow_run_attempt')} != {run_attempt}")
     if real_inst.get("iso_sha256") != sha256_a:
         fail(f"Real installation ISO SHA-256 mismatch: {real_inst.get('iso_sha256')} != {sha256_a}")
     if real_inst.get("uefi_installation_result") != "PASS":
@@ -386,7 +436,29 @@ def main():
     if real_inst.get("authenticated_guest_validation_result") != "PASS":
         fail(f"Real installation authenticated_guest_validation_result is '{real_inst.get('authenticated_guest_validation_result')}', expected 'PASS'")
 
-    # 8. Guest Health Logs & Serial Logs
+    real_manifest_path = os.path.realpath(str(real_inst.get("runtime_evidence_manifest", "")))
+    expected_manifest_path = os.path.realpath(manifest_path)
+    if real_manifest_path != expected_manifest_path:
+        fail(f"Real installation runtime_evidence_manifest mismatch: {real_manifest_path} != {expected_manifest_path}")
+    manifest_sha = calc_sha256(manifest_path)
+    if "runtime_evidence_manifest_sha256" not in real_inst or real_inst["runtime_evidence_manifest_sha256"] != manifest_sha:
+        fail("Real installation runtime_evidence_manifest_sha256 mismatch")
+
+    uefi_disk = real_inst.get("uefi_installed_disk", "")
+    bios_disk = real_inst.get("bios_installed_disk", "")
+    if not uefi_disk or not os.path.isfile(uefi_disk) or os.path.getsize(uefi_disk) == 0:
+        fail(f"Real installation uefi_installed_disk missing or empty: {uefi_disk}")
+    if not bios_disk or not os.path.isfile(bios_disk) or os.path.getsize(bios_disk) == 0:
+        fail(f"Real installation bios_installed_disk missing or empty: {bios_disk}")
+    if os.path.realpath(uefi_disk) == os.path.realpath(bios_disk):
+        fail(f"Real installation UEFI and BIOS disk paths are identical: {uefi_disk}")
+
+    uefi_disk_sha = calc_sha256(uefi_disk)
+    bios_disk_sha = calc_sha256(bios_disk)
+    if uefi_disk_sha == bios_disk_sha:
+        fail("UEFI and BIOS installed disk SHA-256 hashes are identical")
+
+    # 9. Guest Health Logs & Serial Logs
     guest_health_logs = [
         ("uefi-guest-validation.log", "UEFI Guest Validation"),
         ("bios-guest-validation.log", "BIOS Guest Validation"),
@@ -400,6 +472,8 @@ def main():
         guest_log_paths[log_filename] = log_path
 
     serial_logs = [
+        ("uefi-installer-boot.serial.log", "UEFI Installer Boot Serial"),
+        ("bios-installer-boot.serial.log", "BIOS Installer Boot Serial"),
         ("uefi-installed-boot.serial.log", "UEFI Installed Boot Serial"),
         ("bios-installed-boot.serial.log", "BIOS Installed Boot Serial")
     ]
@@ -409,12 +483,17 @@ def main():
         check_serial_log(log_path, label)
         serial_log_paths[log_filename] = log_path
 
+    hash_inst_serial_uefi = calc_sha256(serial_log_paths["uefi-installer-boot.serial.log"])
+    hash_inst_serial_bios = calc_sha256(serial_log_paths["bios-installer-boot.serial.log"])
+    if hash_inst_serial_uefi == hash_inst_serial_bios:
+        fail("UEFI and BIOS installer serial boot logs have identical SHA-256 hashes")
+
     hash_serial_uefi = calc_sha256(serial_log_paths["uefi-installed-boot.serial.log"])
     hash_serial_bios = calc_sha256(serial_log_paths["bios-installed-boot.serial.log"])
     if hash_serial_uefi == hash_serial_bios:
-        fail("UEFI and BIOS serial boot logs have identical SHA-256 hashes")
+        fail("UEFI and BIOS installed serial boot logs have identical SHA-256 hashes")
 
-    # 9. Installer branding & Security & Documentation
+    # 10. Installer branding & Security & Documentation
     branding_path = os.path.join(stage_logs_dir, "stage-installer-branding.json")
     branding_data = read_bound_evidence(branding_path, expected_sha=cand_sha, expected_run_id=run_id, expected_run_attempt=run_attempt)
 
@@ -463,12 +542,16 @@ def main():
             "status": "PASS",
             "evidence_files": [
                 real_inst_path,
+                manifest_path,
+                serial_log_paths["uefi-installer-boot.serial.log"],
                 serial_log_paths["uefi-installed-boot.serial.log"],
                 guest_log_paths["uefi-guest-validation.log"],
                 guest_log_paths["uefi-second-boot-validation.log"]
             ],
             "evidence_hashes": [
                 calc_sha256(real_inst_path),
+                calc_sha256(manifest_path),
+                calc_sha256(serial_log_paths["uefi-installer-boot.serial.log"]),
                 calc_sha256(serial_log_paths["uefi-installed-boot.serial.log"]),
                 calc_sha256(guest_log_paths["uefi-guest-validation.log"]),
                 calc_sha256(guest_log_paths["uefi-second-boot-validation.log"])
@@ -478,12 +561,16 @@ def main():
             "status": "PASS",
             "evidence_files": [
                 real_inst_path,
+                manifest_path,
+                serial_log_paths["bios-installer-boot.serial.log"],
                 serial_log_paths["bios-installed-boot.serial.log"],
                 guest_log_paths["bios-guest-validation.log"],
                 guest_log_paths["bios-second-boot-validation.log"]
             ],
             "evidence_hashes": [
                 calc_sha256(real_inst_path),
+                calc_sha256(manifest_path),
+                calc_sha256(serial_log_paths["bios-installer-boot.serial.log"]),
                 calc_sha256(serial_log_paths["bios-installed-boot.serial.log"]),
                 calc_sha256(guest_log_paths["bios-guest-validation.log"]),
                 calc_sha256(guest_log_paths["bios-second-boot-validation.log"])
@@ -491,13 +578,24 @@ def main():
         },
         "installer_readiness": {
             "status": "PASS",
-            "evidence_files": [real_inst_path],
-            "evidence_hashes": [calc_sha256(real_inst_path)]
+            "evidence_files": [
+                real_inst_path,
+                manifest_path,
+                serial_log_paths["uefi-installer-boot.serial.log"],
+                serial_log_paths["bios-installer-boot.serial.log"]
+            ],
+            "evidence_hashes": [
+                calc_sha256(real_inst_path),
+                calc_sha256(manifest_path),
+                calc_sha256(serial_log_paths["uefi-installer-boot.serial.log"]),
+                calc_sha256(serial_log_paths["bios-installer-boot.serial.log"])
+            ]
         },
         "installed_system_readiness": {
             "status": "PASS",
             "evidence_files": [
                 real_inst_path,
+                manifest_path,
                 guest_log_paths["uefi-guest-validation.log"],
                 guest_log_paths["bios-guest-validation.log"],
                 guest_log_paths["uefi-second-boot-validation.log"],
@@ -507,6 +605,7 @@ def main():
             ],
             "evidence_hashes": [
                 calc_sha256(real_inst_path),
+                calc_sha256(manifest_path),
                 calc_sha256(guest_log_paths["uefi-guest-validation.log"]),
                 calc_sha256(guest_log_paths["bios-guest-validation.log"]),
                 calc_sha256(guest_log_paths["uefi-second-boot-validation.log"]),
@@ -518,12 +617,14 @@ def main():
         "package_health_readiness": {
             "status": "PASS",
             "evidence_files": [
+                manifest_path,
                 guest_log_paths["uefi-guest-validation.log"],
                 guest_log_paths["bios-guest-validation.log"],
                 guest_log_paths["uefi-second-boot-validation.log"],
                 guest_log_paths["bios-second-boot-validation.log"]
             ],
             "evidence_hashes": [
+                calc_sha256(manifest_path),
                 calc_sha256(guest_log_paths["uefi-guest-validation.log"]),
                 calc_sha256(guest_log_paths["bios-guest-validation.log"]),
                 calc_sha256(guest_log_paths["uefi-second-boot-validation.log"]),
@@ -615,6 +716,9 @@ def main():
             "build_a_structure_sha256": calc_sha256(struct_a_path),
             "build_b_structure_sha256": calc_sha256(struct_b_path),
             "real_installation_sha256": calc_sha256(real_inst_path),
+            "runtime_evidence_manifest_sha256": calc_sha256(manifest_path),
+            "uefi_installer_serial_sha256": calc_sha256(serial_log_paths["uefi-installer-boot.serial.log"]),
+            "bios_installer_serial_sha256": calc_sha256(serial_log_paths["bios-installer-boot.serial.log"]),
             "uefi_serial_sha256": calc_sha256(serial_log_paths["uefi-installed-boot.serial.log"]),
             "bios_serial_sha256": calc_sha256(serial_log_paths["bios-installed-boot.serial.log"]),
             "uefi_guest_validation_sha256": calc_sha256(guest_log_paths["uefi-guest-validation.log"]),
