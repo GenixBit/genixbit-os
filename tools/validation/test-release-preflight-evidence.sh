@@ -174,7 +174,8 @@ run_case() {
       EXPECTED_CANDIDATE_SHA \
       WORKFLOW_RUN_ID \
       WORKFLOW_RUN_ATTEMPT \
-      WORKFLOW_DISPATCH_REF_SHA
+      WORKFLOW_DISPATCH_REF_SHA \
+      PREFLIGHT_TEST_MISSING_BINARY
 
     set +e
     PATH="$bin_dir:/usr/bin:/bin:/sbin" \
@@ -187,6 +188,7 @@ run_case() {
     PREFLIGHT_OVMF_CODE_CANDIDATES="$ovmf_code" \
     PREFLIGHT_OVMF_VARS_CANDIDATES="$ovmf_vars" \
     PREFLIGHT_SEABIOS_CANDIDATES="$seabios" \
+    PREFLIGHT_TEST_MISSING_BINARY="$missing_binary" \
     ACTIVE_RELEASE_PROVENANCE_FILE="$artifact_provenance" \
     ACTIVE_RELEASE_VERSION="0.3.0-alpha" \
     ACTIVE_RELEASE_MODE="fresh-install-only" \
@@ -206,7 +208,7 @@ run_case() {
     local rc=$?
     set -e
 
-    unset TEST_ARCH TEST_DISK_AVAIL TEST_MEM_AVAIL TEST_CURL_FAIL TEST_SHA256
+    unset TEST_ARCH TEST_DISK_AVAIL TEST_MEM_AVAIL TEST_CURL_FAIL TEST_SHA256 PREFLIGHT_TEST_MISSING_BINARY
 
     local result_file="$results_dir/preflight-results.json"
     [[ -s "$result_file" ]] || {
