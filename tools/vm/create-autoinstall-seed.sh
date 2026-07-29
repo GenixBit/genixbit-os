@@ -124,6 +124,9 @@ cat <<EOF > "$USER_DATA_FILE"
 #cloud-config
 autoinstall:
   version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
 
   identity:
     realname: GenixBit Validation User
