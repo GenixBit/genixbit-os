@@ -83,6 +83,8 @@ SEED_JSON=$(bash "$(dirname "$0")/create-autoinstall-seed.sh" \
     --out-dir "${state_dir}/seed" \
     --mode "$MODE")
 
+SEED_ISO=$(echo "$SEED_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['seed_iso_path'])")
+
 # 5. Extract installer kernel and initrd from current ISO for direct-kernel autoinstall
 KERNEL_JSON="${state_dir}/kernel-extraction.json"
 KERNEL_OUT=$(bash "$(dirname "$0")/extract-installer-kernel.sh" \
