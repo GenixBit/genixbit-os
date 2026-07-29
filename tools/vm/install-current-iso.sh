@@ -83,11 +83,20 @@ SEED_JSON=$(bash "$(dirname "$0")/create-autoinstall-seed.sh" \
     --out-dir "${state_dir}/seed" \
     --mode "$MODE")
 
-SEED_ISO=$(echo "$SEED_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin)['seed_iso_path'])")
+# 5. Extract installer kernel and initrd from current ISO for direct-kernel autoinstall
+KERNEL_JSON="${state_dir}/kernel-extraction.json"
+KERNEL_OUT=$(bash "$(dirname "$0")/extract-installer-kernel.sh" \
+    --iso "$ISO_PATH" \
+    --out-dir "${state_dir}/kernel" \
+    --out-json "$KERNEL_JSON")
+
+VMLINUZ=$(python3 -c "import json; d=json.load(open('$KERNEL_JSON')); print(d['vmlinuz_path'])")
+INITRD=$(python3 -c "import json; d=json.load(open('$KERNEL_JSON')); print(d['initrd_path'])")
+KERNEL_APPEND="boot=casper autoinstall ds=nocloud console=ttyS0,115200n8 ---"
 
 printf '[INFO] Booting 0.3.0 ISO in %s mode as managed background VM (token: %s, Port: %s)...\n' "$MODE" "$INSTALL_TOKEN" "$SSH_PORT"
 
-# 5. Boot ISO in QEMU managed background process
+# 6. Boot ISO in QEMU managed background process with direct-kernel autoinstall
 bash "$(dirname "$0")/run-qemu.sh" start \
     --vm-id "$VM_ID" \
     --mode "$MODE" \
@@ -99,6 +108,10 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --qmp-socket "$qmp_path" \
     --pid-file "$pid_file" \
     --ssh-port "$SSH_PORT" \
+    --kernel "$VMLINUZ" \
+    --initrd "$INITRD" \
+    --append "$KERNEL_APPEND" \
+    --no-reboot \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
