@@ -174,7 +174,7 @@ case "$ACTION" in
         qemu_args=("-m" "4096" "-smp" "4" "-cpu" "host" "-enable-kvm")
 
         if ! "$QEMU_BIN" -enable-kvm -help >/dev/null 2>&1; then
-            qemu_args=("-m" "4096" "-smp" "4")
+            qemu_args=("-m" "4096" "-smp" "4" "-accel" "tcg,thread=multi" "-cpu" "max")
         fi
 
         if [[ "$MODE" == "uefi" ]]; then
