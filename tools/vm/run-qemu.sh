@@ -239,7 +239,7 @@ case "$ACTION" in
         fi
 
         if [[ "$HEADLESS" == "true" ]]; then
-            qemu_args+=("-nographic" "-display" "none")
+            qemu_args+=("-display" "none")
         fi
 
         rm -f "$QMP_SOCKET" "$PID_FILE"
