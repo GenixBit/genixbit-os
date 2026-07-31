@@ -94,7 +94,7 @@ KERNEL_OUT=$(bash "$(dirname "$0")/extract-installer-kernel.sh" \
 
 VMLINUZ=$(python3 -c "import json; d=json.load(open('$KERNEL_JSON')); print(d['vmlinuz_path'])")
 INITRD=$(python3 -c "import json; d=json.load(open('$KERNEL_JSON')); print(d['initrd_path'])")
-KERNEL_APPEND="boot=casper autoinstall ds=nocloud console=ttyS0,115200n8 ---"
+KERNEL_APPEND="boot=casper autoinstall ds=nocloud;s=/dev/sr1/ console=ttyS0,115200n8 ---"
 
 printf '[INFO] Booting 0.3.0 ISO in %s mode as managed background VM (token: %s, Port: %s)...\n' "$MODE" "$INSTALL_TOKEN" "$SSH_PORT"
 
