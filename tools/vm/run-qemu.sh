@@ -213,7 +213,7 @@ case "$ACTION" in
         fi
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
-            qemu_args+=("-usb" "-drive" "file=$SEED_ISO_PATH,format=raw,if=none,id=seeddisk" "-device" "usb-storage,drive=seeddisk")
+            qemu_args+=("-device" "virtio-scsi-pci,id=scsi0" "-drive" "file=$SEED_ISO_PATH,format=raw,if=none,id=seeddisk,readonly=on" "-device" "scsi-cd,drive=seeddisk")
         fi
 
         # Step 7: Direct-kernel autoinstall boot.
