@@ -236,9 +236,9 @@ fi
 if [[ "$ISO_TOOL" == "cloud-localds" ]]; then
     cloud-localds "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
 elif [[ "$ISO_TOOL" == "xorriso" ]]; then
-    xorriso -as mkisofs -V "cidata" -J -r -o "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
+    xorriso -as mkisofs -V "CIDATA" -J -r -o "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
 else
-    "$ISO_TOOL" -output "$SEED_ISO" -volid "cidata" -joliet -rock "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
+    "$ISO_TOOL" -output "$SEED_ISO" -volid "CIDATA" -joliet -rock "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
 fi
 
 [[ -f "$SEED_ISO" && -s "$SEED_ISO" ]] || fail "Seed ISO generation failed to create non-empty file at $SEED_ISO"
@@ -246,8 +246,8 @@ fi
 # Verify volume label or content
 if command -v isoinfo >/dev/null 2>&1; then
     VOL_NAME=$(isoinfo -d -i "$SEED_ISO" 2>/dev/null | grep "Volume id:" | awk '{print $3}' || echo "")
-    if [[ -n "$VOL_NAME" && "$VOL_NAME" != "cidata" ]]; then
-        fail "Seed ISO volume label is '$VOL_NAME', expected 'cidata'"
+    if [[ -n "$VOL_NAME" && "$VOL_NAME" != "CIDATA" && "$VOL_NAME" != "cidata" ]]; then
+        fail "Seed ISO volume label is '$VOL_NAME', expected 'CIDATA'"
     fi
 fi
 
