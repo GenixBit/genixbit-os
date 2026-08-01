@@ -214,6 +214,7 @@ case "$ACTION" in
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
             qemu_args+=(
+                "-usb"
                 "-drive" "file=$SEED_ISO_PATH,format=raw,id=seeddrive,if=none,readonly=on"
                 "-device" "usb-storage,drive=seeddrive"
             )
