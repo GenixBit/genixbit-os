@@ -219,10 +219,12 @@ print('[INFO] user-data YAML validation passed (via PyYAML)', file=sys.stderr)
 "
 printf '[INFO] user-data schema validation passed.\n' >&2
 
-# Find ISO9660 creation tool (FAIL CLOSED - NO synthetic Python or tar fallbacks!)
+# Find ISO/disk seed creation tool (FAIL CLOSED - NO synthetic Python or tar fallbacks!)
 ISO_TOOL=""
 if command -v cloud-localds >/dev/null 2>&1; then
     ISO_TOOL="cloud-localds"
+elif command -v mformat >/dev/null 2>&1 && command -v mcopy >/dev/null 2>&1; then
+    ISO_TOOL="mtools"
 elif command -v xorriso >/dev/null 2>&1; then
     ISO_TOOL="xorriso"
 elif command -v genisoimage >/dev/null 2>&1; then
@@ -230,11 +232,16 @@ elif command -v genisoimage >/dev/null 2>&1; then
 elif command -v mkisofs >/dev/null 2>&1; then
     ISO_TOOL="mkisofs"
 else
-    fail "No valid ISO9660 generator found (cloud-localds, xorriso, genisoimage, or mkisofs required). Synthetic fallbacks are prohibited!"
+    fail "No valid seed generator found (cloud-localds, mtools, xorriso, genisoimage, or mkisofs required). Synthetic fallbacks are prohibited!"
 fi
 
 if [[ "$ISO_TOOL" == "cloud-localds" ]]; then
     cloud-localds "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
+elif [[ "$ISO_TOOL" == "mtools" ]]; then
+    dd if=/dev/zero of="$SEED_ISO" bs=1M count=4 status=none
+    mformat -i "$SEED_ISO" -v "CIDATA" ::
+    mcopy -i "$SEED_ISO" "$USER_DATA_FILE" ::user-data
+    mcopy -i "$SEED_ISO" "$META_DATA_FILE" ::meta-data
 elif [[ "$ISO_TOOL" == "xorriso" ]]; then
     xorriso -as mkisofs -V "CIDATA" -J -r -o "$SEED_ISO" "$USER_DATA_FILE" "$META_DATA_FILE" >/dev/null 2>&1
 else
