@@ -103,7 +103,7 @@ with open(ctrl_src) as f:
             maint = line.split(":", 1)[1].strip()
             break
 
-ver = "0.2.0-alpha-1"
+ver = "0.3.0-alpha-1"
 with open(chlog_src) as f:
     first = f.readline()
     m = re.search(r'\((.*?)\)', first)
@@ -146,7 +146,7 @@ with open(ctrl_dst, "w") as f:
 PYEOF
 
         ver=$(head -n 1 "$pkg_build_dir/debian/changelog" | awk '{print $2}' | tr -d '()')
-        if [[ -z "$ver" ]]; then ver="0.2.0-alpha-1"; fi
+        if [[ -z "$ver" ]]; then ver="0.3.0-alpha-1"; fi
         out_deb="$BUILD_TEMP/${pkg}_${ver}_all.deb"
 
         dpkg-deb --root-owner-group --build "$STAGE_DIR" "$out_deb" >/dev/null

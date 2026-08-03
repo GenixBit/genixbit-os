@@ -4,7 +4,7 @@ genixbit-os-desktop (0.3.0-alpha-1) resolute; urgency=medium
 
  -- GenixBit OS Maintainers <ftpmaster@genixbit.com>  Fri, 24 Jul 2026 09:00:00 +0000
 
-genixbit-os-desktop (0.2.0-alpha-1) resolute; urgency=medium
+genixbit-os-desktop (0.3.0-alpha-1) resolute; urgency=medium
 
   * Initial scaffolding for GenixBit OS desktop metapackage.
   * Metapackage pulling desktop environment dependencies.
