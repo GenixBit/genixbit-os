@@ -215,7 +215,7 @@ case "$ACTION" in
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
             qemu_args+=(
                 "-drive" "file=$SEED_ISO_PATH,format=raw,if=none,id=seedcd,readonly=on"
-                "-device" "ide-cd,bus=ide.1,unit=0,drive=seedcd"
+                "-device" "virtio-blk-pci,drive=seedcd"
             )
         fi
 

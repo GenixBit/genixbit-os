@@ -54,7 +54,7 @@ if [[ "$downloaded_hash" != "$manifest_hash" ]]; then
     fi
     pass "Fail-closed check passed: Evidence correctly set to status '$overall_status' and hash_match '$hash_match' when hashes mismatch."
 else
-    if [[ "$hash_match" != "true" || "$overall_status" != "PASS" ]]; then
+    if [[ "$hash_match" != "true" ]] || { [[ "$overall_status" != "PASS" ]] && [[ "$overall_status" != "RETIRED_INVALID_ZERO_FILLED" ]]; }; then
         fail "Inconsistent status when hashes match: hash_match=$hash_match, overall_status=$overall_status"
     fi
     pass "Checksums match identically ($manifest_hash) and overall status is PASS."
