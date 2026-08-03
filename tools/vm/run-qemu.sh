@@ -213,7 +213,7 @@ case "$ACTION" in
         fi
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
-            qemu_args+=("-drive" "file=$SEED_ISO_PATH,format=raw,if=virtio,readonly=on")
+            qemu_args+=("-drive" "file=$SEED_ISO_PATH,format=raw,media=cdrom,readonly=on")
         fi
 
         # Step 7: Direct-kernel autoinstall boot.
