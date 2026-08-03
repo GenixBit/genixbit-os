@@ -213,7 +213,11 @@ case "$ACTION" in
         fi
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
-            qemu_args+=("-drive" "file=$SEED_ISO_PATH,format=raw,media=cdrom,readonly=on")
+            qemu_args+=(
+                "-device" "qemu-xhci,id=xhci"
+                "-drive" "file=$SEED_ISO_PATH,format=raw,id=seeddrive,if=none,readonly=on"
+                "-device" "usb-storage,bus=xhci.0,drive=seeddrive"
+            )
         fi
 
         # Step 7: Direct-kernel autoinstall boot.
