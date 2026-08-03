@@ -207,21 +207,16 @@ case "$ACTION" in
         )
 
         if [[ "$INSTALLED" == "false" && -n "$ISO_PATH" ]]; then
-            # ISO always attached read-only as CDROM payload via virtio-blk-pci
-            # so casper in UEFI and BIOS can reliably and rapidly mount /casper/filesystem.squashfs.
-            qemu_args+=(
-                "-drive" "file=$ISO_PATH,format=raw,if=none,id=isocd,media=cdrom,readonly=on"
-                "-device" "virtio-blk-pci,drive=isocd"
-                "-boot" "d"
-            )
+            # ISO always attached read-only as standard IDE CDROM payload
+            # so casper in UEFI and BIOS instantly mounts /casper/filesystem.squashfs via /dev/sr0.
+            qemu_args+=("-drive" "file=$ISO_PATH,format=raw,media=cdrom,readonly=on" "-boot" "d")
         fi
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
-            qemu_args+=(
-                "-drive" "file=$SEED_ISO_PATH,format=raw,if=none,id=seedcd,readonly=on"
-                "-device" "virtio-blk-pci,drive=seedcd"
-            )
+            # Seed ISO attached via virtio bus for cloud-init ds-identify detection
+            qemu_args+=("-drive" "file=$SEED_ISO_PATH,format=raw,if=virtio")
         fi
+
 
         # Step 7: Direct-kernel autoinstall boot.
         # When --kernel and --initrd are supplied, use QEMU's -kernel/-initrd/-append
