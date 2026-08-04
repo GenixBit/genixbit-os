@@ -199,8 +199,9 @@ case "$ACTION" in
 
         # Explicit virtio-net-pci and netdev pairing (NO -nic user fallback!)
         qemu_args+=(
-            "-drive" "file=$DISK_PATH,format=qcow2,if=virtio"
+            "-drive" "file=$DISK_PATH,format=qcow2,if=virtio,cache=unsafe"
             "-netdev" "user,id=net0,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22"
+
             "-device" "virtio-net-pci,netdev=net0"
             "-serial" "file:$SERIAL_LOG"
             "-qmp" "unix:$QMP_SOCKET,server,nowait"
