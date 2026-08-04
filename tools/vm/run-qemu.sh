@@ -223,8 +223,9 @@ case "$ACTION" in
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
             # Seed ISO attached via virtio bus for cloud-init ds-identify detection
-            qemu_args+=("-drive" "file=$SEED_ISO_PATH,format=raw,if=virtio")
+            qemu_args+=("-drive" "file=$SEED_ISO_PATH,format=raw,if=virtio,readonly=on")
         fi
+
 
 
         # Step 7: Direct-kernel autoinstall boot.
