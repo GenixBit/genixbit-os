@@ -137,8 +137,7 @@ autoinstall:
   storage:
     layout:
       name: direct
-      match:
-        size: largest
+
 
   ssh:
     install-server: true
