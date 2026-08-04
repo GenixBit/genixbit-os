@@ -209,10 +209,17 @@ case "$ACTION" in
         )
 
         if [[ "$INSTALLED" == "false" && -n "$ISO_PATH" ]]; then
-            # ISO always attached read-only as standard IDE CDROM payload
+            # ISO always attached read-only as AHCI SATA CDROM payload
             # so casper in UEFI and BIOS instantly mounts /casper/filesystem.squashfs via /dev/sr0.
-            qemu_args+=("-drive" "file=$ISO_PATH,format=raw,media=cdrom,readonly=on" "-boot" "d")
+            qemu_args+=(
+                "-device" "ahci,id=ahci0"
+                "-drive" "file=$ISO_PATH,format=raw,if=none,id=isocd,media=cdrom,readonly=on"
+                "-device" "ide-cd,bus=ahci0.0,drive=isocd"
+                "-boot" "d"
+            )
         fi
+
+
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
             # Seed ISO attached via virtio bus for cloud-init ds-identify detection
