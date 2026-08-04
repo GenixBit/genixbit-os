@@ -124,10 +124,10 @@ bash "$(dirname "$0")/run-qemu.sh" start \
             if [[ -f "$serial_log" ]] && grep -qE 'login:|genixbitos|systemd' "$serial_log" 2>/dev/null; then
                 sleep 5
                 echo "$INSTALL_TOKEN" >> "$serial_log"
-                # Send QMP system_powerdown for clean natural ACPI shutdown
+                # Send QMP system_powerdown and quit for clean natural shutdown
                 if [[ -S "$qmp_path" ]]; then
                     python3 -c "
-import socket, sys
+import socket, sys, time
 try:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect('$qmp_path')
@@ -135,6 +135,9 @@ try:
     s.sendall(b'{\"execute\": \"qmp_capabilities\"}\n')
     s.recv(1024)
     s.sendall(b'{\"execute\": \"system_powerdown\"}\n')
+    s.recv(1024)
+    time.sleep(2)
+    s.sendall(b'{\"execute\": \"quit\"}\n')
     s.recv(1024)
     s.close()
 except Exception:
