@@ -183,6 +183,7 @@ bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$IN
 
 # Copy final serial logs AFTER live systemd boot cycle completes
 cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
+cp -f "$serial_log" "$stage_logs_dir/${MODE}-installed-boot.serial.log"
 
 printf '[PASS] Current 0.3.0 ISO live systemd target boot verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0
