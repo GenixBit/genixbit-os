@@ -194,8 +194,10 @@ while true; do
     fi
 
     token_file="${state_dir}/${MODE}-completion-token.txt"
+    token_file_curr="${state_dir}/curr-${MODE}-state/${MODE}-completion-token.txt"
     if { [[ -f "$SERIAL_LOG" ]] && grep -F "$TOKEN" "$SERIAL_LOG" >/dev/null 2>&1; } || \
-       { [[ -f "$token_file" ]] && grep -F "$TOKEN" "$token_file" >/dev/null 2>&1; }; then
+       { [[ -f "$token_file" ]] && grep -F "$TOKEN" "$token_file" >/dev/null 2>&1; } || \
+       { [[ -f "$token_file_curr" ]] && grep -F "$TOKEN" "$token_file_curr" >/dev/null 2>&1; }; then
         serial_token_observed=true
         printf '[INFO] Completion token observed in serial log after %ss — requesting clean system powerdown (grace: %ss)...\n' "$elapsed" "$NATURAL_SHUTDOWN_GRACE" >&2
 
