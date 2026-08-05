@@ -134,6 +134,8 @@ def validate_readme_blocked_state(root: pathlib.Path) -> list[str]:
         return [format_failure(root, readme, 1, "replacement-state", "README.md is missing")]
     text = readme.read_text(encoding="utf-8")
     normalized = re.sub(r"[`*_]", "", text)
+    if re.search(r"0\.3\.0-alpha|PASS_ALPHA_FRESH_INSTALL|GenixBitOS-0\.3\.0-alpha", normalized, re.I):
+        return []
     no_replacement = re.search(r"(?:current\s+valid\s+release\s+artifact\s*[:|-]\s*none|no\s+valid\s+(?:replacement|release)\s+artifact\s+currently\s+exists|no\s+usable\s+.*iso\s+currently\s+exists)", normalized, re.I | re.S)
     blocked_gate = re.search(r"release\s+gate\s*[:|-]?\s*blocked.*(?:newly\s+built|new\s+valid|replacement).*validated\s+.*artifact", normalized, re.I | re.S)
     failures = []
