@@ -132,18 +132,21 @@ import socket, sys, time
 try:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect('$qmp_path')
-    s.recv(1024)
-    s.sendall(b'{\"execute\": \"qmp_capabilities\"}\n')
-    s.recv(1024)
-    s.sendall(b'{\"execute\": \"system_powerdown\"}\n')
-    s.recv(1024)
-    time.sleep(2)
-    s.sendall(b'{\"execute\": \"quit\"}\n')
-    s.recv(1024)
+    f = s.makefile('rw')
+    f.readline()
+    f.write('{\"execute\": \"qmp_capabilities\"}\n')
+    f.flush()
+    f.readline()
+    f.write('{\"execute\": \"system_powerdown\"}\n')
+    f.flush()
+    f.readline()
+    time.sleep(1)
+    f.write('{\"execute\": \"quit\"}\n')
+    f.flush()
     s.close()
-except Exception:
-    pass
-" 2>/dev/null || true
+except Exception as e:
+    print('QMP error:', e, file=sys.stderr)
+" 2>&1 || true
                 fi
                 break
             fi
