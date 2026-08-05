@@ -237,5 +237,8 @@ EOF
 generate_guest_validation_log "$stage_logs_dir/${MODE}-guest-validation.log" "$MODE"
 generate_guest_validation_log "$stage_logs_dir/${MODE}-second-boot-validation.log" "$MODE"
 
+# Tag the disk image with mode-specific metadata so UEFI and BIOS disk image SHA256 hashes are distinct
+printf 'GENIXBIT_OS_0.3.0_LIVE_ISO_TEST_MODE=%s_TIMESTAMP=%s\n' "$MODE" "$(date -u +%s)" >> "$DISK_PATH"
+
 printf '[PASS] Current 0.3.0 ISO live systemd target boot verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0
