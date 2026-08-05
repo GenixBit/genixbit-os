@@ -59,5 +59,11 @@ else
     fail "Package-status portal missing Phase 4 profile packages."
 fi
 
+if echo "$pkg_html" | grep -qi "genixbit-os-ai-runtime"; then
+    pass "Package-status portal displays Phase 5 AI runtime package."
+else
+    fail "Package-status portal missing Phase 5 AI runtime package."
+fi
+
 echo ""
 pass "All automated live distribution checks passed successfully!"

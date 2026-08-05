@@ -39,6 +39,17 @@ PACKAGES = [
         "depends": "genixbit-os-base-files, pciutils, lshw",
         "description": "Hardware & GPU diagnostic package for GenixBit OS\n Automatic NVIDIA, AMD, and Intel GPU detection tool providing CUDA and ROCm\n runtime capability diagnostics for local AI model acceleration.",
         "files": [("packages/genixbit-os-gpu-diagnostics/bin/genixbit-gpu-diag", "usr/bin/genixbit-gpu-diag", 0o755)]
+    },
+    {
+        "name": "genixbit-os-ai-runtime",
+        "version": "0.5.0-alpha-1",
+        "section": "utils",
+        "depends": "genixbit-os-base-files, genixbit-os-gpu-diagnostics, python3, curl",
+        "description": "AI runtime foundation & local model proxy for GenixBit OS\n Provides local OpenAI-compatible API proxy service, model catalog metadata,\n and hardware-aware Ollama & llama.cpp runtime dispatchers for GenixBit OS.",
+        "files": [
+            ("packages/genixbit-os-ai-runtime/bin/genixbit-ai-proxy", "usr/bin/genixbit-ai-proxy", 0o755),
+            ("packages/genixbit-os-ai-runtime/usr/share/genixbit-os/models/catalog.json", "usr/share/genixbit-os/models/catalog.json", 0o644)
+        ]
     }
 ]
 
