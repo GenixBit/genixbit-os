@@ -7,63 +7,39 @@ set -Eeuo pipefail
 pass() { printf '[PASS] %s\n' "$*"; }
 fail() { printf '[FAIL] %s\n' "$*" >&2; exit 1; }
 
-ISO_URL="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso"
-CHECKSUM_URL="https://storage.googleapis.com/genixbit-growth-os-downloads/GenixBitOS-0.2.0-alpha-2607220558.iso.sha256"
-EXPECTED_SIZE=2540554240
+ISO_RELEASE_URL="https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha"
 
-echo "=== 1. Checking Checksum File Availability ==="
-checksum_out=$(curl -sL "$CHECKSUM_URL")
-if [[ "$checksum_out" == *"1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669"* ]]; then
-    pass "Checksum file identifies the retired zero-filled object."
+echo "=== 1. Checking GitHub Release Availability ==="
+release_headers=$(curl -sIL "$ISO_RELEASE_URL")
+if echo "$release_headers" | grep -qi "HTTP/.* 200"; then
+    pass "GitHub release v0.3.0-alpha returned HTTP 200 OK."
 else
-    fail "Checksum file missing or invalid: $checksum_out"
+    fail "GitHub release page request failed: $release_headers"
 fi
 
-echo "=== 2. Checking ISO HEAD Request & Content-Length ==="
-headers=$(curl -sIL "$ISO_URL")
-if echo "$headers" | grep -qi "HTTP/.* 200"; then
-    pass "Retired ISO object HEAD request returned HTTP 200 OK for audit identity only."
-else
-    fail "ISO HEAD request failed: $headers"
-fi
-
-if echo "$headers" | grep -qi "content-length: $EXPECTED_SIZE"; then
-    pass "Retired object Content-Length matches expected $EXPECTED_SIZE bytes."
-else
-    fail "ISO Content-Length mismatch: $headers"
-fi
-
-echo "=== 3. Checking HTTP Range Request Support ==="
-range_headers=$(curl -sI -r 0-1023 "$ISO_URL")
-if echo "$range_headers" | grep -qi "HTTP/.* 206"; then
-    pass "HTTP Range request returned HTTP 206 Partial Content."
-else
-    fail "Range request failed: $range_headers"
-fi
-
-echo "=== 4. Checking OS Portal (os.genixbit.com) ==="
+echo "=== 2. Checking OS Portal (os.genixbit.com) ==="
 os_html=$(curl -sL https://os.genixbit.com)
-if echo "$os_html" | grep -qi "Retired\|RETIRED_INVALID_ZERO_FILLED"; then
-    pass "OS portal marks the Candidate 2 object retired."
+if echo "$os_html" | grep -qi "0\.3\.0-alpha"; then
+    pass "OS portal displays 0.3.0-alpha release indicators."
 else
-    fail "OS portal does not mark the Candidate 2 object retired."
+    fail "OS portal does not display 0.3.0-alpha release."
 fi
 
-if echo "$os_html" | grep -qi "Download coming after validation"; then
-    fail "OS portal still contains old placeholder text!"
+if echo "$os_html" | grep -qi "GenixBitOS-0\.3\.0-alpha"; then
+    pass "OS portal links 0.3.0-alpha ISO download artifact."
 else
-    pass "OS portal free of old placeholder text."
+    fail "OS portal missing 0.3.0-alpha ISO download link!"
 fi
 
-echo "=== 5. Checking Docs Portal (docs.os.genixbit.com) ==="
+echo "=== 3. Checking Docs Portal (docs.os.genixbit.com) ==="
 docs_html=$(curl -sL https://docs.os.genixbit.com)
-if echo "$docs_html" | grep -qi "Retired\|RETIRED_INVALID_ZERO_FILLED"; then
-    pass "Docs portal marks the Candidate 2 object retired."
+if echo "$docs_html" | grep -qi "0\.3\.0-alpha"; then
+    pass "Docs portal displays 0.3.0-alpha documentation."
 else
-    fail "Docs portal does not mark the Candidate 2 object retired."
+    fail "Docs portal missing 0.3.0-alpha documentation."
 fi
 
-echo "=== 6. Checking Package Status Portal (packages.os.genixbit.com) ==="
+echo "=== 4. Checking Package Status Portal (packages.os.genixbit.com) ==="
 pkg_html=$(curl -sL https://packages.os.genixbit.com)
 if echo "$pkg_html" | grep -qi "NOT DEPLOYED"; then
     pass "Package-status portal retains 'NOT DEPLOYED' status marker."
@@ -71,10 +47,10 @@ else
     fail "Package-status portal missing NOT DEPLOYED marker."
 fi
 
-if echo "$pkg_html" | grep -qi "ISO Distribution"; then
-    pass "Package-status portal contains 'ISO Distribution' status section."
+if echo "$pkg_html" | grep -qi "0\.3\.0-alpha PUBLISHED"; then
+    pass "Package-status portal displays 0.3.0-alpha PUBLISHED status."
 else
-    fail "Package-status portal missing ISO Distribution marker."
+    fail "Package-status portal missing 0.3.0-alpha PUBLISHED marker."
 fi
 
 echo ""
