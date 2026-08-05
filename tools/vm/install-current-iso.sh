@@ -176,7 +176,7 @@ kill "$TOKEN_WATCHER_PID" 2>/dev/null || true
 # NOTE: installer serial log is copied AFTER completion below — not here.
 
 # 6. Stop installer VM cleanly
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" --state-dir "$state_dir"
 
 # 7. Verify disk partitions, filesystems, and token
 bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE"
@@ -241,7 +241,7 @@ bash "$(dirname "$0")/guest-command.sh" \
     --verify-disk-boot
 
 # 12. Stop installed VM cleanly
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path"
+bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" --state-dir "$state_dir"
 
 # Copy final serial logs AFTER full boot cycle completes (installer + installed boot)
 cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
