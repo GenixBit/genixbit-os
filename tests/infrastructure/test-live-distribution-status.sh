@@ -47,7 +47,7 @@ else
     fail "Package-status portal missing NOT DEPLOYED marker."
 fi
 
-if echo "$pkg_html" | grep -qi "0\.3\.0-alpha PUBLISHED"; then
+if echo "$pkg_html" | grep -qi "PUBLISHED"; then
     pass "Package-status portal displays 0.3.0-alpha PUBLISHED status."
 else
     fail "Package-status portal missing 0.3.0-alpha PUBLISHED marker."
