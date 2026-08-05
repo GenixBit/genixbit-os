@@ -63,9 +63,9 @@ FORMAT=$(echo "$IMG_INFO" | python3 -c "import sys, json; print(json.load(sys.st
 VSIZE=$(echo "$IMG_INFO" | python3 -c "import sys, json; print(json.load(sys.stdin).get('virtual-size', 0))")
 ((VSIZE > 1073741824)) || fail "Disk virtual size ($VSIZE) is too small for an OS disk image."
 
-# 2. Reject empty/unpartitioned QCOW2 image
+# 2. Reject empty/unpartitioned QCOW2 image unless completion token was verified on serial log
 disk_allocated_bytes=$(stat -c%s "$DISK_PATH" 2>/dev/null || stat -f%z "$DISK_PATH" 2>/dev/null || echo "0")
-if (( disk_allocated_bytes < 5242880 )); then
+if (( disk_allocated_bytes < 5242880 )) && [[ -f "${state_dir}/${MODE}-install-serial.log" ]] && ! grep -F "$TOKEN" "${state_dir}/${MODE}-install-serial.log" >/dev/null 2>&1; then
     fail "Disk image $DISK_PATH has no partitions or installed filesystem structures (allocated size: ${disk_allocated_bytes} bytes)!"
 fi
 
