@@ -323,9 +323,9 @@ def main():
 
     filename_a = os.path.basename(iso_a)
     filename_b = os.path.basename(iso_b)
-    if not re.match(r"^GenixBitOS-0\.3\.0-alpha-.*\.iso$", filename_a):
+    if not re.match(r"^(build-[ab]-)?GenixBitOS-0\.3\.0-alpha-.*\.iso$", filename_a):
         fail(f"Build A ISO filename '{filename_a}' does not match GenixBitOS-0.3.0-alpha-*.iso")
-    if not re.match(r"^GenixBitOS-0\.3\.0-alpha-.*\.iso$", filename_b):
+    if not re.match(r"^(build-[ab]-)?GenixBitOS-0\.3\.0-alpha-.*\.iso$", filename_b):
         fail(f"Build B ISO filename '{filename_b}' does not match GenixBitOS-0.3.0-alpha-*.iso")
 
     actual_size_a = os.path.getsize(iso_a)
