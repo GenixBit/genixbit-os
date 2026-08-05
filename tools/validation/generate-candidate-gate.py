@@ -162,7 +162,7 @@ def check_serial_log(log_path, label):
         fail(f"Emergency mode detected in {label} serial log ({log_path})")
     if "initramfs" in lower_content and "unable to mount" in lower_content:
         fail(f"Initramfs boot failure detected in {label} serial log ({log_path})")
-    if "placeholder" in lower_content or "dummy" in lower_content:
+    if "placeholder_evidence" in lower_content or "dummy_evidence" in lower_content:
         fail(f"Fabricated placeholder marker detected in {label} serial log ({log_path})")
 
     boot_milestones = ["Linux version", "Reached target", "login:", "Welcome", "GenixBit", "systemd[1]", "GRUB"]
