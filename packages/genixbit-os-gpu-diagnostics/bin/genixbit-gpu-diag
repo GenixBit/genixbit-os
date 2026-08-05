@@ -1,0 +1,49 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS Hardware & GPU Acceleration Diagnostic Tool
+
+set -euo pipefail
+
+echo "============================================================"
+echo "      GenixBit OS Hardware & GPU Diagnostic System         "
+echo "============================================================"
+echo "Host Kernel: $(uname -r)"
+echo "Architecture: $(uname -m)"
+echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+echo ""
+
+echo "--- 1. PCI Graphics Controller Detection ---"
+if command -v lspci >/dev/null 2>&1; then
+    lspci -nn | grep -iE 'vga|3d|display' || echo "No PCI VGA/3D display controllers detected."
+else
+    echo "[WARN] lspci utility not found."
+fi
+echo ""
+
+echo "--- 2. NVIDIA Acceleration Runtime ---"
+if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader || echo "NVIDIA driver query failed."
+else
+    echo "NVIDIA Proprietary Driver / CUDA Runtime: NOT DETECTED (Software Emulation / Nouveau fallback active)"
+fi
+echo ""
+
+echo "--- 3. AMD ROCm Acceleration Runtime ---"
+if command -v rocm-smi >/dev/null 2>&1; then
+    rocm-smi --showproductname || echo "ROCm query failed."
+else
+    echo "AMD ROCm Runtime: NOT DETECTED (Mesa / OpenCL fallback active)"
+fi
+echo ""
+
+echo "--- 4. Intel OneAPI / Level Zero Acceleration ---"
+if command -v sycl-ls >/dev/null 2>&1; then
+    sycl-ls || echo "SYCL query failed."
+else
+    echo "Intel SYCL / OneAPI Runtime: NOT DETECTED (Mesa VA-API active)"
+fi
+echo ""
+
+echo "============================================================"
+echo "Diagnostic Status: COMPLETE"
+echo "============================================================"

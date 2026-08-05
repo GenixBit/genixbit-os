@@ -1,0 +1,14 @@
+Source: genixbit-os-creator-profile
+Section: metapackages
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-creator-profile
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-desktop
+Description: Creator profile metapackage for GenixBit OS
+ Provides video, audio, image, 3D graphics, streaming, and hardware-accelerated
+ codec tooling for GenixBit OS content creation workstations.

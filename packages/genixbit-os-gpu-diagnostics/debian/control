@@ -1,0 +1,14 @@
+Source: genixbit-os-gpu-diagnostics
+Section: utils
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-gpu-diagnostics
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, pciutils, lshw
+Description: Hardware & GPU diagnostic package for GenixBit OS
+ Automatic NVIDIA, AMD, and Intel GPU detection tool providing CUDA and ROCm
+ runtime capability diagnostics for local AI model acceleration.
