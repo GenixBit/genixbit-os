@@ -189,8 +189,11 @@ case "$ACTION" in
             done
 
             if [[ -n "$OVMF_CODE" && -n "$OVMF_VARS_TEMPLATE" ]]; then
-                VARS_COPY="${STATE_DIR}/ovmf-vars-${VM_ID}.fd"
-                cp -f "$OVMF_VARS_TEMPLATE" "$VARS_COPY"
+                base_vm_id="${VM_ID%_inst}"
+                VARS_COPY="${STATE_DIR}/ovmf-vars-${base_vm_id}.fd"
+                if [[ ! -f "$VARS_COPY" ]]; then
+                    cp -f "$OVMF_VARS_TEMPLATE" "$VARS_COPY"
+                fi
                 qemu_args+=("-drive" "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" "-drive" "if=pflash,format=raw,file=$VARS_COPY")
             else
                 fail "UEFI mode requested but OVMF firmware images not found!"
