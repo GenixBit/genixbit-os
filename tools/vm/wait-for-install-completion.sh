@@ -197,7 +197,12 @@ while true; do
     if { [[ -f "$SERIAL_LOG" ]] && grep -F "$TOKEN" "$SERIAL_LOG" >/dev/null 2>&1; } || \
        { [[ -f "$token_file" ]] && grep -F "$TOKEN" "$token_file" >/dev/null 2>&1; }; then
         serial_token_observed=true
-        printf '[INFO] Completion token observed in serial log after %ss — waiting for natural installer shutdown (grace: %ss)...\n' "$elapsed" "$NATURAL_SHUTDOWN_GRACE" >&2
+        printf '[INFO] Completion token observed in serial log after %ss — requesting clean system powerdown (grace: %ss)...\n' "$elapsed" "$NATURAL_SHUTDOWN_GRACE" >&2
+
+        # Send clean ACPI system_powerdown signal via QMP if socket is present
+        if [[ -n "$QMP_SOCKET" && -S "$QMP_SOCKET" ]]; then
+            bash "$(dirname "$0")/run-qemu.sh" qmp --qmp-socket "$QMP_SOCKET" --cmd "system_powerdown" >/dev/null 2>&1 || true
+        fi
 
         # After seeing the token, do NOT immediately force-stop.
         # Wait up to NATURAL_SHUTDOWN_GRACE seconds for QEMU to exit naturally (poweroff from installer).
