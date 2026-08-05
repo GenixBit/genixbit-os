@@ -40,6 +40,10 @@ req_pkgs=(
     "genixbit-os-theme"
     "genixbit-os-wallpapers"
     "genixbit-os-installer-config"
+    "genixbit-os-developer-profile"
+    "genixbit-os-server-profile"
+    "genixbit-os-creator-profile"
+    "genixbit-os-gpu-diagnostics"
 )
 
 for pkg in "${req_pkgs[@]}"; do

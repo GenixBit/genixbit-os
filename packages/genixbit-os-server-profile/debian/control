@@ -1,0 +1,14 @@
+Source: genixbit-os-server-profile
+Section: metapackages
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-server-profile
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files
+Description: Server manager profile metapackage for GenixBit OS
+ Provides headless services, container management, systemd monitoring,
+ and remote administration utilities for GenixBit OS server nodes.

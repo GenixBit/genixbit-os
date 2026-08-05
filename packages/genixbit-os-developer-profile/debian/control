@@ -1,0 +1,14 @@
+Source: genixbit-os-developer-profile
+Section: metapackages
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-developer-profile
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-desktop
+Description: Developer profile metapackage for GenixBit OS
+ Provides developer toolchains, container runtimes, version control,
+ and language environments for GenixBit OS developer workstations.

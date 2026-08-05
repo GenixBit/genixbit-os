@@ -53,5 +53,11 @@ else
     fail "Package-status portal missing 0.3.0-alpha PUBLISHED marker."
 fi
 
+if echo "$pkg_html" | grep -qi "genixbit-os-developer-profile"; then
+    pass "Package-status portal displays Phase 4 profile packages."
+else
+    fail "Package-status portal missing Phase 4 profile packages."
+fi
+
 echo ""
 pass "All automated live distribution checks passed successfully!"
