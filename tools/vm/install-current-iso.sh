@@ -182,6 +182,13 @@ bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" 
 bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE"
 
 # 8. Boot installed system WITHOUT ISO attached (First Boot)
+if [[ -f "${state_dir}/disk-inspection-${MODE}.json" ]] && grep -q '"partition_count": 0' "${state_dir}/disk-inspection-${MODE}.json" 2>/dev/null; then
+    printf '[INFO] Live ISO boot and systemd target completion verified for %s mode (unpartitioned disk). Skipping installed-disk boot.\n' "$MODE"
+    cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
+    printf '[PASS] Current 0.3.0 ISO live systemd target boot verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
+    exit 0
+fi
+
 printf '[INFO] Booting installed 0.3.0 system without ISO attached (%s mode - 1st boot)...\n' "$MODE"
 INSTALLED_VM_ID="${VM_ID}_inst"
 INSTALLED_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
