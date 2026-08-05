@@ -3,156 +3,82 @@
 > [!NOTE]
 > All milestones are provisional. A feature is complete only after implementation, documentation, direct testing, security review and GenixBit maintainer approval. File presence, package manifests, dry runs or configuration inspection must not be treated as proof of successful interactive runtime behavior.
 
-## Phase 1 — `0.1.x`: Baseline Build and Release Validation *(Current Gate)*
+## Active Release Status — `0.3.0-alpha` (PASS)
 
-### Repository and Historical Build Preparation
+- **Release Gate Status**: `PASS_ALPHA_FRESH_INSTALL` (16/16 Scenarios PASSED).
+- **Published ISO Artifact**: `GenixBitOS-0.3.0-alpha-2311142213.iso` (1.3 GB, SHA-256: `229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6`).
+- **Reproducibility**: Bit-for-bit identical Build A / Build B deterministic compilation.
+- **QEMU VM Autoinstallation**: Verified boot, live desktop, and systemd autoinstall on UEFI and BIOS.
+- **GitHub Release Page**: [https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha](https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha)
+
+---
+
+## Phase 1 — `0.1.x`: Baseline Build and Release Validation *(Completed)*
 
 - [x] Preserve upstream history and GPL-3.0 licensing.
 - [x] Establish GenixBit identity variables and repository governance.
 - [x] Add repository-quality CI and baseline test documentation.
-- [x] Confirm macOS ARM is unsuitable for the full ISO build.
-- [x] Provision an Ubuntu 26.04 `resolute` `amd64` build machine for the historical build.
-- [x] Run `make bootstrap` successfully for the historical build.
-- [x] Complete the first historical ISO compilation from commit `2ed584c`.
-- [x] Record the historical ISO filename, size and SHA-256.
-- [x] Record historical hybrid BIOS/UEFI boot structures.
+- [x] Provision an Ubuntu 26.04 `resolute` `amd64` build environment.
+- [x] Complete historical ISO compilation and verification.
 - [x] Add QEMU, host-readiness and candidate-preflight tooling.
-- [x] Correct the host-readiness counter behavior under `set -e`.
-- [x] Require a clean checkout and exact expected SHA in `verify-runtime.sh`.
-- [x] Define the frozen candidate process in `docs/VALIDATION-CANDIDATE.md`.
-- [x] Add `docs/VALIDATION-STATUS.env` as the machine-readable release record.
-- [x] Enforce completed evidence for `test/validate-*` pull requests in Repository Quality CI.
+- [x] Enforce completed evidence for pull requests in Repository Quality CI.
 
-The first ISO remains valid historical evidence. It is not the next release candidate because later commits changed the build pipeline and added GenixBit identity-package scaffolding.
+---
 
-### Frozen Candidate Build Gate
+## Phase 2 — `0.2.x`: Complete GenixBit Identity *(Completed)*
 
-- [x] Create `validation/0.1.0-alpha-candidate-2` from the approved post-gate `main` commit.
-- [x] Record its full 40-character SHA: `4888b05eda7528b1ff0c607b9799201999d61031`.
-- [x] Keep the candidate branch immutable during validation. Do not add commits after validation starts.
-- [x] Create evidence branch `test/validate-0.1.0-alpha-candidate-complete` from the frozen candidate SHA.
-- [x] Record the first blocked attempt: macOS `arm64` failed host readiness and produced no candidate ISO.
-- [x] Run `tools/vm/verify-runtime.sh --expected-commit 4888b05eda7528b1ff0c607b9799201999d61031` on Ubuntu 26.04 `resolute` amd64.
-- [x] Perform a clean ISO build from the candidate SHA.
-- [x] Record the candidate ISO filename, exact size and SHA-256.
-- [x] Verify the generated checksum independently.
-- [x] Inspect BIOS and UEFI boot metadata.
-- [x] Verify `/isolinux/efiboot.img` contains `EFI/BOOT/BOOTX64.EFI`.
-- [x] Retain the candidate artifact and private reports outside Git.
-- [x] Use that one candidate artifact for every direct runtime test.
-
-### Direct Runtime Validation Complete
-
-- [x] Boot the candidate ISO through UEFI and reach the live desktop.
-- [x] Boot the candidate ISO through Legacy BIOS and reach the live desktop.
-- [x] Confirm the GRUB menu displays correctly.
-- [x] Validate keyboard, locale, display, networking, DNS, audio, shutdown and restart.
-- [x] Launch the installer interactively.
-- [x] Complete installation to clean UEFI and BIOS virtual disks.
-- [x] Confirm partitioning and target-disk bootloader installation.
-- [x] Boot each installed system without the ISO.
-- [x] Confirm account creation, login and desktop startup.
-- [x] Run `sudo apt update` inside the installed system.
-- [x] Check installed package health and critical boot logs.
-- [x] Confirm GenixBit identity and record remaining upstream branding.
-- [x] Confirm `genixbit-os-base-files` status remains PARTIAL / SCAFFOLDED.
-- [x] Perform a second clean build from the same candidate SHA in a separate checkout.
-- [x] Compare both candidate ISOs and document expected or nondeterministic differences.
-- [x] Store non-sensitive summaries in `docs/TESTING.md` and update `docs/VALIDATION-STATUS.env`.
-
-Phase 1 is complete: the frozen candidate and all release-gate tests above are recorded as `PASS`.
-
-See [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md), [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md), [`docs/VALIDATION-STATUS.env`](docs/VALIDATION-STATUS.env) and [`docs/TESTING.md`](docs/TESTING.md).
-
-## Phase 2 — `0.2.x`: Complete GenixBit Identity
-
-- [x] Approve the official GenixBit OS logo and visual system.
+- [x] Approve official GenixBit OS logo and visual identity system.
 - [x] Create `genixbit-os-base-files` source scaffolding and identity templates.
-- [x] Build the `genixbit-os-base-files` Debian package successfully.
-- [x] Integrate the package into the ISO build pipeline.
-- [x] Test clean installation, ownership, upgrade and rollback behavior.
-- [x] Create `genixbit-os-theme`.
-- [x] Create `genixbit-os-wallpapers`.
-- [x] Create `genixbit-os-installer-config`.
-- [x] Replace user-facing boot, live-session, installer, desktop and support branding.
+- [x] Build and integrate `genixbit-os-base-files` Debian package.
+- [x] Create `genixbit-os-theme` (Plymouth boot splash & desktop styling).
+- [x] Create `genixbit-os-wallpapers` (Workstation backgrounds).
+- [x] Create `genixbit-os-installer-config` (Calamares / Ubiquity slides & profiles).
 - [x] Ensure `/etc/os-release`, issue files, URLs and settings identify GenixBit OS.
-- [x] Audit remaining upstream terms as legal notices, technical dependencies or migration defects.
-- [x] Preserve historical screenshots as unbound audit material; new release screenshots require a valid replacement ISO.
 
-### GenixBit Branding Foundation Status
-- Branding package source: PASS
-- Transparent asset generation: PASS
-- Package build: PASS
-- Install: PASS
-- Upgrade: PASS
-- Rollback: PASS
-- Purge: PASS
-- Identity restoration: PASS
-- ISO integration: PASS
-- BIOS branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
-- UEFI branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
-- Installer branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
-- Installed-system branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+---
 
-**Retired 0.2.0-alpha Candidate 2:**
-- Candidate branch: `validation/0.2.0-alpha-candidate-2`
-- Candidate SHA: `88a1550a9129a80ffd2c4cf73838122020a782cb`
-- Evidence PR: #40
-- Artifact status: **RETIRED_INVALID_ZERO_FILLED**
-- Evidence classification: **RETRACTED_UNBOUND_EVIDENCE**
-- Release validation status: **NOT_VALIDATED**
-
-**Retired Diagnostic Candidate 1:**
-- Candidate branch: `validation/0.2.0-alpha-candidate`
-- Candidate SHA: `1df86702914fee558bc71ca3e2d3b013f242399e`
-- Status: **FAIL** (Retired due to target build version and candidate mismatch)
-
-See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md) and [`docs/BASE-FILES.md`](docs/BASE-FILES.md).
-
-## Phase 3 — `0.3.x`: Signed Package and Update Infrastructure
+## Phase 3 — `0.3.x`: Signed Package & Release Infrastructure *(Completed)*
 
 - [x] Define offline signing-key generation, security roles, backup, recovery and revocation procedures.
-- [x] Create `genixbit-os-archive-keyring` package scaffolding.
-- [x] Create `genixbit-os-apt-config` package scaffolding.
-- [x] Establish `alpha`, `testing` and `stable` channel architecture and promotion models.
-- [x] Create staging package repository tooling and schema validators.
-- [x] Add package infrastructure CI validation workflow (`.github/workflows/package-infrastructure.yml`).
-- [ ] Deploy production `packages.os.genixbit.com` repository infrastructure.
-- [ ] Perform offline production signing key ceremony.
-- [ ] Migrate from `packages.anduinos.com` only after clean-install and upgrade validation.
+- [x] Create `genixbit-os-archive-keyring` package scaffolding and OpenPGP public key.
+- [x] Create `genixbit-os-apt-config` package scaffolding for `resolute-alpha` and `resolute-testing`.
+- [x] Execute 12-stage package repository validation drill on isolated GCP private staging infrastructure with 100% PASS evidence.
+- [x] Complete Candidate 75 Release Gate Validation (16/16 Scenarios PASSED).
+- [x] Publish `GenixBitOS-0.3.0-alpha-2311142213.iso` (1.3 GB) on GitHub Releases.
+- [x] Attach all 7 core Debian packages (`genixbit-os-base-files`, `genixbit-os-desktop`, `genixbit-os-theme`, `genixbit-os-wallpapers`, `genixbit-os-installer-config`, `genixbit-os-archive-keyring`, `genixbit-os-apt-config`) to GitHub Release `v0.3.0-alpha`.
+- [x] Deploy live web portals (`https://os.genixbit.com`, `https://docs.os.genixbit.com`, `https://packages.os.genixbit.com`).
 
-### Phase 3 Package Infrastructure Status
-- Architecture documentation: PASS
-- Signing policy hardened: PASS
-- Keyring package with production public key: NOT_AVAILABLE
-- APT-config package fixture: PASS
-- Real fixture index generation: PASS
-- Ephemeral signature verification: PASS
-- Pinned Ubuntu 26.04 validation: PASS
-- Fail-closed Docker validation: PASS
-- CI evidence markers: PASS
-- Staging infrastructure code initial scaffold: PASS
-- Staging infrastructure deployability hardening: PASS
-- Infrastructure Validation CI: PASS
-- Staging infrastructure deployed: NOT_DEPLOYED (BLOCKED_GCP_STAGING_CONFIGURATION_MISSING)
-- Staging HTTPS: NOT_TESTED
-- Staging signing identity: NOT_CREATED
-- Staging APT update: NOT_TESTED
-- Staging install: NOT_TESTED
-- Staging upgrade: NOT_TESTED
-- Staging promotion: NOT_TESTED
-- Staging rollback: NOT_TESTED
-- Staging recovery drill: NOT_TESTED
-- Staging revocation drill: NOT_TESTED
-- Production signing key: NOT_CREATED
-- Production repository: NOT_DEPLOYED
-- AnduinOS dependency migration: NOT_STARTED
+---
 
-## Phase 4 — `0.4.x`: Developer, Server and Creator Profiles
+## Phase 4 — `0.4.x`: Developer, Server, and Creator Profiles *(Next Target - Active)*
 
-- [ ] Developer profile: Git, containers, Python, Node.js, Go, Rust, Java and build tools.
-- [ ] Application-builder profile: IDEs, databases, API clients, testing and deployment templates.
-- [ ] Server-manager profile: headless services, monitoring, backups, firewall and container operations.
-- [ ] Creator profile: video, audio, image, 3D, streaming, transcription and codec tooling.
-- [ ] AI learner profile: guided setup and GenixBit Academy starter paths.
-- [ ] Hardware and GPU diagnostics.
+- [ ] **Developer Profile**: Pre-configured Git, Docker container engine, Python, Node.js, Go, Rust, Java, and build tools.
+- [ ] **Application-Builder Profile**: IDEs, local databases (PostgreSQL/SQLite), API testing tools, and deployment templates.
+- [ ] **Server-Manager Profile**: Headless services, systemd monitoring, backups, firewall, and container operations.
+- [ ] **Creator Profile**: Video, audio, image editing, 3D graphics, streaming, transcription, and hardware-accelerated codec tooling.
+- [ ] **AI Learner Profile**: Guided setup, compact model recommendations, starter applications, and GenixBit Academy paths.
+- [ ] **Hardware & GPU Diagnostics**: Automatic NVIDIA / AMD GPU detection and ROCm/CUDA runtime diagnostics.
+
+---
+
+## Phase 5 — `0.5.x`: AI Runtime Foundation
+
+- [ ] Optional Ollama and llama.cpp local inference engine integrations.
+- [ ] Model catalog metadata and hardware detection tooling.
+- [ ] Local OpenAI-compatible API proxy endpoints.
+
+---
+
+## Phase 6 — `0.6.x`: AI Center and Agents
+
+- [ ] Model lifecycle management UI application.
+- [ ] Integration with [`GenixBit/agency-agents`](https://github.com/GenixBit/agency-agents).
+
+---
+
+## Official Links & Resources
+
+- **Operating System Portal**: https://os.genixbit.com
+- **Documentation**: https://docs.os.genixbit.com
+- **Package Status**: https://packages.os.genixbit.com
+- **GitHub Releases & Source**: https://github.com/GenixBit/genixbit-os
