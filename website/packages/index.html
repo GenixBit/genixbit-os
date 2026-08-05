@@ -100,11 +100,11 @@
       </div>
       <div class="summary-card">
         <label>ISO Distribution</label>
-        <div class="val not-deployed">RETIRED INVALID</div>
+        <div class="val pass">0.3.0-alpha PUBLISHED</div>
       </div>
       <div class="summary-card">
-        <label>GCP Staging Validation</label>
-        <div class="val pass">PASS (PR #57 / #58)</div>
+        <label>Release Gate Status</label>
+        <div class="val pass">PASS (16/16)</div>
       </div>
       <div class="summary-card">
         <label>Temporary GCP Resources</label>
@@ -113,19 +113,20 @@
     </div>
 
     <div class="warning-banner">
-      <strong>Security & Operational Notice:</strong> No production APT package repository is served from this hostname. The historical 0.2.0-alpha object is retired as <code>RETIRED_INVALID_ZERO_FILLED</code> and is not a verified installation image. Do not add this domain to APT sources.
+      <strong>Security & Operational Notice:</strong> Official GenixBit OS 0.3.0-alpha pre-release ISO (1.3 GB) is published on <a href="https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha" style="color: #58dcff; text-decoration: underline;">GitHub Releases</a> with 100% PASS release gate verification. No production APT package repository is served from this hostname.
     </div>
 
     <!-- Release Retraction & Staging Metrics -->
     <div class="table-section">
-      `2.54 GB`
-      <h2>Release Retraction & GCP Staging Results</h2>
+      <h2>Release Validation & Package Infrastructure Status</h2>
       <table>
         <thead>
           <tr><th>Validation Metric</th><th>Value / Identifier</th><th>Status</th></tr>
         </thead>
         <tbody>
-          <tr><td>Current Release</td><td><code>none</code></td><td><span class="tag-info">NOT_VALIDATED</span></td></tr>
+          <tr><td>Current Active Release</td><td><code>0.3.0-alpha</code></td><td><span class="tag-pass">PASS_ALPHA_FRESH_INSTALL</span></td></tr>
+          <tr><td>Published ISO Artifact</td><td><code>GenixBitOS-0.3.0-alpha-2311142213.iso</code></td><td><span class="tag-pass">1.3 GB (PUBLISHED)</span></td></tr>
+          <tr><td>ISO SHA-256 Checksum</td><td><code>229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
           <tr><td>Retired ISO Object</td><td><code>GenixBitOS-0.2.0-alpha-2607220558.iso</code></td><td><span class="tag-info">RETIRED_INVALID_ZERO_FILLED</span></td></tr>
           <tr><td>ISO SHA-256 Checksum</td><td><code>1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669</code></td><td><span class="tag-info">OBJECT IDENTITY ONLY</span></td></tr>
           <tr><td>Candidate Git SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td><td><span class="tag-info">HISTORICAL</span></td></tr>

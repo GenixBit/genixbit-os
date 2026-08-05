@@ -76,7 +76,7 @@
         <a href="https://www.genixbit.com">Company</a>
         <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
       </div>
-      <span class="badge">0.2.0-alpha Retired</span>
+      <a class="badge" href="https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha">0.3.0-alpha Released</a>
     </nav>
   </header>
 
@@ -85,10 +85,10 @@
       <h4>Documentation Guide</h4>
       <ul>
         <li><a href="#overview">1. Overview</a></li>
-        <li><a href="#download">2. Retired Object & Checksum</a></li>
-        <li><a href="#installation">3. Installation Blocked</a></li>
+        <li><a href="#download">2. Release ISO & Download</a></li>
+        <li><a href="#installation">3. Installation Guide</a></li>
         <li><a href="#vm-testing">4. VM Testing Guide</a></li>
-        <li><a href="#release">5. Release 0.2.0-alpha</a></li>
+        <li><a href="#release">5. Release 0.3.0-alpha</a></li>
         <li><a href="#branding">6. Branding Architecture</a></li>
         <li><a href="#packaging">7. Package Architecture</a></li>
         <li><a href="#gcp-staging">8. GCP Staging Validation</a></li>
@@ -113,22 +113,22 @@
 
       <!-- 2. Download & Checksum -->
       <section id="download">
-        <h2>2. Retired Object & Checksum</h2>
-        <p><strong>Retired:</strong> The previously listed 0.2.0-alpha object is not a valid ISO. It is exactly zero-filled and must not be downloaded for installation, migration, or upgrade validation.</p>
-        <p>Historical object name retained for audit: <code>GenixBitOS-0.2.0-alpha-2607220558.iso</code></p>
+        <h2>2. Release ISO & Download</h2>
+        <p><strong>GenixBit OS 0.3.0-alpha:</strong> Official pre-release ISO is available for download directly on <a href="https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha">GitHub Releases</a>.</p>
+        <a class="download-btn" href="https://github.com/GenixBit/genixbit-os/releases/download/v0.3.0-alpha/GenixBitOS-0.3.0-alpha-2311142213.iso">Download 0.3.0-alpha ISO (1.3 GB)</a>
 
         <h3>Checksum Verification Command</h3>
         <div class="code-block">
-$ sha256sum GenixBitOS-0.2.0-alpha-2607220558.iso
-1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669  GenixBitOS-0.2.0-alpha-2607220558.iso
-# Status: RETIRED_INVALID_ZERO_FILLED. Checksum match proves only invalid object identity.
+$ sha256sum GenixBitOS-0.3.0-alpha-2311142213.iso
+229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6  GenixBitOS-0.3.0-alpha-2311142213.iso
         </div>
+        <p><em>Historical Note:</em> The 0.2.0-alpha object remains retired as an invalid zero-filled artifact (<code>1cb79fbf...</code>).</p>
       </section>
 
       <!-- 3. Installation & USB -->
       <section id="installation">
-        <h2>3. Installation Blocked</h2>
-        <p>No usable 0.2.0-alpha ISO is currently published. Do not write the retired object to USB media.</p>
+        <h2>3. Installation Guide</h2>
+        <p>Use the 0.3.0-alpha ISO to create bootable USB installation media or run in virtualized test environments.</p>
         
         <h3>Creating a Bootable USB Flash Drive</h3>
         <div class="notice warn">
@@ -138,29 +138,30 @@ $ sha256sum GenixBitOS-0.2.0-alpha-2607220558.iso
 # Identify your USB drive device path (e.g., /dev/sdX)
 sudo lsblk
 
-# No command is provided for the retired zero-filled object.
+# Write ISO to target USB drive
+sudo dd if=GenixBitOS-0.3.0-alpha-2311142213.iso of=/dev/sdX bs=4M status=progress conv=fdatasync
         </div>
       </section>
 
       <!-- 4. VM Testing Guide -->
       <section id="vm-testing">
         <h2>4. Virtual Machine Testing Guide</h2>
-        <p>The retired zero-filled object is not bootable and must not be used for QEMU validation.</p>
+        <p>Test GenixBit OS 0.3.0-alpha under QEMU/KVM in UEFI or BIOS mode.</p>
         <div class="code-block">
-# No QEMU command is provided for the retired zero-filled object.
+qemu-system-x86_64 -m 4096 -smp 2 -enable-kvm -cdrom GenixBitOS-0.3.0-alpha-2311142213.iso
         </div>
       </section>
 
-      <!-- 5. Release 0.2.0-alpha -->
+      <!-- 5. Release 0.3.0-alpha -->
       <section id="release">
-        <h2>5. Release 0.2.0-alpha Specifications</h2>
+        <h2>5. Release 0.3.0-alpha Specifications</h2>
         <table>
           <tr><th>Attribute</th><th>Specification / Hash</th></tr>
-          <tr><td>Release Version</td><td><code>0.2.0-alpha</code></td></tr>
-          <tr><td>ISO Filename</td><td><code>GenixBitOS-0.2.0-alpha-2607220558.iso</code></td></tr>
-          <tr><td>ISO Size</td><td><code>2,540,554,240</code> bytes (2.54 GB)</td></tr>
-          <tr><td>Candidate SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td></tr>
-          <tr><td>ISO SHA-256</td><td><code>1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669</code> (retired invalid zero-filled object)</td></tr>
+          <tr><td>Active Release Version</td><td><code>0.3.0-alpha</code></td></tr>
+          <tr><td>ISO Filename</td><td><code>GenixBitOS-0.3.0-alpha-2311142213.iso</code></td></tr>
+          <tr><td>ISO Size</td><td><code>1,395,851,264</code> bytes (1.3 GB)</td></tr>
+          <tr><td>ISO SHA-256</td><td><code>229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</code></td></tr>
+          <tr><td>Validation Gate Result</td><td><code>PASS_ALPHA_FRESH_INSTALL</code> (16/16 Scenarios PASSED)</td></tr>
           <tr><td>Base OS Platform</td><td>Ubuntu 26.04 Resolute Development Base</td></tr>
           <tr><td>Architecture</td><td>amd64 (x86_64)</td></tr>
         </table>
