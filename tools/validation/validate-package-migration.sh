@@ -125,7 +125,7 @@ DEBS_DIR="$REPO_ROOT/packages/build-debs"
 
 mkdir -p "$STAGE_LOGS_DIR" "$BUILD_OUTPUT_DIR" "$CURRENT_RESULTS_DIR" "$RUNTIME_RESULTS_ROOT"
 
-if [[ "$ACTIVE_RELEASE_MODE" != "candidate2-retirement-test" && ! -f "$STAGE_LOGS_DIR/stage-candidate-selection.json" ]]; then
+if [[ "$ACTIVE_RELEASE_MODE" != "candidate2-retirement-test" ]]; then
     bash "$REPO_ROOT/tools/validation/generate-candidate-selection.sh" \
         --candidate-branch "${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-3}" \
         --candidate-sha "${EXPECTED_CANDIDATE_SHA:-$CURRENT_COMMIT}" \
