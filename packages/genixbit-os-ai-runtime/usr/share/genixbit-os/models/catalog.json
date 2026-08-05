@@ -1,0 +1,55 @@
+{
+  "catalog_version": "0.5.0-alpha",
+  "maintainer": "GenixBit Labs Private Limited",
+  "homepage": "https://os.genixbit.com",
+  "models": [
+    {
+      "id": "gemma-3-2b-it",
+      "name": "Gemma 3 2B Instruct",
+      "family": "Gemma",
+      "parameters": "2.6B",
+      "license": "Gemma Terms of Use",
+      "recommended_vram_gb": 4,
+      "recommended_ram_gb": 8,
+      "quantization": "Q4_K_M",
+      "size_mb": 1750,
+      "description": "Lightweight, highly-capable local instruction model for coding, summary, and developer workflows."
+    },
+    {
+      "id": "qwen3-7b-instruct",
+      "name": "Qwen 3 7B Instruct",
+      "family": "Qwen",
+      "parameters": "7.2B",
+      "license": "Apache-2.0",
+      "recommended_vram_gb": 6,
+      "recommended_ram_gb": 16,
+      "quantization": "Q4_K_M",
+      "size_mb": 4400,
+      "description": "State-of-the-art multilingual and code reasoning model optimized for developer local APIs."
+    },
+    {
+      "id": "deepseek-r1-distill-qwen-7b",
+      "name": "DeepSeek R1 Distill Qwen 7B",
+      "family": "DeepSeek-R1",
+      "parameters": "7.0B",
+      "license": "MIT",
+      "recommended_vram_gb": 6,
+      "recommended_ram_gb": 16,
+      "quantization": "Q4_K_M",
+      "size_mb": 4350,
+      "description": "Distilled reasoning model specializing in complex logic, math, and step-by-step problem solving."
+    },
+    {
+      "id": "indicllm-bharat-v1",
+      "name": "Bharat AI V1 (IndicLLM)",
+      "family": "Bharat AI",
+      "parameters": "7.0B",
+      "license": "GenixBit Community License",
+      "recommended_vram_gb": 6,
+      "recommended_ram_gb": 16,
+      "quantization": "Q4_K_M",
+      "size_mb": 4200,
+      "description": "Specialized Indian language model supporting 22 official scheduled languages."
+    }
+  ]
+}

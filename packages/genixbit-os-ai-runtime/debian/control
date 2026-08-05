@@ -1,0 +1,14 @@
+Source: genixbit-os-ai-runtime
+Section: utils
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-ai-runtime
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-gpu-diagnostics, python3, curl
+Description: AI runtime foundation & local model proxy for GenixBit OS
+ Provides local OpenAI-compatible API proxy service, model catalog metadata,
+ and hardware-aware Ollama & llama.cpp runtime dispatchers for GenixBit OS.

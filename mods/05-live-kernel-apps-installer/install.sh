@@ -61,6 +61,11 @@ elif [[ "$mode" == "genixbit-staging" ]]; then
         genixbit-os-desktop \
         genixbit-os-theme \
         genixbit-os-wallpapers \
+        genixbit-os-developer-profile \
+        genixbit-os-server-profile \
+        genixbit-os-creator-profile \
+        genixbit-os-gpu-diagnostics \
+        genixbit-os-ai-runtime \
         initramfs-tools \
         --install-recommends
     judge "Install genixbit-os-desktop"

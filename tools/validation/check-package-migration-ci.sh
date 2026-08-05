@@ -44,6 +44,7 @@ req_pkgs=(
     "genixbit-os-server-profile"
     "genixbit-os-creator-profile"
     "genixbit-os-gpu-diagnostics"
+    "genixbit-os-ai-runtime"
 )
 
 for pkg in "${req_pkgs[@]}"; do
