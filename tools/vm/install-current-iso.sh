@@ -122,7 +122,8 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     while true; do
         if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null; then
             if [[ -f "$serial_log" ]] && grep -qE 'login:|genixbitos|Reached target multi-user|Reached target graphical' "$serial_log" 2>/dev/null; then
-                sleep 3
+                token_file="${state_dir}/${MODE}-completion-token.txt"
+                echo "$INSTALL_TOKEN" > "$token_file"
                 echo "$INSTALL_TOKEN" >> "$serial_log"
                 # Send QMP system_powerdown and quit for clean natural shutdown
                 if [[ -S "$qmp_path" ]]; then
