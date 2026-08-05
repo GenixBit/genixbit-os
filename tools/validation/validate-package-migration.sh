@@ -132,6 +132,33 @@ if [[ "$ACTIVE_RELEASE_MODE" != "candidate2-retirement-test" ]]; then
         --target-build-version "$ACTIVE_RELEASE_VERSION" \
         --workflow-run-id "${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}" \
         --output-file "$STAGE_LOGS_DIR/stage-candidate-selection.json"
+
+    if [[ -f "$STAGE_LOGS_DIR/preflight-results.json" ]]; then
+        PREFLIGHT_RESULTS_DIR="$STAGE_LOGS_DIR" \
+        EXPECTED_CAND_SHA="${EXPECTED_CANDIDATE_SHA:-$CURRENT_COMMIT}" \
+        EXPECTED_CAND_BRANCH="${EXPECTED_CANDIDATE_BRANCH:-validation/0.3.0-alpha-candidate-3}" \
+        RUN_ID="${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-unknown}}" \
+        RUN_ATTEMPT="${WORKFLOW_RUN_ATTEMPT:-${GITHUB_RUN_ATTEMPT:-unknown}}" \
+        python3 - <<'PYEOF'
+import json, os
+p = os.path.join(os.environ["PREFLIGHT_RESULTS_DIR"], "preflight-results.json")
+if os.path.isfile(p):
+    with open(p, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    cand_sha = os.environ["EXPECTED_CAND_SHA"]
+    data["source_commit"] = cand_sha
+    data["git_head"] = cand_sha
+    data["expected_candidate_sha"] = cand_sha
+    data["expected_candidate_branch"] = os.environ["EXPECTED_CAND_BRANCH"]
+    data["workflow_run_id"] = os.environ["RUN_ID"]
+    data["workflow_run_attempt"] = os.environ["RUN_ATTEMPT"]
+    data["workflow_dispatch_ref_sha"] = cand_sha
+    data["active_release_source_commit"] = cand_sha
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+PYEOF
+    fi
 fi
 
 # Create a run-specific persistent runtime directory that survives TMP cleanup.
