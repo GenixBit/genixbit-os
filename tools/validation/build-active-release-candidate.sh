@@ -169,6 +169,7 @@ data = {
   "execution_mode": "REAL_BUILD",
   "build_script": "./build.sh",
   "build_exit_code": 0,
+  "exit_code": 0,
   "start_timestamp": start_ts,
   "completion_timestamp": comp_ts,
   "iso_path": os.environ["ISO_PATH"],
