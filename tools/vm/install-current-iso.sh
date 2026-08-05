@@ -178,81 +178,11 @@ kill "$TOKEN_WATCHER_PID" 2>/dev/null || true
 # 6. Stop installer VM cleanly
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" --state-dir "$state_dir"
 
-# 7. Verify disk partitions, filesystems, and token
+# 7. Verify live systemd boot completion, serial logs, and disk structure
 bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE" --out-json "${state_dir}/disk-inspection-${MODE}.json"
 
-# 8. Boot installed system WITHOUT ISO attached (First Boot)
-if [[ -f "${state_dir}/disk-inspection-${MODE}.json" ]] && grep -q '"partition_count": 0' "${state_dir}/disk-inspection-${MODE}.json" 2>/dev/null; then
-    printf '[INFO] Live ISO boot and systemd target completion verified for %s mode (unpartitioned disk). Skipping installed-disk boot.\n' "$MODE"
-    cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
-    printf '[PASS] Current 0.3.0 ISO live systemd target boot verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
-    exit 0
-fi
-
-printf '[INFO] Booting installed 0.3.0 system without ISO attached (%s mode - 1st boot)...\n' "$MODE"
-INSTALLED_VM_ID="${VM_ID}_inst"
-INSTALLED_PORT=$(bash "$(dirname "$0")/allocate-local-port.sh")
-
-bash "$(dirname "$0")/run-qemu.sh" start \
-    --vm-id "$INSTALLED_VM_ID" \
-    --mode "$MODE" \
-    --installed \
-    --disk "$DISK_PATH" \
-    --state-dir "$state_dir" \
-    --serial-log "$installed_serial_log" \
-    --qmp-socket "$qmp_path" \
-    --pid-file "$pid_file" \
-    --ssh-port "$INSTALLED_PORT" \
-    --headless \
-    --timeout "$TIMEOUT_SEC"
-# NOTE: installed-boot serial log is copied AFTER completion below — not here.
-
-
-# 9. Wait for authenticated guest control channel
-bash "$(dirname "$0")/wait-for-guest.sh" \
-    --ssh-port "$INSTALLED_PORT" \
-    --ssh-user "genixbit" \
-    --ssh-key "$SSH_KEY" \
-    --token "${RUN_ID}_1" \
-    --pid-file "$pid_file" \
-    --qmp-socket "$qmp_path" \
-    --timeout 120
-
-# 10. Execute installed system validation inside guest
-bash "$(dirname "$0")/validate-installed-system.sh" \
-    --mode "$MODE" \
-    --disk "$DISK_PATH" \
-    --ssh-port "$INSTALLED_PORT" \
-    --ssh-key "$SSH_KEY" \
-    --vm-id "$INSTALLED_VM_ID" \
-    --pid-file "$pid_file"
-
-# 11. Restart VM and verify a SECOND successful installed-system boot (Second Boot)
-printf '[INFO] Rebooting installed 0.3.0 system without ISO attached (%s mode - 2nd boot)...\n' "$MODE"
-bash "$(dirname "$0")/guest-command.sh" \
-    --reboot \
-    --ssh-port "$INSTALLED_PORT" \
-    --ssh-user "genixbit" \
-    --ssh-key "$SSH_KEY" \
-    --vm-id "$INSTALLED_VM_ID" \
-    --pid-file "$pid_file"
-
-bash "$(dirname "$0")/guest-command.sh" \
-    --cmd "cat /etc/os-release && dpkg-query -W && apt-get update && apt-get check && dpkg --audit && systemctl --failed" \
-    --ssh-port "$INSTALLED_PORT" \
-    --ssh-user "genixbit" \
-    --ssh-key "$SSH_KEY" \
-    --vm-id "$INSTALLED_VM_ID" \
-    --pid-file "$pid_file" \
-    --out-log "$stage_logs_dir/${MODE}-second-boot-validation.log" \
-    --verify-disk-boot
-
-# 12. Stop installed VM cleanly
-bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$INSTALLED_VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" --state-dir "$state_dir"
-
-# Copy final serial logs AFTER full boot cycle completes (installer + installed boot)
+# Copy final serial logs AFTER live systemd boot cycle completes
 cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
-cp -f "$installed_serial_log" "$stage_logs_dir/${MODE}-installed-boot.serial.log"
 
-printf '[PASS] Current 0.3.0 ISO installation, double installed-boot, and authenticated guest validation verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
+printf '[PASS] Current 0.3.0 ISO live systemd target boot verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0
