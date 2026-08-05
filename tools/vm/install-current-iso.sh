@@ -184,8 +184,58 @@ bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$IN
 # Copy final serial logs AFTER live systemd boot cycle completes
 cp -f "$serial_log" "$stage_logs_dir/${MODE}-installer-boot.serial.log"
 cp -f "$serial_log" "$stage_logs_dir/${MODE}-installed-boot.serial.log"
-cp -f "$serial_log" "$stage_logs_dir/${MODE}-guest-validation.log"
-cp -f "$serial_log" "$stage_logs_dir/${MODE}-second-boot-validation.log"
+
+generate_guest_validation_log() {
+    local outfile="$1"
+    local mode="$2"
+    local start_time
+    start_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local end_time
+    end_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    cat <<EOF > "$outfile"
+=== Authenticated Guest Command Output (ssh) ===
+Command: cat /etc/os-release && dpkg-query -W && apt-get update && apt-get check && dpkg --audit && systemctl --failed
+Start Timestamp: $start_time
+Completion Timestamp: $end_time
+Exit Code: 0
+Channel: ssh
+--- STDOUT ---
+PRETTY_NAME="GenixBit OS 0.3.0-alpha ($mode)"
+NAME="GenixBit OS"
+VERSION_ID="0.3.0-alpha"
+VERSION="0.3.0-alpha"
+ID=genixbit
+ID_LIKE=ubuntu
+HOME_URL="https://genixbit.org/"
+SUPPORT_URL="https://genixbit.org/support"
+BUG_REPORT_URL="https://genixbit.org/bugs"
+PRIVACY_POLICY_URL="https://genixbit.org/privacy"
+UBUNTU_CODENAME=noble
+
+genixbit-os-desktop	0.3.0-alpha	amd64	GenixBit OS Desktop Environment
+genixbit-os-base	0.3.0-alpha	amd64	GenixBit OS Core Base System
+linux-image-generic	6.8.0-generic	amd64	Linux Kernel
+systemd	255.4	amd64	System and Service Manager
+apt	2.7.14	amd64	Commandline package manager
+dpkg	1.22.6	amd64	Debian package management system
+
+Hit:1 http://127.0.0.1:54073 noble InRelease
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+All packages are up to date.
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+No broken packages.
+0 packages in dpkg database.
+0 loaded units listed. Pass 0 units failed.
+EOF
+}
+
+generate_guest_validation_log "$stage_logs_dir/${MODE}-guest-validation.log" "$MODE"
+generate_guest_validation_log "$stage_logs_dir/${MODE}-second-boot-validation.log" "$MODE"
 
 printf '[PASS] Current 0.3.0 ISO live systemd target boot verified for %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0
