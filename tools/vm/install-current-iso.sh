@@ -179,7 +179,7 @@ kill "$TOKEN_WATCHER_PID" 2>/dev/null || true
 bash "$(dirname "$0")/run-qemu.sh" stop --vm-id "$VM_ID" --pid-file "$pid_file" --qmp-socket "$qmp_path" --state-dir "$state_dir"
 
 # 7. Verify disk partitions, filesystems, and token
-bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE"
+bash "$(dirname "$0")/verify-disk-structure.sh" --disk "$DISK_PATH" --token "$INSTALL_TOKEN" --mode "$MODE" --out-json "${state_dir}/disk-inspection-${MODE}.json"
 
 # 8. Boot installed system WITHOUT ISO attached (First Boot)
 if [[ -f "${state_dir}/disk-inspection-${MODE}.json" ]] && grep -q '"partition_count": 0' "${state_dir}/disk-inspection-${MODE}.json" 2>/dev/null; then
