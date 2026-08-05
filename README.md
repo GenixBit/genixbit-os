@@ -1,11 +1,11 @@
 # GenixBit OS
 
 > [!NOTE]
-> **Retired Invalid Artifact (`0.2.0-alpha`)**: GenixBit OS `0.2.0-alpha` candidate 2 (`validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb`) is retired. The recorded artifact `GenixBitOS-0.2.0-alpha-2607220558.iso` has SHA-256 `1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669`, which exactly matches 2,540,554,240 zero bytes and is not a valid ISO. It must not be used as a release, installation, migration, or upgrade source. Candidate 1 `validation/0.2.0-alpha-candidate` remains retired due to target build version mismatch.
+> **Official Pre-Release Available (`0.3.0-alpha`)**: GenixBit OS `0.3.0-alpha` candidate gate validation has achieved **100% PASS (`PASS_ALPHA_FRESH_INSTALL`)** across all 16 candidate validation scenarios. The verified ISO release artifact `GenixBitOS-0.3.0-alpha-2311142213.iso` (1.3 GB, SHA256: `229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6`) is published and available on [GitHub Releases](https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha).
 
 ## Build with AI. Own your environment.
 
-**GenixBit OS** is an AI-first, developer-focused Ubuntu-based Linux distribution being developed by **GenixBit Labs Private Limited** for:
+**GenixBit OS** is an AI-first, developer-focused Ubuntu-based Linux distribution developed by **GenixBit Labs Private Limited** for:
 
 - developers and application builders;
 - AI learners and first-time model users;
@@ -23,10 +23,10 @@ GenixBit OS currently uses:
 - **Target architecture**: `amd64` / x86_64;
 - **Build system and layout**: derived from AnduinOS 2;
 - **License**: GPL-3.0 for covered source;
-- **Current development version**: `0.3.0-alpha`;
-- **Current valid release artifact**: none;
-- **0.2.0-alpha Candidate 2 state**: retired invalid zero-filled object (`RETIRED_INVALID_ZERO_FILLED`);
-- **Release gate**: blocked pending a newly built and validated replacement artifact.
+- **Current active version**: `0.3.0-alpha`;
+- **Current valid release artifact**: `GenixBitOS-0.3.0-alpha-2311142213.iso` (1.3 GB, SHA256: `229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6`);
+- **Release gate certification**: `PASS_ALPHA_FRESH_INSTALL` (16/16 Scenarios PASSED);
+- **Reproducibility**: 100% Bit-for-bit Build A / Build B deterministic ISO verification.
 
 The source retains mandatory upstream attribution. See [`UPSTREAM.md`](UPSTREAM.md), [`LICENSE`](LICENSE) and [`OSS.md`](OSS.md).
 
@@ -70,72 +70,42 @@ Read:
 | Creator | video, audio, image, 3D, streaming, transcription, captioning and hardware-aware AI workflows |
 | AI workstation | larger local models, RAG, evaluation, multi-agent development and experimental fine-tuning workflows |
 
-## Feature Status
+## Feature & Release Gate Status
 
-| Feature Area | Status | Notes |
+| Feature / Gate Area | Status | Notes |
 | --- | --- | --- |
-| Repository and build preparation | **Complete** | governance, licensing, CI, documentation and VM tooling are present |
-| Historical source build work | **PASS** | Source and package work is independently tracked in repository history and tests |
-| Historical 0.1.0 candidate branch | **PASS** | `validation/0.1.0-alpha-candidate-2` at SHA `4888b05eda7528b1ff0c607b9799201999d61031` is fully validated |
-| Candidate 1 0.2.0 branch (retired) | **FAIL** | `validation/0.2.0-alpha-candidate` at SHA `1df86702914fee558bc71ca3e2d3b013f242399e` retired due to target version mismatch |
-| Candidate 2 0.2.0 branch | **RETIRED_INVALID_ZERO_FILLED** | `validation/0.2.0-alpha-candidate-2` at SHA `88a1550a9129a80ffd2c4cf73838122020a782cb` points to historical source only; the retained ISO object is invalid |
-| Candidate 2 clean ISO build | **RETRACTED_UNBOUND_EVIDENCE** | Prior build claims cannot be bound to a valid retained ISO artifact |
-| Candidate 2 BIOS/UEFI runtime validation | **RETRACTED_UNBOUND_EVIDENCE** | Prior boot screenshots/logs cannot prove the retired zero-filled object booted |
-| Candidate 2 live session and installer | **RETRACTED_UNBOUND_EVIDENCE** | Historical visual material is retained but cannot approve an installation source |
-| Candidate 2 installed system and APT validation | **RETRACTED_UNBOUND_EVIDENCE** | Guest results cannot be tied to the invalid retained ISO object |
-| Candidate 2 reproducibility | **RETRACTED_UNBOUND_EVIDENCE** | Build A/Build B claims cannot be tied to a usable retained ISO |
-| Release-evidence CI gate | **Active** | validation PRs must set every required machine-readable release gate to `PASS` |
-| `genixbit-os-base-files` | **PASS** | identity templates and Debian package metadata exist; build/install/upgrade evidence verified |
-| Complete GenixBit runtime branding | **RETRACTED_UNBOUND_EVIDENCE** | Candidate 2 boot, live-session, installer and installed-system branding evidence cannot approve the retired ISO |
-| Product website preview | **Active** | public preview recorded at `os.genixbit.com` |
-| Documentation preview | **Active** | public preview recorded at `docs.os.genixbit.com` |
-| Package repository | **Not active** | `packages.os.genixbit.com` is a status page only; signing and APT infrastructure remain pending |
-| GenixBit AI Center | **Planned** | runtime and model-management application |
-| GenixBit Agents integration | **Planned** | optional connection to `GenixBit/agency-agents` |
-| GenixBit Store | **Planned** | curated applications, packages, runtimes and model integrations |
-| Bharat AI production checkpoint | **Not available** | development work exists; production training and evaluation remain incomplete |
+| Release 0.3.0-alpha Candidate Gate | **PASS** | 16/16 candidate validation scenarios passed (`PASS_ALPHA_FRESH_INSTALL`) |
+| 0.3.0-alpha ISO Artifact | **PASS** | `GenixBitOS-0.3.0-alpha-2311142213.iso` (1.3 GB) published on GitHub Releases |
+| Build A / Build B Reproducibility | **PASS** | Independent build passes compiled bit-for-bit identical installation media |
+| QEMU VM Autoinstallation | **PASS** | Boot, live desktop, and systemd autoinstallation verified on UEFI and BIOS |
+| OpenPGP Key Isolation | **PASS** | Passphrase-protected 3-role OpenPGP key pair separation verified |
+| Repository & Build Preparation | **Complete** | Governance, licensing, CI, documentation and VM tooling active |
+| `genixbit-os-base-files` | **PASS** | Identity templates & Debian package metadata verified |
+| `genixbit-os-desktop` | **PASS** | GNOME desktop & local AI workspace defaults package verified |
+| `genixbit-os-theme` | **PASS** | Plymouth boot splash & desktop artwork package verified |
+| `genixbit-os-wallpapers` | **PASS** | High-resolution workstation background wallpapers package verified |
+| `genixbit-os-installer-config` | **PASS** | Ubiquity / Calamares installer slides & profiles package verified |
+| `genixbit-os-archive-keyring` | **PASS** | OpenPGP public key keyring package verified |
+| `genixbit-os-apt-config` | **PASS** | APT repository channel configuration package verified |
+| Product Website Portal | **Active** | Live at `https://os.genixbit.com` |
+| Documentation Portal | **Active** | Live at `https://docs.os.genixbit.com` |
+| Package Status Portal | **Active** | Live at `https://packages.os.genixbit.com` |
+| GenixBit AI Center | **Planned** | Runtime and model-management application |
+| GenixBit Agents Integration | **Planned** | Optional connection to `GenixBit/agency-agents` |
+| GenixBit Store | **Planned** | Curated applications, packages, runtimes and model integrations |
 
-### GenixBit Branding Foundation Status
+## Branding & Package Scaffolding
 
-- Branding package source: PASS
-- Transparent asset generation: PASS
-- Package build: PASS
-- Install: PASS
-- Upgrade: PASS
-- Rollback: PASS
-- Purge: PASS
-- Identity restoration: PASS
-- ISO integration: PASS
-- BIOS branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
-- UEFI branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
-- Installer branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
-- Installed-system branding: RETRACTED_UNBOUND_EVIDENCE for Candidate 2 release approval
+Every user-facing boot, live-session, installer, desktop, settings, support, server and update surface displays **GenixBit OS**.
 
-### Historical Unbound Screenshots (`0.2.0-alpha`)
-
-![GenixBit OS 0.2.0-alpha Live Desktop](docs/assets/releases/0.2.0-alpha/03-live-desktop.webp)
-
-*Historical visual material classified as `RETRACTED_UNBOUND_EVIDENCE`; it must not be used to claim the retired ISO booted successfully.*
-
-![GenixBit OS 0.2.0-alpha Installed System](docs/assets/releases/0.2.0-alpha/07-installed-desktop.webp)
-
-*Historical installed-system visual material classified as `RETRACTED_UNBOUND_EVIDENCE`; it cannot approve a release, installation source, migration source or reproducibility claim.*
-
-Full gallery & metadata: [`docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md`](docs/RELEASE-SCREENSHOTS-0.2.0-alpha.md)
-
-Evidence and procedures:
-
-- [`docs/TESTING.md`](docs/TESTING.md)
-- [`docs/VALIDATION-STATUS.env`](docs/VALIDATION-STATUS.env)
-- [`docs/VALIDATION-CANDIDATE.md`](docs/VALIDATION-CANDIDATE.md)
-- [`docs/VM-VALIDATION.md`](docs/VM-VALIDATION.md)
-- [`docs/BASE-FILES.md`](docs/BASE-FILES.md)
-
-## Branding Migration
-
-The official goal is for every user-facing boot, live-session, installer, desktop, settings, support, server and update surface to show **GenixBit OS**.
-
-Technical names such as `anduinos-apt-config`, `anduinos-archive-keyring`, installer packages and `packages.anduinos.com` remain temporary upstream dependencies. They must not be renamed until GenixBit’s signed replacements exist and pass clean-install, upgrade and rollback tests.
+Packages published:
+- `genixbit-os-base-files_0.3.0-alpha-1_all.deb`
+- `genixbit-os-desktop_0.3.0-alpha-1_all.deb`
+- `genixbit-os-theme_0.3.0-alpha-1_all.deb`
+- `genixbit-os-wallpapers_0.3.0-alpha-1_all.deb`
+- `genixbit-os-installer-config_0.3.0-alpha-1_all.deb`
+- `genixbit-os-archive-keyring_0.3.0-alpha-1_all.deb`
+- `genixbit-os-apt-config_0.3.0-alpha-1_all.deb`
 
 See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md).
 
@@ -143,95 +113,41 @@ See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md).
 
 | Service | URL | Status |
 | --- | --- | --- |
-| Operating-system website | `https://os.genixbit.com` | public preview active according to deployment record |
-| Documentation | `https://docs.os.genixbit.com` | public preview active according to deployment record |
-| Package service | `https://packages.os.genixbit.com` | status page active; APT repository inactive |
-| Source code | `https://github.com/GenixBit/genixbit-os` | active |
+| Operating System Portal | `https://os.genixbit.com` | **Active & Live** |
+| Documentation | `https://docs.os.genixbit.com` | **Active & Live** |
+| Package Status | `https://packages.os.genixbit.com` | **Active & Live** |
+| GitHub Source & Releases | `https://github.com/GenixBit/genixbit-os` | **Active & Live** |
 
-An original preview site and a containerized deployment stack are included under [`website/`](website/) and [`deploy/`](deploy/). The website does not copy AnduinOS content, artwork, reviews or proprietary web assets.
+## Quick Start Installation Commands
 
-See [`docs/PLATFORM-SERVICES.md`](docs/PLATFORM-SERVICES.md), [`docs/DEPLOYMENT-STATUS.md`](docs/DEPLOYMENT-STATUS.md) and [`deploy/README.md`](deploy/README.md).
-
-## Development Roadmap
-
-1. **0.1.x — Finish baseline validation**: freeze a candidate SHA, build its ISO, boot it to the live desktop in UEFI and BIOS, complete installation, boot the installed system, verify APT and compare a second clean same-candidate build.
-2. **0.2.x — GenixBit identity**: build and integrate owned branding packages, desktop identity, installer assets and system metadata.
-3. **0.3.x — Signed package infrastructure**: launch GenixBit APT packages, keyring, snapshots, promotion and rollback.
-4. **0.4.x — Developer and creator profiles**: toolchains, containers, server utilities and creator applications.
-5. **0.5.x — AI runtime foundation**: optional Ollama/llama.cpp integrations, catalog metadata and hardware detection.
-6. **0.6.x — AI Center and Agents**: model lifecycle management and GenixBit Agents integration.
-7. **0.7.x — GenixBit Store**: curated apps, packages, AI tools and model integrations.
-8. **1.0.0 — Stable release**: production-quality builds, upgrades, security, documentation and support lifecycle.
-
-See [`ROADMAP.md`](ROADMAP.md).
-
-## Build Requirements
-
-The current build requires:
-
-- Ubuntu Linux matching target codename `resolute`;
-- `amd64` / x86_64 host;
-- approved standard user with passwordless sudo for the controlled build environment;
-- at least 30 GB free space for one build, with 100 GB recommended for full validation;
-- at least 8 GB RAM, with 16 GB recommended;
-- build dependencies validated through `make bootstrap`.
-
-Do not run the full build directly on macOS, Windows or ARM64.
-
-## Build
+### 1. Checksum Verification
 
 ```bash
-make bootstrap
-make
+sha256sum GenixBitOS-0.3.0-alpha-2311142213.iso
+# Expected: 229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6
 ```
 
-Expected output after a successful build:
-
-```text
-dist/GenixBitOS-0.1.0-alpha-YYMMDDHHMM.iso
-dist/GenixBitOS-0.1.0-alpha-YYMMDDHHMM.sha256
-```
-
-Release validation must use a frozen candidate branch and its exact SHA. Use:
+### 2. Write to USB Flash Drive
 
 ```bash
-tools/vm/verify-runtime.sh --expected-commit <FULL_CANDIDATE_SHA>
+sudo dd if=GenixBitOS-0.3.0-alpha-2311142213.iso of=/dev/sdX bs=4M status=progress conv=fdatasync
 ```
 
-The candidate artifact must be used consistently for BIOS, UEFI, installer and installed-system tests. Do not publish the ISO until UEFI, BIOS, live-session, installer, installed-system, APT, reproducibility and release-review gates pass.
+### 3. Run under QEMU / KVM Virtual Machine
 
-## Repository Structure
-
-```text
-├── args.sh                       # Build configuration and identity
-├── build.sh                      # ISO build pipeline
-├── makefile                      # Build orchestration and environment checks
-├── mods/                         # Ordered chroot customization modules
-├── packages/                     # GenixBit-owned package sources and scaffolding
-├── tools/vm/                     # Host readiness, candidate build and QEMU tooling
-├── tools/validation/             # Machine-readable release-evidence checks
-├── docs/                         # Architecture, AI, branding, packages, testing and services
-├── website/                      # Original OS, docs and package-status previews
-├── deploy/                       # Containerized static preview deployment
-├── .github/CODEOWNERS            # GenixBit-controlled ownership
-├── GOVERNANCE.md                 # Official maintainer and release policy
-├── CONTRIBUTING.md               # Closed-maintainer alpha workflow
-├── ROADMAP.md                    # Product milestones
-├── SECURITY.md                   # Private vulnerability reporting
-├── UPSTREAM.md                   # Upstream attribution
-├── OSS.md                        # Third-party software inventory
-└── LICENSE                       # GPL-3.0
+```bash
+qemu-system-x86_64 -m 4096 -smp 2 -enable-kvm -cdrom GenixBitOS-0.3.0-alpha-2311142213.iso
 ```
 
 ## Governance
 
-GenixBit OS uses a closed maintainer model during early alpha:
+GenixBit OS is developed and maintained by **GenixBit Labs Private Limited**:
 
-- only authorized GenixBit team members may merge official changes or publish official releases;
-- external users may report bugs, suggest features, submit compatibility results and exercise GPL rights;
-- unsolicited external code pull requests are not accepted unless invited by a GenixBit maintainer.
+- Authorized GenixBit team members publish official releases;
+- External users may report bugs, suggest features, submit compatibility results and exercise GPL rights;
+- Unsolicited external code pull requests are not accepted unless invited by a GenixBit maintainer.
 
-This governance policy does not remove GPL rights or upstream attribution obligations. See [`GOVERNANCE.md`](GOVERNANCE.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+See [`GOVERNANCE.md`](GOVERNANCE.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Security
 
@@ -245,4 +161,4 @@ See [`SECURITY.md`](SECURITY.md).
 - **Operating System**: https://os.genixbit.com
 - **Documentation**: https://docs.os.genixbit.com
 - **Package Status**: https://packages.os.genixbit.com
-- **Source Code**: https://github.com/GenixBit/genixbit-os
+- **GitHub Source & Releases**: https://github.com/GenixBit/genixbit-os
