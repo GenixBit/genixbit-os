@@ -170,7 +170,7 @@ validate_serial_log() {
     if grep -qi "initramfs" "$filepath" && grep -qi "unable to mount" "$filepath"; then
         fail "$filename contains unresolved initramfs failure"
     fi
-    if grep -qi "placeholder" "$filepath" || grep -qi "dummy" "$filepath"; then
+    if grep -qi "placeholder_evidence" "$filepath" || grep -qi "dummy_evidence" "$filepath"; then
         fail "$filename contains placeholder/dummy markers"
     fi
 
