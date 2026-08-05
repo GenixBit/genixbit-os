@@ -222,8 +222,11 @@ case "$ACTION" in
 
 
         if [[ -n "$SEED_ISO_PATH" && -f "$SEED_ISO_PATH" ]]; then
-            # Seed ISO attached via virtio bus for cloud-init ds-identify detection
-            qemu_args+=("-drive" "file=$SEED_ISO_PATH,format=raw,if=virtio,readonly=on")
+            # Seed ISO attached as AHCI SATA CDROM so cloud-init ds-identify scans /dev/sr1 for CIDATA
+            qemu_args+=(
+                "-drive" "file=$SEED_ISO_PATH,format=raw,if=none,id=seedcd,media=cdrom,readonly=on"
+                "-device" "ide-cd,bus=ahci0.1,drive=seedcd"
+            )
         fi
 
 
