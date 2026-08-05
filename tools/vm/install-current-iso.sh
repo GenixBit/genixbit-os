@@ -117,43 +117,6 @@ bash "$(dirname "$0")/run-qemu.sh" start \
     --headless \
     --timeout "$TIMEOUT_SEC"
 
-# Background completion watcher: detects systemd boot completion and emits completion token to serial log
-(
-    while true; do
-        if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null; then
-            if [[ -f "$serial_log" ]] && grep -qE 'login:|Reached target|Finished Hold until boot process|subiquity' "$serial_log" 2>/dev/null; then
-                sleep 3
-                echo "$INSTALL_TOKEN" >> "$serial_log"
-                # Send QMP system_powerdown and quit for clean natural shutdown
-                if [[ -S "$qmp_path" ]]; then
-                    python3 -c "
-import socket, sys, time
-try:
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.connect('$qmp_path')
-    s.recv(1024)
-    s.sendall(b'{\"execute\": \"qmp_capabilities\"}\n')
-    s.recv(1024)
-    s.sendall(b'{\"execute\": \"system_powerdown\"}\n')
-    s.recv(1024)
-    time.sleep(2)
-    s.sendall(b'{\"execute\": \"quit\"}\n')
-    s.recv(1024)
-    s.close()
-except Exception:
-    pass
-" 2>/dev/null || true
-                fi
-                break
-            fi
-        else
-            break
-        fi
-        sleep 2
-    done
-) &
-TOKEN_WATCHER_PID=$!
-
 bash "$(dirname "$0")/wait-for-install-completion.sh" \
     --vm-id "$VM_ID" \
     --token "$INSTALL_TOKEN" \
@@ -166,8 +129,6 @@ bash "$(dirname "$0")/wait-for-install-completion.sh" \
     --disk "$DISK_PATH" \
     --mode "$MODE" \
     --timeout "$TIMEOUT_SEC"
-
-kill "$TOKEN_WATCHER_PID" 2>/dev/null || true
 
 # NOTE: installer serial log is copied AFTER completion below — not here.
 
