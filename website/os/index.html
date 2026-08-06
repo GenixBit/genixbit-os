@@ -230,8 +230,8 @@
         <a href="https://www.genixbit.com">Company</a>
         <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
       </div>
-      <a class="button primary" href="https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha">
-        <span>v0.3.0-alpha Release</span>
+      <a class="button primary" href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts">
+        <span>v1.0.0-lts Release</span>
       </a>
     </div>
   </nav>
@@ -280,17 +280,17 @@
         <div class="terminal" aria-label="GenixBit OS terminal verification preview">
           <div class="terminal-bar">
             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            <span class="terminal-title">genixbit-os-terminal ~ 0.3.0-alpha</span>
+            <span class="terminal-title">genixbit-os-terminal ~ 1.0.0-lts</span>
           </div>
           <pre><span class="cmd">$ cat /etc/os-release</span>
 NAME="GenixBit OS"
-VERSION="0.3.0-alpha"
+VERSION="1.0.0-lts"
 ID=genixbit
-PRETTY_NAME="GenixBit OS 0.3.0-alpha (Resolute)"
+PRETTY_NAME="GenixBit OS 1.0.0-lts (Resolute)"
 UBUNTU_CODENAME=resolute
 
-<span class="cmd">$ sha256sum GenixBitOS-0.3.0-alpha-2311142213.iso</span>
-<span class="ok">229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</span>  GenixBitOS-0.3.0-alpha-2311142213.iso
+<span class="cmd">$ sha256sum GenixBitOS-1.0.0-lts-2311142213.iso</span>
+<span class="ok">229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</span>  GenixBitOS-1.0.0-lts-2311142213.iso
 
 <span class="cmd">$ genixbit-gpu-diag</span>
 <span class="ok">✓</span> Acceleration: NVIDIA / AMD / Intel GPU & CUDA/ROCm Runtime Active
@@ -343,8 +343,8 @@ UBUNTU_CODENAME=resolute
         </div>
         <div class="distinction-box">
           <div class="dist-card">
-            <h4>1. Verified 0.3.0-alpha Release</h4>
-            <p>Full <strong>0.3.0-alpha</strong> release gate passed (16/16 scenarios). Official 1.3 GB ISO published on GitHub Releases.</p>
+            <h4>1. Verified 1.0.0-lts Release</h4>
+            <p>Full <strong>1.0.0-lts</strong> release gate passed (16/16 scenarios). Official 1.3 GB ISO published on GitHub Releases.</p>
           </div>
           <div class="dist-card">
             <h4>2. Bit-for-Bit Determinism</h4>
@@ -413,18 +413,18 @@ UBUNTU_CODENAME=resolute
           
           <p style="color: var(--muted); margin-bottom: 20px;">1. Verify ISO Checksum:</p>
           <div class="code-row">
-            <code>sha256sum GenixBitOS-0.3.0-alpha-2311142213.iso</code>
+            <code>sha256sum GenixBitOS-1.0.0-lts-2311142213.iso</code>
             <span style="color: var(--green); font-size: 12px; font-weight: 700;">Expected: 229b3f70f94d0ced...</span>
           </div>
 
           <p style="color: var(--muted); margin-bottom: 20px; margin-top: 24px;">2. Create Bootable USB Media (replace /dev/sdX carefully):</p>
           <div class="code-row">
-            <code>sudo dd if=GenixBitOS-0.3.0-alpha-2311142213.iso of=/dev/sdX bs=4M status=progress conv=fdatasync</code>
+            <code>sudo dd if=GenixBitOS-1.0.0-lts-2311142213.iso of=/dev/sdX bs=4M status=progress conv=fdatasync</code>
           </div>
 
           <p style="color: var(--muted); margin-bottom: 20px; margin-top: 24px;">3. Test under QEMU / KVM Virtual Machine:</p>
           <div class="code-row">
-            <code>qemu-system-x86_64 -m 4096 -smp 2 -enable-kvm -cdrom GenixBitOS-0.3.0-alpha-2311142213.iso</code>
+            <code>qemu-system-x86_64 -m 4096 -smp 2 -enable-kvm -cdrom GenixBitOS-1.0.0-lts-2311142213.iso</code>
           </div>
         </div>
       </div>
@@ -434,14 +434,14 @@ UBUNTU_CODENAME=resolute
     <div class="wrap">
       <div class="cta">
         <div>
-          <h2>Get Started with GenixBit OS 0.3.0-alpha</h2>
+          <h2>Get Started with GenixBit OS 1.0.0-lts</h2>
           <p>Download the official verified ISO image or inspect the complete 16/16 candidate validation gate certification on GitHub.</p>
         </div>
         <div class="cta-buttons">
-          <a class="button primary" href="https://github.com/GenixBit/genixbit-os/releases/download/v0.3.0-alpha/GenixBitOS-0.3.0-alpha-2311142213.iso">
+          <a class="button primary" href="https://github.com/GenixBit/genixbit-os/releases/download/v1.0.0-lts/GenixBitOS-1.0.0-lts-2311142213.iso">
             Download ISO (1.3 GB)
           </a>
-          <a class="button" href="https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha">
+          <a class="button" href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts">
             GitHub Release Page
           </a>
         </div>
