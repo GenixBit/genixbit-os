@@ -1,0 +1,14 @@
+Source: genixbit-os-store
+Section: utils
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-store
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-ai-center, python3, curl
+Description: GenixBit Store curated application & package manager
+ Curated app store interface for developer tools, AI runtimes, server utilities,
+ Flatpak applications, and signed GenixBit packages on GenixBit OS.

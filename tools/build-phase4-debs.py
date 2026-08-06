@@ -70,6 +70,16 @@ PACKAGES = [
         "files": [
             ("packages/genixbit-os-agents/bin/genixbit-agent", "usr/bin/genixbit-agent", 0o755)
         ]
+    },
+    {
+        "name": "genixbit-os-store",
+        "version": "0.7.0-alpha-1",
+        "section": "utils",
+        "depends": "genixbit-os-base-files, genixbit-os-ai-center, python3, curl",
+        "description": "GenixBit Store curated application & package manager\n Curated app store interface for developer tools, AI runtimes, server utilities,\n Flatpak applications, and signed GenixBit packages on GenixBit OS.",
+        "files": [
+            ("packages/genixbit-os-store/bin/genixbit-store", "usr/bin/genixbit-store", 0o755)
+        ]
     }
 ]
 
