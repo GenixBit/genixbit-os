@@ -1,3 +1,9 @@
+genixbit-os-installer-config (1.0.0-lts-1) resolute; urgency=medium
+
+  * Release 1.0.0-lts-1 for GenixBit OS.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Thu, 06 Aug 2026 00:00:00 +0000
+
 genixbit-os-installer-config (0.3.0-alpha-1) resolute; urgency=medium
 
   * Scaffolding and release candidate build for GenixBit OS 0.3.0-alpha Candidate 1.
