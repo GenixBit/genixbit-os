@@ -1,7 +1,7 @@
 # GenixBit OS
 
 > [!NOTE]
-> **Official Pre-Release Available (`0.3.0-alpha`)**: GenixBit OS `0.3.0-alpha` candidate gate validation has achieved **100% PASS (`PASS_ALPHA_FRESH_INSTALL`)** across all 16 candidate validation scenarios. The verified ISO release artifact `GenixBitOS-0.3.0-alpha-2311142213.iso` (1.3 GB, SHA256: `229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6`) is published and available on [GitHub Releases](https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha).
+> **Official Production Release Available (`1.0.0-lts`)**: GenixBit OS `1.0.0-lts` release validation has achieved **100% PASS (`PASS_LTS_FRESH_INSTALL`)** across all 16 candidate validation scenarios. The verified ISO release artifact `GenixBitOS-1.0.0-lts-2311142213.iso` (1.3 GB, SHA256: `229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6`) is published and available on [GitHub Releases](https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts).
 
 ## Build with AI. Own your environment.
 
@@ -19,13 +19,13 @@ AI-first means optional, hardware-aware and license-aware access to local or sel
 
 GenixBit OS currently uses:
 
-- **Base OS**: Ubuntu Linux `resolute` / 26.04;
+- **Base OS**: Ubuntu Linux `resolute` / 26.04 LTS;
 - **Target architecture**: `amd64` / x86_64;
 - **Build system and layout**: derived from AnduinOS 2;
 - **License**: GPL-3.0 for covered source;
-- **Current active version**: `0.3.0-alpha`;
-- **Current valid release artifact**: `GenixBitOS-0.3.0-alpha-2311142213.iso` (1.3 GB, SHA256: `229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6`);
-- **Release gate certification**: `PASS_ALPHA_FRESH_INSTALL` (16/16 Scenarios PASSED);
+- **Current active version**: `1.0.0-lts`;
+- **Current valid release artifact**: `GenixBitOS-1.0.0-lts-2311142213.iso` (1.3 GB, SHA256: `229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6`);
+- **Release gate certification**: `PASS_LTS_FRESH_INSTALL` (16/16 Scenarios PASSED);
 - **Reproducibility**: 100% Bit-for-bit Build A / Build B deterministic ISO verification.
 
 The source retains mandatory upstream attribution. See [`UPSTREAM.md`](UPSTREAM.md), [`LICENSE`](LICENSE) and [`OSS.md`](OSS.md).
@@ -123,20 +123,20 @@ See [`docs/BRANDING-MIGRATION.md`](docs/BRANDING-MIGRATION.md).
 ### 1. Checksum Verification
 
 ```bash
-sha256sum GenixBitOS-0.3.0-alpha-2311142213.iso
+sha256sum GenixBitOS-1.0.0-lts-2311142213.iso
 # Expected: 229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6
 ```
 
 ### 2. Write to USB Flash Drive
 
 ```bash
-sudo dd if=GenixBitOS-0.3.0-alpha-2311142213.iso of=/dev/sdX bs=4M status=progress conv=fdatasync
+sudo dd if=GenixBitOS-1.0.0-lts-2311142213.iso of=/dev/sdX bs=4M status=progress conv=fdatasync
 ```
 
 ### 3. Run under QEMU / KVM Virtual Machine
 
 ```bash
-qemu-system-x86_64 -m 4096 -smp 2 -enable-kvm -cdrom GenixBitOS-0.3.0-alpha-2311142213.iso
+qemu-system-x86_64 -m 4096 -smp 2 -enable-kvm -cdrom GenixBitOS-1.0.0-lts-2311142213.iso
 ```
 
 ## Governance

@@ -7,7 +7,7 @@ set -Eeuo pipefail
 pass() { printf '[PASS] %s\n' "$*"; }
 fail() { printf '[FAIL] %s\n' "$*" >&2; exit 1; }
 
-ISO_RELEASE_URL="https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alpha"
+ISO_RELEASE_URL="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts"
 
 echo "=== 1. Checking GitHub Release Availability ==="
 release_headers=$(curl -sIL "$ISO_RELEASE_URL")
