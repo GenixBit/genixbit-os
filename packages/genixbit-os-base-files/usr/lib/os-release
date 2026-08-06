@@ -1,9 +1,9 @@
 NAME="GenixBit OS"
-VERSION="1.0.0-lts-1"
+VERSION="1.0.0-lts"
 ID=genixbitos
 ID_LIKE="ubuntu debian"
-PRETTY_NAME="GenixBit OS 1.0.0-lts-1"
-VERSION_ID="1.0.0-lts-1"
+PRETTY_NAME="GenixBit OS 1.0.0-lts"
+VERSION_ID="1.0.0-lts"
 
 
 HOME_URL="https://os.genixbit.com/"

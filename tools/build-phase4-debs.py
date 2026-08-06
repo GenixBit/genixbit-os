@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 
-VERSION = "1.0.0-lts-1"
+VERSION = "1.0.0-lts"
 
 PACKAGES = [
     {
