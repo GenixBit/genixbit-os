@@ -47,6 +47,7 @@ req_pkgs=(
     "genixbit-os-ai-runtime"
     "genixbit-os-ai-center"
     "genixbit-os-agents"
+    "genixbit-os-store"
 )
 
 for pkg in "${req_pkgs[@]}"; do

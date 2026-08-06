@@ -68,6 +68,7 @@ elif [[ "$mode" == "genixbit-staging" ]]; then
         genixbit-os-ai-runtime \
         genixbit-os-ai-center \
         genixbit-os-agents \
+        genixbit-os-store \
         initramfs-tools \
         --install-recommends
     judge "Install genixbit-os-desktop"

@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit Store - Curated Application & Package Catalog CLI
+
+import argparse
+import json
+import os
+import sys
+
+FEATURED_APPS = [
+    {"id": "genixbit-ai-center", "name": "GenixBit AI Center", "category": "AI & Models", "source": "GenixBit Native"},
+    {"id": "genixbit-agents", "name": "GenixBit Agents Bridge", "category": "Developer Tools", "source": "GenixBit Native"},
+    {"id": "docker-ce", "name": "Docker Engine & Compose", "category": "Containers", "source": "System Repo"},
+    {"id": "code", "name": "Visual Studio Code", "category": "IDE", "source": "Flatpak / Official APT"},
+    {"id": "obs-studio", "name": "OBS Studio", "category": "Creator", "source": "Flatpak"},
+    {"id": "blender", "name": "Blender 3D Suite", "category": "Creator", "source": "Flatpak"},
+    {"id": "ollama", "name": "Ollama Local LLM Engine", "category": "AI & Models", "source": "GenixBit AI Runtime"}
+]
+
+def list_store():
+    print("============================================================")
+    print("                GenixBit OS Curated App Store               ")
+    print("============================================================")
+    for app in FEATURED_APPS:
+        print(f"[{app['category']:<15}] {app['name']:<28} (Source: {app['source']})")
+    print("============================================================")
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit Store CLI Application Manager")
+    parser.add_argument("command", choices=["list", "search", "info"], help="Command to execute")
+    args = parser.parse_args()
+
+    if args.command in ("list", "search", "info"):
+        list_store()
+
+if __name__ == "__main__":
+    main()
