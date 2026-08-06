@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Build all binary Debian packages for GenixBit OS."""
+"""Build all binary Debian packages for GenixBit OS 1.0.0 LTS."""
 
 import os
 import shutil
 import subprocess
 import sys
 
+VERSION = "1.0.0-lts-1"
+
 PACKAGES = [
     {
         "name": "genixbit-os-base-files",
-        "version": "0.3.0-alpha-1",
+        "version": VERSION,
         "section": "admin",
         "depends": "base-files",
         "description": "GenixBit OS base system identity files\n Provides system release identity, issue files, and OS branding.",
@@ -18,7 +20,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-desktop",
-        "version": "0.3.0-alpha-1",
+        "version": VERSION,
         "section": "metapackages",
         "depends": "genixbit-os-base-files",
         "description": "GenixBit OS desktop environment metapackage\n Metapackage pulling in core desktop session and AI workspace defaults.",
@@ -26,7 +28,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-theme",
-        "version": "0.3.0-alpha-1",
+        "version": VERSION,
         "section": "x11",
         "depends": "genixbit-os-base-files",
         "description": "GenixBit OS desktop and boot splash theme\n Plymouth boot splash, GTK, icon theme, and desktop styling.",
@@ -34,7 +36,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-wallpapers",
-        "version": "0.3.0-alpha-1",
+        "version": VERSION,
         "section": "x11",
         "depends": "genixbit-os-base-files",
         "description": "GenixBit OS workstation wallpapers\n Official background wallpaper artwork collection.",
@@ -42,7 +44,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-installer-config",
-        "version": "0.3.0-alpha-1",
+        "version": VERSION,
         "section": "admin",
         "depends": "genixbit-os-base-files",
         "description": "GenixBit OS installer configuration and branding\n Calamares and Ubiquity installer slides and autoinstallation profiles.",
@@ -50,7 +52,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-archive-keyring",
-        "version": "0.3.0-alpha-1",
+        "version": VERSION,
         "section": "misc",
         "depends": "gpgv",
         "description": "GenixBit OS APT archive OpenPGP signing keyring\n Official GPG signing key for verifying GenixBit OS package repositories.",
@@ -58,7 +60,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-apt-config",
-        "version": "0.3.0-alpha-1",
+        "version": VERSION,
         "section": "admin",
         "depends": "genixbit-os-archive-keyring",
         "description": "GenixBit OS APT repository channel configurations\n Source list definitions for resolute-alpha, testing, and release channels.",
@@ -66,7 +68,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-developer-profile",
-        "version": "0.4.0-alpha-1",
+        "version": VERSION,
         "section": "metapackages",
         "depends": "genixbit-os-base-files, genixbit-os-desktop",
         "description": "Developer profile metapackage for GenixBit OS\n Provides developer toolchains, container runtimes, version control,\n and language environments for GenixBit OS developer workstations.",
@@ -74,7 +76,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-server-profile",
-        "version": "0.4.0-alpha-1",
+        "version": VERSION,
         "section": "metapackages",
         "depends": "genixbit-os-base-files",
         "description": "Server manager profile metapackage for GenixBit OS\n Provides headless services, container management, systemd monitoring,\n and remote administration utilities for GenixBit OS server nodes.",
@@ -82,7 +84,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-creator-profile",
-        "version": "0.4.0-alpha-1",
+        "version": VERSION,
         "section": "metapackages",
         "depends": "genixbit-os-base-files, genixbit-os-desktop",
         "description": "Creator profile metapackage for GenixBit OS\n Provides video, audio, image, 3D graphics, streaming, and hardware-accelerated\n codec tooling for GenixBit OS content creation workstations.",
@@ -90,7 +92,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-gpu-diagnostics",
-        "version": "0.4.0-alpha-1",
+        "version": VERSION,
         "section": "utils",
         "depends": "genixbit-os-base-files, pciutils, lshw",
         "description": "Hardware & GPU diagnostic package for GenixBit OS\n Automatic NVIDIA, AMD, and Intel GPU detection tool providing CUDA and ROCm\n runtime capability diagnostics for local AI model acceleration.",
@@ -98,7 +100,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-ai-runtime",
-        "version": "0.5.0-alpha-1",
+        "version": VERSION,
         "section": "utils",
         "depends": "genixbit-os-base-files, genixbit-os-gpu-diagnostics, python3, curl",
         "description": "AI runtime foundation & local model proxy for GenixBit OS\n Provides local OpenAI-compatible API proxy service, model catalog metadata,\n and hardware-aware Ollama & llama.cpp runtime dispatchers for GenixBit OS.",
@@ -109,7 +111,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-ai-center",
-        "version": "0.6.0-alpha-1",
+        "version": VERSION,
         "section": "utils",
         "depends": "genixbit-os-base-files, genixbit-os-ai-runtime, genixbit-os-gpu-diagnostics, python3, curl",
         "description": "GenixBit AI Center model lifecycle manager\n Command-line manager and model lifecycle tool for discovering, downloading,\n installing, and monitoring local AI models on GenixBit OS.",
@@ -119,7 +121,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-agents",
-        "version": "0.6.0-alpha-1",
+        "version": VERSION,
         "section": "utils",
         "depends": "genixbit-os-base-files, genixbit-os-ai-runtime, python3, curl",
         "description": "GenixBit Agents integration package for GenixBit OS\n Developer agent bridge connecting GenixBit OS workstations to GenixBit Agents,\n supporting Antigravity, Gemini CLI, Codex, Cursor, and OpenCode tools.",
@@ -129,7 +131,7 @@ PACKAGES = [
     },
     {
         "name": "genixbit-os-store",
-        "version": "0.7.0-alpha-1",
+        "version": VERSION,
         "section": "utils",
         "depends": "genixbit-os-base-files, genixbit-os-ai-center, python3, curl",
         "description": "GenixBit Store curated application & package manager\n Curated app store interface for developer tools, AI runtimes, server utilities,\n Flatpak applications, and signed GenixBit packages on GenixBit OS.",
