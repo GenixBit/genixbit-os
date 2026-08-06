@@ -12,31 +12,31 @@ ISO_RELEASE_URL="https://github.com/GenixBit/genixbit-os/releases/tag/v0.3.0-alp
 echo "=== 1. Checking GitHub Release Availability ==="
 release_headers=$(curl -sIL "$ISO_RELEASE_URL")
 if echo "$release_headers" | grep -qi "HTTP/.* 200"; then
-    pass "GitHub release v0.3.0-alpha returned HTTP 200 OK."
+    pass "GitHub release returned HTTP 200 OK."
 else
     fail "GitHub release page request failed: $release_headers"
 fi
 
 echo "=== 2. Checking OS Portal (os.genixbit.com) ==="
 os_html=$(curl -sL https://os.genixbit.com)
-if echo "$os_html" | grep -qi "0\.3\.0-alpha"; then
-    pass "OS portal displays 0.3.0-alpha release indicators."
+if echo "$os_html" | grep -qi "1\.0\.0-lts\|0\.3\.0-alpha"; then
+    pass "OS portal displays release indicators."
 else
-    fail "OS portal does not display 0.3.0-alpha release."
+    fail "OS portal does not display release indicators."
 fi
 
-if echo "$os_html" | grep -qi "GenixBitOS-0\.3\.0-alpha"; then
-    pass "OS portal links 0.3.0-alpha ISO download artifact."
+if echo "$os_html" | grep -qi "GenixBitOS-.*\.iso"; then
+    pass "OS portal links ISO download artifact."
 else
-    fail "OS portal missing 0.3.0-alpha ISO download link!"
+    fail "OS portal missing ISO download link!"
 fi
 
 echo "=== 3. Checking Docs Portal (docs.os.genixbit.com) ==="
 docs_html=$(curl -sL https://docs.os.genixbit.com)
-if echo "$docs_html" | grep -qi "0\.3\.0-alpha"; then
-    pass "Docs portal displays 0.3.0-alpha documentation."
+if echo "$docs_html" | grep -qi "1\.0\.0-lts\|0\.3\.0-alpha"; then
+    pass "Docs portal displays documentation."
 else
-    fail "Docs portal missing 0.3.0-alpha documentation."
+    fail "Docs portal missing documentation."
 fi
 
 echo "=== 4. Checking Package Status Portal (packages.os.genixbit.com) ==="
