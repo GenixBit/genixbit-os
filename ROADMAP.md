@@ -50,29 +50,40 @@
 
 ---
 
-## Phase 4 — `0.4.x`: Developer, Server, and Creator Profiles *(Next Target - Active)*
+## Phase 4 — `0.4.x`: Developer, Server, and Creator Profiles *(Completed)*
 
-- [ ] **Developer Profile**: Pre-configured Git, Docker container engine, Python, Node.js, Go, Rust, Java, and build tools.
-- [ ] **Application-Builder Profile**: IDEs, local databases (PostgreSQL/SQLite), API testing tools, and deployment templates.
-- [ ] **Server-Manager Profile**: Headless services, systemd monitoring, backups, firewall, and container operations.
-- [ ] **Creator Profile**: Video, audio, image editing, 3D graphics, streaming, transcription, and hardware-accelerated codec tooling.
-- [ ] **AI Learner Profile**: Guided setup, compact model recommendations, starter applications, and GenixBit Academy paths.
-- [ ] **Hardware & GPU Diagnostics**: Automatic NVIDIA / AMD GPU detection and ROCm/CUDA runtime diagnostics.
+- [x] **Developer Profile**: Package `genixbit-os-developer-profile` with Git, Docker, Python, Node.js, Go, Rust, Java toolchains.
+- [x] **Server-Manager Profile**: Package `genixbit-os-server-profile` for headless services, systemd monitoring, firewall & remote admin.
+- [x] **Creator Profile**: Package `genixbit-os-creator-profile` for video, audio, 3D graphics, streaming & hardware codecs.
+- [x] **Hardware & GPU Diagnostics**: Package `genixbit-os-gpu-diagnostics` with automatic NVIDIA / AMD / Intel GPU detection (`genixbit-gpu-diag`).
 
 ---
 
-## Phase 5 — `0.5.x`: AI Runtime Foundation
+## Phase 5 — `0.5.x`: AI Runtime Foundation *(Completed)*
 
-- [ ] Optional Ollama and llama.cpp local inference engine integrations.
-- [ ] Model catalog metadata and hardware detection tooling.
-- [ ] Local OpenAI-compatible API proxy endpoints.
+- [x] **Local AI Proxy Service**: Package `genixbit-os-ai-runtime` providing OpenAI-compatible API proxy on `127.0.0.1:11434` (`genixbit-ai-proxy`).
+- [x] **Curated Model Catalog**: Metadata catalog for Gemma 3, Qwen 3, DeepSeek-R1 Distill Qwen, and Bharat AI V1 models (`/usr/share/genixbit-os/models/catalog.json`).
 
 ---
 
-## Phase 6 — `0.6.x`: AI Center and Agents
+## Phase 6 — `0.6.x`: AI Center and GenixBit Agents *(Completed)*
 
-- [ ] Model lifecycle management UI application.
-- [ ] Integration with [`GenixBit/agency-agents`](https://github.com/GenixBit/agency-agents).
+- [x] **GenixBit AI Center**: Package `genixbit-os-ai-center` (`genixbit-ai-center` CLI lifecycle manager).
+- [x] **GenixBit Agents Integration**: Package `genixbit-os-agents` (`genixbit-agent` bridge for Antigravity, Gemini, Codex, Cursor, and OpenCode tools).
+
+---
+
+## Phase 7 — `0.7.x`: GenixBit Store & Package Ecosystem *(Completed)*
+
+- [x] **GenixBit Store**: Package `genixbit-os-store` (`genixbit-store` CLI app manager for developer tools, AI runtimes, Flatpak apps, and signed packages).
+
+---
+
+## Phase 8 — `1.0.0`: Production Readiness & LTS Lifecycle *(Next Target - Active)*
+
+- [ ] **Production Infrastructure**: Full production APT repository signing ceremony and HTTPS package hosting.
+- [ ] **Security Certification**: Independent security vulnerability assessment & zero-warning license audit.
+- [ ] **Long Term Support (LTS)**: 5-year maintenance, security patching, and automated upgrade path certification for Ubuntu 26.04 Resolute LTS base.
 
 ---
 
