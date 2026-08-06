@@ -50,6 +50,26 @@ PACKAGES = [
             ("packages/genixbit-os-ai-runtime/bin/genixbit-ai-proxy", "usr/bin/genixbit-ai-proxy", 0o755),
             ("packages/genixbit-os-ai-runtime/usr/share/genixbit-os/models/catalog.json", "usr/share/genixbit-os/models/catalog.json", 0o644)
         ]
+    },
+    {
+        "name": "genixbit-os-ai-center",
+        "version": "0.6.0-alpha-1",
+        "section": "utils",
+        "depends": "genixbit-os-base-files, genixbit-os-ai-runtime, genixbit-os-gpu-diagnostics, python3, curl",
+        "description": "GenixBit AI Center model lifecycle manager\n Command-line manager and model lifecycle tool for discovering, downloading,\n installing, and monitoring local AI models on GenixBit OS.",
+        "files": [
+            ("packages/genixbit-os-ai-center/bin/genixbit-ai-center", "usr/bin/genixbit-ai-center", 0o755)
+        ]
+    },
+    {
+        "name": "genixbit-os-agents",
+        "version": "0.6.0-alpha-1",
+        "section": "utils",
+        "depends": "genixbit-os-base-files, genixbit-os-ai-runtime, python3, curl",
+        "description": "GenixBit Agents integration package for GenixBit OS\n Developer agent bridge connecting GenixBit OS workstations to GenixBit Agents,\n supporting Antigravity, Gemini CLI, Codex, Cursor, and OpenCode tools.",
+        "files": [
+            ("packages/genixbit-os-agents/bin/genixbit-agent", "usr/bin/genixbit-agent", 0o755)
+        ]
     }
 ]
 

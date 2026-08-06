@@ -66,6 +66,8 @@ elif [[ "$mode" == "genixbit-staging" ]]; then
         genixbit-os-creator-profile \
         genixbit-os-gpu-diagnostics \
         genixbit-os-ai-runtime \
+        genixbit-os-ai-center \
+        genixbit-os-agents \
         initramfs-tools \
         --install-recommends
     judge "Install genixbit-os-desktop"

@@ -1,0 +1,14 @@
+Source: genixbit-os-agents
+Section: utils
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-agents
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-ai-runtime, python3, curl
+Description: GenixBit Agents integration package for GenixBit OS
+ Developer agent bridge connecting GenixBit OS workstations to GenixBit Agents,
+ supporting Antigravity, Gemini CLI, Codex, Cursor, and OpenCode tools.

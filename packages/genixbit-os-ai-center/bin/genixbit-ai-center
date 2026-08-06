@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS AI Center - Model & Runtime Lifecycle Manager
+
+import argparse
+import json
+import os
+import sys
+import urllib.request
+
+CATALOG_PATH = "/usr/share/genixbit-os/models/catalog.json"
+PROXY_URL = "http://127.0.0.1:11434"
+
+def list_catalog():
+    print("============================================================")
+    print("           GenixBit OS Curated AI Model Catalog             ")
+    print("============================================================")
+    if not os.path.exists(CATALOG_PATH):
+        print("[WARN] Model catalog not found at", CATALOG_PATH)
+        return
+    with open(CATALOG_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    models = data.get("models", [])
+    for idx, m in enumerate(models, 1):
+        print(f"{idx}. {m['name']} ({m['id']})")
+        print(f"   Family: {m['family']} | Parameters: {m['parameters']} | Size: {m['size_mb']} MB")
+        print(f"   RAM Req: {m['recommended_ram_gb']} GB | VRAM Req: {m['recommended_vram_gb']} GB | License: {m['license']}")
+        print(f"   Description: {m['description']}")
+        print("-" * 60)
+
+def check_status():
+    print("============================================================")
+    print("           GenixBit OS Local AI Runtime Status              ")
+    print("============================================================")
+    try:
+        req = urllib.request.urlopen(f"{PROXY_URL}/health", timeout=3)
+        res = json.loads(req.read().decode('utf-8'))
+        print(f"[ONLINE] Proxy Service: {res.get('service')} v{res.get('version')}")
+        print(f"[ONLINE] Endpoint: {PROXY_URL}")
+    except Exception as e:
+        print(f"[OFFLINE] Proxy Service unreachable at {PROXY_URL} ({e})")
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit OS AI Center Model & Runtime Manager")
+    parser.add_argument("command", choices=["list", "status", "info"], help="Command to execute")
+    args = parser.parse_args()
+
+    if args.command == "list":
+        list_catalog()
+    elif args.command == "status":
+        check_status()
+    elif args.command == "info":
+        list_catalog()
+        check_status()
+
+if __name__ == "__main__":
+    main()
