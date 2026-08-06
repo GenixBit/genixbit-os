@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Build Phase 4 binary Debian packages for GenixBit OS."""
+"""Build all binary Debian packages for GenixBit OS."""
 
 import os
 import shutil
@@ -8,6 +8,62 @@ import subprocess
 import sys
 
 PACKAGES = [
+    {
+        "name": "genixbit-os-base-files",
+        "version": "0.3.0-alpha-1",
+        "section": "admin",
+        "depends": "base-files",
+        "description": "GenixBit OS base system identity files\n Provides system release identity, issue files, and OS branding.",
+        "files": []
+    },
+    {
+        "name": "genixbit-os-desktop",
+        "version": "0.3.0-alpha-1",
+        "section": "metapackages",
+        "depends": "genixbit-os-base-files",
+        "description": "GenixBit OS desktop environment metapackage\n Metapackage pulling in core desktop session and AI workspace defaults.",
+        "files": []
+    },
+    {
+        "name": "genixbit-os-theme",
+        "version": "0.3.0-alpha-1",
+        "section": "x11",
+        "depends": "genixbit-os-base-files",
+        "description": "GenixBit OS desktop and boot splash theme\n Plymouth boot splash, GTK, icon theme, and desktop styling.",
+        "files": []
+    },
+    {
+        "name": "genixbit-os-wallpapers",
+        "version": "0.3.0-alpha-1",
+        "section": "x11",
+        "depends": "genixbit-os-base-files",
+        "description": "GenixBit OS workstation wallpapers\n Official background wallpaper artwork collection.",
+        "files": []
+    },
+    {
+        "name": "genixbit-os-installer-config",
+        "version": "0.3.0-alpha-1",
+        "section": "admin",
+        "depends": "genixbit-os-base-files",
+        "description": "GenixBit OS installer configuration and branding\n Calamares and Ubiquity installer slides and autoinstallation profiles.",
+        "files": []
+    },
+    {
+        "name": "genixbit-os-archive-keyring",
+        "version": "0.3.0-alpha-1",
+        "section": "misc",
+        "depends": "gpgv",
+        "description": "GenixBit OS APT archive OpenPGP signing keyring\n Official GPG signing key for verifying GenixBit OS package repositories.",
+        "files": []
+    },
+    {
+        "name": "genixbit-os-apt-config",
+        "version": "0.3.0-alpha-1",
+        "section": "admin",
+        "depends": "genixbit-os-archive-keyring",
+        "description": "GenixBit OS APT repository channel configurations\n Source list definitions for resolute-alpha, testing, and release channels.",
+        "files": []
+    },
     {
         "name": "genixbit-os-developer-profile",
         "version": "0.4.0-alpha-1",
