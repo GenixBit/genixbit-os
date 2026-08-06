@@ -1,0 +1,14 @@
+Source: genixbit-os-ai-center
+Section: utils
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-ai-center
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-ai-runtime, genixbit-os-gpu-diagnostics, python3, curl
+Description: GenixBit AI Center model lifecycle manager
+ Command-line manager and model lifecycle tool for discovering, downloading,
+ installing, and monitoring local AI models on GenixBit OS.

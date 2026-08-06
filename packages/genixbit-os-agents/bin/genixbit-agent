@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS Agents Integration CLI Bridge
+
+import argparse
+import json
+import os
+import sys
+
+AGENTS_REGISTRY = [
+    {"name": "antigravity", "description": "Google Antigravity Agentic IDE Agent", "toolchain": "Antigravity SDK / IDE"},
+    {"name": "gemini-cli", "description": "Gemini CLI Agent", "toolchain": "Google Antigravity / Gemini CLI"},
+    {"name": "codex", "description": "OpenAI Codex / Code Agent", "toolchain": "Developer Code Agent"},
+    {"name": "cursor", "description": "Cursor Agentic Coding Bridge", "toolchain": "Cursor IDE Agent"},
+    {"name": "opencode", "description": "OpenCode Multi-Agent Bridge", "toolchain": "OpenCode Studio"}
+]
+
+def list_agents():
+    print("============================================================")
+    print("            GenixBit OS Integrated Agent Registry           ")
+    print("============================================================")
+    for a in AGENTS_REGISTRY:
+        print(f"• {a['name']:<15} | Toolchain: {a['toolchain']}")
+        print(f"  Description: {a['description']}")
+        print("-" * 60)
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit OS Developer Agents Integration CLI")
+    parser.add_argument("command", choices=["list", "status"], help="Command to execute")
+    args = parser.parse_args()
+
+    if args.command == "list" or args.command == "status":
+        list_agents()
+
+if __name__ == "__main__":
+    main()
