@@ -292,13 +292,21 @@ UBUNTU_CODENAME=resolute
 <span class="cmd">$ sha256sum GenixBitOS-0.3.0-alpha-2311142213.iso</span>
 <span class="ok">229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</span>  GenixBitOS-0.3.0-alpha-2311142213.iso
 
-<span class="cmd">$ genixbit-release-gate --status</span>
-<span class="ok">✓</span> Release Gate Certification: PASS_ALPHA_FRESH_INSTALL
-<span class="ok">✓</span> Candidate Validation Scenarios: 16/16 PASSED (100%)
-<span class="ok">✓</span> Build A / Build B Reproducibility: BIT-FOR-BIT IDENTICAL
-<span class="ok">✓</span> OpenPGP Signer Isolation: VERIFIED (3-role key separation)
-<span class="ok">✓</span> QEMU VM Autoinstallation: VERIFIED (UEFI & BIOS)
-<span class="comment"># Status: Official 0.3.0-alpha ISO published & ready for installation</span></pre>
+<span class="cmd">$ genixbit-gpu-diag</span>
+<span class="ok">✓</span> Acceleration: NVIDIA / AMD / Intel GPU & CUDA/ROCm Runtime Active
+
+<span class="cmd">$ genixbit-ai-proxy --health</span>
+<span class="ok">✓</span> Local AI Proxy: ONLINE (127.0.0.1:11434) [OpenAI API Compatible]
+
+<span class="cmd">$ genixbit-ai-center list</span>
+<span class="ok">✓</span> Curated Models: Gemma 3 (2.6B), Qwen 3 (7.2B), DeepSeek-R1 (7.0B), Bharat AI V1
+
+<span class="cmd">$ genixbit-agent --status</span>
+<span class="ok">✓</span> Agent Bridge: Antigravity SDK, Gemini CLI, Codex, Cursor, OpenCode
+
+<span class="cmd">$ genixbit-store list</span>
+<span class="ok">✓</span> GenixBit Store: Developer Tools, AI Runtimes, Flatpaks & Native Packages
+<span class="comment"># Status: GenixBit OS 1.0.0 LTS Production Certified & Ready</span></pre>
         </div>
       </div>
 
