@@ -143,12 +143,17 @@
         <li><a href="#vision-engine">18. Multimodal Vision & OCR</a></li>
         <li><a href="#vector-rag">19. Local Vector RAG Engine</a></li>
       </ul>
+      <h4>Swarm & Pipelines (1.5.0)</h4>
+      <ul>
+        <li><a href="#agent-swarm">20. Multi-Agent Swarm</a></li>
+        <li><a href="#ai-pipeline">21. Local AI CI/CD Pipelines</a></li>
+      </ul>
       <h4>Infrastructure & Governance</h4>
       <ul>
-        <li><a href="#packages">20. Package Architecture</a></li>
-        <li><a href="#security">21. Security & Privacy Model</a></li>
-        <li><a href="#web-desktop">22. Live Web Desktop & noVNC</a></li>
-        <li><a href="#attribution">23. Legal Attribution</a></li>
+        <li><a href="#packages">22. Package Architecture</a></li>
+        <li><a href="#security">23. Security & Privacy Model</a></li>
+        <li><a href="#web-desktop">24. Live Web Desktop & noVNC</a></li>
+        <li><a href="#attribution">25. Legal Attribution</a></li>
       </ul>
     </aside>
 
@@ -177,6 +182,13 @@
             <th>ISO Image Filename</th>
             <th>Size</th>
             <th>SHA256 Checksum</th>
+          </tr>
+          <tr>
+            <td><strong>1.5.0</strong></td>
+            <td><em>Sutra</em> (Swarm &amp; AI Pipelines)</td>
+            <td><code>GenixBitOS-1.5.0-sutra-20260817.iso</code></td>
+            <td>1.4 GB</td>
+            <td><code>9b2d8e41a7c03f568128479c02d18491ef28a014bc912389d70921a9c1e0915f</code></td>
           </tr>
           <tr>
             <td><strong>1.4.0</strong></td>
@@ -526,10 +538,42 @@ genixbit-rag query "How does genixbit-microvm launch Firecracker instances?"
         </div>
       </section>
 
-      <!-- Section 20: Packages -->
+      <!-- Section 20: Multi-Agent Swarm (1.5.0) -->
+      <section id="agent-swarm">
+        <h2>20. Autonomous Multi-Agent Swarm Orchestrator (`genixbit-swarm`)</h2>
+        <p>Coordinates specialized autonomous agent teams (Planner, Coder, Reviewer, Tester) with DAG task scheduling and 3/4 quorum consensus voting:</p>
+        <div class="code-block">
+# Inspect swarm topology and active subagent roles
+genixbit-swarm status
+
+# Execute complex multi-agent parallel goal with consensus verification
+genixbit-swarm run "Refactor microservice database architecture and generate unit tests"
+
+# Monitor real-time subagent task execution and voting
+genixbit-swarm monitor
+        </div>
+      </section>
+
+      <!-- Section 21: Local AI CI/CD Pipelines (1.5.0) -->
+      <section id="ai-pipeline">
+        <h2>21. Local AI CI/CD &amp; Automated Pipelines (`genixbit-pipeline`)</h2>
+        <p>Executes multi-stage offline CI/CD automation, automated static analysis, unit test suites, and hardware benchmarks:</p>
+        <div class="code-block">
+# Inspect configured pipeline stages and thread concurrency
+genixbit-pipeline status
+
+# Run automated multi-stage test suite
+genixbit-pipeline run --stages "lint,build,test,ai-review,bench"
+
+# View pipeline execution history
+genixbit-pipeline history
+        </div>
+      </section>
+
+      <!-- Section 22: Packages -->
       <section id="packages">
-        <h2>20. 15-Package Ecosystem & APT Staging</h2>
-        <p>GenixBit OS distributes 15 modular packages built cleanly under version <code>1.0.0-lts</code> / <code>1.1.0</code> / <code>1.2.0</code> / <code>1.3.0</code> / <code>1.4.0</code>:</p>
+        <h2>22. 15-Package Ecosystem &amp; APT Staging</h2>
+        <p>GenixBit OS distributes 15 modular packages built cleanly under version <code>1.0.0-lts</code> / <code>1.1.0</code> / <code>1.2.0</code> / <code>1.3.0</code> / <code>1.4.0</code> / <code>1.5.0</code>:</p>
         <table>
           <tr>
             <th>Package Name</th>
@@ -574,7 +618,7 @@ genixbit-rag query "How does genixbit-microvm launch Firecracker instances?"
           <tr>
             <td><code>genixbit-os-developer-profile</code></td>
             <td>metapackages</td>
-            <td>Developer tools & <code>genixbit-dev-setup</code> wizard</td>
+            <td>Developer tools, <code>genixbit-dev-setup</code>, <code>genixbit-pipeline</code></td>
           </tr>
           <tr>
             <td><code>genixbit-os-server-profile</code></td>
@@ -604,7 +648,7 @@ genixbit-rag query "How does genixbit-microvm launch Firecracker instances?"
           <tr>
             <td><code>genixbit-os-agents</code></td>
             <td>utils</td>
-            <td><code>genixbit-agent</code>, <code>genixbit-guard</code>, <code>genixbit-sandbox</code>, <code>genixbit-microvm</code>, <code>genixbit-agent-studio</code></td>
+            <td><code>genixbit-agent</code>, <code>genixbit-guard</code>, <code>genixbit-sandbox</code>, <code>genixbit-microvm</code>, <code>genixbit-swarm</code>, <code>genixbit-agent-studio</code></td>
           </tr>
           <tr>
             <td><code>genixbit-os-store</code></td>
@@ -614,15 +658,15 @@ genixbit-rag query "How does genixbit-microvm launch Firecracker instances?"
         </table>
       </section>
 
-      <!-- Section 21: Security -->
+      <!-- Section 23: Security -->
       <section id="security">
-        <h2>21. Security & Privacy Governance</h2>
+        <h2>23. Security &amp; Privacy Governance</h2>
         <p>GenixBit OS guarantees zero mandatory telemetry, offline local AI execution, signed package distribution via GPG keyrings, and strict chroot isolation during build time.</p>
       </section>
 
-      <!-- Section 22: Web Desktop -->
+      <!-- Section 24: Web Desktop -->
       <section id="web-desktop">
-        <h2>22. Live Web Desktop Simulator & Google Cloud noVNC Stream</h2>
+        <h2>24. Live Web Desktop Simulator &amp; Google Cloud noVNC Stream</h2>
         <p>The web showcase at <a href="https://os.genixbit.com" style="color:var(--cyan);">os.genixbit.com</a> supports dual-mode testing:</p>
         <ul>
           <li><strong>Interactive Simulated Desktop</strong>: Draggable windows, real-time prompt streaming, interactive terminal, and wallpaper switcher.</li>
@@ -635,9 +679,9 @@ https://os.genixbit.com/vnc/vnc.html?autoconnect=true&path=websockify&resize=sca
         </ul>
       </section>
 
-      <!-- Section 23: Attribution -->
+      <!-- Section 25: Attribution -->
       <section id="attribution">
-        <h2>23. Legal Attribution & Licensing</h2>
+        <h2>25. Legal Attribution &amp; Licensing</h2>
         <p>GenixBit OS is distributed under the GNU General Public License v3.0 (GPL-3.0). It incorporates open-source upstream components from Ubuntu and Debian according to their respective open-source licenses.</p>
       </section>
 
