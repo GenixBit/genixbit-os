@@ -170,6 +170,7 @@ PACKAGES = [
             ("packages/genixbit-os-ai-center/bin/genixbit-ai-center", "usr/bin/genixbit-ai-center", 0o755),
             ("packages/genixbit-os-ai-center/bin/genixbit-ai-center-gui", "usr/bin/genixbit-ai-center-gui", 0o755),
             ("packages/genixbit-os-ai-center/bin/genixbit-voice", "usr/bin/genixbit-voice", 0o755),
+            ("packages/genixbit-os-ai-center/bin/genixbit-quant", "usr/bin/genixbit-quant", 0o755),
             ("packages/genixbit-os-ai-center/usr/share/applications/genixbit-ai-center.desktop", "usr/share/applications/genixbit-ai-center.desktop", 0o644),
             ("packages/genixbit-os-ai-center/usr/share/applications/genixbit-voice.desktop", "usr/share/applications/genixbit-voice.desktop", 0o644)
         ]
@@ -185,6 +186,7 @@ PACKAGES = [
             ("packages/genixbit-os-agents/bin/genixbit-agent-studio", "usr/bin/genixbit-agent-studio", 0o755),
             ("packages/genixbit-os-agents/bin/genixbit-guard", "usr/bin/genixbit-guard", 0o755),
             ("packages/genixbit-os-agents/bin/genixbit-sandbox", "usr/bin/genixbit-sandbox", 0o755),
+            ("packages/genixbit-os-agents/bin/genixbit-microvm", "usr/bin/genixbit-microvm", 0o755),
             ("packages/genixbit-os-agents/usr/share/applications/genixbit-agent.desktop", "usr/share/applications/genixbit-agent.desktop", 0o644)
         ]
     },
