@@ -33,7 +33,17 @@ PACKAGES = [
         "depends": "genixbit-os-base-files",
         "description": "GenixBit OS desktop and boot splash theme\n Plymouth boot splash, GTK, icon theme, and desktop styling.",
         "files": [
-            ("packages/genixbit-os-theme/usr/share/glib-2.0/schemas/99_genixbit-os.gschema.override", "usr/share/glib-2.0/schemas/99_genixbit-os.gschema.override", 0o644)
+            ("packages/genixbit-os-theme/usr/share/glib-2.0/schemas/99_genixbit-os.gschema.override", "usr/share/glib-2.0/schemas/99_genixbit-os.gschema.override", 0o644),
+            ("packages/genixbit-os-theme/usr/share/themes/GenixBit-Dark/gnome-shell/gnome-shell.css", "usr/share/themes/GenixBit-Dark/gnome-shell/gnome-shell.css", 0o644),
+            ("packages/genixbit-os-theme/usr/share/themes/GenixBit-Dark/gtk-3.0/gtk.css", "usr/share/themes/GenixBit-Dark/gtk-3.0/gtk.css", 0o644),
+            ("packages/genixbit-os-theme/usr/share/themes/GenixBit-Dark/gtk-4.0/gtk.css", "usr/share/themes/GenixBit-Dark/gtk-4.0/gtk.css", 0o644),
+            ("packages/genixbit-os-theme/usr/share/sounds/genixbit/index.theme", "usr/share/sounds/genixbit/index.theme", 0o644),
+            ("packages/genixbit-os-theme/usr/share/icons/hicolor/scalable/apps/genixbit-ai-center.svg", "usr/share/icons/hicolor/scalable/apps/genixbit-ai-center.svg", 0o644),
+            ("packages/genixbit-os-theme/usr/share/icons/hicolor/scalable/apps/genixbit-agent.svg", "usr/share/icons/hicolor/scalable/apps/genixbit-agent.svg", 0o644),
+            ("packages/genixbit-os-theme/usr/share/icons/hicolor/scalable/apps/genixbit-store.svg", "usr/share/icons/hicolor/scalable/apps/genixbit-store.svg", 0o644),
+            ("packages/genixbit-os-theme/usr/share/icons/hicolor/scalable/apps/genixbit-top.svg", "usr/share/icons/hicolor/scalable/apps/genixbit-top.svg", 0o644),
+            ("packages/genixbit-os-theme/usr/share/icons/hicolor/scalable/apps/genixbit-gpu-diag.svg", "usr/share/icons/hicolor/scalable/apps/genixbit-gpu-diag.svg", 0o644),
+            ("packages/genixbit-os-theme/usr/share/icons/hicolor/scalable/apps/genixbit-dev-setup.svg", "usr/share/icons/hicolor/scalable/apps/genixbit-dev-setup.svg", 0o644)
         ]
     },
     {
@@ -133,6 +143,7 @@ PACKAGES = [
         "description": "GenixBit AI Center model lifecycle manager\n Command-line manager and model lifecycle tool for discovering, downloading,\n installing, and monitoring local AI models on GenixBit OS.",
         "files": [
             ("packages/genixbit-os-ai-center/bin/genixbit-ai-center", "usr/bin/genixbit-ai-center", 0o755),
+            ("packages/genixbit-os-ai-center/bin/genixbit-ai-center-gui", "usr/bin/genixbit-ai-center-gui", 0o755),
             ("packages/genixbit-os-ai-center/usr/share/applications/genixbit-ai-center.desktop", "usr/share/applications/genixbit-ai-center.desktop", 0o644)
         ]
     },

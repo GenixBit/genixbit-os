@@ -2,7 +2,7 @@
 
 [org.gnome.desktop.interface]
 color-scheme='prefer-dark'
-gtk-theme='Adwaita-dark'
+gtk-theme='GenixBit-Dark'
 icon-theme='Adwaita'
 cursor-theme='Yaru'
 font-name='Inter 11'
@@ -25,7 +25,7 @@ primary-color='#07111f'
 
 [org.gnome.desktop.wm.preferences]
 button-layout='appmenu:minimize,maximize,close'
-theme='Adwaita-dark'
+theme='GenixBit-Dark'
 titlebar-font='Inter Bold 11'
 
 [org.gnome.shell]

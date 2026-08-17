@@ -1,0 +1,7 @@
+[Sound Theme]
+Name=GenixBit
+Comment=Official GenixBit OS Glassmorphism Sound Theme
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

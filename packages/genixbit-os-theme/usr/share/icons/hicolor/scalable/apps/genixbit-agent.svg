@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="agent-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00e5ff" />
+      <stop offset="100%" stop-color="#1200ff" />
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="#081426" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+  <!-- Robot Head / Core -->
+  <rect x="34" y="38" width="60" height="52" rx="14" fill="#132742" stroke="url(#agent-grad)" stroke-width="3" />
+  <circle cx="50" cy="58" r="6" fill="#00e5ff" />
+  <circle cx="78" cy="58" r="6" fill="#00e5ff" />
+  <path d="M48 76 Q64 84 80 76" stroke="#00e5ff" stroke-width="3" stroke-linecap="round" fill="none" />
+  <path d="M64 24 L64 38" stroke="#00e5ff" stroke-width="3" stroke-linecap="round" />
+  <circle cx="64" cy="22" r="4" fill="#00e5ff" />
+</svg>

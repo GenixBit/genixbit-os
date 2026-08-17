@@ -830,9 +830,47 @@ Type 'help' to list commands, 'fastfetch', 'genixbit-gpu-diag', or 'genixbit-age
     setInterval(updateClock, 1000);
     updateClock();
 
+    // Audio Synthesizer (Web Audio API)
+    let audioCtx = null;
+    function playSound(type = 'click') {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        if (type === 'click') {
+          osc.frequency.setValueAtTime(580, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.04);
+          gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.04);
+        } else if (type === 'chime') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.2);
+        }
+      } catch (e) {}
+    }
+
+    function copyCode(text, btn) {
+      navigator.clipboard.writeText(text);
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied';
+        setTimeout(() => btn.textContent = orig, 1500);
+      }
+    }
+
     // Window Management
     let topZ = 40;
     function openWindow(id) {
+      playSound('click');
       const win = document.getElementById(id);
       if (!win) return;
       win.style.display = 'flex';
@@ -843,17 +881,20 @@ Type 'help' to list commands, 'fastfetch', 'genixbit-gpu-diag', or 'genixbit-age
       updateDockIndicator(id, true);
     }
     function closeWindow(id) {
+      playSound('click');
       const win = document.getElementById(id);
       if (!win) return;
       win.style.display = 'none';
       updateDockIndicator(id, false);
     }
     function minimizeWindow(id) {
+      playSound('click');
       const win = document.getElementById(id);
       if (!win) return;
       win.classList.add('minimized');
     }
     function maximizeWindow(id) {
+      playSound('click');
       const win = document.getElementById(id);
       if (!win) return;
       win.classList.toggle('maximized');
