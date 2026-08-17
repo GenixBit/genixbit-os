@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=GenixBit Voice Assistant
+Comment=Offline Voice-to-Text Transcription and Multilingual Dictation
+Exec=genixbit-voice listen
+Icon=genixbit-agent
+Terminal=true
+Type=Application
+Categories=Utility;Audio;AI;
+Keywords=Voice;Audio;Speech;Whisper;IndicWav2Vec;Dictation;
+StartupNotify=true
