@@ -16,7 +16,10 @@ PACKAGES = [
         "section": "admin",
         "depends": "base-files",
         "description": "GenixBit OS base system identity files\n Provides system release identity, issue files, and OS branding.",
-        "files": []
+        "files": [
+            ("packages/genixbit-os-base-files/etc/sysctl.d/99-genixbit-ai.conf", "etc/sysctl.d/99-genixbit-ai.conf", 0o644),
+            ("packages/genixbit-os-base-files/etc/security/limits.d/99-genixbit-ai.conf", "etc/security/limits.d/99-genixbit-ai.conf", 0o644)
+        ]
     },
     {
         "name": "genixbit-os-desktop",
