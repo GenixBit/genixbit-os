@@ -5,16 +5,82 @@
 import argparse
 import json
 import os
+import shutil
 import sys
 
 FEATURED_APPS = [
-    {"id": "genixbit-ai-center", "name": "GenixBit AI Center", "category": "AI & Models", "source": "GenixBit Native"},
-    {"id": "genixbit-agents", "name": "GenixBit Agents Bridge", "category": "Developer Tools", "source": "GenixBit Native"},
-    {"id": "docker-ce", "name": "Docker Engine & Compose", "category": "Containers", "source": "System Repo"},
-    {"id": "code", "name": "Visual Studio Code", "category": "IDE", "source": "Flatpak / Official APT"},
-    {"id": "obs-studio", "name": "OBS Studio", "category": "Creator", "source": "Flatpak"},
-    {"id": "blender", "name": "Blender 3D Suite", "category": "Creator", "source": "Flatpak"},
-    {"id": "ollama", "name": "Ollama Local LLM Engine", "category": "AI & Models", "source": "GenixBit AI Runtime"}
+    {
+        "id": "genixbit-ai-center",
+        "name": "GenixBit AI Center",
+        "category": "AI & Models",
+        "source": "GenixBit Native",
+        "command": "genixbit-ai-center",
+        "description": "Integrated local model lifecycle manager, downloader, and runtime monitor."
+    },
+    {
+        "id": "genixbit-agents",
+        "name": "GenixBit Agents Bridge",
+        "category": "Developer Tools",
+        "source": "GenixBit Native",
+        "command": "genixbit-agent",
+        "description": "Integration bridge for Antigravity, Gemini CLI, Cursor, and OpenCode tools."
+    },
+    {
+        "id": "ollama",
+        "name": "Ollama Local LLM Engine",
+        "category": "AI & Models",
+        "source": "Native / Flatpak",
+        "command": "ollama",
+        "description": "Lightweight local LLM server and runner for open-weight models."
+    },
+    {
+        "id": "code",
+        "name": "Visual Studio Code",
+        "category": "Developer Tools",
+        "source": "Official APT / Flatpak",
+        "command": "code",
+        "description": "Popular code editor with rich extension and language support."
+    },
+    {
+        "id": "docker-ce",
+        "name": "Docker Engine & Compose",
+        "category": "Containers & Server",
+        "source": "System Repo",
+        "command": "docker",
+        "description": "Industry-standard containerization platform for modern software."
+    },
+    {
+        "id": "obs-studio",
+        "name": "OBS Studio",
+        "category": "Creator & Media",
+        "source": "Flatpak / APT",
+        "command": "obs",
+        "description": "High-performance video recording and live streaming studio."
+    },
+    {
+        "id": "blender",
+        "name": "Blender 3D Suite",
+        "category": "Creator & Media",
+        "source": "Flatpak / APT",
+        "command": "blender",
+        "description": "Open-source 3D creation suite supporting modeling, rendering, and animation."
+    },
+    {
+        "id": "kdenlive",
+        "name": "Kdenlive Video Editor",
+        "category": "Creator & Media",
+        "source": "Flatpak / APT",
+        "command": "kdenlive",
+        "description": "Non-linear multi-track video editing suite."
+    },
+    {
+        "id": "postman",
+        "name": "Postman API Platform",
+        "category": "Developer Tools",
+        "source": "Flatpak",
+        "command": "postman",
+        "description": "API platform for building, testing, and managing APIs."
+    }
 ]
 
 def list_store():
@@ -22,16 +88,76 @@ def list_store():
     print("                GenixBit OS Curated App Store               ")
     print("============================================================")
     for app in FEATURED_APPS:
-        print(f"[{app['category']:<15}] {app['name']:<28} (Source: {app['source']})")
+        print(f"• {app['name']:<28} [{app['category']:<18}] (Source: {app['source']})")
+        print(f"  ID: {app['id']:<15} | Description: {app['description']}")
+        print("-" * 60)
+
+def search_store(query):
+    print(f"============================================================")
+    print(f"         Search Results for '{query}'                       ")
+    print(f"============================================================")
+    q = query.lower()
+    matches = [a for a in FEATURED_APPS if q in a["name"].lower() or q in a["id"].lower() or q in a["category"].lower() or q in a["description"].lower()]
+    if not matches:
+        print(f"No applications matching '{query}' found.")
+    else:
+        for app in matches:
+            print(f"• {app['name']} (ID: {app['id']}) [{app['category']}]")
+            print(f"  Description: {app['description']}")
+            print(f"  Source: {app['source']}")
+            print("-" * 60)
+
+def info_app(app_id):
+    target = next((a for a in FEATURED_APPS if a["id"].lower() == app_id.lower()), None)
+    if not target:
+        print(f"[ERROR] Application '{app_id}' not found.")
+        return 1
+    print("============================================================")
+    print(f"           Application Profile: {target['name']}            ")
+    print("============================================================")
+    print(f"App ID:       {target['id']}")
+    print(f"Category:     {target['category']}")
+    print(f"Source:       {target['source']}")
+    print(f"Description:  {target['description']}")
+    is_installed = shutil.which(target["command"]) is not None
+    print(f"Status:       {'Installed (' + target['command'] + ' in PATH)' if is_installed else 'Not installed'}")
+    print("\nInstallation Command:")
+    if "Native" in target["source"]:
+        print(f"  sudo apt install {target['id']}")
+    elif "Flatpak" in target["source"]:
+        print(f"  flatpak install flathub {target['id']}")
+    else:
+        print(f"  sudo apt install {target['id']}")
+    print("============================================================")
+    return 0
+
+def status_store():
+    print("============================================================")
+    print("           GenixBit OS Package Subsystems Status            ")
+    print("============================================================")
+    print(f"APT Package Manager:      {'Available' if shutil.which('apt') else 'Unavailable'}")
+    print(f"DPKG Subsystem:           {'Available' if shutil.which('dpkg') else 'Unavailable'}")
+    print(f"Flatpak Sandbox Store:    {'Available' if shutil.which('flatpak') else 'Not installed (optional)'}")
+    print(f"Docker Container Engine:  {'Available' if shutil.which('docker') else 'Not running (optional)'}")
     print("============================================================")
 
 def main():
     parser = argparse.ArgumentParser(description="GenixBit Store CLI Application Manager")
-    parser.add_argument("command", choices=["list", "search", "info"], help="Command to execute")
+    parser.add_argument("command", choices=["list", "search", "info", "status"], help="Command to execute")
+    parser.add_argument("query", nargs="?", default="", help="Query or App ID for search/info")
     args = parser.parse_args()
 
-    if args.command in ("list", "search", "info"):
+    if args.command == "list":
         list_store()
+    elif args.command == "search":
+        search_store(args.query if args.query else "")
+    elif args.command == "info":
+        if not args.query:
+            print("[ERROR] Please specify an app ID. Example: genixbit-store info ollama")
+            sys.exit(1)
+        sys.exit(info_app(args.query))
+    elif args.command == "status":
+        status_store()
 
 if __name__ == "__main__":
     main()

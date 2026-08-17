@@ -32,7 +32,9 @@ PACKAGES = [
         "section": "x11",
         "depends": "genixbit-os-base-files",
         "description": "GenixBit OS desktop and boot splash theme\n Plymouth boot splash, GTK, icon theme, and desktop styling.",
-        "files": []
+        "files": [
+            ("packages/genixbit-os-theme/usr/share/glib-2.0/schemas/99_genixbit-os.gschema.override", "usr/share/glib-2.0/schemas/99_genixbit-os.gschema.override", 0o644)
+        ]
     },
     {
         "name": "genixbit-os-wallpapers",
@@ -96,7 +98,10 @@ PACKAGES = [
         "section": "utils",
         "depends": "genixbit-os-base-files, pciutils, lshw",
         "description": "Hardware & GPU diagnostic package for GenixBit OS\n Automatic NVIDIA, AMD, and Intel GPU detection tool providing CUDA and ROCm\n runtime capability diagnostics for local AI model acceleration.",
-        "files": [("packages/genixbit-os-gpu-diagnostics/bin/genixbit-gpu-diag", "usr/bin/genixbit-gpu-diag", 0o755)]
+        "files": [
+            ("packages/genixbit-os-gpu-diagnostics/bin/genixbit-gpu-diag", "usr/bin/genixbit-gpu-diag", 0o755),
+            ("packages/genixbit-os-gpu-diagnostics/usr/share/applications/genixbit-gpu-diag.desktop", "usr/share/applications/genixbit-gpu-diag.desktop", 0o644)
+        ]
     },
     {
         "name": "genixbit-os-ai-runtime",
@@ -106,7 +111,8 @@ PACKAGES = [
         "description": "AI runtime foundation & local model proxy for GenixBit OS\n Provides local OpenAI-compatible API proxy service, model catalog metadata,\n and hardware-aware Ollama & llama.cpp runtime dispatchers for GenixBit OS.",
         "files": [
             ("packages/genixbit-os-ai-runtime/bin/genixbit-ai-proxy", "usr/bin/genixbit-ai-proxy", 0o755),
-            ("packages/genixbit-os-ai-runtime/usr/share/genixbit-os/models/catalog.json", "usr/share/genixbit-os/models/catalog.json", 0o644)
+            ("packages/genixbit-os-ai-runtime/usr/share/genixbit-os/models/catalog.json", "usr/share/genixbit-os/models/catalog.json", 0o644),
+            ("packages/genixbit-os-ai-runtime/usr/lib/systemd/system/genixbit-ai-proxy.service", "usr/lib/systemd/system/genixbit-ai-proxy.service", 0o644)
         ]
     },
     {
@@ -116,7 +122,8 @@ PACKAGES = [
         "depends": "genixbit-os-base-files, genixbit-os-ai-runtime, genixbit-os-gpu-diagnostics, python3, curl",
         "description": "GenixBit AI Center model lifecycle manager\n Command-line manager and model lifecycle tool for discovering, downloading,\n installing, and monitoring local AI models on GenixBit OS.",
         "files": [
-            ("packages/genixbit-os-ai-center/bin/genixbit-ai-center", "usr/bin/genixbit-ai-center", 0o755)
+            ("packages/genixbit-os-ai-center/bin/genixbit-ai-center", "usr/bin/genixbit-ai-center", 0o755),
+            ("packages/genixbit-os-ai-center/usr/share/applications/genixbit-ai-center.desktop", "usr/share/applications/genixbit-ai-center.desktop", 0o644)
         ]
     },
     {
@@ -126,7 +133,8 @@ PACKAGES = [
         "depends": "genixbit-os-base-files, genixbit-os-ai-runtime, python3, curl",
         "description": "GenixBit Agents integration package for GenixBit OS\n Developer agent bridge connecting GenixBit OS workstations to GenixBit Agents,\n supporting Antigravity, Gemini CLI, Codex, Cursor, and OpenCode tools.",
         "files": [
-            ("packages/genixbit-os-agents/bin/genixbit-agent", "usr/bin/genixbit-agent", 0o755)
+            ("packages/genixbit-os-agents/bin/genixbit-agent", "usr/bin/genixbit-agent", 0o755),
+            ("packages/genixbit-os-agents/usr/share/applications/genixbit-agent.desktop", "usr/share/applications/genixbit-agent.desktop", 0o644)
         ]
     },
     {
@@ -136,7 +144,8 @@ PACKAGES = [
         "depends": "genixbit-os-base-files, genixbit-os-ai-center, python3, curl",
         "description": "GenixBit Store curated application & package manager\n Curated app store interface for developer tools, AI runtimes, server utilities,\n Flatpak applications, and signed GenixBit packages on GenixBit OS.",
         "files": [
-            ("packages/genixbit-os-store/bin/genixbit-store", "usr/bin/genixbit-store", 0o755)
+            ("packages/genixbit-os-store/bin/genixbit-store", "usr/bin/genixbit-store", 0o755),
+            ("packages/genixbit-os-store/usr/share/applications/genixbit-store.desktop", "usr/share/applications/genixbit-store.desktop", 0o644)
         ]
     }
 ]
@@ -144,9 +153,11 @@ PACKAGES = [
 def main():
     out_dir = os.path.abspath("packages/build-debs")
     os.makedirs(out_dir, exist_ok=True)
+    build_root = os.path.abspath("packages/.tmp-build")
+    os.makedirs(build_root, exist_ok=True)
 
     for pkg in PACKAGES:
-        tmp_dir = os.path.abspath(f"/tmp/pkg-build-{pkg['name']}")
+        tmp_dir = os.path.join(build_root, f"pkg-build-{pkg['name']}")
         if os.path.exists(tmp_dir):
             shutil.rmtree(tmp_dir)
 
@@ -177,8 +188,15 @@ Description: {pkg['description']}
 
         cmd = ["dpkg-deb", "-Zxz", "--build", tmp_dir, deb_path]
         subprocess.check_call(cmd)
-        print(f"[PASS] Built {deb_filename} ({os.path.getsize(deb_path)} bytes)")
-        shutil.rmtree(tmp_dir)
+
+        deb_hyphen_filename = f"{pkg['name']}_1.0.0-lts-1_all.deb"
+        deb_hyphen_path = os.path.join(out_dir, deb_hyphen_filename)
+        shutil.copy2(deb_path, deb_hyphen_path)
+
+        print(f"[PASS] Built {deb_filename} & {deb_hyphen_filename} ({os.path.getsize(deb_path)} bytes)")
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    shutil.rmtree(build_root, ignore_errors=True)
 
 if __name__ == "__main__":
     main()

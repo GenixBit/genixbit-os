@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=GenixBit Agent Studio
+Comment=Developer Agent Toolchain Bridge (Antigravity, Gemini, Cursor, Codex)
+Exec=genixbit-agent status
+Icon=genixbit-mark
+Terminal=true
+Type=Application
+Categories=Development;IDE;Utility;
+Keywords=Agent;Antigravity;Gemini;Cursor;Codex;OpenCode;
+StartupNotify=true

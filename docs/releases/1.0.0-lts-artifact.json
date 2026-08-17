@@ -1,0 +1,14 @@
+{
+  "release_version": "1.0.0-lts",
+  "distribution": "GenixBit OS",
+  "base_os": "Ubuntu 26.04 LTS Resolute",
+  "target_arch": "amd64",
+  "iso_filename": "GenixBitOS-1.0.0-lts-2311142213.iso",
+  "iso_size_bytes": 1395864576,
+  "iso_sha256": "229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6",
+  "release_gate": "PASS_LTS_FRESH_INSTALL",
+  "reproducibility": "100% Deterministic (Build A / Build B Bit-for-Bit Verified)",
+  "packages_included": 15,
+  "license": "GPL-3.0-or-later",
+  "support_term": "5 Years (2026-2031)"
+}

@@ -1,2 +1,3 @@
 bin/genixbit-ai-proxy usr/bin/
 usr/share/genixbit-os/models/catalog.json usr/share/genixbit-os/models/
+usr/lib/systemd/system/genixbit-ai-proxy.service usr/lib/systemd/system/

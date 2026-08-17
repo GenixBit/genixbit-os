@@ -6,25 +6,83 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 
 CATALOG_PATH = "/usr/share/genixbit-os/models/catalog.json"
-PROXY_URL = "http://127.0.0.1:11434"
+PROXY_URL = os.environ.get("GENIXBIT_AI_PROXY_URL", "http://127.0.0.1:11434")
+
+def load_catalog():
+    if os.path.exists(CATALOG_PATH):
+        try:
+            with open(CATALOG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            sys.stderr.write(f"[WARN] Error reading catalog: {e}\n")
+    return {
+        "catalog_version": "1.0.0-lts",
+        "models": [
+            {
+                "id": "gemma-3-2b-it",
+                "name": "Gemma 3 2B Instruct",
+                "family": "Gemma",
+                "parameters": "2.6B",
+                "license": "Gemma Terms of Use",
+                "recommended_vram_gb": 4,
+                "recommended_ram_gb": 8,
+                "quantization": "Q4_K_M",
+                "size_mb": 1750,
+                "description": "Lightweight, high-speed local instruction model for coding and agent workflows."
+            },
+            {
+                "id": "qwen3-7b-instruct",
+                "name": "Qwen 3 7B Instruct",
+                "family": "Qwen",
+                "parameters": "7.2B",
+                "license": "Apache-2.0",
+                "recommended_vram_gb": 6,
+                "recommended_ram_gb": 16,
+                "quantization": "Q4_K_M",
+                "size_mb": 4400,
+                "description": "Multilingual and code reasoning model optimized for developer local APIs."
+            },
+            {
+                "id": "deepseek-r1-distill-qwen-7b",
+                "name": "DeepSeek R1 Distill Qwen 7B",
+                "family": "DeepSeek-R1",
+                "parameters": "7.0B",
+                "license": "MIT",
+                "recommended_vram_gb": 6,
+                "recommended_ram_gb": 16,
+                "quantization": "Q4_K_M",
+                "size_mb": 4350,
+                "description": "Distilled reasoning model for complex logic, math, and step-by-step code solutions."
+            },
+            {
+                "id": "indicllm-bharat-v1",
+                "name": "Bharat AI V1 (IndicLLM)",
+                "family": "Bharat AI",
+                "parameters": "7.0B",
+                "license": "GenixBit Community License",
+                "recommended_vram_gb": 6,
+                "recommended_ram_gb": 16,
+                "quantization": "Q4_K_M",
+                "size_mb": 4200,
+                "description": "Specialized Indian language model supporting 22 official scheduled languages."
+            }
+        ]
+    }
 
 def list_catalog():
     print("============================================================")
     print("           GenixBit OS Curated AI Model Catalog             ")
     print("============================================================")
-    if not os.path.exists(CATALOG_PATH):
-        print("[WARN] Model catalog not found at", CATALOG_PATH)
-        return
-    with open(CATALOG_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = load_catalog()
     models = data.get("models", [])
     for idx, m in enumerate(models, 1):
-        print(f"{idx}. {m['name']} ({m['id']})")
-        print(f"   Family: {m['family']} | Parameters: {m['parameters']} | Size: {m['size_mb']} MB")
-        print(f"   RAM Req: {m['recommended_ram_gb']} GB | VRAM Req: {m['recommended_vram_gb']} GB | License: {m['license']}")
+        print(f"{idx}. {m['name']} (ID: {m['id']})")
+        print(f"   Family: {m['family']} | Parameters: {m['parameters']} | Size: {m['size_mb']} MB | Quantization: {m.get('quantization', 'Q4_K_M')}")
+        print(f"   Recommended Specs: {m['recommended_ram_gb']}GB RAM | {m['recommended_vram_gb']}GB VRAM | License: {m['license']}")
         print(f"   Description: {m['description']}")
         print("-" * 60)
 
@@ -33,25 +91,58 @@ def check_status():
     print("           GenixBit OS Local AI Runtime Status              ")
     print("============================================================")
     try:
-        req = urllib.request.urlopen(f"{PROXY_URL}/health", timeout=3)
-        res = json.loads(req.read().decode('utf-8'))
-        print(f"[ONLINE] Proxy Service: {res.get('service')} v{res.get('version')}")
-        print(f"[ONLINE] Endpoint: {PROXY_URL}")
+        req = urllib.request.Request(f"{PROXY_URL}/health", headers={"User-Agent": "genixbit-ai-center/1.0"})
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            res = json.loads(resp.read().decode("utf-8"))
+            print(f"[ONLINE] Proxy Service: {res.get('service')} v{res.get('version')}")
+            print(f"[ONLINE] Endpoint: {PROXY_URL}")
+            hw = res.get("hardware", {})
+            print(f"[ONLINE] Hardware Acceleration: {hw.get('accelerator_type', 'CPU')}")
+            print(f"[ONLINE] Memory Available: {hw.get('memory_available_mb', 0)}MB / {hw.get('memory_total_mb', 0)}MB")
     except Exception as e:
         print(f"[OFFLINE] Proxy Service unreachable at {PROXY_URL} ({e})")
+        print("          Start service with: sudo systemctl start genixbit-ai-proxy")
+    print("============================================================")
+
+def run_prompt(model_id, prompt_text):
+    print(f"[INFO] Sending prompt to {model_id} via {PROXY_URL}...")
+    payload = {
+        "model": model_id,
+        "messages": [{"role": "user", "content": prompt_text}],
+        "stream": False
+    }
+    try:
+        req = urllib.request.Request(
+            f"{PROXY_URL}/v1/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            choices = data.get("choices", [])
+            if choices:
+                print("\n" + choices[0].get("message", {}).get("content", ""))
+            else:
+                print("\n[WARN] No completion choices returned.")
+    except Exception as e:
+        print(f"[ERROR] Inference request failed: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="GenixBit OS AI Center Model & Runtime Manager")
-    parser.add_argument("command", choices=["list", "status", "info"], help="Command to execute")
+    parser.add_argument("command", choices=["list", "status", "info", "run", "doctor"], help="Command to execute")
+    parser.add_argument("--model", type=str, default="gemma-3-2b-it", help="Model ID for 'run' command")
+    parser.add_argument("--prompt", type=str, default="Explain AI-First Linux architecture in one paragraph.", help="Prompt text for 'run' command")
     args = parser.parse_args()
 
     if args.command == "list":
         list_catalog()
     elif args.command == "status":
         check_status()
-    elif args.command == "info":
+    elif args.command == "info" or args.command == "doctor":
         list_catalog()
         check_status()
+    elif args.command == "run":
+        run_prompt(args.model, args.prompt)
 
 if __name__ == "__main__":
     main()

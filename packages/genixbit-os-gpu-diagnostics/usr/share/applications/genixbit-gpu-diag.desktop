@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=GenixBit GPU Diagnostics
+Comment=Hardware & GPU Acceleration Capability Diagnostics
+Exec=genixbit-gpu-diag
+Icon=genixbit-mark
+Terminal=true
+Type=Application
+Categories=System;HardwareSettings;Monitor;
+Keywords=GPU;CUDA;ROCm;SYCL;Hardware;Diagnostics;VRAM;
+StartupNotify=true

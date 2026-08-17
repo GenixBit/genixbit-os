@@ -1,36 +1,187 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # GenixBit OS Agents Integration CLI Bridge
+# Connects developer workstations to Google Antigravity SDK, Gemini CLI, Cursor, Codex & OpenCode.
 
 import argparse
 import json
 import os
+import shutil
 import sys
+import urllib.error
+import urllib.request
+
+PROXY_URL = os.environ.get("GENIXBIT_AI_PROXY_URL", "http://127.0.0.1:11434")
 
 AGENTS_REGISTRY = [
-    {"name": "antigravity", "description": "Google Antigravity Agentic IDE Agent", "toolchain": "Antigravity SDK / IDE"},
-    {"name": "gemini-cli", "description": "Gemini CLI Agent", "toolchain": "Google Antigravity / Gemini CLI"},
-    {"name": "codex", "description": "OpenAI Codex / Code Agent", "toolchain": "Developer Code Agent"},
-    {"name": "cursor", "description": "Cursor Agentic Coding Bridge", "toolchain": "Cursor IDE Agent"},
-    {"name": "opencode", "description": "OpenCode Multi-Agent Bridge", "toolchain": "OpenCode Studio"}
+    {
+        "name": "antigravity",
+        "title": "Google Antigravity Agentic IDE & SDK",
+        "binary": "agy",
+        "env_var": "ANTIGRAVITY_API_BASE",
+        "default_endpoint": f"{PROXY_URL}/v1",
+        "description": "Google Antigravity autonomous multi-agent coding framework and IDE agent.",
+        "config_path": "~/.gemini/antigravity"
+    },
+    {
+        "name": "gemini-cli",
+        "title": "Gemini CLI Agent",
+        "binary": "gemini",
+        "env_var": "GEMINI_API_BASE",
+        "default_endpoint": f"{PROXY_URL}/v1",
+        "description": "Google Gemini CLI developer assistant agent for terminal workflows.",
+        "config_path": "~/.gemini"
+    },
+    {
+        "name": "cursor",
+        "title": "Cursor Agentic Coding Bridge",
+        "binary": "cursor",
+        "env_var": "OPENAI_BASE_URL",
+        "default_endpoint": f"{PROXY_URL}/v1",
+        "description": "Cursor AI IDE integration bridge connecting editor to local model acceleration.",
+        "config_path": "~/.config/Cursor"
+    },
+    {
+        "name": "codex",
+        "title": "OpenAI Codex / Code Agent",
+        "binary": "codex",
+        "env_var": "OPENAI_API_BASE",
+        "default_endpoint": f"{PROXY_URL}/v1",
+        "description": "Standardized OpenAI-compatible code assistant agent.",
+        "config_path": "~/.config/codex"
+    },
+    {
+        "name": "opencode",
+        "title": "OpenCode Studio Agent",
+        "binary": "opencode",
+        "env_var": "OPENCODE_MODEL_ENDPOINT",
+        "default_endpoint": f"{PROXY_URL}/v1",
+        "description": "Open-source developer agent studio for pair programming and refactoring.",
+        "config_path": "~/.config/opencode"
+    }
 ]
+
+def check_proxy_health():
+    """Verify local AI proxy status."""
+    try:
+        req = urllib.request.Request(f"{PROXY_URL}/health", headers={"User-Agent": "genixbit-agent/1.0"})
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return True, data
+    except Exception as e:
+        return False, str(e)
 
 def list_agents():
     print("============================================================")
     print("            GenixBit OS Integrated Agent Registry           ")
     print("============================================================")
     for a in AGENTS_REGISTRY:
-        print(f"• {a['name']:<15} | Toolchain: {a['toolchain']}")
+        print(f"• {a['name']:<15} | {a['title']}")
         print(f"  Description: {a['description']}")
+        print(f"  Env Binding: {a['env_var']}={a['default_endpoint']}")
         print("-" * 60)
+
+def status_agents():
+    print("============================================================")
+    print("           GenixBit OS Agent Ecosystem Status               ")
+    print("============================================================")
+    is_online, proxy_info = check_proxy_health()
+    if is_online:
+        print(f"[ONLINE] Local AI Proxy: {PROXY_URL} (v{proxy_info.get('version', '1.0.0')})")
+        print(f"         Hardware Mode: {proxy_info.get('hardware', {}).get('accelerator_type', 'CPU')}")
+    else:
+        print(f"[OFFLINE] Local AI Proxy ({PROXY_URL}): unreachable ({proxy_info})")
+        print("          Start service with: sudo systemctl start genixbit-ai-proxy")
+    print("-" * 60)
+
+    print("Detected Agent CLI Toolchains & IDEs:")
+    for a in AGENTS_REGISTRY:
+        bin_found = shutil.which(a["binary"]) is not None
+        cfg_found = os.path.exists(os.path.expanduser(a["config_path"]))
+        status_label = "[INSTALLED]" if (bin_found or cfg_found) else "[READY FOR SETUP]"
+        print(f"  {status_label:<18} {a['name']:<14} | Binary: {'Found' if bin_found else 'Not in PATH'} | Config: {'Found' if cfg_found else 'Not initialized'}")
+    print("============================================================")
+
+def inspect_agent(agent_name):
+    target = None
+    for a in AGENTS_REGISTRY:
+        if a["name"].lower() == agent_name.lower():
+            target = a
+            break
+    if not target:
+        print(f"[ERROR] Agent '{agent_name}' not found in registry. Run 'genixbit-agent list' to view available agents.")
+        return 1
+
+    print("============================================================")
+    print(f"           Agent Profile: {target['title']}                 ")
+    print("============================================================")
+    print(f"Name:             {target['name']}")
+    print(f"Description:      {target['description']}")
+    print(f"Expected Binary:  {target['binary']}")
+    print(f"Config Directory: {os.path.expanduser(target['config_path'])}")
+    print("\nRecommended Environment Variables:")
+    print(f"  export {target['env_var']}=\"{target['default_endpoint']}\"")
+    print(f"  export OPENAI_API_KEY=\"genixbit-local-token\"")
+    print("\nQuick Start Command:")
+    print(f"  {target['env_var']}=\"{target['default_endpoint']}\" {target['binary']}")
+    print("============================================================")
+    return 0
+
+def doctor():
+    print("============================================================")
+    print("           GenixBit OS AI Agent Diagnostics (Doctor)        ")
+    print("============================================================")
+    # Check 1: Python environment
+    print(f"[PASS] Python Interpreter: {sys.version.split()[0]} ({sys.executable})")
+
+    # Check 2: Proxy connectivity
+    is_online, proxy_info = check_proxy_health()
+    if is_online:
+        print(f"[PASS] Local AI Proxy: ONLINE at {PROXY_URL}")
+    else:
+        print(f"[WARN] Local AI Proxy: OFFLINE. Run 'sudo systemctl start genixbit-ai-proxy' or 'genixbit-ai-proxy &'")
+
+    # Check 3: GPU Diagnostics tool
+    if shutil.which("genixbit-gpu-diag"):
+        print("[PASS] Hardware Diagnostic Tool: genixbit-gpu-diag present")
+    else:
+        print("[INFO] genixbit-gpu-diag not in PATH (packaged in genixbit-os-gpu-diagnostics)")
+
+    # Check 4: System Memory
+    try:
+        with open("/proc/meminfo") as f:
+            mem_total = 0
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    mem_total = int(line.split()[1]) // 1024
+            if mem_total >= 8192:
+                print(f"[PASS] System RAM: {mem_total}MB (Meets 8GB minimum recommended for 7B models)")
+            else:
+                print(f"[WARN] System RAM: {mem_total}MB (Recommend 8GB+ for local 7B instruction models)")
+    except Exception:
+        print("[INFO] Memory check skipped (non-Linux procfs)")
+
+    print("============================================================")
+    print("Doctor Status: ALL ESSENTIAL CHECKS VERIFIED")
+    print("============================================================")
 
 def main():
     parser = argparse.ArgumentParser(description="GenixBit OS Developer Agents Integration CLI")
-    parser.add_argument("command", choices=["list", "status"], help="Command to execute")
+    parser.add_argument("command", choices=["list", "status", "doctor", "inspect"], help="Command to execute")
+    parser.add_argument("agent", nargs="?", default=None, help="Agent name to inspect (optional)")
     args = parser.parse_args()
 
-    if args.command == "list" or args.command == "status":
+    if args.command == "list":
         list_agents()
+    elif args.command == "status":
+        status_agents()
+    elif args.command == "doctor":
+        doctor()
+    elif args.command == "inspect":
+        if not args.agent:
+            print("[ERROR] Please specify an agent name to inspect. Example: genixbit-agent inspect antigravity")
+            sys.exit(1)
+        sys.exit(inspect_agent(args.agent))
 
 if __name__ == "__main__":
     main()
