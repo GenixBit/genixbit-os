@@ -1,0 +1,38 @@
+{
+  "release_version": "1.1.0",
+  "release_name": "GenixBit OS Shakti",
+  "codename": "shakti",
+  "base_distro": "ubuntu",
+  "base_codename": "resolute",
+  "candidate_branch": "main",
+  "build_date": "2026-08-17",
+  "validation_status": "PASS",
+  "support_lifecycle": "2026-2031_LTS_NEXT",
+  "new_features": [
+    "Bharat AI (IndicLLM) 22 Scheduled Indian Languages Translation & Transliteration",
+    "LAN Model Compute Mesh & Peer VRAM Discovery (genixbit-mesh)",
+    "Zero-Trust Encrypted Remote Developer Tunnel (genixbit-tunnel)",
+    "Offline Speech-to-Text & Assistant Engine (genixbit-voice)",
+    "Native Standalone Desktop GUI Suite (Store, Agent Studio, Monitor)",
+    "High-Definition Vector Terminal Graphics Banner (genixbit-fetch)",
+    "AI Workstation Memory Sysctl Profile (vm.max_map_count=1048576, memlock unlimited)",
+    "Multi-Channel APT Staging & CycloneDX v1.5 SBOM Generation"
+  ],
+  "packages_included": [
+    "genixbit-os-base-files_1.0.0-lts",
+    "genixbit-os-desktop_1.0.0-lts",
+    "genixbit-os-theme_1.0.0-lts",
+    "genixbit-os-wallpapers_1.0.0-lts",
+    "genixbit-os-installer-config_1.0.0-lts",
+    "genixbit-os-archive-keyring_1.0.0-lts",
+    "genixbit-os-apt-config_1.0.0-lts",
+    "genixbit-os-developer-profile_1.0.0-lts",
+    "genixbit-os-server-profile_1.0.0-lts",
+    "genixbit-os-creator-profile_1.0.0-lts",
+    "genixbit-os-gpu-diagnostics_1.0.0-lts",
+    "genixbit-os-ai-runtime_1.0.0-lts",
+    "genixbit-os-ai-center_1.0.0-lts",
+    "genixbit-os-agents_1.0.0-lts",
+    "genixbit-os-store_1.0.0-lts"
+  ]
+}
