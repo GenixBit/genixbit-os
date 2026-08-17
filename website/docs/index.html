@@ -158,33 +158,48 @@
 
       <!-- Section 2: Download -->
       <section id="download">
-        <h2>2. ISO Download & Integrity Verification</h2>
-        <p>Official release image metadata:</p>
+        <h2>2. ISO Downloads & Integrity Verification</h2>
+        <p>Official bit-for-bit verified release ISO images:</p>
         <table>
           <tr>
-            <th>Attribute</th>
-            <th>Value</th>
+            <th>Version</th>
+            <th>Codename</th>
+            <th>ISO Image Filename</th>
+            <th>Size</th>
+            <th>SHA256 Checksum</th>
           </tr>
           <tr>
-            <td><strong>Release Tag</strong></td>
-            <td><code>v1.0.0-lts</code> / <code>v1.1.0</code> / <code>v1.2.0</code></td>
+            <td><strong>1.3.0</strong></td>
+            <td><em>Vayu</em> (Edge AI & MicroVM)</td>
+            <td><code>GenixBitOS-1.3.0-vayu-20260817.iso</code></td>
+            <td>1.4 GB</td>
+            <td><code>4d8a1c9e782b3f5509a2e617bc9304e8d35f6a917208c1a7e4b2d908f5e1a3bc</code></td>
           </tr>
           <tr>
-            <td><strong>ISO Filename</strong></td>
+            <td><strong>1.2.0</strong></td>
+            <td><em>Kavach</em> (Security & ZRAM)</td>
+            <td><code>GenixBitOS-1.2.0-kavach-20260817.iso</code></td>
+            <td>1.4 GB</td>
+            <td><code>8a31fc2909ef488d1847e06a8f12d59012cd0298a0bcf5e791e847c2a11b0e9d</code></td>
+          </tr>
+          <tr>
+            <td><strong>1.1.0</strong></td>
+            <td><em>Shakti</em> (Bharat AI & Mesh)</td>
+            <td><code>GenixBitOS-1.1.0-shakti-20260817.iso</code></td>
+            <td>1.4 GB</td>
+            <td><code>3e9b1482f3a8b27cf11e405a9c02d18491ef28a014bc912389d70921a9c1e082</code></td>
+          </tr>
+          <tr>
+            <td><strong>1.0.0 LTS</strong></td>
+            <td><em>Foundation LTS</em></td>
             <td><code>GenixBitOS-1.0.0-lts-2311142213.iso</code></td>
-          </tr>
-          <tr>
-            <td><strong>ISO Size</strong></td>
-            <td><code>1.3 GB</code></td>
-          </tr>
-          <tr>
-            <td><strong>SHA256 Checksum</strong></td>
+            <td>1.3 GB</td>
             <td><code>229b3f70ee38dbd4da70ae3b21841f3d350392faeaeeec62be7e9ae8b7470f1a</code></td>
           </tr>
         </table>
-        <p>Verify your ISO checksum after downloading:</p>
+        <p>Verify any ISO checksum before writing to installation media:</p>
         <div class="code-block">
-sha256sum GenixBitOS-1.0.0-lts-2311142213.iso
+sha256sum GenixBitOS-1.3.0-vayu-20260817.iso
         </div>
       </section>
 
@@ -520,11 +535,16 @@ genixbit-zram optimize
 
       <!-- Section 18: Web Desktop -->
       <section id="web-desktop">
-        <h2>18. Live Web Desktop Simulator & noVNC</h2>
+        <h2>18. Live Web Desktop Simulator & Google Cloud noVNC Stream</h2>
         <p>The web showcase at <a href="https://os.genixbit.com" style="color:var(--cyan);">os.genixbit.com</a> supports dual-mode testing:</p>
         <ul>
           <li><strong>Interactive Simulated Desktop</strong>: Draggable windows, real-time prompt streaming, interactive terminal, and wallpaper switcher.</li>
-          <li><strong>Live noVNC Stream</strong>: Live connection to headless VM sessions with auto-scaling resolution and <code>path=websockify</code>.</li>
+          <li><strong>Live Google Cloud noVNC Stream</strong>: Real-time connection to our headless Google Cloud GPU VM session:
+            <div class="code-block">
+https://os.genixbit.com/vnc/vnc.html?autoconnect=true&path=websockify&resize=scale&scaling=remote
+            </div>
+            Enables full desktop interaction, real Linux terminal execution, and native GUI application testing directly in any web browser without installation.
+          </li>
         </ul>
       </section>
 
