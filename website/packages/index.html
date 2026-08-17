@@ -178,21 +178,21 @@
 
   <script>
     const PACKAGES = [
-      { name: 'genixbit-os-base-files', ver: '1.0.0-lts', sec: 'base', cat: 'system', files: '/etc/os-release, /etc/issue', desc: 'System identification and release metadata.' },
-      { name: 'genixbit-os-desktop', ver: '1.0.0-lts', sec: 'x11', cat: 'desktop', files: 'GNOME Desktop Environment Metapackage', desc: 'GNOME shell session and default desktop packages.' },
-      { name: 'genixbit-os-theme', ver: '1.0.0-lts', sec: 'x11', cat: 'desktop', files: '99_genixbit-os.gschema.override, plymouth splash, branding SVGs', desc: 'Dark theme defaults, window animations, and Plymouth boot splash.' },
-      { name: 'genixbit-os-wallpapers', ver: '1.0.0-lts', sec: 'x11', cat: 'desktop', files: '/usr/share/backgrounds/genixbit/*.png', desc: 'Official 4K workstation wallpaper artwork.' },
+      { name: 'genixbit-os-base-files', ver: '1.0.0-lts', sec: 'base', cat: 'system', files: '/usr/bin/genixbit-fetch, /etc/profile.d/99-genixbit-shell.sh, /etc/sysctl.d/99-genixbit-ai.conf', desc: 'System identification, fetch banner, dynamic Starship prompt, and AI memory limits.' },
+      { name: 'genixbit-os-desktop', ver: '1.0.0-lts', sec: 'x11', cat: 'desktop', files: 'Centered floating dock profile, macOS dark styling, non-overlapping launchers', desc: 'Clean desktop environment profile with non-overlapping centered dock.' },
+      { name: 'genixbit-os-theme', ver: '1.0.0-lts', sec: 'x11', cat: 'desktop', files: 'GenixBit-Dark GTK theme, Plymouth splash, branding SVGs, icons', desc: 'Dark theme defaults, window animations, and Plymouth boot splash.' },
+      { name: 'genixbit-os-wallpapers', ver: '1.0.0-lts', sec: 'x11', cat: 'desktop', files: '/usr/share/backgrounds/genixbit/*.png (3.7 MB)', desc: 'Official 4K workstation wallpaper artwork and vector backgrounds.' },
       { name: 'genixbit-os-installer-config', ver: '1.0.0-lts', sec: 'admin', cat: 'system', files: 'Calamares branding, HTML installation slides', desc: 'Calamares & Ubiquity installer configuration and slides.' },
       { name: 'genixbit-os-archive-keyring', ver: '1.0.0-lts', sec: 'misc', cat: 'system', files: '/usr/share/keyrings/genixbit-os-archive-keyring.gpg', desc: 'OpenPGP signing keyring for APT repository verification.' },
-      { name: 'genixbit-os-apt-config', ver: '1.0.0-lts', sec: 'admin', cat: 'system', files: '/etc/apt/sources.list.d/genixbit.sources', desc: 'APT repository channels (release, testing, dev).' },
+      { name: 'genixbit-os-apt-config', ver: '1.0.0-lts', sec: 'admin', cat: 'system', files: '/etc/apt/sources.list.d/genixbit.sources', desc: 'APT repository channels (alpha, beta, stable).' },
       { name: 'genixbit-os-developer-profile', ver: '1.0.0-lts', sec: 'metapackages', cat: 'profiles', files: '/usr/bin/genixbit-dev-setup, genixbit-dev-setup.desktop', desc: 'Developer toolchains & automated onboarding provisioner.' },
-      { name: 'genixbit-os-server-profile', ver: '1.0.0-lts', sec: 'metapackages', cat: 'profiles', files: 'Headless service presets & node tools', desc: 'Server management, systemd monitoring, and remote utilities.' },
+      { name: 'genixbit-os-server-profile', ver: '1.0.0-lts', sec: 'metapackages', cat: 'profiles', files: 'Headless service presets & node administration tools', desc: 'Server management, systemd monitoring, and remote utilities.' },
       { name: 'genixbit-os-creator-profile', ver: '1.0.0-lts', sec: 'metapackages', cat: 'profiles', files: 'Audio, video, 3D, and hardware encoder configs', desc: 'Creator tooling, OBS, Blender, and hardware media acceleration.' },
-      { name: 'genixbit-os-gpu-diagnostics', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-gpu-diag, genixbit-gpu-diag.desktop', desc: 'Hardware accelerator inspector (CUDA, ROCm, SYCL, AVX-512).' },
-      { name: 'genixbit-os-ai-runtime', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-ai-proxy, genixbit-ai-proxy.service, catalog.json', desc: 'OpenAI/Ollama local API proxy and systemd service on port 11434.' },
-      { name: 'genixbit-os-ai-center', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-ai-center, genixbit-ai-center.desktop', desc: 'GGUF model downloader, quantization recommender, and prompt runner.' },
-      { name: 'genixbit-os-agents', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-agent, genixbit-agent.desktop', desc: 'Developer agent toolchain bridge (Antigravity, Gemini, Cursor).' },
-      { name: 'genixbit-os-store', ver: '1.0.0-lts', sec: 'utils', cat: 'desktop', files: '/usr/bin/genixbit-store, genixbit-store.desktop', desc: 'Curated developer & AI application catalog manager.' }
+      { name: 'genixbit-os-gpu-diagnostics', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-gpu-diag, /usr/bin/genixbit-top, /usr/bin/genixbit-monitor-gui', desc: 'GPU & NPU hardware accelerator inspector and real-time GUI telemetry monitor.' },
+      { name: 'genixbit-os-ai-runtime', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-ai-proxy, /usr/bin/genixbit-mesh, /usr/bin/genixbit-tunnel, genixbit-mesh.service', desc: 'OpenAI/Ollama local API proxy, LAN compute mesh, and zero-trust remote tunnel.' },
+      { name: 'genixbit-os-ai-center', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-ai-center, /usr/bin/genixbit-voice, /usr/bin/genixbit-ai-center-gui', desc: 'GGUF model downloader, Bharat AI 22-language transliterator, and offline voice engine.' },
+      { name: 'genixbit-os-agents', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-agent, /usr/bin/genixbit-agent-studio, vector code search', desc: 'Developer agent bridge (Google Antigravity SDK, Gemini CLI, Cursor, Vector Search).' },
+      { name: 'genixbit-os-store', ver: '1.0.0-lts', sec: 'utils', cat: 'desktop', files: '/usr/bin/genixbit-store, /usr/bin/genixbit-store-gui, genixbit-store.desktop', desc: 'Curated developer & AI application catalog with standalone graphical store.' }
     ];
 
     let activeFilter = 'all';
