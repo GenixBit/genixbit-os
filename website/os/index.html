@@ -606,11 +606,21 @@
             </div>
             <div class="win-body">
               <div class="terminal-view" id="terminalView" onclick="document.getElementById('termInput').focus()">
-                <div class="term-out" id="termOutput">GenixBit OS 1.0.0 LTS (Ubuntu 26.04 Resolute amd64)
-Type 'help' to list commands, 'fastfetch', 'genixbit-gpu-diag', or 'genixbit-agent doctor'.
+                <div class="term-out" id="termOutput">        ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄          developer@genixbit-workstation
+      ▄█████████████████████▄        OS             GenixBit OS 1.1.0 (Shakti / Resolute-Next)
+     ███████▀▀▀▀▀▀▀▀▀█████████       Kernel         Linux 6.11.0-genixbit-ai (x86_64)
+    ██████▀   ▄▄▄▄▄   ▀███████       Uptime         Active Session (Low Latency Scheduler)
+   ███████   ███████   ████████      Shell          /bin/bash
+   ███████   ▀█████▀   ████████      Desktop        GenixBit macOS-Dark (Glassmorphism + Floating Dock)
+    ██████▄           ▄███████       AI Runtime     ● Port 11434 (OpenAI SSE Proxy / Ollama / llama.cpp)
+     ███████▄▄▄▄▄▄▄▄▄█████████       Bharat AI      22 Scheduled Indian Languages (Transliteration Active)
+      ▀█████████████████████▀        Accelerators   Unified GPU / NPU Kernel Vector Engine (/dev/accel/)
+        ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀          Memory         4.8 GiB / 32.0 GiB (15%) [ZRAM Active]
+
+Type 'help' to list commands, 'fetch', 'voice', 'mesh', 'genixbit-gpu-diag', or 'bharat'.
 </div>
                 <div class="term-line">
-                  <span class="term-prompt">developer@genixbit-lts:~$</span>
+                  <span class="term-prompt">⚡ genixbit ~ (main) ❯</span>
                   <input type="text" class="term-input" id="termInput" onkeydown="handleTerminalKey(event)" autocomplete="off">
                 </div>
               </div>
@@ -1062,39 +1072,89 @@ Type 'help' to list commands, 'fastfetch', 'genixbit-gpu-diag', or 'genixbit-age
 
     function execTermCommand(cmd) {
       const out = document.getElementById('termOutput');
-      out.textContent += `\ndeveloper@genixbit-lts:~$ ${cmd}\n`;
+      out.textContent += `\n⚡ genixbit ~ (main) ❯ ${cmd}\n`;
       const clean = cmd.toLowerCase().trim();
 
       if (clean === 'help') {
-        out.textContent += `Available commands:
-  • fastfetch / neofetch   - Display system logo and workstation specs
-  • genixbit-gpu-diag      - Hardware & GPU diagnostic tool
-  • genixbit-agent doctor  - Check agent bridges (Antigravity, Gemini, Cursor)
-  • genixbit-ai-center list- View curated local model catalog
-  • genixbit-store list    - Display curated applications
-  • uname -a               - Print kernel release and machine architecture
-  • clear                  - Clear terminal output
+        out.textContent += `Available GenixBit OS 1.1.0 Commands:
+  • fetch / genixbit-fetch  - High-definition system & AI status banner
+  • voice / genixbit-voice  - Offline speech-to-text & dictation assistant
+  • mesh / genixbit-mesh    - LAN compute mesh & peer cluster discovery
+  • tunnel / genixbit-tunnel- Zero-trust remote developer access tunnel
+  • top / genixbit-top      - Real-time hardware & AI latency telemetry
+  • bharat                  - 22 Indian languages transliteration & translation
+  • genixbit-gpu-diag       - GPU/NPU vector acceleration inspector
+  • genixbit-agent doctor   - Check autonomous agent toolchains (Antigravity)
+  • genixbit-ai-center list - View curated local GGUF model catalog
+  • clear                   - Clear terminal display
 `;
-      } else if (clean === 'fastfetch' || clean === 'neofetch') {
-        out.textContent += `  █████████   developer@genixbit-lts
-  ██     ██   ----------------------
-  ██  ███     OS: GenixBit OS 1.0.0 LTS (Ubuntu 26.04 Resolute)
-  ██  ███     Host: Workstation x86_64
-  ██     ██   Kernel: 6.8.0-generic
-  █████████   Shell: bash 5.2.21
-              DE: GNOME 46 (Wayland)
-              Theme: GenixBit Dark (Adwaita)
-              AI Runtime: Port 11434 (Online)
-              GPU: NVIDIA RTX / AMD Radeon / Intel Arc
+      } else if (clean === 'fetch' || clean === 'genixbit-fetch' || clean === 'fastfetch' || clean === 'neofetch') {
+        out.textContent += `        ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄          developer@genixbit-workstation
+      ▄█████████████████████▄        OS             GenixBit OS 1.1.0 (Shakti / Resolute-Next)
+     ███████▀▀▀▀▀▀▀▀▀█████████       Kernel         Linux 6.11.0-genixbit-ai (x86_64)
+    ██████▀   ▄▄▄▄▄   ▀███████       Uptime         Active Session (Low Latency Scheduler)
+   ███████   ███████   ████████      Shell          /bin/bash
+   ███████   ▀█████▀   ████████      Desktop        GenixBit macOS-Dark (Glassmorphism + Floating Dock)
+    ██████▄           ▄███████       AI Runtime     ● Port 11434 (OpenAI SSE Proxy / Ollama / llama.cpp)
+     ███████▄▄▄▄▄▄▄▄▄█████████       Bharat AI      22 Scheduled Indian Languages (Transliteration Active)
+      ▀█████████████████████▀        Accelerators   Unified GPU / NPU Kernel Vector Engine (/dev/accel/)
+        ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀          Memory         4.8 GiB / 32.0 GiB (15%) [ZRAM Active]
+`;
+      } else if (clean === 'voice' || clean === 'genixbit-voice') {
+        out.textContent += `============================================================
+   GenixBit Voice Assistant & Offline Speech Transcription  
+============================================================
+• Engine: Whisper-Base & IndicWav2Vec (Zero Cloud Telemetry)
+• Capture: PipeWire / ALSA Audio Subsystem
+• Latency: 134 ms on Unified GPU/NPU
+• State: Listening... Speak your prompt.
+`;
+      } else if (clean === 'mesh' || clean === 'genixbit-mesh') {
+        out.textContent += `============================================================
+      GenixBit OS LAN Compute Mesh Topology (Port 11435)    
+============================================================
+Cluster ID:      genixbit-mesh-f49a
+Active Nodes:    3 Workstations Online
+Total VRAM:      48.0 GiB Pooled Capacity
+Discovered:      192.168.1.102 (RTX 4090 - 24GB VRAM)
+                 192.168.1.108 (AMD RX 7900 - 16GB VRAM)
+                 192.168.1.115 (Intel Core Ultra NPU - 8GB Shared)
+Status:          MESH OPERATIONAL
+`;
+      } else if (clean === 'tunnel' || clean === 'genixbit-tunnel') {
+        out.textContent += `============================================================
+   GenixBit Zero-Trust Remote Developer Tunnel               
+============================================================
+Remote Endpoint: https://tunnel-wkst-921.genixbit.internal
+Bearer Token:    gb_live_sec_99482f1b8a472c
+Encrypted TLS:   ChaCha20-Poly1305 / TLS 1.3 Active
+Connected Devs:  1 Client (MacBook Air Remote Session)
+`;
+      } else if (clean === 'top' || clean === 'genixbit-top') {
+        out.textContent += `GenixBit System Monitor - 16:54:02 up 4:12, 1 user
+Tasks: 218 total, 1 running, 217 sleeping
+%Cpu(s):  6.4 us,  1.2 sy,  0.0 ni, 92.4 id,  0.0 wa
+MiB Mem :  32768.0 total,  27840.0 free,   4928.0 used
+GPU VRAM:  24576.0 total,  18432.0 free,   6144.0 used (Gemma 3 2B Active)
+NPU Load:  8% (Vector Dot-Product Offload Engine)
+Token/s:   48.2 tok/s (Low-Latency Stream)
+`;
+      } else if (clean.startsWith('bharat')) {
+        out.textContent += `============================================================
+   Bharat AI (IndicLLM) Multilingual Subsystem (22 Langs)   
+============================================================
+Phonetic Input: "namaste swagat genixbit"
+Devanagari:     "नमस्ते स्वागत जेनिक्सबिट"
+Translation:    "Welcome to GenixBit AI-First Operating System"
 `;
       } else if (clean === 'genixbit-gpu-diag') {
         out.textContent += `============================================================
       GenixBit OS Hardware & GPU Diagnostic System         
 ============================================================
-Host Kernel:  6.8.0-generic
+Host Kernel:  6.11.0-genixbit-ai
 Architecture: x86_64
---- 1. System Memory: 16384 MB total / 12450 MB available
---- 2. Acceleration: NVIDIA CUDA & ROCm Drivers Detected
+--- 1. System Memory: 32768 MB total / 27840 MB available
+--- 2. Acceleration: NVIDIA CUDA & Intel NPU Drivers Detected
 --- 3. Local LLM Feasibility: EXCELLENT (Capable of 7B-14B models)
 Diagnostic Status: COMPLETE
 `;
@@ -1117,7 +1177,7 @@ Doctor Status: ALL ESSENTIAL CHECKS VERIFIED
 4. Bharat AI V1 IndicLLM (7.0B) - 16GB RAM / 6GB VRAM
 `;
       } else if (clean === 'uname -a') {
-        out.textContent += `Linux genixbit-lts 6.8.0-generic #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux\n`;
+        out.textContent += `Linux genixbit-lts 6.11.0-genixbit-ai #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux\n`;
       } else if (clean === 'clear') {
         out.textContent = '';
       } else {
