@@ -50,7 +50,12 @@ PACKAGES = [
         "section": "admin",
         "depends": "genixbit-os-base-files",
         "description": "GenixBit OS installer configuration and branding\n Calamares and Ubiquity installer slides and autoinstallation profiles.",
-        "files": []
+        "files": [
+            ("packages/genixbit-os-installer-config/usr/share/genixbit-os-installer-config/slides/welcome.html", "usr/share/genixbit-os-installer-config/slides/welcome.html", 0o644),
+            ("packages/genixbit-os-installer-config/usr/share/genixbit-os-installer-config/slides/privacy_security.html", "usr/share/genixbit-os-installer-config/slides/privacy_security.html", 0o644),
+            ("packages/genixbit-os-installer-config/usr/share/genixbit-os-installer-config/slides/ai_runtime.html", "usr/share/genixbit-os-installer-config/slides/ai_runtime.html", 0o644),
+            ("packages/genixbit-os-installer-config/usr/share/genixbit-os-installer-config/slides/developer_profiles.html", "usr/share/genixbit-os-installer-config/slides/developer_profiles.html", 0o644)
+        ]
     },
     {
         "name": "genixbit-os-archive-keyring",
@@ -74,7 +79,10 @@ PACKAGES = [
         "section": "metapackages",
         "depends": "genixbit-os-base-files, genixbit-os-desktop",
         "description": "Developer profile metapackage for GenixBit OS\n Provides developer toolchains, container runtimes, version control,\n and language environments for GenixBit OS developer workstations.",
-        "files": []
+        "files": [
+            ("packages/genixbit-os-developer-profile/bin/genixbit-dev-setup", "usr/bin/genixbit-dev-setup", 0o755),
+            ("packages/genixbit-os-developer-profile/usr/share/applications/genixbit-dev-setup.desktop", "usr/share/applications/genixbit-dev-setup.desktop", 0o644)
+        ]
     },
     {
         "name": "genixbit-os-server-profile",

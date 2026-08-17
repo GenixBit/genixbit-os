@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS Developer Profile Provisioner
+# Automated toolchain configuration for Docker, Python UV, Rust, Node, and Agent SDKs.
+
+set -euo pipefail
+
+echo "============================================================"
+echo "      GenixBit OS Developer Environment Setup Wizard        "
+echo "============================================================"
+
+# 1. User check
+CURRENT_USER="${SUDO_USER:-$USER}"
+USER_HOME=$(eval echo "~$CURRENT_USER")
+
+echo "[INFO] Configuring developer environment for user: $CURRENT_USER"
+echo "[INFO] User home directory: $USER_HOME"
+echo "------------------------------------------------------------"
+
+# 2. Local AI Proxy Environment Variables
+BASHRC="$USER_HOME/.bashrc"
+ZSHRC="$USER_HOME/.zshrc"
+
+setup_env_in_file() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        if ! grep -q "ANTIGRAVITY_API_BASE" "$file"; then
+            echo "[INFO] Adding GenixBit AI & Antigravity SDK environment variables to $(basename "$file")..."
+            cat << 'EOF' >> "$file"
+
+# GenixBit OS Local AI & Developer Agent Toolchain Config
+export ANTIGRAVITY_API_BASE="http://127.0.0.1:11434/v1"
+export OPENAI_API_BASE="http://127.0.0.1:11434/v1"
+export OPENAI_API_KEY="genixbit-local-token"
+export OLLAMA_HOST="http://127.0.0.1:11434"
+EOF
+            echo "[PASS] Environment variables added to $(basename "$file")."
+        else
+            echo "[PASS] GenixBit AI environment variables already configured in $(basename "$file")."
+        fi
+    fi
+}
+
+setup_env_in_file "$BASHRC"
+setup_env_in_file "$ZSHRC"
+
+# 3. Docker Non-Root Group Check
+if command -v docker >/dev/null 2>&1; then
+    if getent group docker >/dev/null 2>&1; then
+        if id -nG "$CURRENT_USER" | grep -qw "docker"; then
+            echo "[PASS] User '$CURRENT_USER' is already in the 'docker' group."
+        else
+            echo "[INFO] Adding user '$CURRENT_USER' to docker group for rootless container execution..."
+            if [ "$(id -u)" -eq 0 ]; then
+                usermod -aG docker "$CURRENT_USER"
+                echo "[PASS] Added to docker group. (Takes effect on next login)."
+            else
+                echo "[NOTE] Run 'sudo usermod -aG docker $CURRENT_USER' to enable rootless docker."
+            fi
+        fi
+    fi
+fi
+
+# 4. Check Local AI Proxy Daemon
+echo "------------------------------------------------------------"
+echo "[INFO] Checking GenixBit AI Runtime Service..."
+if systemctl is-active --quiet genixbit-ai-proxy 2>/dev/null; then
+    echo "[PASS] genixbit-ai-proxy systemd daemon is active."
+else
+    echo "[INFO] AI proxy service is inactive or pending startup."
+    echo "       To enable immediately: sudo systemctl enable --now genixbit-ai-proxy"
+fi
+
+# 5. Git & SSH Configuration
+echo "------------------------------------------------------------"
+echo "[INFO] Checking Git SSH setup..."
+if [ -f "$USER_HOME/.ssh/id_ed25519.pub" ] || [ -f "$USER_HOME/.ssh/id_rsa.pub" ]; then
+    echo "[PASS] SSH public key detected."
+else
+    echo "[INFO] No default SSH key found. To generate one: ssh-keygen -t ed25519 -C '$CURRENT_USER@genixbit-os'"
+fi
+
+echo "============================================================"
+echo "   GenixBit Developer Environment Setup COMPLETE!           "
+echo "============================================================"

@@ -509,11 +509,22 @@
           </div>
           <div class="top-center" id="liveClock">Mon Aug 17 10:30 AM</div>
           <div class="top-right">
+            <div class="top-stat-pill" style="cursor:pointer;" onclick="toggleDesktopMode()" id="modeSwitchPill" title="Switch between Interactive Canvas & Live noVNC Stream">
+              <span>💻 Mode: <strong>Canvas</strong></span>
+            </div>
             <div class="top-stat-pill">
               <span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span>
               <span>AI Runtime: 11434</span>
             </div>
             <span class="top-control-btn" title="System Settings" onclick="toggleWindow('win-settings')">⚙️</span>
+          </div>
+        </div>
+
+        <!-- Live noVNC Stream Container (Toggled via Mode Switch) -->
+        <div id="vncStreamContainer" style="display:none; width:100%; height:calc(100% - 38px); background:#000; position:relative; z-index:90;">
+          <iframe id="vncIframe" src="about:blank" style="width:100%; height:100%; border:0; display:block;" allow="fullscreen; clipboard-read; clipboard-write"></iframe>
+          <div style="position:absolute; top:12px; right:12px; z-index:100; display:flex; gap:8px;">
+            <button class="button" style="min-height:32px; padding:0 12px; font-size:12px; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px);" onclick="toggleDesktopMode()">✕ Exit Live Stream</button>
           </div>
         </div>
 
@@ -1132,6 +1143,31 @@ Doctor Status: ALL ESSENTIAL CHECKS VERIFIED
         btn.classList.add('installed');
         btn.style.opacity = '1';
       }, 900);
+    }
+
+    // Toggle Live noVNC Stream Mode
+    let isVncMode = false;
+    function toggleDesktopMode() {
+      isVncMode = !isVncMode;
+      const vncContainer = document.getElementById('vncStreamContainer');
+      const canvas = document.getElementById('desktopCanvas');
+      const dock = document.querySelector('.dock-container');
+      const pill = document.getElementById('modeSwitchPill');
+      const iframe = document.getElementById('vncIframe');
+
+      if (isVncMode) {
+        vncContainer.style.display = 'block';
+        canvas.style.display = 'none';
+        if (dock) dock.style.display = 'none';
+        pill.innerHTML = `<span>🌐 Mode: <strong style="color:var(--green)">Live noVNC</strong></span>`;
+        iframe.src = "https://os.genixbit.com/vnc.html?autoconnect=true&resize=scale&path=websockify";
+      } else {
+        vncContainer.style.display = 'none';
+        canvas.style.display = 'block';
+        if (dock) dock.style.display = 'block';
+        pill.innerHTML = `<span>💻 Mode: <strong>Canvas</strong></span>`;
+        iframe.src = "about:blank";
+      }
     }
 
     renderStore();

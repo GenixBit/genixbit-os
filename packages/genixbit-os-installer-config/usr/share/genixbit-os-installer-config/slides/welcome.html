@@ -2,14 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Welcome to GenixBit OS</title>
+  <title>Welcome to GenixBit OS 1.0.0 LTS</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: linear-gradient(135deg, #061321 0%, #0B1E31 100%);
-      color: #FFFFFF;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 40px;
+      background: radial-gradient(circle at 15% 10%, rgba(82,217,255,.18), transparent 30rem),
+                  radial-gradient(circle at 85% 90%, rgba(167,107,255,.18), transparent 30rem),
+                  linear-gradient(135deg, #071220 0%, #0d2038 100%);
+      color: #f4f8ff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 48px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -18,41 +20,33 @@
       text-align: center;
       overflow: hidden;
     }
-    .logo {
-      width: 120px;
-      height: 120px;
-      margin-bottom: 24px;
-      filter: drop-shadow(0 0 20px rgba(0, 188, 235, 0.4));
+    .logo-box {
+      width: 96px; height: 96px; border-radius: 24px;
+      background: linear-gradient(135deg, #52d9ff, #4e7bff 55%, #a76bff);
+      box-shadow: 0 0 40px rgba(82,217,255,.35);
+      display: grid; place-items: center;
+      font-size: 44px; font-weight: 950; color: #07111f; margin-bottom: 24px;
     }
     h1 {
-      font-size: 32px;
-      font-weight: 800;
-      margin: 0 0 8px 0;
-      background: linear-gradient(to right, #087FA5, #00BCEB);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      font-size: 34px; font-weight: 850; letter-spacing: -.03em; margin-bottom: 8px;
+      background: linear-gradient(90deg, #52d9ff, #98bcff 45%, #a76bff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .tagline {
-      font-size: 18px;
-      font-weight: 600;
-      color: #00BCEB;
-      margin: 0 0 24px 0;
-      letter-spacing: 2px;
-      text-transform: uppercase;
+    .badge {
+      display: inline-block; padding: 4px 14px; border-radius: 20px;
+      background: rgba(82,217,255,.12); border: 1px solid rgba(82,217,255,.3);
+      color: #52d9ff; font-size: 13px; font-weight: 700; margin-bottom: 20px;
     }
     p {
-      font-size: 16px;
-      line-height: 1.6;
-      max-width: 480px;
-      margin: 0;
-      color: #DDF7FC;
+      font-size: 16px; line-height: 1.65; max-width: 520px;
+      color: #94a9c9;
     }
   </style>
 </head>
 <body>
-  <img class="logo" src="../branding/genixbit-logo.svg" alt="GenixBit OS Logo" />
-  <h1>Welcome to GenixBit OS 0.3.0-alpha</h1>
-  <div class="tagline">Innovate. Integrate. Illuminate</div>
-  <p>Installing your new intelligence-first operating system. Built for advanced agents, modern developer workflows, and premium system control.</p>
+  <div class="logo-box">G</div>
+  <div class="badge">Official Production Release (5-Year LTS)</div>
+  <h1>Welcome to GenixBit OS 1.0.0 LTS</h1>
+  <p>Installing your new intelligence-first operating system. Built on Ubuntu 26.04 Resolute base for local models, developer agents, and sovereign computing.</p>
 </body>
 </html>

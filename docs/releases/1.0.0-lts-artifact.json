@@ -1,14 +1,29 @@
 {
   "release_version": "1.0.0-lts",
-  "distribution": "GenixBit OS",
-  "base_os": "Ubuntu 26.04 LTS Resolute",
-  "target_arch": "amd64",
+  "candidate_branch": "feat/lts-ui-ai-hardening",
+  "candidate_sha": "cc46002d2867c199b7fa354a531bfd8ebac717f3",
   "iso_filename": "GenixBitOS-1.0.0-lts-2311142213.iso",
   "iso_size_bytes": 1395864576,
   "iso_sha256": "229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6",
-  "release_gate": "PASS_LTS_FRESH_INSTALL",
-  "reproducibility": "100% Deterministic (Build A / Build B Bit-for-Bit Verified)",
-  "packages_included": 15,
-  "license": "GPL-3.0-or-later",
-  "support_term": "5 Years (2026-2031)"
+  "build_date": "2026-08-17",
+  "evidence_pr": "225",
+  "validation_status": "PASS",
+  "support_lifecycle": "2026-2031_LTS",
+  "packages_included": [
+    "genixbit-os-base-files_1.0.0-lts",
+    "genixbit-os-desktop_1.0.0-lts",
+    "genixbit-os-theme_1.0.0-lts",
+    "genixbit-os-wallpapers_1.0.0-lts",
+    "genixbit-os-installer-config_1.0.0-lts",
+    "genixbit-os-archive-keyring_1.0.0-lts",
+    "genixbit-os-apt-config_1.0.0-lts",
+    "genixbit-os-developer-profile_1.0.0-lts",
+    "genixbit-os-server-profile_1.0.0-lts",
+    "genixbit-os-creator-profile_1.0.0-lts",
+    "genixbit-os-gpu-diagnostics_1.0.0-lts",
+    "genixbit-os-ai-runtime_1.0.0-lts",
+    "genixbit-os-ai-center_1.0.0-lts",
+    "genixbit-os-agents_1.0.0-lts",
+    "genixbit-os-store_1.0.0-lts"
+  ]
 }
