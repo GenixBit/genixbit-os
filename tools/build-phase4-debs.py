@@ -152,6 +152,7 @@ PACKAGES = [
             ("packages/genixbit-os-ai-runtime/bin/genixbit-ai-proxy", "usr/bin/genixbit-ai-proxy", 0o755),
             ("packages/genixbit-os-ai-runtime/bin/genixbit-mesh", "usr/bin/genixbit-mesh", 0o755),
             ("packages/genixbit-os-ai-runtime/bin/genixbit-tunnel", "usr/bin/genixbit-tunnel", 0o755),
+            ("packages/genixbit-os-ai-runtime/bin/genixbit-hybrid", "usr/bin/genixbit-hybrid", 0o755),
             ("packages/genixbit-os-ai-runtime/usr/share/genixbit-os/models/catalog.json", "usr/share/genixbit-os/models/catalog.json", 0o644),
             ("packages/genixbit-os-ai-runtime/usr/lib/systemd/system/genixbit-ai-proxy.service", "usr/lib/systemd/system/genixbit-ai-proxy.service", 0o644),
             ("packages/genixbit-os-ai-runtime/usr/lib/systemd/system/genixbit-mesh.service", "usr/lib/systemd/system/genixbit-mesh.service", 0o644)
@@ -180,6 +181,7 @@ PACKAGES = [
         "files": [
             ("packages/genixbit-os-agents/bin/genixbit-agent", "usr/bin/genixbit-agent", 0o755),
             ("packages/genixbit-os-agents/bin/genixbit-agent-studio", "usr/bin/genixbit-agent-studio", 0o755),
+            ("packages/genixbit-os-agents/bin/genixbit-guard", "usr/bin/genixbit-guard", 0o755),
             ("packages/genixbit-os-agents/usr/share/applications/genixbit-agent.desktop", "usr/share/applications/genixbit-agent.desktop", 0o644)
         ]
     },
