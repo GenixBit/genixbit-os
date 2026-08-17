@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=GenixBit Hardware & AI Monitor
+Comment=Real-Time System, GPU, NPU, and AI Inference Monitor
+Exec=genixbit-monitor-gui
+Icon=genixbit-top
+Terminal=false
+Type=Application
+Categories=System;Monitor;HardwareSettings;
+Keywords=Monitor;GPU;NPU;VRAM;Telemetry;Top;
+StartupNotify=true
