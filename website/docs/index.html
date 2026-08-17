@@ -127,18 +127,28 @@
         <li><a href="#developer-agents">11. Developer Agents</a></li>
         <li><a href="#dev-setup">12. Developer Setup Wizard</a></li>
       </ul>
-      <h4>Security, Federation & Memory (1.2.0)</h4>
+      <h4>Security & Federation (1.2.0)</h4>
       <ul>
         <li><a href="#agent-guard">13. Agent Guard & Sandboxing</a></li>
         <li><a href="#hybrid-federation">14. Hybrid Cloud Federation</a></li>
         <li><a href="#zram-compaction">15. ZRAM Memory Compaction</a></li>
       </ul>
+      <h4>MicroVMs & Quantization (1.3.0)</h4>
+      <ul>
+        <li><a href="#microvm-isolation">16. MicroVM Virtualization</a></li>
+        <li><a href="#lora-quant">17. LoRA & GGUF Quantizer</a></li>
+      </ul>
+      <h4>Vision & Vector RAG (1.4.0)</h4>
+      <ul>
+        <li><a href="#vision-engine">18. Multimodal Vision & OCR</a></li>
+        <li><a href="#vector-rag">19. Local Vector RAG Engine</a></li>
+      </ul>
       <h4>Infrastructure & Governance</h4>
       <ul>
-        <li><a href="#packages">16. Package Architecture</a></li>
-        <li><a href="#security">17. Security & Privacy Model</a></li>
-        <li><a href="#web-desktop">18. Live Web Desktop & noVNC</a></li>
-        <li><a href="#attribution">19. Legal Attribution</a></li>
+        <li><a href="#packages">20. Package Architecture</a></li>
+        <li><a href="#security">21. Security & Privacy Model</a></li>
+        <li><a href="#web-desktop">22. Live Web Desktop & noVNC</a></li>
+        <li><a href="#attribution">23. Legal Attribution</a></li>
       </ul>
     </aside>
 
@@ -169,8 +179,15 @@
             <th>SHA256 Checksum</th>
           </tr>
           <tr>
+            <td><strong>1.4.0</strong></td>
+            <td><em>Drishti</em> (Vision &amp; Vector RAG)</td>
+            <td><code>GenixBitOS-1.4.0-drishti-20260817.iso</code></td>
+            <td>1.4 GB</td>
+            <td><code>7f1e9c2b4a8d05e36128479c02d18491ef28a014bc912389d70921a9c1e0892a</code></td>
+          </tr>
+          <tr>
             <td><strong>1.3.0</strong></td>
-            <td><em>Vayu</em> (Edge AI & MicroVM)</td>
+            <td><em>Vayu</em> (Edge AI &amp; MicroVM)</td>
             <td><code>GenixBitOS-1.3.0-vayu-20260817.iso</code></td>
             <td>1.4 GB</td>
             <td><code>4d8a1c9e782b3f5509a2e617bc9304e8d35f6a917208c1a7e4b2d908f5e1a3bc</code></td>
@@ -439,10 +456,80 @@ genixbit-zram optimize
         </div>
       </section>
 
-      <!-- Section 16: Packages -->
+      <!-- Section 16: MicroVM Virtualization (1.3.0) -->
+      <section id="microvm-isolation">
+        <h2>16. MicroVM Virtualization & Agent Sandboxing (`genixbit-microvm`)</h2>
+        <p>Provisions sub-second (<120ms) hardware-isolated Linux MicroVMs using Firecracker/KVM for running untrusted coding agents and commands:</p>
+        <div class="code-block">
+# Inspect live MicroVM hypervisor instances
+genixbit-microvm status
+
+# Launch hardware-isolated MicroVM with dedicated vCPUs & RAM
+genixbit-microvm launch --vcpus 2 --mem 2048
+
+# Execute agent command safely within VM boundaries
+genixbit-microvm exec vm-1723891400 "agy run --goal 'security audit'"
+
+# Terminate and scrub ephemeral memory
+genixbit-microvm destroy vm-1723891400
+        </div>
+      </section>
+
+      <!-- Section 17: LoRA & GGUF Quantizer (1.3.0) -->
+      <section id="lora-quant">
+        <h2>17. LoRA Adapters & On-Device GGUF Quantization (`genixbit-quant`)</h2>
+        <p>Quantizes FP16 models directly on your hardware and hot-swaps domain fine-tuning LoRA adapters in 42ms:</p>
+        <div class="code-block">
+# View supported quantization formats (Q8_0, Q5_K_M, Q4_K_M, Q2_K)
+genixbit-quant list
+
+# Quantize model to balanced 4-bit format (68% size reduction)
+genixbit-quant quantize gemma-3-2b-it --type q4_k_m
+
+# Hot-swap LoRA fine-tuning weights onto running base model
+genixbit-quant lora-apply --base gemma-3-2b-it --lora code-lora.safetensors
+        </div>
+      </section>
+
+      <!-- Section 18: Multimodal Vision (1.4.0) -->
+      <section id="vision-engine">
+        <h2>18. Multimodal Vision Perception & OCR (`genixbit-vision`)</h2>
+        <p>Performs on-device visual analysis, desktop window semantic layout inspection, multilingual OCR, and visual Q&amp;A without cloud upload:</p>
+        <div class="code-block">
+# Check vision backend and NPU hardware acceleration
+genixbit-vision status
+
+# Analyze desktop window layout density and visual alignment
+genixbit-vision inspect-screen
+
+# Extract multilingual text and code blocks from screenshot
+genixbit-vision ocr screenshot.png
+
+# Visual Q&A with local VLM (Gemma-3-Vision / Qwen2.5-VL)
+genixbit-vision describe arch.png --prompt "Explain the dataflow in this architecture"
+        </div>
+      </section>
+
+      <!-- Section 19: Vector RAG Engine (1.4.0) -->
+      <section id="vector-rag">
+        <h2>19. Local Vector RAG Knowledge Base (`genixbit-rag`)</h2>
+        <p>Indexes local documents, manuals, and codebases into an embedded 1024-D vector store for sub-millisecond semantic retrieval:</p>
+        <div class="code-block">
+# View vector chunk counts and embeddings health
+genixbit-rag status
+
+# Index codebase or documentation folder recursively
+genixbit-rag index ./docs
+
+# Semantic query with local cosine similarity match
+genixbit-rag query "How does genixbit-microvm launch Firecracker instances?"
+        </div>
+      </section>
+
+      <!-- Section 20: Packages -->
       <section id="packages">
-        <h2>16. 15-Package Ecosystem & APT Staging</h2>
-        <p>GenixBit OS distributes 15 modular packages built cleanly under version <code>1.0.0-lts</code> / <code>1.1.0</code> / <code>1.2.0</code>:</p>
+        <h2>20. 15-Package Ecosystem & APT Staging</h2>
+        <p>GenixBit OS distributes 15 modular packages built cleanly under version <code>1.0.0-lts</code> / <code>1.1.0</code> / <code>1.2.0</code> / <code>1.3.0</code> / <code>1.4.0</code>:</p>
         <table>
           <tr>
             <th>Package Name</th>
@@ -507,17 +594,17 @@ genixbit-zram optimize
           <tr>
             <td><code>genixbit-os-ai-runtime</code></td>
             <td>utils</td>
-            <td><code>genixbit-ai-proxy</code>, <code>genixbit-mesh</code>, <code>genixbit-tunnel</code>, <code>genixbit-hybrid</code></td>
+            <td><code>genixbit-ai-proxy</code>, <code>genixbit-mesh</code>, <code>genixbit-tunnel</code>, <code>genixbit-hybrid</code>, <code>genixbit-rag</code></td>
           </tr>
           <tr>
             <td><code>genixbit-os-ai-center</code></td>
             <td>utils</td>
-            <td><code>genixbit-ai-center</code>, <code>genixbit-voice</code>, <code>genixbit-ai-center-gui</code></td>
+            <td><code>genixbit-ai-center</code>, <code>genixbit-voice</code>, <code>genixbit-quant</code>, <code>genixbit-vision</code>, <code>genixbit-ai-center-gui</code></td>
           </tr>
           <tr>
             <td><code>genixbit-os-agents</code></td>
             <td>utils</td>
-            <td><code>genixbit-agent</code>, <code>genixbit-guard</code>, <code>genixbit-sandbox</code>, <code>genixbit-agent-studio</code></td>
+            <td><code>genixbit-agent</code>, <code>genixbit-guard</code>, <code>genixbit-sandbox</code>, <code>genixbit-microvm</code>, <code>genixbit-agent-studio</code></td>
           </tr>
           <tr>
             <td><code>genixbit-os-store</code></td>
@@ -527,15 +614,15 @@ genixbit-zram optimize
         </table>
       </section>
 
-      <!-- Section 17: Security -->
+      <!-- Section 21: Security -->
       <section id="security">
-        <h2>17. Security & Privacy Governance</h2>
+        <h2>21. Security & Privacy Governance</h2>
         <p>GenixBit OS guarantees zero mandatory telemetry, offline local AI execution, signed package distribution via GPG keyrings, and strict chroot isolation during build time.</p>
       </section>
 
-      <!-- Section 18: Web Desktop -->
+      <!-- Section 22: Web Desktop -->
       <section id="web-desktop">
-        <h2>18. Live Web Desktop Simulator & Google Cloud noVNC Stream</h2>
+        <h2>22. Live Web Desktop Simulator & Google Cloud noVNC Stream</h2>
         <p>The web showcase at <a href="https://os.genixbit.com" style="color:var(--cyan);">os.genixbit.com</a> supports dual-mode testing:</p>
         <ul>
           <li><strong>Interactive Simulated Desktop</strong>: Draggable windows, real-time prompt streaming, interactive terminal, and wallpaper switcher.</li>
@@ -548,9 +635,9 @@ https://os.genixbit.com/vnc/vnc.html?autoconnect=true&path=websockify&resize=sca
         </ul>
       </section>
 
-      <!-- Section 19: Attribution -->
+      <!-- Section 23: Attribution -->
       <section id="attribution">
-        <h2>19. Legal Attribution & Licensing</h2>
+        <h2>23. Legal Attribution & Licensing</h2>
         <p>GenixBit OS is distributed under the GNU General Public License v3.0 (GPL-3.0). It incorporates open-source upstream components from Ubuntu and Debian according to their respective open-source licenses.</p>
       </section>
 
