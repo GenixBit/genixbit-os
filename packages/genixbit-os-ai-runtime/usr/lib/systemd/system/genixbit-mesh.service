@@ -1,0 +1,16 @@
+[Unit]
+Description=GenixBit OS LAN AI Compute Mesh Daemon
+After=network.target genixbit-ai-proxy.service
+Wants=genixbit-ai-proxy.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/genixbit-mesh init
+Restart=on-failure
+RestartSec=5s
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
