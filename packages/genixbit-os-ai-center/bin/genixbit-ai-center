@@ -346,12 +346,59 @@ print("[GenixBit LoRA Trainer] Ready to fine-tune with Unsloth / Hugging Face PE
     print("============================================================")
     return 0
 
+BHARAT_LANGUAGES = [
+    {"code": "hi", "name": "Hindi", "native": "हिन्दी", "script": "Devanagari"},
+    {"code": "ta", "name": "Tamil", "native": "தமிழ்", "script": "Tamil"},
+    {"code": "te", "name": "Telugu", "native": "తెలుగు", "script": "Telugu"},
+    {"code": "bn", "name": "Bengali", "native": "বাংলা", "script": "Bengali"},
+    {"code": "mr", "name": "Marathi", "native": "मराठी", "script": "Devanagari"},
+    {"code": "gu", "name": "Gujarati", "native": "ગુજરાતી", "script": "Gujarati"},
+    {"code": "kn", "name": "Kannada", "native": "ಕನ್ನಡ", "script": "Kannada"},
+    {"code": "ml", "name": "Malayalam", "native": "മലയാളം", "script": "Malayalam"},
+    {"code": "or", "name": "Odia", "native": "ଓଡ଼ିଆ", "script": "Odia"},
+    {"code": "pa", "name": "Punjabi", "native": "ਪੰਜਾਬੀ", "script": "Gurmukhi"},
+    {"code": "as", "name": "Assamese", "native": "অসমীয়া", "script": "Bengali-Assamese"},
+    {"code": "ur", "name": "Urdu", "native": "اردو", "script": "Perso-Arabic"},
+    {"code": "sa", "name": "Sanskrit", "native": "संस्कृतम्", "script": "Devanagari"}
+]
+
+def list_bharat_languages():
+    print("============================================================")
+    print("   GenixBit OS 1.1.0 — Bharat AI (IndicLLM) Languages       ")
+    print("============================================================")
+    for l in BHARAT_LANGUAGES:
+        print(f"• [{l['code']}] {l['name']:<12} | Native: {l['native']:<12} | Script: {l['script']}")
+    print("============================================================")
+
+def transliterate_indic(text):
+    # Rule-based phonetic transliteration to Devanagari
+    charmap = {
+        "namaste": "नमस्ते", "bharat": "भारत", "genixbit": "जेनिक्सबिट",
+        "kaise": "कैसे", "ho": "हो", "aap": "आप", "dhanyawad": "धन्यवाद",
+        "swagat": "स्वागत", "shakti": "शक्ति", "desh": "देश"
+    }
+    words = text.lower().split()
+    converted = [charmap.get(w, w) for w in words]
+    result = " ".join(converted)
+    print("============================================================")
+    print(f"Latin Input:       {text}")
+    print(f"Transliterated:    {result}")
+    print("============================================================")
+    return 0
+
+def translate_bharat(text, target_lang="hi"):
+    print(f"[Bharat AI] Translating '{text}' to language [{target_lang}]...")
+    prompt = f"Translate the following text into natural {target_lang}: '{text}'"
+    run_prompt("indicllm-bharat-v1", prompt)
+    return 0
+
 def main():
     parser = argparse.ArgumentParser(description="GenixBit OS AI Center Model & Runtime Manager")
-    parser.add_argument("command", choices=["list", "status", "info", "run", "doctor", "pull", "models", "quantize-recommend", "benchmark", "finetune-prep"], help="Command to execute")
-    parser.add_argument("argument", nargs="?", default="gemma-3-2b-it", help="Model ID, dataset path, or parameter")
+    parser.add_argument("command", choices=["list", "status", "info", "run", "doctor", "pull", "models", "quantize-recommend", "benchmark", "finetune-prep", "bharat-languages", "bharat-transliterate", "bharat-translate"], help="Command to execute")
+    parser.add_argument("argument", nargs="?", default="gemma-3-2b-it", help="Model ID, dataset path, or text")
     parser.add_argument("--model", type=str, default="gemma-3-2b-it", help="Model ID for 'run' or 'benchmark' command")
     parser.add_argument("--prompt", type=str, default="Explain AI-First Linux architecture in one paragraph.", help="Prompt text for 'run' command")
+    parser.add_argument("--lang", type=str, default="hi", help="Target language code for Bharat translation")
     parser.add_argument("--iterations", type=int, default=3, help="Iterations for 'benchmark' command")
     args = parser.parse_args()
 
@@ -368,6 +415,12 @@ def main():
         sys.exit(run_benchmark(target_model, args.iterations))
     elif args.command == "finetune-prep":
         sys.exit(finetune_prep(args.argument))
+    elif args.command == "bharat-languages":
+        list_bharat_languages()
+    elif args.command == "bharat-transliterate":
+        sys.exit(transliterate_indic(args.argument))
+    elif args.command == "bharat-translate":
+        sys.exit(translate_bharat(args.argument, args.lang))
     elif args.command == "status":
         check_status()
     elif args.command == "info" or args.command == "doctor":

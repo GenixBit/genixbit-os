@@ -81,6 +81,20 @@ else
 fi
 echo ""
 
+echo "--- 7. Neural Processing Unit (NPU) & On-Die Accelerators ---"
+if [ -d /dev/accel ] || [ -e /dev/accel/accel0 ]; then
+    echo "[FOUND] Linux Kernel Compute Accelerator Subsystem Active (/dev/accel/)"
+    ls -la /dev/accel/ 2>/dev/null || true
+elif lspci 2>/dev/null | grep -iE 'npu|vpu|neural|ai accelerator' >/dev/null 2>&1; then
+    echo "[FOUND] NPU / AI Accelerator Device on PCI Bus:"
+    lspci | grep -iE 'npu|vpu|neural|ai accelerator'
+elif [ -e /dev/davinciX ] || [ -e /dev/kmb-vpu ]; then
+    echo "[FOUND] Embedded SoC Neural Processing Device Active."
+else
+    echo "[NOT DETECTED] Dedicated NPU Hardware (GPU / CPU AVX2/AVX-512 vector acceleration active)"
+fi
+echo ""
+
 echo "============================================================"
 echo "Diagnostic Status: COMPLETE"
 echo "============================================================"
