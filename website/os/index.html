@@ -1201,7 +1201,7 @@ Doctor Status: ALL ESSENTIAL CHECKS VERIFIED
         canvas.style.display = 'none';
         if (dock) dock.style.display = 'none';
         pill.innerHTML = `<span>🌐 Mode: <strong style="color:var(--green)">Live noVNC</strong></span>`;
-        iframe.src = "https://os.genixbit.com/vnc.html?autoconnect=true&resize=scale&path=websockify";
+        iframe.src = "https://os.genixbit.com/vnc/vnc.html?autoconnect=true&path=websockify&resize=scale&scaling=remote";
       } else {
         vncContainer.style.display = 'none';
         canvas.style.display = 'block';

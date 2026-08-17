@@ -1,0 +1,6 @@
+bin/genixbit-desktop-setup usr/bin/
+etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/
+etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/
+etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/
+etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/
+etc/skel/.config/autostart/genixbit-desktop-setup.desktop etc/skel/.config/autostart/

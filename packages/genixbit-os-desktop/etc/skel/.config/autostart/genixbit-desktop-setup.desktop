@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=GenixBit Desktop Setup
+Comment=Applies GenixBit OS macOS-style desktop layout and wallpaper
+Exec=/usr/bin/genixbit-desktop-setup
+Terminal=false
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-XFCE-Autostart-Override=true
