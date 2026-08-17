@@ -1,7 +1,7 @@
 {
   "release_version": "1.0.0-lts",
   "candidate_branch": "feat/lts-ui-ai-hardening",
-  "candidate_sha": "cc46002d2867c199b7fa354a531bfd8ebac717f3",
+  "candidate_sha": "99be07a2e4db71db0649d7e7e227d6f377a89cd1",
   "iso_filename": "GenixBitOS-1.0.0-lts-2311142213.iso",
   "iso_size_bytes": 1395864576,
   "iso_sha256": "229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6",
