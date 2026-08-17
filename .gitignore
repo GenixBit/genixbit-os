@@ -64,4 +64,7 @@ transcripts/
 __pycache__/
 *.pyc
 
+# Local Vector Index Cache
+.genixbit/
+
 

@@ -1,0 +1,23 @@
+[Unit]
+Description=GenixBit OS Local AI Proxy & Model Runtime Service
+Documentation=https://docs.os.genixbit.com
+After=network.target local-fs.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/genixbit-ai-proxy --port 11434 --host 127.0.0.1
+Restart=always
+RestartSec=5s
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
+
+# Security Sandboxing
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

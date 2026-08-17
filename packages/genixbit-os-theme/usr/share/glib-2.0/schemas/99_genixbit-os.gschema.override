@@ -1,0 +1,38 @@
+# GenixBit OS 1.0.0 LTS GNOME Desktop Settings & Theme Overrides
+
+[org.gnome.desktop.interface]
+color-scheme='prefer-dark'
+gtk-theme='GenixBit-Dark'
+icon-theme='Adwaita'
+cursor-theme='Yaru'
+font-name='Inter 11'
+document-font-name='Inter 11'
+monospace-font-name='JetBrains Mono 10'
+enable-animations=true
+clock-show-weekday=true
+clock-show-seconds=false
+
+[org.gnome.desktop.background]
+picture-uri='file:///usr/share/backgrounds/genixbit/genixbit-wallpaper-dark.png'
+picture-uri-dark='file:///usr/share/backgrounds/genixbit/genixbit-wallpaper-dark.png'
+picture-options='zoom'
+primary-color='#07111f'
+secondary-color='#081624'
+
+[org.gnome.desktop.screensaver]
+picture-uri='file:///usr/share/backgrounds/genixbit/genixbit-wallpaper-dark.png'
+primary-color='#07111f'
+
+[org.gnome.desktop.wm.preferences]
+button-layout='appmenu:minimize,maximize,close'
+theme='GenixBit-Dark'
+titlebar-font='Inter Bold 11'
+
+[org.gnome.shell]
+favorite-apps=['genixbit-ai-center.desktop', 'genixbit-agent.desktop', 'genixbit-store.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'firefox.desktop']
+
+[org.gnome.mutter]
+center-new-windows=true
+attach-modal-dialogs=true
+dynamic-workspaces=true
+edge-tiling=true

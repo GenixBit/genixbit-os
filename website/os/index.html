@@ -3,467 +3,1215 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS 1.0.0-lts — AI-First. Local-First. Built for Control. Official verified production release based on Ubuntu 26.04 Resolute LTS base.">
+  <meta name="description" content="GenixBit OS 1.0.0-lts — AI-First, Local-First Linux Operating System built on Ubuntu 26.04 Resolute LTS base. Experience the interactive web desktop simulator.">
   <title>GenixBit OS 1.0.0-lts — AI-First. Local-First. Built for Control.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: dark;
       --bg: #07111f;
-      --panel: rgba(16, 32, 56, .75);
-      --panel-hover: rgba(22, 44, 76, .85);
-      --panel-strong: #0e2038;
+      --panel: rgba(14, 28, 50, 0.78);
+      --panel-hover: rgba(20, 38, 68, 0.88);
+      --panel-glass: rgba(12, 24, 44, 0.82);
       --text: #f4f8ff;
-      --muted: #9bb0ce;
-      --line: rgba(255,255,255,.12);
+      --muted: #94a9c9;
+      --line: rgba(255, 255, 255, 0.12);
+      --line-bright: rgba(82, 217, 255, 0.35);
       --cyan: #52d9ff;
-      --blue: #5b78ff;
-      --violet: #a86bff;
+      --blue: #4e7bff;
+      --violet: #a76bff;
       --green: #70e2a2;
-      --warning: #ffc869;
-      --shadow: 0 30px 80px rgba(0,0,0,.5);
-      --glow: 0 0 40px rgba(82,217,255,.2);
+      --amber: #ffc869;
+      --red: #ff5f56;
+      --shadow-lg: 0 32px 80px rgba(0, 0, 0, 0.55);
+      --shadow-window: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      --glow: 0 0 35px rgba(82, 217, 255, 0.25);
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
-      margin: 0;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background:
-        radial-gradient(circle at 15% 0%, rgba(82,217,255,.18), transparent 38rem),
-        radial-gradient(circle at 88% 12%, rgba(168,107,255,.18), transparent 34rem),
-        linear-gradient(180deg, #07111f 0%, #081624 48%, #040912 100%);
+        radial-gradient(circle at 12% 0%, rgba(82,217,255,.16), transparent 38rem),
+        radial-gradient(circle at 88% 8%, rgba(167,107,255,.16), transparent 34rem),
+        linear-gradient(180deg, #07111f 0%, #081624 45%, #040912 100%);
       color: var(--text);
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
     a { color: inherit; text-decoration: none; }
-    .wrap { width: min(1200px, calc(100% - 40px)); margin: 0 auto; }
-    
+    button { font-family: inherit; }
+    .wrap { width: min(1280px, calc(100% - 40px)); margin: 0 auto; }
+
     /* Navigation */
     .nav {
-      position: sticky; top: 0; z-index: 200;
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      background: rgba(7,17,31,.85);
+      position: sticky; top: 0; z-index: 500;
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      background: rgba(7, 17, 31, 0.85);
       border-bottom: 1px solid var(--line);
     }
-    .nav-inner { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .nav-inner { min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
     .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 19px; letter-spacing: -.03em; }
     .mark {
-      width: 40px; height: 40px; border-radius: 12px;
+      width: 38px; height: 38px; border-radius: 11px;
       background: linear-gradient(135deg, var(--cyan), var(--blue) 55%, var(--violet));
-      box-shadow: 0 0 28px rgba(82,217,255,.35);
+      box-shadow: 0 0 24px rgba(82,217,255,.35);
       position: relative;
     }
-    .mark:after { content: "G"; position: absolute; inset: 0; display: grid; place-items: center; color: #07111f; font-weight: 950; font-size: 20px; }
+    .mark:after { content: "G"; position: absolute; inset: 0; display: grid; place-items: center; color: #07111f; font-weight: 950; font-size: 19px; }
     .nav-links { display: flex; align-items: center; gap: 24px; color: var(--muted); font-size: 14px; font-weight: 500; }
     .nav-links a:hover { color: var(--cyan); transition: color .2s ease; }
     
     .button {
-      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-      min-height: 48px; padding: 0 24px; border-radius: 14px;
-      border: 1px solid var(--line); background: rgba(255,255,255,.05);
-      font-weight: 700; font-size: 14px; transition: all .25s cubic-bezier(.16,1,.3,1);
-      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+      min-height: 46px; padding: 0 22px; border-radius: 12px;
+      border: 1px solid var(--line); background: rgba(255,255,255,.06);
+      color: var(--text); font-weight: 700; font-size: 14px;
+      transition: all .2s cubic-bezier(.16,1,.3,1); cursor: pointer;
     }
     .button.primary {
       background: linear-gradient(135deg, var(--cyan), var(--blue));
-      color: #040a14; border: 0; font-size: 15px; font-weight: 800;
-      box-shadow: 0 4px 20px rgba(82,217,255,.25);
+      color: #040912; border: 0; font-weight: 800;
+      box-shadow: 0 4px 18px rgba(82,217,255,.28);
     }
-    .button.primary:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(82,217,255,.45); opacity: 0.96; }
-    .button:hover:not(.primary) { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.25); transform: translateY(-1px); }
+    .button.primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(82,217,255,.45); opacity: 0.96; }
+    .button:hover:not(.primary) { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.28); transform: translateY(-1px); }
 
     /* Hero Section */
-    .hero { padding: 76px 0 68px; position: relative; overflow: hidden; }
-    .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; align-items: flex-start; gap: 44px; }
+    .hero { padding: 56px 0 32px; text-align: center; }
     .eyebrow-badge {
       display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 14px; border-radius: 999px;
+      padding: 6px 16px; border-radius: 999px;
       background: rgba(82,217,255,.1); border: 1px solid rgba(82,217,255,.3);
-      color: var(--cyan); font-size: 13px; font-weight: 750; letter-spacing: .02em;
+      color: var(--cyan); font-size: 13px; font-weight: 750; letter-spacing: .02em; margin-bottom: 20px;
     }
-    .eyebrow-badge .dot-live { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
-    h1 { margin: 20px 0 20px; font-size: clamp(42px, 5.8vw, 74px); line-height: .98; letter-spacing: -.05em; font-weight: 900; }
-    .gradient { background: linear-gradient(90deg, var(--cyan), #9bbdff 45%, var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .dot-live { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+    h1 { font-size: clamp(38px, 5.2vw, 68px); line-height: 1.05; letter-spacing: -.045em; font-weight: 900; max-width: 980px; margin: 0 auto 18px; }
+    .gradient-text { background: linear-gradient(90deg, var(--cyan), #98bcff 45%, var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .lead { max-width: 720px; margin: 0 auto 28px; color: var(--muted); font-size: clamp(16px, 1.7vw, 19px); line-height: 1.6; }
+    .hero-buttons { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 40px; }
 
-    .lead { max-width: 680px; color: var(--muted); font-size: clamp(16px, 1.8vw, 19.5px); line-height: 1.65; }
-    .hero-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; }
-    
-    /* Stats Bar */
-    .stats-bar {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
-      margin-top: 48px; padding: 24px; border-radius: 20px;
-      background: var(--panel); border: 1px solid var(--line);
+    /* ─── LIVE WEB DESKTOP SIMULATOR ─── */
+    .desktop-showcase {
+      margin: 16px auto 60px;
+      border-radius: 24px;
+      border: 1px solid var(--line-bright);
+      background: #091322;
+      box-shadow: var(--shadow-lg), 0 0 50px rgba(82,217,255,.15);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 720px;
+      user-select: none;
+      transition: background 0.4s ease;
+    }
+
+    /* Desktop Wallpaper Themes */
+    .desktop-showcase.theme-dark {
+      background: radial-gradient(circle at 75% 20%, rgba(82,217,255,.18), transparent 32rem), radial-gradient(circle at 20% 80%, rgba(167,107,255,.18), transparent 32rem), linear-gradient(135deg, #071220 0%, #0d2038 50%, #060e1a 100%);
+    }
+    .desktop-showcase.theme-aurora {
+      background: radial-gradient(circle at 60% 10%, rgba(112,226,162,.24), transparent 30rem), radial-gradient(circle at 20% 70%, rgba(82,217,255,.22), transparent 32rem), linear-gradient(135deg, #051a1e 0%, #0b2c34 50%, #031014 100%);
+    }
+    .desktop-showcase.theme-cyber {
+      background: radial-gradient(circle at 80% 30%, rgba(255,95,86,.2), transparent 28rem), radial-gradient(circle at 15% 40%, rgba(82,217,255,.25), transparent 32rem), linear-gradient(135deg, #160a22 0%, #1e1136 50%, #0b0514 100%);
+    }
+    .desktop-showcase.theme-light {
+      background: radial-gradient(circle at 50% 20%, rgba(82,217,255,.25), transparent 35rem), linear-gradient(135deg, #182d4a 0%, #203c62 50%, #102035 100%);
+    }
+
+    /* Top Bar */
+    .top-panel {
+      height: 38px;
+      background: rgba(8, 18, 34, 0.88);
       backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      z-index: 100;
     }
-    .stat-item { text-align: left; }
-    .stat-number { font-size: 28px; font-weight: 900; color: var(--cyan); letter-spacing: -.03em; }
-    .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+    .top-left { display: flex; align-items: center; gap: 16px; }
+    .top-brand { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 750; cursor: pointer; }
+    .top-brand .mini-mark { width: 20px; height: 20px; border-radius: 6px; background: linear-gradient(135deg, var(--cyan), var(--blue)); display: grid; place-items: center; color: #07111f; font-weight: 900; font-size: 11px; }
+    .top-active-app { color: var(--text); font-weight: 600; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,.06); }
+    .top-center { color: var(--text); font-weight: 600; font-size: 13px; letter-spacing: -.01em; }
+    .top-right { display: flex; align-items: center; gap: 14px; }
+    .top-stat-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--cyan); background: rgba(82,217,255,.1); padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(82,217,255,.2); font-weight: 600; }
+    .top-control-btn { cursor: pointer; color: var(--muted); transition: color .15s; }
+    .top-control-btn:hover { color: var(--text); }
 
-    /* Download Spec Box */
-    .download-spec-box {
-      margin-top: 28px; padding: 22px 24px; border-radius: 18px; border: 1px solid rgba(82,217,255,.3);
-      background: rgba(14,32,56,.9); font-size: 13.5px; color: var(--muted); box-shadow: 0 14px 40px rgba(0,0,0,.3);
-    }
-    .download-spec-box .spec-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-    .download-spec-box .spec-row:last-child { border-bottom: 0; }
-    .download-spec-box strong { color: var(--text); }
-    .download-spec-box code { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--cyan); font-size: 12px; word-break: break-all; background: rgba(82,217,255,.08); padding: 3px 8px; border-radius: 6px; }
-
-    .status-alert {
-      margin-top: 18px; padding: 16px 20px; border-radius: 14px; border: 1px solid rgba(112,226,162,.35);
-      background: rgba(112,226,162,.08); color: var(--text); font-size: 13.5px; line-height: 1.5;
-      display: flex; align-items: center; gap: 12px;
+    /* Desktop Canvas */
+    .desktop-canvas {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      padding: 24px;
     }
 
-    /* Terminal Mockup */
-    .terminal {
-      border: 1px solid var(--line); border-radius: 20px; overflow: hidden;
-      background: linear-gradient(180deg, rgba(14,28,48,.96), rgba(5,11,20,.98));
-      box-shadow: var(--shadow); width: 100%;
+    /* Desktop Shortcut Icons */
+    .desktop-shortcuts {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 10;
     }
-    .terminal-bar { height: 46px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 18px; gap: 8px; background: rgba(255,255,255,.03); }
-    .terminal-title { margin-left: auto; color: var(--muted); font-size: 12px; font-family: 'JetBrains Mono', monospace; }
-    .dot { width: 11px; height: 11px; border-radius: 50%; background: #ff5f56; }
-    .dot:nth-child(2) { background: #ffbd2e; }
-    .dot:nth-child(3) { background: #27c93f; }
-    pre { margin: 0; padding: 24px; min-height: 420px; overflow-x: auto; font: 13px/1.8 'JetBrains Mono', ui-monospace, monospace; color: #d8eaff; }
-    .cmd { color: var(--cyan); font-weight: 700; } .ok { color: var(--green); font-weight: 700; } .warn { color: var(--warning); } .comment { color: #6983a5; font-style: italic; }
+    .desktop-icon-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      cursor: pointer;
+      width: 76px;
+      padding: 8px 4px;
+      border-radius: 12px;
+      transition: all .2s cubic-bezier(.16,1,.3,1);
+    }
+    .desktop-icon-btn:hover {
+      background: rgba(255,255,255,.12);
+      backdrop-filter: blur(8px);
+      transform: translateY(-2px);
+    }
+    .desktop-icon-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.35);
+      border: 1px solid rgba(255,255,255,.15);
+    }
+    .desktop-icon-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      text-shadow: 0 2px 4px rgba(0,0,0,.8);
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    /* Floating Windows */
+    .window-frame {
+      position: absolute;
+      border-radius: 16px;
+      background: var(--panel-glass);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: var(--shadow-window);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: opacity .2s, transform .2s, box-shadow .2s;
+      min-width: 320px;
+    }
+    .window-frame.active {
+      border-color: rgba(82,217,255,.45);
+      box-shadow: var(--shadow-window), 0 0 35px rgba(82,217,255,.18);
+    }
+    .window-frame.minimized {
+      transform: scale(0.8) translateY(120px);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .window-frame.maximized {
+      top: 10px !important;
+      left: 10px !important;
+      width: calc(100% - 20px) !important;
+      height: calc(100% - 20px) !important;
+    }
+
+    /* Window Header */
+    .win-header {
+      height: 42px;
+      background: rgba(255,255,255,.04);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      cursor: grab;
+    }
+    .win-controls { display: flex; align-items: center; gap: 8px; }
+    .win-btn { width: 12px; height: 12px; border-radius: 50%; border: 0; cursor: pointer; transition: transform .15s; }
+    .win-btn:hover { transform: scale(1.15); }
+    .win-btn.close { background: #ff5f56; }
+    .win-btn.min { background: #ffbd2e; }
+    .win-btn.max { background: #27c93f; }
+    .win-title { font-size: 13px; font-weight: 650; color: var(--text); display: flex; align-items: center; gap: 6px; }
+    .win-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+    /* Window: AI Center */
+    .ai-center-view { padding: 18px; display: flex; flex-direction: column; gap: 14px; height: 100%; }
+    .ai-top-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .ai-select {
+      background: rgba(14,28,50,.85);
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+    }
+    .ai-chat-box {
+      flex: 1;
+      min-height: 180px;
+      max-height: 220px;
+      overflow-y: auto;
+      background: rgba(6,13,24,.7);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .chat-msg { display: flex; flex-direction: column; gap: 4px; max-width: 90%; }
+    .chat-msg.user { align-self: flex-end; }
+    .chat-msg.user .bubble { background: linear-gradient(135deg, var(--blue), var(--violet)); color: #fff; border-radius: 14px 14px 2px 14px; padding: 8px 14px; }
+    .chat-msg.assistant { align-self: flex-start; }
+    .chat-msg.assistant .bubble { background: rgba(255,255,255,.07); border: 1px solid var(--line); border-radius: 14px 14px 14px 2px; padding: 10px 14px; color: var(--text); }
+    .ai-input-row { display: flex; gap: 8px; }
+    .ai-input {
+      flex: 1; background: rgba(14,28,50,.9); border: 1px solid var(--line);
+      color: var(--text); padding: 10px 14px; border-radius: 10px; font-size: 13.5px; outline: none;
+    }
+    .ai-input:focus { border-color: var(--cyan); box-shadow: 0 0 12px rgba(82,217,255,.25); }
+    .quick-prompts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .quick-pill { font-size: 11.5px; background: rgba(82,217,255,.08); border: 1px solid rgba(82,217,255,.2); color: var(--cyan); padding: 4px 10px; border-radius: 20px; cursor: pointer; transition: all .15s; }
+    .quick-pill:hover { background: rgba(82,217,255,.2); }
+
+    /* Window: Terminal */
+    .terminal-view {
+      background: #040912;
+      padding: 16px;
+      font: 13px/1.7 'JetBrains Mono', monospace;
+      color: #dce7f7;
+      height: 100%;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .term-out { white-space: pre-wrap; margin-bottom: 8px; }
+    .term-line { display: flex; align-items: center; gap: 6px; }
+    .term-prompt { color: var(--cyan); font-weight: 700; }
+    .term-input {
+      flex: 1; background: transparent; border: 0; color: #fff;
+      font: 13px 'JetBrains Mono', monospace; outline: none; caret-color: var(--cyan);
+    }
+
+    /* Window: Store */
+    .store-view { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+    .store-search-bar { width: 100%; padding: 8px 14px; border-radius: 10px; background: rgba(6,14,26,.8); border: 1px solid var(--line); color: #fff; font-size: 13px; outline: none; }
+    .store-categories { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+    .store-cat-pill { font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; background: rgba(255,255,255,.06); border: 1px solid var(--line); cursor: pointer; color: var(--muted); }
+    .store-cat-pill.active { background: var(--cyan); color: #07111f; border-color: var(--cyan); font-weight: 750; }
+    .store-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 240px; overflow-y: auto; }
+    .store-card { background: rgba(14,28,50,.7); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .store-card-info h4 { font-size: 13.5px; font-weight: 700; margin-bottom: 2px; }
+    .store-card-info p { font-size: 11.5px; color: var(--muted); line-height: 1.3; }
+    .store-install-btn { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 0; background: var(--blue); color: #fff; cursor: pointer; transition: all .15s; }
+    .store-install-btn.installed { background: rgba(112,226,162,.2); color: var(--green); border: 1px solid rgba(112,226,162,.4); }
+
+    /* Window: Settings */
+    .settings-view { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .wallpaper-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .wall-thumb {
+      height: 80px; border-radius: 10px; border: 2px solid var(--line);
+      cursor: pointer; position: relative; overflow: hidden; display: flex; align-items: flex-end; padding: 8px;
+      font-size: 12px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,.8);
+    }
+    .wall-thumb.active { border-color: var(--cyan); box-shadow: 0 0 16px rgba(82,217,255,.4); }
+    .wall-thumb.w-dark { background: linear-gradient(135deg, #071220, #0d2038); }
+    .wall-thumb.w-aurora { background: linear-gradient(135deg, #051a1e, #0b2c34); }
+    .wall-thumb.w-cyber { background: linear-gradient(135deg, #160a22, #1e1136); }
+    .wall-thumb.w-light { background: linear-gradient(135deg, #182d4a, #203c62); }
+
+    /* Bottom Dock */
+    .dock-container {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+    }
+    .dock {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      background: rgba(8, 18, 34, 0.82);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 20px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.5);
+    }
+    .dock-item {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+      cursor: pointer;
+      position: relative;
+      transition: transform .18s cubic-bezier(.16,1,.3,1), background .18s;
+    }
+    .dock-item:hover {
+      transform: scale(1.18) translateY(-4px);
+      background: rgba(255,255,255,.16);
+    }
+    .dock-item .dock-dot {
+      position: absolute;
+      bottom: -4px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 6px var(--cyan);
+      display: none;
+    }
+    .dock-item.open .dock-dot { display: block; }
+    .dock-tooltip {
+      position: absolute;
+      top: -30px;
+      background: rgba(6,13,24,.9);
+      border: 1px solid var(--line);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s;
+      white-space: nowrap;
+    }
+    .dock-item:hover .dock-tooltip { opacity: 1; }
 
     /* Sections */
-    section { padding: 80px 0; }
-    .section-title { max-width: 800px; margin-bottom: 44px; }
-    .section-title .eyebrow-badge { margin-bottom: 14px; }
-    h2 { margin: 10px 0 16px; font-size: clamp(32px, 4.4vw, 52px); letter-spacing: -.04em; font-weight: 850; }
+    section { padding: 60px 0; }
+    .section-title { max-width: 800px; margin-bottom: 40px; text-align: left; }
+    h2 { font-size: clamp(30px, 4.2vw, 48px); letter-spacing: -.04em; font-weight: 850; margin: 10px 0 14px; }
     .section-title p { color: var(--muted); font-size: 17px; line-height: 1.65; }
     
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .card {
-      padding: 30px; border: 1px solid var(--line); border-radius: 22px;
+      padding: 28px; border: 1px solid var(--line); border-radius: 20px;
       background: var(--panel); backdrop-filter: blur(14px);
-      box-shadow: 0 12px 40px rgba(0,0,0,.18); transition: all .3s ease;
+      transition: all .25s ease;
     }
-    .card:hover { transform: translateY(-4px); background: var(--panel-hover); border-color: rgba(82,217,255,.3); box-shadow: 0 20px 50px rgba(0,0,0,.35); }
-    .card h3 { margin: 18px 0 10px; font-size: 21px; font-weight: 750; }
-    .card p { margin: 0; color: var(--muted); line-height: 1.65; font-size: 14.5px; }
-    .icon {
-      width: 48px; height: 48px; border-radius: 16px;
-      display: grid; place-items: center;
-      background: linear-gradient(135deg, rgba(82,217,255,.18), rgba(168,107,255,.18));
-      border: 1px solid rgba(82,217,255,.25); font-size: 22px; color: var(--cyan);
-    }
+    .card:hover { transform: translateY(-3px); background: var(--panel-hover); border-color: rgba(82,217,255,.3); box-shadow: 0 16px 45px rgba(0,0,0,.3); }
+    .card-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; background: rgba(82,217,255,.1); color: var(--cyan); margin-bottom: 16px; border: 1px solid rgba(82,217,255,.25); }
+    .card h3 { font-size: 20px; font-weight: 750; margin-bottom: 8px; }
+    .card p { color: var(--muted); font-size: 14.5px; line-height: 1.6; }
 
-    /* Architecture Grid */
-    .distinction-box { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 28px; }
-    .dist-card {
-      padding: 24px; border-radius: 18px; border: 1px solid var(--line);
-      background: rgba(255,255,255,.03); transition: all .25s ease;
+    /* Download Box */
+    .download-card {
+      background: linear-gradient(180deg, rgba(14,28,50,.92), rgba(6,14,26,.95));
+      border: 1px solid var(--line-bright);
+      border-radius: 24px;
+      padding: 36px;
+      box-shadow: var(--shadow-lg);
     }
-    .dist-card:hover { border-color: rgba(82,217,255,.35); background: rgba(82,217,255,.04); }
-    .dist-card h4 { margin: 0 0 10px; font-size: 16px; color: var(--cyan); font-weight: 750; }
-    .dist-card p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
-
-    /* Code Snippet Box */
-    .quick-start {
-      margin-top: 40px; padding: 32px; border-radius: 22px;
-      border: 1px solid var(--line); background: var(--panel);
-    }
-    .quick-start h3 { margin: 0 0 16px; font-size: 22px; font-weight: 800; }
-    .code-row {
-      display: flex; justify-content: space-between; align-items: center; gap: 16px;
-      background: rgba(5,11,20,.9); padding: 14px 20px; border-radius: 12px;
-      border: 1px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 13px;
-      margin-bottom: 12px;
-    }
-    .code-row code { color: var(--cyan); word-break: break-all; }
-
-    /* CTA Section */
-    .cta {
-      margin: 60px 0 100px; padding: 50px; border-radius: 28px;
-      border: 1px solid rgba(82,217,255,.3);
-      background: linear-gradient(135deg, rgba(82,217,255,.12), rgba(91,120,255,.14), rgba(168,107,255,.15));
-      display: flex; justify-content: space-between; align-items: center; gap: 36px;
-      box-shadow: 0 24px 60px rgba(0,0,0,.35);
-    }
-    .cta h2 { margin: 0 0 12px; font-size: 38px; }
-    .cta p { margin: 0; color: var(--muted); font-size: 16px; max-width: 620px; line-height: 1.6; }
-    .cta-buttons { display: flex; gap: 14px; flex-wrap: wrap; }
+    .download-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 32px; align-items: center; }
+    .spec-table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 13.5px; }
+    .spec-table tr { border-bottom: 1px solid var(--line); }
+    .spec-table tr:last-child { border-bottom: 0; }
+    .spec-table td { padding: 10px 0; color: var(--muted); }
+    .spec-table td:last-child { text-align: right; color: var(--text); font-weight: 600; }
+    .spec-table code { font-family: 'JetBrains Mono', monospace; color: var(--cyan); font-size: 12px; }
 
     /* Footer */
-    footer { border-top: 1px solid var(--line); padding: 40px 0 54px; color: var(--muted); font-size: 14px; }
-    .footer-grid { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
-    .footer-links { display: flex; gap: 22px; }
-    .footer-links a:hover { color: var(--cyan); }
+    footer { padding: 48px 0; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+    .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
 
     @media (max-width: 960px) {
-      .nav-links { display: none; }
-      .hero-grid { grid-template-columns: 1fr; }
-      .stats-bar { grid-template-columns: repeat(2, 1fr); }
-      .grid { grid-template-columns: repeat(2, 1fr); }
-      .distinction-box { grid-template-columns: repeat(2, 1fr); }
-      .cta { align-items: flex-start; flex-direction: column; }
-    }
-    @media (max-width: 640px) {
-      .grid, .distinction-box, .stats-bar { grid-template-columns: 1fr; }
-      .hero { padding-top: 50px; }
-      section { padding: 60px 0; }
-      h1 { font-size: 38px; }
-      .code-row { flex-direction: column; align-items: flex-start; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .download-grid { grid-template-columns: 1fr; }
+      .desktop-showcase { height: 620px; }
+      .store-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <!-- Global Navigation -->
-  <nav class="nav">
+
+  <!-- Navigation -->
+  <header class="nav">
     <div class="wrap nav-inner">
-      <a class="brand" href="https://os.genixbit.com">
-        <span class="mark" aria-hidden="true"></span>
+      <a href="https://os.genixbit.com" class="brand">
+        <div class="mark"></div>
         <span>GenixBit OS</span>
       </a>
-      <div class="nav-links">
-        <a href="https://os.genixbit.com">OS Portal</a>
-        <a href="https://docs.os.genixbit.com">Documentation</a>
-        <a href="https://packages.os.genixbit.com">Package Status</a>
-        <a href="https://www.genixbit.com">Company</a>
-        <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
-      </div>
-      <a class="button primary" href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts">
-        <span>v1.0.0-lts Release</span>
-      </a>
+      <nav class="nav-links">
+        <a href="#simulator">Live Desktop</a>
+        <a href="#ai-platform">AI Center</a>
+        <a href="#agents">Agents</a>
+        <a href="#download">Download LTS</a>
+        <a href="https://docs.os.genixbit.com" target="_blank">Docs</a>
+      </nav>
+      <a href="#download" class="button primary">Get 1.0.0 LTS</a>
     </div>
-  </nav>
+  </header>
 
-  <main id="top">
-    <!-- Hero Section -->
-    <header class="hero">
-      <div class="wrap hero-grid">
-        <div>
-          <div class="eyebrow-badge">
-            <span class="dot-live"></span>
-            <span>GenixBit OS 1.0.0-lts Official Production Release</span>
+  <!-- Hero Section -->
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow-badge">
+        <span class="dot-live"></span>
+        <span>GenixBit OS 1.0.0 LTS Official Release</span>
+      </div>
+      <h1>Build with Local AI.<br><span class="gradient-text">Own Your Operating System.</span></h1>
+      <p class="lead">
+        An AI-first, developer-focused Linux distribution built on Ubuntu 26.04 Resolute base. 
+        Accelerate models, run autonomous developer agents, and experience smooth local computing with zero telemetry.
+      </p>
+      <div class="hero-buttons">
+        <a href="#simulator" class="button primary">Try Live Desktop Simulator</a>
+        <a href="#download" class="button">Download ISO (1.3 GB)</a>
+      </div>
+    </section>
+
+    <!-- LIVE WEB DESKTOP SIMULATOR -->
+    <section id="simulator">
+      <div class="desktop-showcase theme-dark" id="desktopContainer">
+        
+        <!-- Top System Bar -->
+        <div class="top-panel">
+          <div class="top-left">
+            <div class="top-brand" onclick="toggleWindow('win-settings')">
+              <div class="mini-mark">G</div>
+              <span>GenixBit</span>
+            </div>
+            <span class="top-active-app" id="topActiveAppName">AI Center</span>
           </div>
-          <h1>AI-First. Local-First.<br><span class="gradient">Built for Control.</span></h1>
-          <p class="lead">A local-first, secure, and reproducible operating system engineered for AI workflows, private models, developer workstations, and autonomous agent frameworks. Built upon Ubuntu 26.04 Resolute LTS base.</p>
+          <div class="top-center" id="liveClock">Mon Aug 17 10:30 AM</div>
+          <div class="top-right">
+            <div class="top-stat-pill" style="cursor:pointer;" onclick="toggleDesktopMode()" id="modeSwitchPill" title="Switch between Interactive Canvas & Live noVNC Stream">
+              <span>💻 Mode: <strong>Canvas</strong></span>
+            </div>
+            <div class="top-stat-pill">
+              <span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span>
+              <span>AI Runtime: 11434</span>
+            </div>
+            <span class="top-control-btn" title="System Settings" onclick="toggleWindow('win-settings')">⚙️</span>
+          </div>
+        </div>
+
+        <!-- Live noVNC Stream Container (Toggled via Mode Switch) -->
+        <div id="vncStreamContainer" style="display:none; width:100%; height:calc(100% - 38px); background:#000; position:relative; z-index:90;">
+          <iframe id="vncIframe" src="about:blank" style="width:100%; height:100%; border:0; display:block;" allow="fullscreen; clipboard-read; clipboard-write"></iframe>
+          <div style="position:absolute; top:12px; right:12px; z-index:100; display:flex; gap:8px;">
+            <button class="button" style="min-height:32px; padding:0 12px; font-size:12px; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px);" onclick="toggleDesktopMode()">✕ Exit Live Stream</button>
+          </div>
+        </div>
+
+        <!-- Desktop Area -->
+        <div class="desktop-canvas" id="desktopCanvas">
           
-          <!-- Primary Actions -->
-          <div class="hero-actions">
-            <a class="button primary" href="https://os.genixbit.com/vnc/vnc.html?autoconnect=true&path=websockify&resize=scale&scaling=remote" target="_blank" style="background: linear-gradient(135deg, #00c6ff, #0072ff); font-weight: 800;">
-              🖥️ Launch Web Desktop UI Demo
-            </a>
-            <a class="button" href="https://github.com/GenixBit/genixbit-os/releases/download/v1.0.0-lts/GenixBitOS-1.0.0-lts-2311142213.iso">
-              ⬇ Download 1.0.0-lts ISO (1.3 GB)
-            </a>
-            <a class="button" href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts">
-              GitHub Release Notes
-            </a>
-            <a class="button" href="https://docs.os.genixbit.com">
-              Installation Guide
-            </a>
+          <!-- Desktop Shortcuts -->
+          <div class="desktop-shortcuts">
+            <button class="desktop-icon-btn" onclick="openWindow('win-ai-center')">
+              <div class="desktop-icon-badge" style="background: linear-gradient(135deg, #52d9ff, #4e7bff);">✨</div>
+              <span class="desktop-icon-label">AI Center</span>
+            </button>
+            <button class="desktop-icon-btn" onclick="openWindow('win-terminal')">
+              <div class="desktop-icon-badge" style="background: #040912; color: #52d9ff;">>_</div>
+              <span class="desktop-icon-label">Terminal</span>
+            </button>
+            <button class="desktop-icon-btn" onclick="openWindow('win-store')">
+              <div class="desktop-icon-badge" style="background: linear-gradient(135deg, #a76bff, #ff5f56);">🛍️</div>
+              <span class="desktop-icon-label">App Store</span>
+            </button>
+            <button class="desktop-icon-btn" onclick="openWindow('win-agents')">
+              <div class="desktop-icon-badge" style="background: linear-gradient(135deg, #70e2a2, #52d9ff);">🤖</div>
+              <span class="desktop-icon-label">Agents</span>
+            </button>
           </div>
 
-          <!-- Download Specifications Box -->
-          <div class="download-spec-box">
-            <div class="spec-row"><span>Filename:</span> <strong>GenixBitOS-1.0.0-lts-2311142213.iso</strong></div>
-            <div class="spec-row"><span>Size:</span> <strong>1.3 GB (1,395,851,264 bytes)</strong></div>
-            <div class="spec-row"><span>Architecture:</span> <strong>amd64 (x86_64)</strong></div>
-            <div class="spec-row"><span>Validation Gate Status:</span> <strong>PASS_LTS_FRESH_INSTALL (16/16 Scenarios PASSED)</strong></div>
-            <div class="spec-row"><span>SHA-256:</span> <code>229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</code></div>
+          <!-- Window 1: AI Center -->
+          <div class="window-frame active" id="win-ai-center" style="top: 30px; left: 120px; width: 560px; height: 460px; z-index: 30;">
+            <div class="win-header" onmousedown="startDrag(event, 'win-ai-center')">
+              <div class="win-controls">
+                <button class="win-btn close" onclick="closeWindow('win-ai-center')"></button>
+                <button class="win-btn min" onclick="minimizeWindow('win-ai-center')"></button>
+                <button class="win-btn max" onclick="maximizeWindow('win-ai-center')"></button>
+              </div>
+              <div class="win-title">✨ GenixBit AI Center — Local Model Engine</div>
+              <div style="font-size: 11px; color: var(--cyan);">Port: 11434</div>
+            </div>
+            <div class="win-body">
+              <div class="ai-center-view">
+                <div class="ai-top-row">
+                  <select class="ai-select" id="modelSelect" onchange="onModelChange()">
+                    <option value="gemma-3-2b-it">Gemma 3 2B Instruct (2.6B params)</option>
+                    <option value="qwen3-7b-instruct">Qwen 3 7B Instruct (7.2B params)</option>
+                    <option value="deepseek-r1-distill-qwen-7b">DeepSeek R1 Distill Qwen 7B</option>
+                    <option value="indicllm-bharat-v1">Bharat AI V1 IndicLLM (7.0B)</option>
+                  </select>
+                  <span style="font-size: 12px; color: var(--green); font-weight: 600;" id="modelSpecs">RAM: 8GB | VRAM: 4GB</span>
+                </div>
+                <div class="ai-chat-box" id="aiChatBox">
+                  <div class="chat-msg assistant">
+                    <div class="bubble">
+                      👋 Welcome to <strong>GenixBit OS AI Center</strong>. Local inference engine online with OpenAI-compatible endpoint at <code>http://127.0.0.1:11434/v1</code>. Select a model or enter a prompt below.
+                    </div>
+                  </div>
+                </div>
+                <div class="quick-prompts">
+                  <span class="quick-pill" onclick="sendQuickPrompt('Explain AI-First Linux architecture in one sentence.')">⚡ What is AI-First OS?</span>
+                  <span class="quick-pill" onclick="sendQuickPrompt('Show me how to connect Google Antigravity agent.')">🤖 Connect Antigravity</span>
+                  <span class="quick-pill" onclick="sendQuickPrompt('How does local GPU CUDA/ROCm acceleration work?')">🚀 GPU Acceleration</span>
+                </div>
+                <div class="ai-input-row">
+                  <input type="text" class="ai-input" id="aiPromptInput" placeholder="Ask local model anything..." onkeydown="if(event.key==='Enter') sendPrompt()">
+                  <button class="button primary" style="min-height: 40px; padding: 0 16px;" onclick="sendPrompt()">Run</button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="status-alert">
-            <span>✅</span>
-            <div><strong>1.0.0-lts Production Release Certified:</strong> Passed 100% of candidate validation scenarios (16/16). Bit-for-bit Build A/B deterministic reproducibility and QEMU UEFI/BIOS autoinstallation verified.</div>
+          <!-- Window 2: Terminal -->
+          <div class="window-frame" id="win-terminal" style="top: 100px; left: 320px; width: 580px; height: 390px; z-index: 20;">
+            <div class="win-header" onmousedown="startDrag(event, 'win-terminal')">
+              <div class="win-controls">
+                <button class="win-btn close" onclick="closeWindow('win-terminal')"></button>
+                <button class="win-btn min" onclick="minimizeWindow('win-terminal')"></button>
+                <button class="win-btn max" onclick="maximizeWindow('win-terminal')"></button>
+              </div>
+              <div class="win-title">developer@genixbit-lts: ~</div>
+              <div style="font-size: 11px; color: var(--muted);">bash 5.2</div>
+            </div>
+            <div class="win-body">
+              <div class="terminal-view" id="terminalView" onclick="document.getElementById('termInput').focus()">
+                <div class="term-out" id="termOutput">GenixBit OS 1.0.0 LTS (Ubuntu 26.04 Resolute amd64)
+Type 'help' to list commands, 'fastfetch', 'genixbit-gpu-diag', or 'genixbit-agent doctor'.
+</div>
+                <div class="term-line">
+                  <span class="term-prompt">developer@genixbit-lts:~$</span>
+                  <input type="text" class="term-input" id="termInput" onkeydown="handleTerminalKey(event)" autocomplete="off">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Window 3: Store -->
+          <div class="window-frame" id="win-store" style="top: 50px; left: 220px; width: 620px; height: 420px; display: none; z-index: 25;">
+            <div class="win-header" onmousedown="startDrag(event, 'win-store')">
+              <div class="win-controls">
+                <button class="win-btn close" onclick="closeWindow('win-store')"></button>
+                <button class="win-btn min" onclick="minimizeWindow('win-store')"></button>
+                <button class="win-btn max" onclick="maximizeWindow('win-store')"></button>
+              </div>
+              <div class="win-title">🛍️ GenixBit App Store — Curated Software</div>
+              <div style="font-size: 11px; color: var(--cyan);">Flatpak & APT</div>
+            </div>
+            <div class="win-body">
+              <div class="store-view">
+                <input type="text" class="store-search-bar" id="storeSearch" placeholder="Search developer tools, AI engines, creator apps..." oninput="filterStore()">
+                <div class="store-categories">
+                  <span class="store-cat-pill active" onclick="setStoreCategory('all', this)">All</span>
+                  <span class="store-cat-pill" onclick="setStoreCategory('ai', this)">AI & Models</span>
+                  <span class="store-cat-pill" onclick="setStoreCategory('dev', this)">Developer Tools</span>
+                  <span class="store-cat-pill" onclick="setStoreCategory('creator', this)">Creator & 3D</span>
+                </div>
+                <div class="store-grid" id="storeGrid">
+                  <!-- Generated via JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Window 4: Agents -->
+          <div class="window-frame" id="win-agents" style="top: 70px; left: 160px; width: 540px; height: 400px; display: none; z-index: 24;">
+            <div class="win-header" onmousedown="startDrag(event, 'win-agents')">
+              <div class="win-controls">
+                <button class="win-btn close" onclick="closeWindow('win-agents')"></button>
+                <button class="win-btn min" onclick="minimizeWindow('win-agents')"></button>
+                <button class="win-btn max" onclick="maximizeWindow('win-agents')"></button>
+              </div>
+              <div class="win-title">🤖 GenixBit Agent Studio</div>
+              <div style="font-size: 11px; color: var(--green);">Ready</div>
+            </div>
+            <div class="win-body" style="padding: 18px;">
+              <h4 style="margin-bottom: 8px;">Autonomous Agent Framework Integration</h4>
+              <p style="font-size: 13px; color: var(--muted); margin-bottom: 14px;">Connect developer coding agents directly to GenixBit OS local models:</p>
+              <div style="background: rgba(6,13,24,.8); padding: 12px; border-radius: 10px; border: 1px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--cyan); margin-bottom: 14px;">
+                # Configure Google Antigravity & Gemini CLI<br>
+                export ANTIGRAVITY_API_BASE="http://127.0.0.1:11434/v1"<br>
+                export OPENAI_API_KEY="genixbit-local-token"<br>
+                agy --model gemma-3-2b-it
+              </div>
+              <button class="button primary" style="width: 100%; min-height: 40px;" onclick="sendQuickPrompt('Agent framework Antigravity verified and online.'); openWindow('win-ai-center');">Launch Agent Session in AI Center</button>
+            </div>
+          </div>
+
+          <!-- Window 5: Settings -->
+          <div class="window-frame" id="win-settings" style="top: 80px; left: 260px; width: 480px; height: 380px; display: none; z-index: 28;">
+            <div class="win-header" onmousedown="startDrag(event, 'win-settings')">
+              <div class="win-controls">
+                <button class="win-btn close" onclick="closeWindow('win-settings')"></button>
+                <button class="win-btn min" onclick="minimizeWindow('win-settings')"></button>
+                <button class="win-btn max" onclick="maximizeWindow('win-settings')"></button>
+              </div>
+              <div class="win-title">⚙️ Desktop Customization & Wallpapers</div>
+              <div style="font-size: 11px; color: var(--cyan);">Theme</div>
+            </div>
+            <div class="win-body">
+              <div class="settings-view">
+                <h4 style="font-size: 14px;">Select Workstation Wallpaper Theme</h4>
+                <div class="wallpaper-grid">
+                  <div class="wall-thumb w-dark active" onclick="setWallpaperTheme('theme-dark', this)">Midnight Deep</div>
+                  <div class="wall-thumb w-aurora" onclick="setWallpaperTheme('theme-aurora', this)">Emerald Aurora</div>
+                  <div class="wall-thumb w-cyber" onclick="setWallpaperTheme('theme-cyber', this)">Cyber Pulse</div>
+                  <div class="wall-thumb w-light" onclick="setWallpaperTheme('theme-light', this)">Solar Indigo</div>
+                </div>
+                <div style="font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px;">
+                  GenixBit OS 1.0.0 LTS • GNOME 46+ with Wayland & X11 support.
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Floating Bottom Dock -->
+        <div class="dock-container">
+          <div class="dock">
+            <div class="dock-item open" onclick="openWindow('win-ai-center')" id="dock-ai-center">
+              <span>✨</span>
+              <div class="dock-tooltip">AI Center</div>
+              <div class="dock-dot"></div>
+            </div>
+            <div class="dock-item open" onclick="openWindow('win-terminal')" id="dock-terminal">
+              <span>>_</span>
+              <div class="dock-tooltip">Terminal</div>
+              <div class="dock-dot"></div>
+            </div>
+            <div class="dock-item" onclick="openWindow('win-store')" id="dock-store">
+              <span>🛍️</span>
+              <div class="dock-tooltip">App Store</div>
+              <div class="dock-dot"></div>
+            </div>
+            <div class="dock-item" onclick="openWindow('win-agents')" id="dock-agents">
+              <span>🤖</span>
+              <div class="dock-tooltip">Agent Studio</div>
+              <div class="dock-dot"></div>
+            </div>
+            <div class="dock-item" onclick="openWindow('win-settings')" id="dock-settings">
+              <span>⚙️</span>
+              <div class="dock-tooltip">Settings</div>
+              <div class="dock-dot"></div>
+            </div>
           </div>
         </div>
 
-        <!-- Terminal Live Preview -->
-        <div class="terminal" aria-label="GenixBit OS terminal verification preview">
-          <div class="terminal-bar">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            <span class="terminal-title">genixbit-os-terminal ~ 1.0.0-lts</span>
-          </div>
-          <pre><span class="cmd">$ cat /etc/os-release</span>
-NAME="GenixBit OS"
-VERSION="1.0.0-lts"
-ID=genixbit
-PRETTY_NAME="GenixBit OS 1.0.0-lts (Resolute)"
-UBUNTU_CODENAME=resolute
+      </div>
+    </section>
 
-<span class="cmd">$ sha256sum GenixBitOS-1.0.0-lts-2311142213.iso</span>
-<span class="ok">229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</span>  GenixBitOS-1.0.0-lts-2311142213.iso
-
-<span class="cmd">$ genixbit-gpu-diag</span>
-<span class="ok">✓</span> Acceleration: NVIDIA / AMD / Intel GPU & CUDA/ROCm Runtime Active
-
-<span class="cmd">$ genixbit-ai-proxy --health</span>
-<span class="ok">✓</span> Local AI Proxy: ONLINE (127.0.0.1:11434) [OpenAI API Compatible]
-
-<span class="cmd">$ genixbit-ai-center list</span>
-<span class="ok">✓</span> Curated Models: Gemma 3 (2.6B), Qwen 3 (7.2B), DeepSeek-R1 (7.0B), Bharat AI V1
-
-<span class="cmd">$ genixbit-agent --status</span>
-<span class="ok">✓</span> Agent Bridge: Antigravity SDK, Gemini CLI, Codex, Cursor, OpenCode
-
-<span class="cmd">$ genixbit-store list</span>
-<span class="ok">✓</span> GenixBit Store: Developer Tools, AI Runtimes, Flatpaks & Native Packages
-<span class="comment"># Status: GenixBit OS 1.0.0 LTS Production Certified & Ready</span></pre>
-        </div>
+    <!-- AI First Platform Features -->
+    <section id="ai-platform">
+      <div class="section-title">
+        <div class="eyebrow-badge">Hardware-Aware Acceleration</div>
+        <h2>Integrated Local AI Stack</h2>
+        <p>Run open-weight models locally with zero telemetry, zero mandatory cloud sign-ups, and automatic multi-vendor GPU acceleration.</p>
       </div>
 
-      <!-- Quick Metrics Counter -->
-      <div class="wrap">
-        <div class="stats-bar">
-          <div class="stat-item">
-            <div class="stat-number">16 / 16</div>
-            <div class="stat-label">Candidate Gate Scenarios Passed</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-number">100%</div>
-            <div class="stat-label">Build A/B Bit Deterministic</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-number">1.3 GB</div>
-            <div class="stat-label">Compact Resolute ISO Size</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-number">26.04</div>
-            <div class="stat-label">Ubuntu Resolute Development Base</div>
-          </div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <h3>Local OpenAI-Compatible API</h3>
+          <p>Standardized proxy listening on <code>127.0.0.1:11434</code> with streaming SSE completions, model discovery, and RAG embeddings.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🚀</div>
+          <h3>Multi-Vendor GPU Support</h3>
+          <p>Automatic detection for NVIDIA CUDA, AMD ROCm, Intel SYCL/oneAPI, and CPU AVX-512 acceleration with <code>genixbit-gpu-diag</code>.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔒</div>
+          <h3>100% Offline & Private</h3>
+          <p>Your prompt data and source code never leave your machine. Completely isolated build and package distribution.</p>
         </div>
       </div>
-    </header>
+    </section>
 
-    <!-- Platform Architecture & Verification -->
-    <section id="distinction">
-      <div class="wrap">
-        <div class="section-title">
-          <div class="eyebrow-badge">Architecture & Verification</div>
-          <h2>Clear distinction between release gate certification and infrastructure.</h2>
-          <p>We maintain strict, fail-closed transparency across our build releases, staging validation exercises, OpenPGP signer isolation, and local AI runtime architecture.</p>
-        </div>
-        <div class="distinction-box">
-          <div class="dist-card">
-            <h4>1. Verified 1.0.0-lts Release</h4>
-            <p>Full <strong>1.0.0-lts</strong> release gate passed (16/16 scenarios). Official 1.3 GB ISO published on GitHub Releases.</p>
+    <!-- Download LTS Section -->
+    <section id="download">
+      <div class="download-card">
+        <div class="download-grid">
+          <div>
+            <div class="eyebrow-badge">Verified Production Artifact</div>
+            <h2 style="font-size: 32px; margin-bottom: 12px;">Download GenixBit OS 1.0.0 LTS</h2>
+            <p style="color: var(--muted); font-size: 15px; line-height: 1.6; margin-bottom: 24px;">
+              Production ISO release verified bit-for-bit deterministic with 5-Year Long Term Support (2026–2031).
+            </p>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <a href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts" class="button primary" target="_blank">Download ISO (1.3 GB)</a>
+              <button class="button" onclick="navigator.clipboard.writeText('229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6'); alert('SHA256 checksum copied to clipboard!');">Copy SHA256</button>
+            </div>
           </div>
-          <div class="dist-card">
-            <h4>2. Bit-for-Bit Determinism</h4>
-            <p>Compiled across independent build passes (Build A & Build B) with 100% identical SHA-256 byte output verification.</p>
-          </div>
-          <div class="dist-card">
-            <h4>3. QEMU VM Autoinstallation</h4>
-            <p>Automated boot, live desktop, and systemd autoinstallation verified across both UEFI and BIOS virtual machine targets.</p>
-          </div>
-          <div class="dist-card">
-            <h4>4. OpenPGP Key Isolation</h4>
-            <p>Passphrase-protected 3-role OpenPGP key pair separation enforces strict client APT tamper rejection across channels.</p>
+          <div>
+            <table class="spec-table">
+              <tr>
+                <td>Target Architecture</td>
+                <td>amd64 (x86_64)</td>
+              </tr>
+              <tr>
+                <td>Base OS</td>
+                <td>Ubuntu 26.04 Resolute LTS</td>
+              </tr>
+              <tr>
+                <td>ISO Filename</td>
+                <td><code>GenixBitOS-1.0.0-lts-2311142213.iso</code></td>
+              </tr>
+              <tr>
+                <td>SHA256 Checksum</td>
+                <td><code>229b3f...3ce6</code></td>
+              </tr>
+              <tr>
+                <td>Support Lifetime</td>
+                <td>5 Years (2026–2031)</td>
+              </tr>
+            </table>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Key Capabilities Section -->
-    <section id="features">
-      <div class="wrap">
-        <div class="section-title">
-          <div class="eyebrow-badge">Key Capabilities</div>
-          <h2>Engineered for developers, creators, and AI engineers.</h2>
-          <p>Designed from the ground up for privacy, performance, and complete hardware control.</p>
-        </div>
-        <div class="grid">
-          <article class="card">
-            <div class="icon">◈</div>
-            <h3>Local-first AI Workflows</h3>
-            <p>Run private model inference locally without mandating third-party cloud API keys or unverified telemetry. Your code and weights stay on your workstation.</p>
-          </article>
-          <article class="card">
-            <div class="icon">⌘</div>
-            <h3>Developer-Grade Tooling</h3>
-            <p>Pre-configured development runtimes, container engines, modern terminals, git workflows, and autonomous AI agent framework integrations.</p>
-          </article>
-          <article class="card">
-            <div class="icon">⬡</div>
-            <h3>Strict Package Trust</h3>
-            <p>Passphrase-protected OpenPGP key signing, snapshot management, atomic rollback capabilities, and fail-closed APT client security.</p>
-          </article>
-          <article class="card">
-            <div class="icon">∞</div>
-            <h3>Ubuntu 26.04 Base</h3>
-            <p>Built on the long-term, stable foundation of Ubuntu 26.04 Resolute with custom GenixBit desktop artwork, Plymouth boot splash, and system utilities.</p>
-          </article>
-          <article class="card">
-            <div class="icon">▣</div>
-            <h3>Headless & Desktop</h3>
-            <p>Flexible installation options for developer workstations, local AI inference servers, and containerized development environments.</p>
-          </article>
-          <article class="card">
-            <div class="icon">✦</div>
-            <h3>Open Attribution</h3>
-            <p>100% open source under GPL-3.0 with full legal copyright attribution for all upstream Linux and Ubuntu packages.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- Quick Start Commands Section -->
-    <section id="quickstart">
-      <div class="wrap">
-        <div class="quick-start">
-          <h3>Quick Start Installation Commands</h3>
-          
-          <p style="color: var(--muted); margin-bottom: 20px;">1. Verify ISO Checksum:</p>
-          <div class="code-row">
-            <code>sha256sum GenixBitOS-1.0.0-lts-2311142213.iso</code>
-            <span style="color: var(--green); font-size: 12px; font-weight: 700;">Expected: 229b3f70f94d0ced...</span>
-          </div>
-
-          <p style="color: var(--muted); margin-bottom: 20px; margin-top: 24px;">2. Create Bootable USB Media (replace /dev/sdX carefully):</p>
-          <div class="code-row">
-            <code>sudo dd if=GenixBitOS-1.0.0-lts-2311142213.iso of=/dev/sdX bs=4M status=progress conv=fdatasync</code>
-          </div>
-
-          <p style="color: var(--muted); margin-bottom: 20px; margin-top: 24px;">3. Test under QEMU / KVM Virtual Machine:</p>
-          <div class="code-row">
-            <code>qemu-system-x86_64 -m 4096 -smp 2 -enable-kvm -cdrom GenixBitOS-1.0.0-lts-2311142213.iso</code>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CTA Section -->
-    <div class="wrap">
-      <div class="cta">
-        <div>
-          <h2>Get Started with GenixBit OS 1.0.0-lts</h2>
-          <p>Download the official verified ISO image or inspect the complete 16/16 candidate validation gate certification on GitHub.</p>
-        </div>
-        <div class="cta-buttons">
-          <a class="button primary" href="https://github.com/GenixBit/genixbit-os/releases/download/v1.0.0-lts/GenixBitOS-1.0.0-lts-2311142213.iso">
-            Download ISO (1.3 GB)
-          </a>
-          <a class="button" href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts">
-            GitHub Release Page
-          </a>
-        </div>
-      </div>
-    </div>
   </main>
 
-  <!-- Global Footer -->
+  <!-- Footer -->
   <footer>
-    <div class="wrap footer-grid">
-      <span>© 2016-2026 GenixBit Labs Private Limited. All Rights Reserved.</span>
-      <div class="footer-links">
-        <a href="https://www.genixbit.com">Company</a>
-        <a href="https://os.genixbit.com">OS Portal</a>
-        <a href="https://docs.os.genixbit.com">Documentation</a>
-        <a href="https://packages.os.genixbit.com">Package Status</a>
-        <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
+    <div class="wrap footer-inner">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="mini-mark" style="width: 24px; height: 24px; border-radius: 6px; background: linear-gradient(135deg, var(--cyan), var(--blue)); display: grid; place-items: center; color: #07111f; font-weight: 900; font-size: 12px;">G</div>
+        <span>© 2026 GenixBit Labs Private Limited. Distributed under GPL-3.0.</span>
+      </div>
+      <div style="display: flex; gap: 20px;">
+        <a href="https://docs.os.genixbit.com" target="_blank">Documentation</a>
+        <a href="https://packages.os.genixbit.com" target="_blank">Package Repository</a>
+        <a href="https://github.com/GenixBit/genixbit-os" target="_blank">GitHub</a>
       </div>
     </div>
   </footer>
+
+  <!-- Desktop Interactive Logic -->
+  <script>
+    // Clock
+    function updateClock() {
+      const d = new Date();
+      const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      const clockEl = document.getElementById('liveClock');
+      if (clockEl) clockEl.textContent = d.toLocaleDateString('en-US', options);
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Audio Synthesizer (Web Audio API)
+    let audioCtx = null;
+    function playSound(type = 'click') {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        if (type === 'click') {
+          osc.frequency.setValueAtTime(580, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.04);
+          gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.04);
+        } else if (type === 'chime') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.2);
+        }
+      } catch (e) {}
+    }
+
+    function copyCode(text, btn) {
+      navigator.clipboard.writeText(text);
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied';
+        setTimeout(() => btn.textContent = orig, 1500);
+      }
+    }
+
+    // Window Management
+    let topZ = 40;
+    function openWindow(id) {
+      playSound('click');
+      const win = document.getElementById(id);
+      if (!win) return;
+      win.style.display = 'flex';
+      win.classList.remove('minimized');
+      win.classList.add('active');
+      win.style.zIndex = ++topZ;
+      updateActiveAppTitle(id);
+      updateDockIndicator(id, true);
+    }
+    function closeWindow(id) {
+      playSound('click');
+      const win = document.getElementById(id);
+      if (!win) return;
+      win.style.display = 'none';
+      updateDockIndicator(id, false);
+    }
+    function minimizeWindow(id) {
+      playSound('click');
+      const win = document.getElementById(id);
+      if (!win) return;
+      win.classList.add('minimized');
+    }
+    function maximizeWindow(id) {
+      playSound('click');
+      const win = document.getElementById(id);
+      if (!win) return;
+      win.classList.toggle('maximized');
+    }
+    function toggleWindow(id) {
+      const win = document.getElementById(id);
+      if (!win) return;
+      if (win.style.display === 'none' || win.classList.contains('minimized')) {
+        openWindow(id);
+      } else {
+        closeWindow(id);
+      }
+    }
+    function updateActiveAppTitle(id) {
+      const titles = {
+        'win-ai-center': 'AI Center',
+        'win-terminal': 'Terminal',
+        'win-store': 'App Store',
+        'win-agents': 'Agent Studio',
+        'win-settings': 'Settings'
+      };
+      const titleEl = document.getElementById('topActiveAppName');
+      if (titleEl && titles[id]) titleEl.textContent = titles[id];
+    }
+    function updateDockIndicator(id, isOpen) {
+      const dockMap = {
+        'win-ai-center': 'dock-ai-center',
+        'win-terminal': 'dock-terminal',
+        'win-store': 'dock-store',
+        'win-agents': 'dock-agents',
+        'win-settings': 'dock-settings'
+      };
+      const dockEl = document.getElementById(dockMap[id]);
+      if (dockEl) {
+        if (isOpen) dockEl.classList.add('open');
+        else dockEl.classList.remove('open');
+      }
+    }
+
+    // Dragging
+    let draggingWin = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    function startDrag(e, id) {
+      const win = document.getElementById(id);
+      if (!win || win.classList.contains('maximized')) return;
+      draggingWin = win;
+      win.style.zIndex = ++topZ;
+      updateActiveAppTitle(id);
+      const rect = win.getBoundingClientRect();
+      const canvasRect = document.getElementById('desktopCanvas').getBoundingClientRect();
+      dragOffsetX = e.clientX - rect.left;
+      dragOffsetY = e.clientY - rect.top;
+      document.addEventListener('mousemove', onDrag);
+      document.addEventListener('mouseup', stopDrag);
+    }
+    function onDrag(e) {
+      if (!draggingWin) return;
+      const canvas = document.getElementById('desktopCanvas');
+      const canvasRect = canvas.getBoundingClientRect();
+      let newX = e.clientX - canvasRect.left - dragOffsetX;
+      let newY = e.clientY - canvasRect.top - dragOffsetY;
+      newX = Math.max(0, Math.min(newX, canvasRect.width - 200));
+      newY = Math.max(0, Math.min(newY, canvasRect.height - 100));
+      draggingWin.style.left = newX + 'px';
+      draggingWin.style.top = newY + 'px';
+    }
+    function stopDrag() {
+      draggingWin = null;
+      document.removeEventListener('mousemove', onDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    }
+
+    // Wallpaper Switcher
+    function setWallpaperTheme(themeClass, el) {
+      const container = document.getElementById('desktopContainer');
+      container.className = 'desktop-showcase ' + themeClass;
+      document.querySelectorAll('.wall-thumb').forEach(t => t.classList.remove('active'));
+      if (el) el.classList.add('active');
+    }
+
+    // AI Center Simulation
+    const MODEL_SPECS = {
+      'gemma-3-2b-it': 'RAM: 8GB | VRAM: 4GB | Speed: ~62 tok/s',
+      'qwen3-7b-instruct': 'RAM: 16GB | VRAM: 6GB | Speed: ~48 tok/s',
+      'deepseek-r1-distill-qwen-7b': 'RAM: 16GB | VRAM: 6GB | Speed: ~44 tok/s',
+      'indicllm-bharat-v1': 'RAM: 16GB | VRAM: 6GB | Speed: ~46 tok/s'
+    };
+    function onModelChange() {
+      const select = document.getElementById('modelSelect');
+      const specsEl = document.getElementById('modelSpecs');
+      if (select && specsEl) {
+        specsEl.textContent = MODEL_SPECS[select.value] || 'RAM: 8GB | VRAM: 4GB';
+      }
+    }
+
+    function sendQuickPrompt(text) {
+      document.getElementById('aiPromptInput').value = text;
+      sendPrompt();
+    }
+
+    function sendPrompt() {
+      const input = document.getElementById('aiPromptInput');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+
+      const chatBox = document.getElementById('aiChatBox');
+      const userMsg = document.createElement('div');
+      userMsg.className = 'chat-msg user';
+      userMsg.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+      chatBox.appendChild(userMsg);
+
+      const modelId = document.getElementById('modelSelect').value;
+      const assistantMsg = document.createElement('div');
+      assistantMsg.className = 'chat-msg assistant';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerHTML = `<span style="color:var(--cyan); font-weight:700;">[${modelId}]</span> `;
+      assistantMsg.appendChild(bubble);
+      chatBox.appendChild(assistantMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      // Simulated streaming
+      const responseTemplates = {
+        'Explain AI-First Linux architecture in one sentence.': "GenixBit OS integrates local model inference (port 11434), hardware acceleration, and autonomous developer agents directly into the operating system core with zero telemetry and full privacy.",
+        'Show me how to connect Google Antigravity agent.': "Set `export ANTIGRAVITY_API_BASE=http://127.0.0.1:11434/v1` and run `agy`. Your autonomous multi-agent coding sessions are now locally accelerated.",
+        'How does local GPU CUDA/ROCm acceleration work?': "`genixbit-gpu-diag` queries PCI controllers to detect NVIDIA CUDA, AMD ROCm, or Intel SYCL devices and binds the local model runtime with zero configuration.",
+      };
+      const fullText = responseTemplates[text] || `[GenixBit AI Runtime] Local model response for: "${text}". Hardware acceleration active. Zero data leaves your machine.`;
+
+      let charIdx = 0;
+      const interval = setInterval(() => {
+        if (charIdx < fullText.length) {
+          bubble.innerHTML += fullText.charAt(charIdx);
+          charIdx++;
+          chatBox.scrollTop = chatBox.scrollHeight;
+        } else {
+          clearInterval(interval);
+        }
+      }, 15);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Terminal Simulation
+    const termHistory = [];
+    let termHistIdx = -1;
+
+    function handleTerminalKey(e) {
+      if (e.key === 'Enter') {
+        const input = document.getElementById('termInput');
+        const cmd = input.value.trim();
+        input.value = '';
+        if (cmd) {
+          termHistory.push(cmd);
+          termHistIdx = termHistory.length;
+          execTermCommand(cmd);
+        }
+      }
+    }
+
+    function execTermCommand(cmd) {
+      const out = document.getElementById('termOutput');
+      out.textContent += `\ndeveloper@genixbit-lts:~$ ${cmd}\n`;
+      const clean = cmd.toLowerCase().trim();
+
+      if (clean === 'help') {
+        out.textContent += `Available commands:
+  • fastfetch / neofetch   - Display system logo and workstation specs
+  • genixbit-gpu-diag      - Hardware & GPU diagnostic tool
+  • genixbit-agent doctor  - Check agent bridges (Antigravity, Gemini, Cursor)
+  • genixbit-ai-center list- View curated local model catalog
+  • genixbit-store list    - Display curated applications
+  • uname -a               - Print kernel release and machine architecture
+  • clear                  - Clear terminal output
+`;
+      } else if (clean === 'fastfetch' || clean === 'neofetch') {
+        out.textContent += `  █████████   developer@genixbit-lts
+  ██     ██   ----------------------
+  ██  ███     OS: GenixBit OS 1.0.0 LTS (Ubuntu 26.04 Resolute)
+  ██  ███     Host: Workstation x86_64
+  ██     ██   Kernel: 6.8.0-generic
+  █████████   Shell: bash 5.2.21
+              DE: GNOME 46 (Wayland)
+              Theme: GenixBit Dark (Adwaita)
+              AI Runtime: Port 11434 (Online)
+              GPU: NVIDIA RTX / AMD Radeon / Intel Arc
+`;
+      } else if (clean === 'genixbit-gpu-diag') {
+        out.textContent += `============================================================
+      GenixBit OS Hardware & GPU Diagnostic System         
+============================================================
+Host Kernel:  6.8.0-generic
+Architecture: x86_64
+--- 1. System Memory: 16384 MB total / 12450 MB available
+--- 2. Acceleration: NVIDIA CUDA & ROCm Drivers Detected
+--- 3. Local LLM Feasibility: EXCELLENT (Capable of 7B-14B models)
+Diagnostic Status: COMPLETE
+`;
+      } else if (clean === 'genixbit-agent doctor') {
+        out.textContent += `============================================================
+           GenixBit OS AI Agent Diagnostics (Doctor)        
+============================================================
+[PASS] Python Interpreter: 3.12+ Verified
+[PASS] Local AI Proxy: ONLINE at http://127.0.0.1:11434/v1
+[PASS] Google Antigravity SDK: Ready (ANTIGRAVITY_API_BASE set)
+[PASS] Gemini CLI Agent: Ready
+[PASS] Cursor Bridge: Ready
+Doctor Status: ALL ESSENTIAL CHECKS VERIFIED
+`;
+      } else if (clean === 'genixbit-ai-center list') {
+        out.textContent += `Curated Model Catalog:
+1. Gemma 3 2B Instruct (2.6B) - 8GB RAM / 4GB VRAM
+2. Qwen 3 7B Instruct (7.2B) - 16GB RAM / 6GB VRAM
+3. DeepSeek R1 Distill Qwen 7B - 16GB RAM / 6GB VRAM
+4. Bharat AI V1 IndicLLM (7.0B) - 16GB RAM / 6GB VRAM
+`;
+      } else if (clean === 'uname -a') {
+        out.textContent += `Linux genixbit-lts 6.8.0-generic #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux\n`;
+      } else if (clean === 'clear') {
+        out.textContent = '';
+      } else {
+        out.textContent += `bash: ${cmd}: command not found. Type 'help' for available commands.\n`;
+      }
+      const termView = document.getElementById('terminalView');
+      termView.scrollTop = termView.scrollHeight;
+    }
+
+    // App Store Simulation
+    const APPS_DATA = [
+      { id: 'genixbit-ai-center', name: 'GenixBit AI Center', cat: 'ai', desc: 'Local AI model manager and prompt runner' },
+      { id: 'genixbit-agents', name: 'Agent Studio Bridge', cat: 'dev', desc: 'Antigravity, Gemini & Cursor IDE bridge' },
+      { id: 'ollama', name: 'Ollama Engine', cat: 'ai', desc: 'Lightweight local LLM server' },
+      { id: 'code', name: 'VS Code', cat: 'dev', desc: 'Developer code editor with extensions' },
+      { id: 'docker-ce', name: 'Docker Engine', cat: 'dev', desc: 'Containerization runtime & compose' },
+      { id: 'blender', name: 'Blender 3D', cat: 'creator', desc: '3D modeling, animation, and rendering' },
+      { id: 'obs-studio', name: 'OBS Studio', cat: 'creator', desc: 'High-performance screen capture & stream' }
+    ];
+
+    function renderStore(filter = '', category = 'all') {
+      const grid = document.getElementById('storeGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      const items = APPS_DATA.filter(a => {
+        const matchesCat = (category === 'all' || a.cat === category);
+        const matchesFilter = a.name.toLowerCase().includes(filter.toLowerCase()) || a.desc.toLowerCase().includes(filter.toLowerCase());
+        return matchesCat && matchesFilter;
+      });
+
+      items.forEach(app => {
+        const card = document.createElement('div');
+        card.className = 'store-card';
+        card.innerHTML = `
+          <div class="store-card-info">
+            <h4>${app.name}</h4>
+            <p>${app.desc}</p>
+          </div>
+          <button class="store-install-btn" onclick="installApp(this)">Install</button>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function filterStore() {
+      const q = document.getElementById('storeSearch').value;
+      renderStore(q, activeCategory);
+    }
+
+    let activeCategory = 'all';
+    function setStoreCategory(cat, el) {
+      activeCategory = cat;
+      document.querySelectorAll('.store-cat-pill').forEach(p => p.classList.remove('active'));
+      if (el) el.classList.add('active');
+      filterStore();
+    }
+
+    function installApp(btn) {
+      if (btn.classList.contains('installed')) return;
+      btn.textContent = 'Installing...';
+      btn.style.opacity = '0.7';
+      setTimeout(() => {
+        btn.textContent = '✓ Installed';
+        btn.classList.add('installed');
+        btn.style.opacity = '1';
+      }, 900);
+    }
+
+    // Toggle Live noVNC Stream Mode
+    let isVncMode = false;
+    function toggleDesktopMode() {
+      isVncMode = !isVncMode;
+      const vncContainer = document.getElementById('vncStreamContainer');
+      const canvas = document.getElementById('desktopCanvas');
+      const dock = document.querySelector('.dock-container');
+      const pill = document.getElementById('modeSwitchPill');
+      const iframe = document.getElementById('vncIframe');
+
+      if (isVncMode) {
+        vncContainer.style.display = 'block';
+        canvas.style.display = 'none';
+        if (dock) dock.style.display = 'none';
+        pill.innerHTML = `<span>🌐 Mode: <strong style="color:var(--green)">Live noVNC</strong></span>`;
+        iframe.src = "https://os.genixbit.com/vnc.html?autoconnect=true&resize=scale&path=websockify";
+      } else {
+        vncContainer.style.display = 'none';
+        canvas.style.display = 'block';
+        if (dock) dock.style.display = 'block';
+        pill.innerHTML = `<span>💻 Mode: <strong>Canvas</strong></span>`;
+        iframe.src = "about:blank";
+      }
+    }
+
+    renderStore();
+  </script>
 </body>
 </html>

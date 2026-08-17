@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Privacy, Security & Open Source Attribution</title>
+  <title>Privacy & Security - GenixBit OS</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: linear-gradient(135deg, #061321 0%, #0B1E31 100%);
-      color: #FFFFFF;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 40px;
+      background: radial-gradient(circle at 80% 20%, rgba(112,226,162,.18), transparent 30rem),
+                  linear-gradient(135deg, #05141e 0%, #09202a 100%);
+      color: #f4f8ff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 48px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -18,50 +19,18 @@
       text-align: center;
       overflow: hidden;
     }
-    .logo {
-      width: 100px;
-      height: 100px;
-      margin-bottom: 20px;
-      filter: drop-shadow(0 0 20px rgba(0, 188, 235, 0.4));
+    .icon-box {
+      width: 80px; height: 80px; border-radius: 20px;
+      background: rgba(112,226,162,.12); border: 1px solid rgba(112,226,162,.3);
+      display: grid; place-items: center; font-size: 36px; color: #70e2a2; margin-bottom: 20px;
     }
-    h1 {
-      font-size: 28px;
-      font-weight: 800;
-      margin: 0 0 12px 0;
-      background: linear-gradient(to right, #087FA5, #00BCEB);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .warning-badge {
-      background-color: rgba(255, 193, 7, 0.15);
-      border: 1px solid #FFC107;
-      color: #FFD54F;
-      padding: 6px 14px;
-      border-radius: 4px;
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 16px;
-    }
-    p {
-      font-size: 15px;
-      line-height: 1.6;
-      max-width: 520px;
-      margin: 0 0 12px 0;
-      color: #DDF7FC;
-    }
-    .footer-note {
-      font-size: 12px;
-      color: #8EB2C5;
-      margin-top: 16px;
-    }
+    h2 { font-size: 30px; font-weight: 800; color: #f4f8ff; margin-bottom: 12px; }
+    p { font-size: 15.5px; line-height: 1.6; max-width: 520px; color: #94a9c9; }
   </style>
 </head>
 <body>
-  <img class="logo" src="../branding/genixbit-logo.svg" alt="GenixBit OS Logo" />
-  <h1>Privacy, Security & Open-Source Integrity</h1>
-  <div class="warning-badge">⚠️ Alpha Release (0.3.0-alpha) — For Testing & Evaluation</div>
-  <p>GenixBit OS is built with strict privacy and security standards. No telemetry or unauthorized data collection is enabled by default.</p>
-  <p>GenixBit OS is open-source software licensed under GNU GPL v3.0, incorporating upstream Debian and Ubuntu 26.04 base technologies with preserved legal attribution.</p>
-  <div class="footer-note">© 2026 GenixBit Labs Private Limited. All rights reserved.</div>
+  <div class="icon-box">🛡️</div>
+  <h2>Zero Telemetry. 100% Sovereign.</h2>
+  <p>GenixBit OS enforces strict cryptographic integrity, reproducible builds, and offline local AI execution. No background analytics or prompt data ever leave your system.</p>
 </body>
 </html>

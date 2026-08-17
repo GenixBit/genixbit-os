@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=GenixBit AI Center
+Comment=Local AI Model Lifecycle Manager & Runtime Dashboard
+Exec=genixbit-ai-center info
+Icon=genixbit-mark
+Terminal=true
+Type=Application
+Categories=Development;ArtificialIntelligence;Utility;
+Keywords=AI;LLM;Models;Gemma;Qwen;DeepSeek;Bharat;
+StartupNotify=true

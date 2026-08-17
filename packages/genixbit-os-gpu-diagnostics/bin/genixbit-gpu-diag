@@ -1,46 +1,83 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # GenixBit OS Hardware & GPU Acceleration Diagnostic Tool
+# Detects NVIDIA CUDA, AMD ROCm, Intel SYCL, and VirtIO/Mesa hardware acceleration.
 
 set -euo pipefail
 
 echo "============================================================"
 echo "      GenixBit OS Hardware & GPU Diagnostic System         "
 echo "============================================================"
-echo "Host Kernel: $(uname -r)"
+echo "Host Kernel:  $(uname -r)"
 echo "Architecture: $(uname -m)"
-echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+echo "Timestamp:    $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 echo ""
 
-echo "--- 1. PCI Graphics Controller Detection ---"
+echo "--- 1. System Memory & Swap Allocation ---"
+if [ -f /proc/meminfo ]; then
+    MEM_TOTAL_MB=$(grep MemTotal /proc/meminfo | awk '{print int($2/1024)}')
+    MEM_AVAIL_MB=$(grep MemAvailable /proc/meminfo | awk '{print int($2/1024)}')
+    SWAP_TOTAL_MB=$(grep SwapTotal /proc/meminfo | awk '{print int($2/1024)}')
+    echo "Physical RAM:   ${MEM_AVAIL_MB} MB available / ${MEM_TOTAL_MB} MB total"
+    echo "Swap Space:     ${SWAP_TOTAL_MB} MB configured"
+    if [ "$MEM_TOTAL_MB" -ge 16384 ]; then
+        echo "Local LLM Feasibility: EXCELLENT (Capable of 7B-14B models)"
+    elif [ "$MEM_TOTAL_MB" -ge 8192 ]; then
+        echo "Local LLM Feasibility: GOOD (Capable of 2B-7B quantized models)"
+    else
+        echo "Local LLM Feasibility: BASIC (Lightweight 1B-2B models recommended)"
+    fi
+else
+    echo "Memory detection: Platform procfs unavailable."
+fi
+echo ""
+
+echo "--- 2. PCI Graphics Controllers ---"
 if command -v lspci >/dev/null 2>&1; then
-    lspci -nn | grep -iE 'vga|3d|display' || echo "No PCI VGA/3D display controllers detected."
+    PCI_DEVS=$(lspci -nn | grep -iE 'vga|3d|display' || true)
+    if [ -n "$PCI_DEVS" ]; then
+        echo "$PCI_DEVS"
+    else
+        echo "No standard PCI VGA/3D display controllers detected."
+    fi
 else
-    echo "[WARN] lspci utility not found."
+    echo "[INFO] lspci utility not installed (install pciutils package for full bus detection)."
 fi
 echo ""
 
-echo "--- 2. NVIDIA Acceleration Runtime ---"
+echo "--- 3. NVIDIA CUDA Acceleration Runtime ---"
 if command -v nvidia-smi >/dev/null 2>&1; then
-    nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader || echo "NVIDIA driver query failed."
+    echo "[FOUND] NVIDIA Driver & CUDA Runtime Active:"
+    nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.free --format=csv,noheader || echo "NVIDIA driver query failed."
 else
-    echo "NVIDIA Proprietary Driver / CUDA Runtime: NOT DETECTED (Software Emulation / Nouveau fallback active)"
+    echo "[NOT DETECTED] NVIDIA Proprietary Driver / CUDA Runtime (Mesa Nouveau or CPU fallback active)"
 fi
 echo ""
 
-echo "--- 3. AMD ROCm Acceleration Runtime ---"
+echo "--- 4. AMD ROCm Acceleration Runtime ---"
 if command -v rocm-smi >/dev/null 2>&1; then
-    rocm-smi --showproductname || echo "ROCm query failed."
+    echo "[FOUND] AMD ROCm Runtime Active:"
+    rocm-smi --showproductname --showdriverversion || echo "ROCm query failed."
 else
-    echo "AMD ROCm Runtime: NOT DETECTED (Mesa / OpenCL fallback active)"
+    echo "[NOT DETECTED] AMD ROCm Runtime (Mesa RADV / OpenCL fallback active)"
 fi
 echo ""
 
-echo "--- 4. Intel OneAPI / Level Zero Acceleration ---"
+echo "--- 5. Intel OneAPI / SYCL Acceleration ---"
 if command -v sycl-ls >/dev/null 2>&1; then
+    echo "[FOUND] Intel Level-Zero / SYCL Devices:"
     sycl-ls || echo "SYCL query failed."
 else
-    echo "Intel SYCL / OneAPI Runtime: NOT DETECTED (Mesa VA-API active)"
+    echo "[NOT DETECTED] Intel SYCL Runtime (Mesa VA-API active)"
+fi
+echo ""
+
+echo "--- 6. Virtualization & Container Accelerator Passthrough ---"
+if systemd-detect-virt >/dev/null 2>&1; then
+    VIRT_TYPE=$(systemd-detect-virt || echo "Unknown")
+    echo "Virtualization Detected: ${VIRT_TYPE} (VirtIO GPU / KVM acceleration active)"
+else
+    echo "Running on Bare-Metal Hardware or Container."
 fi
 echo ""
 

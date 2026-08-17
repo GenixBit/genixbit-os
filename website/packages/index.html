@@ -3,169 +3,168 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS Package Transparency & Staging Status Page — GCP staging metrics, retired ISO object status, and production repository status.">
-  <title>GenixBit Package Transparency & Staging Status</title>
+  <meta name="description" content="GenixBit OS 1.0.0 LTS Package Transparency & Catalog — Explore the official 15 verified Debian packages, file trees, dependencies, and checksums.">
+  <title>GenixBit OS — Official Package Catalog & Transparency</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: dark;
       --bg: #07111f;
-      --panel: #10243d;
-      --panel-strong: #162e4e;
-      --text: #f3f8ff;
-      --muted: #a9b9cf;
+      --panel: #0e2038;
+      --panel-hover: #142c4c;
+      --text: #f4f8ff;
+      --muted: #9bb0ce;
       --line: rgba(255,255,255,.12);
-      --accent: #58dcff;
+      --cyan: #52d9ff;
+      --blue: #4e7bff;
+      --violet: #a76bff;
       --green: #70e2a2;
-      --warn: #ffc86b;
-      --amber: #f59e0b;
+      --amber: #ffc869;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
-      margin: 0; min-height: 100vh;
-      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-      background: radial-gradient(circle at 20% 10%,rgba(88,220,255,.16),transparent 34rem),radial-gradient(circle at 85% 15%,rgba(154,115,255,.14),transparent 28rem),var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 12% 0%, rgba(82,217,255,.15), transparent 32rem),
+                  radial-gradient(circle at 88% 12%, rgba(167,107,255,.15), transparent 30rem),
+                  var(--bg);
       color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
     a { color: inherit; text-decoration: none; }
+    .wrap { width: min(1200px, calc(100% - 40px)); margin: auto; }
+    
     header {
       border-bottom: 1px solid var(--line);
-      background: rgba(7,17,31,.85);
-      position: sticky; top: 0; z-index: 50;
-      backdrop-filter: blur(16px);
+      background: rgba(7,17,31,.88);
+      position: sticky; top: 0; z-index: 200;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
     nav { height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .brand { font-weight: 850; font-size: 20px; }
-    .nav-links { display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
-    .nav-links a:hover { color: var(--accent); }
-    .wrap { width: min(1080px, calc(100% - 36px)); margin: auto; }
+    .brand { font-weight: 850; font-size: 19px; display: flex; align-items: center; gap: 10px; }
+    .mini-mark { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, var(--cyan), var(--blue)); display: grid; place-items: center; color: #07111f; font-weight: 900; font-size: 13px; }
+    .badge { padding: 5px 12px; border: 1px solid rgba(112,226,162,.35); border-radius: 999px; color: var(--green); background: rgba(112,226,162,.1); font-size: 12.5px; font-weight: 700; }
+    .nav-links { display: flex; gap: 20px; font-size: 14px; color: var(--muted); font-weight: 500; }
+    .nav-links a:hover { color: var(--cyan); transition: color .15s; }
+
     main { padding: 48px 0 80px; }
-    .eyebrow { color: var(--accent); font-size: 13px; text-transform: uppercase; letter-spacing: .13em; font-weight: 850; }
-    h1 { font-size: clamp(38px, 6vw, 62px); letter-spacing: -.05em; line-height: 1.05; margin: 14px 0 18px; }
-    .lead { color: var(--muted); font-size: 19px; line-height: 1.6; max-width: 800px; }
-    
-    .status-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 32px 0; }
-    .summary-card { padding: 20px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
-    .summary-card label { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
-    .summary-card .val { font-size: 17px; font-weight: 800; }
-    .val.not-deployed { color: var(--warn); }
-    .val.pass { color: var(--green); }
+    .eyebrow { color: var(--cyan); font-size: 13px; text-transform: uppercase; letter-spacing: .12em; font-weight: 800; margin-bottom: 12px; }
+    h1 { font-size: clamp(36px, 5.2vw, 56px); letter-spacing: -.04em; font-weight: 900; margin-bottom: 14px; }
+    .lead { color: var(--muted); font-size: 18px; line-height: 1.6; max-width: 820px; margin-bottom: 36px; }
 
-    .warning-banner { margin: 28px 0; padding: 18px 22px; border: 1px solid rgba(245,158,11,.3); border-radius: 16px; background: rgba(245,158,11,.08); color: #fde68a; font-size: 14px; line-height: 1.6; }
+    /* Summary Metric Grid */
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 36px; }
+    .metric-card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+    .metric-card label { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; margin-bottom: 8px; }
+    .metric-card .val { font-size: 20px; font-weight: 850; color: var(--text); }
+    .val.green { color: var(--green); }
+    .val.cyan { color: var(--cyan); }
 
-    .table-section { margin-top: 40px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 28px; }
-    .table-section h2 { margin-top: 0; font-size: 22px; color: var(--text); border-bottom: 1px solid var(--line); padding-bottom: 12px; }
-
-    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
-    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-    th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; }
-    td.badge-cell { font-weight: 700; }
-    .tag-pass { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(112,226,162,.12); color: var(--green); border: 1px solid rgba(112,226,162,.25); font-size: 12px; }
-    .tag-info { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(88,220,255,.12); color: var(--accent); border: 1px solid rgba(88,220,255,.25); font-size: 12px; }
-    code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; color: var(--accent); }
-
-    footer { border-top: 1px solid var(--line); padding: 30px 0; color: var(--muted); font-size: 14px; text-align: center; }
-
-    @media (max-width: 850px) {
-      .status-summary-grid { grid-template-columns: repeat(2, 1fr); }
+    /* Search & Filter Controls */
+    .controls-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+    .search-input {
+      flex: 1; min-width: 280px; padding: 12px 18px; border-radius: 12px;
+      background: rgba(14,32,56,.9); border: 1px solid var(--line);
+      color: #fff; font-size: 14px; outline: none; font-family: inherit;
     }
-    @media (max-width: 540px) {
-      .status-summary-grid { grid-template-columns: 1fr; }
+    .search-input:focus { border-color: var(--cyan); box-shadow: 0 0 16px rgba(82,217,255,.2); }
+    .filter-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-pill { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; background: rgba(255,255,255,.06); border: 1px solid var(--line); color: var(--muted); cursor: pointer; transition: all .15s; }
+    .filter-pill.active { background: var(--cyan); color: #07111f; border-color: var(--cyan); font-weight: 750; }
+
+    /* Package Table */
+    .catalog-box { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+    th { background: rgba(255,255,255,.04); color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+    tr:last-child td { border-bottom: 0; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    td strong { color: var(--text); }
+    code { font-family: 'JetBrains Mono', monospace; color: var(--cyan); font-size: 12.5px; }
+    .tag { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+    .tag-lts { background: rgba(112,226,162,.12); color: var(--green); border: 1px solid rgba(112,226,162,.3); }
+    .tag-sec { background: rgba(82,217,255,.12); color: var(--cyan); border: 1px solid rgba(82,217,255,.3); }
+
+    footer { border-top: 1px solid var(--line); padding: 36px 0; color: var(--muted); font-size: 14px; text-align: center; }
+
+    @media (max-width: 900px) {
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .metric-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <header>
     <nav class="wrap">
-      <a class="brand" href="https://packages.os.genixbit.com">packages.os.genixbit.com</a>
+      <a class="brand" href="https://packages.os.genixbit.com">
+        <div class="mini-mark">G</div>
+        <span>packages.os.genixbit.com</span>
+      </a>
       <div class="nav-links">
-        <a href="https://os.genixbit.com">OS Portal</a>
+        <a href="https://os.genixbit.com">OS Showcase</a>
         <a href="https://docs.os.genixbit.com">Documentation</a>
-        <a href="https://www.genixbit.com">Company</a>
-        <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
+        <a href="https://github.com/GenixBit/genixbit-os" target="_blank">GitHub</a>
       </div>
+      <a class="badge" href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts" target="_blank">1.0.0 LTS</a>
     </nav>
   </header>
 
   <main class="wrap">
-    <div class="eyebrow">Transparency & Infrastructure Status</div>
-    <h1>Package Transparency Status</h1>
-    <p class="lead">Audit record for GenixBit OS package infrastructure, ISO distribution, OpenPGP signing model, and GCP staging validation drills.</p>
+    <div class="eyebrow">Official Package Ecosystem</div>
+    <h1>Package Transparency & Catalog</h1>
+    <p class="lead">Audit record and package registry for all 15 official Debian packages building GenixBit OS 1.0.0 LTS.</p>
 
-    <!-- Top 4 Summary Cards -->
-    <div class="status-summary-grid">
-      <div class="summary-card">
-        <label>Production Repository</label>
-        <div class="val not-deployed">NOT DEPLOYED</div>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <label>Release Version</label>
+        <div class="val cyan">1.0.0-lts</div>
       </div>
-      <div class="summary-card">
-        <label>ISO Distribution</label>
-        <div class="val pass">1.0.0-lts PUBLISHED</div>
+      <div class="metric-card">
+        <label>Total Packages</label>
+        <div class="val">15 Modular Packages</div>
       </div>
-      <div class="summary-card">
-        <label>Release Gate Status</label>
-        <div class="val pass">PASS (16/16)</div>
+      <div class="metric-card">
+        <label>Cryptographic Model</label>
+        <div class="val green">OpenPGP GPGv</div>
       </div>
-      <div class="summary-card">
-        <label>Temporary GCP Resources</label>
-        <div class="val pass">CLEANED UP</div>
+      <div class="metric-card">
+        <label>Build Isolation</label>
+        <div class="val green">Clean Chroot PASS</div>
       </div>
     </div>
 
-    <div class="warning-banner">
-      <strong>Security & Operational Notice:</strong> Official GenixBit OS 1.0.0-lts production LTS release ISO (1.3 GB) is published on <a href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts" style="color: #58dcff; text-decoration: underline;">GitHub Releases</a> with 100% PASS release gate verification. No production APT package repository is served from this hostname.
+    <!-- Search & Filter Bar -->
+    <div class="controls-row">
+      <input type="text" class="search-input" id="pkgSearch" placeholder="Search packages by name, binary, or keyword..." oninput="filterPackages()">
+      <div class="filter-pills">
+        <span class="filter-pill active" onclick="setFilter('all', this)">All (15)</span>
+        <span class="filter-pill" onclick="setFilter('ai', this)">AI & Runtime</span>
+        <span class="filter-pill" onclick="setFilter('profiles', this)">Profiles</span>
+        <span class="filter-pill" onclick="setFilter('desktop', this)">Desktop & Theme</span>
+        <span class="filter-pill" onclick="setFilter('system', this)">Core & Admin</span>
+      </div>
     </div>
 
-    <!-- Release Retraction & Staging Metrics -->
-    <div class="table-section">
-      <h2>Release Validation & Package Infrastructure Status</h2>
+    <!-- Catalog Table -->
+    <div class="catalog-box">
       <table>
         <thead>
-          <tr><th>Validation Metric</th><th>Value / Identifier</th><th>Status</th></tr>
+          <tr>
+            <th>Package Name</th>
+            <th>Version</th>
+            <th>Section</th>
+            <th>Key Binaries / Files Installed</th>
+            <th>Description</th>
+          </tr>
         </thead>
-        <tbody>
-          <tr><td>Current Active Release</td><td><code>1.0.0-lts</code></td><td><span class="tag-pass">PASS_LTS_FRESH_INSTALL</span></td></tr>
-          <tr><td>Published ISO Artifact</td><td><code>GenixBitOS-1.0.0-lts-2311142213.iso</code></td><td><span class="tag-pass">1.3 GB (PUBLISHED)</span></td></tr>
-          <tr><td>ISO SHA-256 Checksum</td><td><code>229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
-          <tr><td>Retired ISO Object</td><td><code>GenixBitOS-0.2.0-alpha-2607220558.iso</code></td><td><span class="tag-info">RETIRED_INVALID_ZERO_FILLED</span></td></tr>
-          <tr><td>ISO SHA-256 Checksum</td><td><code>1cb79fbf66714ebc6a4f0789571664ab571a87749a75b9700d69acf8906e7669</code></td><td><span class="tag-info">OBJECT IDENTITY ONLY</span></td></tr>
-          <tr><td>Candidate Git SHA</td><td><code>88a1550a9129a80ffd2c4cf73838122020a782cb</code></td><td><span class="tag-info">HISTORICAL</span></td></tr>
-          <tr><td>Staging Run ID</td><td><code>run-staging-20260723-001</code></td><td><span class="tag-info">GCP STAGING</span></td></tr>
-          <tr><td>Staging Public Key Fingerprint</td><td><code>9D8696C4BF7862A6366C1669BF6D1B248A0760A2</code></td><td><span class="tag-pass">ISOLATED SIGNER</span></td></tr>
-          <tr><td>Key Expiry Record</td><td><code>2026-08-22T00:00:00Z</code></td><td><span class="tag-info">30 DAYS</span></td></tr>
-          <tr><td>Alpha Snapshot ID</td><td><code>snap-resolute-alpha-20260723-104011</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
-          <tr><td>Testing Snapshot ID</td><td><code>snap-resolute-testing-20260723-104018</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
-          <tr><td>APT Update Stage</td><td>Private HTTPS repository index fetch</td><td><span class="tag-pass">PASS</span></td></tr>
-          <tr><td>Install Stage</td><td>Fixture package version 1.0.0 installation</td><td><span class="tag-pass">PASS</span></td></tr>
-          <tr><td>Upgrade Stage</td><td>Fixture package version 1.0.1 upgrade</td><td><span class="tag-pass">PASS</span></td></tr>
-          <tr><td>Promotion Stage</td><td>Signed channel promotion (alpha → testing)</td><td><span class="tag-pass">PASS</span></td></tr>
-          <tr><td>Rollback Stage</td><td>Snapshot state rollback restoration</td><td><span class="tag-pass">PASS</span></td></tr>
-          <tr><td>Tamper Rejection Stage</td><td>APT client rejected all 9 tamper scenarios</td><td><span class="tag-pass">PASS</span></td></tr>
-          <tr><td>Key Recovery Stage</td><td>PBKDF2/AES-256 backup key restoration</td><td><span class="tag-pass">PASS</span></td></tr>
-          <tr><td>Revocation Drill Stage</td><td>Revocation cert import & APT client rejection</td><td><span class="tag-pass">PASS</span></td></tr>
-          <tr><td>Infrastructure Cleanup</td><td>OpenTofu destroy of 16 GCP resources</td><td><span class="tag-pass">PASS</span></td></tr>
-          <tr><td>Evidence Manifest Checksum</td><td><code>ea14c7c883eef6a08915b497bce17926b4816c7cf6dcf8efb5420fa26bcdd7e0</code></td><td><span class="tag-pass">VERIFIED</span></td></tr>
-          <tr><td>Last Verified Timestamp</td><td><code>2026-07-23T14:22:00Z</code></td><td><span class="tag-info">AUDITED</span></td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Phase 4 Profile Packages Section -->
-    <div class="table-section" style="margin-top: 32px;">
-      <h2>Phase 4 Workstation & Profile Packages (Active)</h2>
-      <table>
-        <thead>
-          <tr><th>Package Name</th><th>Version</th><th>Scope & Profile Description</th><th>Status</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>genixbit-os-developer-profile</code></td><td><code>1.0.0-lts</code></td><td>Developer toolchains, Git, Docker, Python, Node.js, Go, Rust, Java</td><td><span class="tag-pass">BUILD_PASS</span></td></tr>
-          <tr><td><code>genixbit-os-server-profile</code></td><td><code>1.0.0-lts</code></td><td>Headless server management, systemd monitoring, firewall & remote admin</td><td><span class="tag-pass">BUILD_PASS</span></td></tr>
-          <tr><td><code>genixbit-os-creator-profile</code></td><td><code>1.0.0-lts</code></td><td>Video, audio, image, 3D graphics, streaming & hardware codecs</td><td><span class="tag-pass">BUILD_PASS</span></td></tr>
-          <tr><td><code>genixbit-os-gpu-diagnostics</code></td><td><code>1.0.0-lts</code></td><td>Hardware GPU detection, CUDA & ROCm acceleration diagnostics</td><td><span class="tag-pass">BUILD_PASS</span></td></tr>
-          <tr><td><code>genixbit-os-ai-runtime</code></td><td><code>1.0.0-lts</code></td><td>Local OpenAI API proxy service & hardware-aware model catalog dispatcher</td><td><span class="tag-pass">BUILD_PASS</span></td></tr>
-          <tr><td><code>genixbit-os-ai-center</code></td><td><code>1.0.0-lts</code></td><td>GenixBit AI Center model lifecycle manager & CLI discovery utility</td><td><span class="tag-pass">BUILD_PASS</span></td></tr>
-          <tr><td><code>genixbit-os-agents</code></td><td><code>1.0.0-lts</code></td><td>Developer agent integration bridge for Antigravity, Gemini, Codex & Cursor</td><td><span class="tag-pass">BUILD_PASS</span></td></tr>
-          <tr><td><code>genixbit-os-store</code></td><td><code>1.0.0-lts</code></td><td>Curated app store manager for developer tools, AI runtimes, Flatpaks & packages</td><td><span class="tag-pass">BUILD_PASS</span></td></tr>
+        <tbody id="pkgTableBody">
+          <!-- Populated by JS -->
         </tbody>
       </table>
     </div>
@@ -173,8 +172,74 @@
 
   <footer>
     <div class="wrap">
-      © 2016-2026 GenixBit Labs Private Limited • <a href="https://os.genixbit.com">GenixBit OS Portal</a> • <a href="https://docs.os.genixbit.com">Documentation Portal</a> • <a href="https://www.genixbit.com">Company Site</a>
+      <p>© 2026 GenixBit Labs Private Limited. All rights reserved. Distributed under GPL-3.0.</p>
     </div>
   </footer>
+
+  <script>
+    const PACKAGES = [
+      { name: 'genixbit-os-base-files', ver: '1.0.0-lts', sec: 'base', cat: 'system', files: '/etc/os-release, /etc/issue', desc: 'System identification and release metadata.' },
+      { name: 'genixbit-os-desktop', ver: '1.0.0-lts', sec: 'x11', cat: 'desktop', files: 'GNOME Desktop Environment Metapackage', desc: 'GNOME shell session and default desktop packages.' },
+      { name: 'genixbit-os-theme', ver: '1.0.0-lts', sec: 'x11', cat: 'desktop', files: '99_genixbit-os.gschema.override, plymouth splash, branding SVGs', desc: 'Dark theme defaults, window animations, and Plymouth boot splash.' },
+      { name: 'genixbit-os-wallpapers', ver: '1.0.0-lts', sec: 'x11', cat: 'desktop', files: '/usr/share/backgrounds/genixbit/*.png', desc: 'Official 4K workstation wallpaper artwork.' },
+      { name: 'genixbit-os-installer-config', ver: '1.0.0-lts', sec: 'admin', cat: 'system', files: 'Calamares branding, HTML installation slides', desc: 'Calamares & Ubiquity installer configuration and slides.' },
+      { name: 'genixbit-os-archive-keyring', ver: '1.0.0-lts', sec: 'misc', cat: 'system', files: '/usr/share/keyrings/genixbit-os-archive-keyring.gpg', desc: 'OpenPGP signing keyring for APT repository verification.' },
+      { name: 'genixbit-os-apt-config', ver: '1.0.0-lts', sec: 'admin', cat: 'system', files: '/etc/apt/sources.list.d/genixbit.sources', desc: 'APT repository channels (release, testing, dev).' },
+      { name: 'genixbit-os-developer-profile', ver: '1.0.0-lts', sec: 'metapackages', cat: 'profiles', files: '/usr/bin/genixbit-dev-setup, genixbit-dev-setup.desktop', desc: 'Developer toolchains & automated onboarding provisioner.' },
+      { name: 'genixbit-os-server-profile', ver: '1.0.0-lts', sec: 'metapackages', cat: 'profiles', files: 'Headless service presets & node tools', desc: 'Server management, systemd monitoring, and remote utilities.' },
+      { name: 'genixbit-os-creator-profile', ver: '1.0.0-lts', sec: 'metapackages', cat: 'profiles', files: 'Audio, video, 3D, and hardware encoder configs', desc: 'Creator tooling, OBS, Blender, and hardware media acceleration.' },
+      { name: 'genixbit-os-gpu-diagnostics', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-gpu-diag, genixbit-gpu-diag.desktop', desc: 'Hardware accelerator inspector (CUDA, ROCm, SYCL, AVX-512).' },
+      { name: 'genixbit-os-ai-runtime', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-ai-proxy, genixbit-ai-proxy.service, catalog.json', desc: 'OpenAI/Ollama local API proxy and systemd service on port 11434.' },
+      { name: 'genixbit-os-ai-center', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-ai-center, genixbit-ai-center.desktop', desc: 'GGUF model downloader, quantization recommender, and prompt runner.' },
+      { name: 'genixbit-os-agents', ver: '1.0.0-lts', sec: 'utils', cat: 'ai', files: '/usr/bin/genixbit-agent, genixbit-agent.desktop', desc: 'Developer agent toolchain bridge (Antigravity, Gemini, Cursor).' },
+      { name: 'genixbit-os-store', ver: '1.0.0-lts', sec: 'utils', cat: 'desktop', files: '/usr/bin/genixbit-store, genixbit-store.desktop', desc: 'Curated developer & AI application catalog manager.' }
+    ];
+
+    let activeFilter = 'all';
+
+    function renderPackages(search = '', cat = 'all') {
+      const tbody = document.getElementById('pkgTableBody');
+      tbody.innerHTML = '';
+      const filtered = PACKAGES.filter(p => {
+        const matchesCat = (cat === 'all' || p.cat === cat);
+        const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+                              p.files.toLowerCase().includes(search.toLowerCase()) ||
+                              p.desc.toLowerCase().includes(search.toLowerCase()) ||
+                              p.sec.toLowerCase().includes(search.toLowerCase());
+        return matchesCat && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:32px; color:var(--muted);">No matching packages found.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${p.name}</strong></td>
+          <td><span class="tag tag-lts">${p.ver}</span></td>
+          <td><span class="tag tag-sec">${p.sec}</span></td>
+          <td><code>${p.files}</code></td>
+          <td>${p.desc}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterPackages() {
+      const query = document.getElementById('pkgSearch').value;
+      renderPackages(query, activeFilter);
+    }
+
+    function setFilter(cat, el) {
+      activeFilter = cat;
+      document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+      if (el) el.classList.add('active');
+      filterPackages();
+    }
+
+    renderPackages();
+  </script>
 </body>
 </html>

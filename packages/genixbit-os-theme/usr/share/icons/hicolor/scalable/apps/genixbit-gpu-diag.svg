@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="gpu-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#76b900" />
+      <stop offset="100%" stop-color="#00a88f" />
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="#0d180f" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+  <rect x="36" y="36" width="56" height="56" rx="8" fill="#142c1b" stroke="url(#gpu-grad)" stroke-width="3" />
+  <text x="64" y="69" fill="#76b900" font-family="Inter, sans-serif" font-weight="900" font-size="18" text-anchor="middle">GPU</text>
+  <!-- Pins -->
+  <path d="M46 22 L46 36 M64 22 L64 36 M82 22 L82 36 M46 92 L46 106 M64 92 L64 106 M82 92 L82 106" stroke="#76b900" stroke-width="3" stroke-linecap="round" />
+  <path d="M22 46 L36 46 M22 64 L36 64 M22 82 L22 82 M92 46 L106 46 M92 64 L106 64 M92 82 L106 82" stroke="#76b900" stroke-width="3" stroke-linecap="round" />
+</svg>

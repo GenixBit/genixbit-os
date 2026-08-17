@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=GenixBit Developer Setup
+Comment=Automated Developer Toolchain & Local AI Environment Provisioner
+Exec=genixbit-dev-setup
+Icon=genixbit-mark
+Terminal=true
+Type=Application
+Categories=Development;System;Settings;
+Keywords=Developer;Setup;Docker;AI;Antigravity;SSH;
+StartupNotify=true

@@ -1,1 +1,4 @@
 bin/genixbit-gpu-diag usr/bin/
+bin/genixbit-top usr/bin/
+usr/share/applications/genixbit-gpu-diag.desktop usr/share/applications/
+usr/share/applications/genixbit-top.desktop usr/share/applications/

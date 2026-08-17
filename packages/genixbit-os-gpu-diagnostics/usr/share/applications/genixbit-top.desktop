@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=GenixBit System & GPU Monitor
+Comment=Interactive AI-First Hardware, GPU, and Model Runtime Monitor
+Exec=genixbit-top
+Icon=genixbit-mark
+Terminal=true
+Type=Application
+Categories=System;Monitor;HardwareSettings;
+Keywords=Monitor;GPU;Top;AI;CUDA;VRAM;Performance;
+StartupNotify=true

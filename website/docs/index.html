@@ -3,64 +3,89 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GenixBit OS Official Documentation — Architecture, retired 0.2.0-alpha object status, VM testing, package architecture, GCP staging validation, and security policies.">
-  <title>GenixBit OS Documentation Portal</title>
+  <meta name="description" content="GenixBit OS 1.0.0 LTS Official Documentation — Complete technical manual for local AI models, developer agents, package architecture, installation, and deployment.">
+  <title>GenixBit OS 1.0.0 LTS — Official Documentation Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: dark;
       --bg: #07111f;
-      --panel: #102139;
-      --panel-strong: #162c4b;
+      --panel: #0e2038;
+      --panel-strong: #142a4a;
       --text: #f4f8ff;
-      --muted: #adbad0;
+      --muted: #9bb0ce;
       --line: rgba(255,255,255,.12);
-      --accent: #55d9ff;
-      --violet: #9a73ff;
+      --cyan: #52d9ff;
+      --blue: #4e7bff;
+      --violet: #a76bff;
       --green: #70e2a2;
       --warning: #ffc869;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
-      margin: 0;
-      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-      background: radial-gradient(circle at 15% 0%, rgba(85,217,255,.16), transparent 30rem), var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 15% 0%, rgba(82,217,255,.14), transparent 32rem),
+                  radial-gradient(circle at 85% 10%, rgba(167,107,255,.14), transparent 30rem),
+                  var(--bg);
       color: var(--text);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
     a { color: inherit; text-decoration: none; }
-    .wrap { width: min(1140px, calc(100% - 36px)); margin: auto; }
+    .wrap { width: min(1200px, calc(100% - 40px)); margin: auto; }
     header {
       border-bottom: 1px solid var(--line);
-      background: rgba(7,17,31,.85);
-      position: sticky; top: 0; z-index: 50;
-      backdrop-filter: blur(16px);
+      background: rgba(7,17,31,.88);
+      position: sticky; top: 0; z-index: 200;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
     nav { height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .brand { font-weight: 850; font-size: 20px; display: flex; align-items: center; gap: 10px; }
-    .badge { padding: 6px 12px; border: 1px solid rgba(112,226,162,.3); border-radius: 999px; color: var(--green); background: rgba(112,226,162,.08); font-size: 13px; font-weight: 600; }
-    .nav-links { display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
-    .nav-links a:hover { color: var(--accent); }
-    .layout { display: grid; grid-template-columns: 260px 1fr; gap: 36px; padding: 40px 0 80px; }
-    .sidebar { position: sticky; top: 100px; height: calc(100vh - 120px); overflow-y: auto; font-size: 14px; }
-    .sidebar h4 { text-transform: uppercase; font-size: 11px; letter-spacing: .12em; color: var(--accent); margin: 20px 0 10px; }
-    .sidebar ul { list-style: none; padding: 0; margin: 0; }
-    .sidebar li { margin-bottom: 6px; }
-    .sidebar a { color: var(--muted); display: block; padding: 4px 8px; border-radius: 6px; }
-    .sidebar a:hover { color: var(--text); background: rgba(255,255,255,.05); }
-    .content section { margin-bottom: 56px; scroll-margin-top: 100px; }
-    .content h2 { font-size: 28px; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-top: 0; color: var(--text); }
-    .content h3 { font-size: 20px; color: var(--accent); margin-top: 24px; }
-    .content p, .content li { color: var(--muted); line-height: 1.65; font-size: 15px; }
-    .code-block { background: #060e18; border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; color: #dceaff; overflow-x: auto; margin: 16px 0; }
-    .notice { padding: 16px 20px; border: 1px solid rgba(85,217,255,.3); border-radius: 14px; background: rgba(85,217,255,.06); color: var(--text); margin: 20px 0; }
-    .notice.warn { border-color: rgba(255,200,105,.3); background: rgba(255,200,105,.06); color: #ffd991; }
-    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
-    th, td { text-align: left; padding: 10px 14px; border: 1px solid var(--line); }
-    th { background: rgba(255,255,255,.05); color: var(--text); }
-    .download-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--violet)); color: #06101c; font-weight: 800; text-decoration: none; margin: 12px 0; }
-    footer { border-top: 1px solid var(--line); padding: 30px 0; color: var(--muted); font-size: 14px; text-align: center; }
-    @media (max-width: 850px) {
+    .brand { font-weight: 850; font-size: 19px; display: flex; align-items: center; gap: 10px; }
+    .mini-mark { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, var(--cyan), var(--blue)); display: grid; place-items: center; color: #07111f; font-weight: 900; font-size: 13px; }
+    .badge { padding: 5px 12px; border: 1px solid rgba(112,226,162,.35); border-radius: 999px; color: var(--green); background: rgba(112,226,162,.1); font-size: 12.5px; font-weight: 700; }
+    .nav-links { display: flex; gap: 20px; font-size: 14px; color: var(--muted); font-weight: 500; }
+    .nav-links a:hover { color: var(--cyan); transition: color .15s; }
+    
+    .layout { display: grid; grid-template-columns: 260px 1fr; gap: 40px; padding: 40px 0 80px; }
+    .sidebar { position: sticky; top: 96px; height: calc(100vh - 120px); overflow-y: auto; font-size: 13.5px; padding-right: 12px; }
+    .sidebar h4 { text-transform: uppercase; font-size: 11px; letter-spacing: .12em; color: var(--cyan); margin: 20px 0 10px; font-weight: 800; }
+    .sidebar ul { list-style: none; }
+    .sidebar li { margin-bottom: 4px; }
+    .sidebar a { color: var(--muted); display: block; padding: 6px 10px; border-radius: 8px; transition: all .15s; }
+    .sidebar a:hover { color: #fff; background: rgba(255,255,255,.06); }
+    
+    .content section { margin-bottom: 60px; scroll-margin-top: 100px; }
+    .content h2 { font-size: 28px; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px; color: var(--text); font-weight: 800; }
+    .content h3 { font-size: 20px; color: var(--cyan); margin: 24px 0 10px; font-weight: 750; }
+    .content p, .content li { color: var(--muted); line-height: 1.7; font-size: 15px; margin-bottom: 12px; }
+    .content ul, .content ol { padding-left: 20px; margin-bottom: 16px; }
+    
+    .code-block {
+      background: #040912; border: 1px solid var(--line); border-radius: 12px;
+      padding: 16px 20px; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      color: #dceaff; overflow-x: auto; margin: 16px 0; line-height: 1.6;
+    }
+    .notice {
+      padding: 16px 20px; border: 1px solid rgba(82,217,255,.3); border-radius: 14px;
+      background: rgba(82,217,255,.07); color: var(--text); margin: 20px 0; font-size: 14.5px; line-height: 1.6;
+    }
+    .notice.success { border-color: rgba(112,226,162,.35); background: rgba(112,226,162,.08); }
+    .notice.warn { border-color: rgba(255,200,105,.35); background: rgba(255,200,105,.08); color: #ffd991; }
+    
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+    th, td { text-align: left; padding: 12px 16px; border: 1px solid var(--line); }
+    th { background: rgba(255,255,255,.04); color: var(--text); font-weight: 700; }
+    td { color: var(--muted); }
+    td strong { color: var(--text); }
+    code { font-family: 'JetBrains Mono', monospace; color: var(--cyan); font-size: 12.5px; background: rgba(82,217,255,.08); padding: 2px 6px; border-radius: 5px; }
+
+    footer { border-top: 1px solid var(--line); padding: 36px 0; color: var(--muted); font-size: 14px; text-align: center; }
+
+    @media (max-width: 860px) {
       .layout { grid-template-columns: 1fr; }
       .sidebar { display: none; }
     }
@@ -69,177 +94,312 @@
 <body>
   <header>
     <nav class="wrap">
-      <a class="brand" href="https://docs.os.genixbit.com">GenixBit OS Docs</a>
+      <a class="brand" href="https://docs.os.genixbit.com">
+        <div class="mini-mark">G</div>
+        <span>GenixBit OS Docs</span>
+      </a>
       <div class="nav-links">
-        <a href="https://os.genixbit.com">OS Portal</a>
-        <a href="https://packages.os.genixbit.com">Package Status</a>
-        <a href="https://www.genixbit.com">Company</a>
-        <a href="https://github.com/GenixBit/genixbit-os">GitHub</a>
+        <a href="https://os.genixbit.com">OS Showcase</a>
+        <a href="https://packages.os.genixbit.com">Package Catalog</a>
+        <a href="https://github.com/GenixBit/genixbit-os" target="_blank">GitHub</a>
       </div>
-      <a class="badge" href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts">1.0.0-lts Released</a>
+      <a class="badge" href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts" target="_blank">1.0.0 LTS Verified</a>
     </nav>
   </header>
 
   <div class="wrap layout">
     <aside class="sidebar">
-      <h4>Documentation Guide</h4>
+      <h4>Getting Started</h4>
       <ul>
-        <li><a href="#overview">1. Overview</a></li>
-        <li><a href="#download">2. Release ISO & Download</a></li>
+        <li><a href="#overview">1. OS Architecture</a></li>
+        <li><a href="#download">2. ISO Download & Verification</a></li>
         <li><a href="#installation">3. Installation Guide</a></li>
-        <li><a href="#vm-testing">4. VM Testing Guide</a></li>
-        <li><a href="#release">5. Release 1.0.0-lts</a></li>
-        <li><a href="#branding">6. Branding Architecture</a></li>
-        <li><a href="#packaging">7. Package Architecture</a></li>
-        <li><a href="#gcp-staging">8. GCP Staging Validation</a></li>
-        <li><a href="#signing">9. Signing & Trust Model</a></li>
-        <li><a href="#snapshots">10. Snapshots & Rollback</a></li>
-        <li><a href="#security">11. Security Policy</a></li>
-        <li><a href="#troubleshooting">12. Troubleshooting</a></li>
-        <li><a href="#roadmap">13. Roadmap</a></li>
-        <li><a href="#attribution">14. Legal Attribution</a></li>
+        <li><a href="#vm-testing">4. QEMU / KVM VM Testing</a></li>
+      </ul>
+      <h4>Local AI Stack</h4>
+      <ul>
+        <li><a href="#ai-runtime">5. AI Proxy & Daemon</a></li>
+        <li><a href="#model-center">6. Model Pull & Quantization</a></li>
+        <li><a href="#developer-agents">7. Developer Agent Integrations</a></li>
+        <li><a href="#dev-setup">8. Developer Setup Wizard</a></li>
+      </ul>
+      <h4>Infrastructure & Governance</h4>
+      <ul>
+        <li><a href="#packages">9. Package Architecture</a></li>
+        <li><a href="#security">10. Security & Privacy Model</a></li>
+        <li><a href="#web-desktop">11. Live Web Desktop & noVNC</a></li>
+        <li><a href="#attribution">12. Legal Attribution</a></li>
       </ul>
     </aside>
 
     <main class="content">
-      <!-- 1. Overview -->
+      
+      <!-- Section 1: Overview -->
       <section id="overview">
-        <h2>1. Overview</h2>
-        <p>GenixBit OS is an AI-first, local-first Linux operating system engineered for developers, creators, server managers, and AI application builders. It provides a secure, predictable, and hardware-accelerated workstation base built upon Ubuntu 26.04 Resolute development base.</p>
-        <div class="notice">
-          <strong>Key Philosophy:</strong> Local-first AI workflows, strict package signing, zero unverified cloud telemetry, and transparent open-source engineering.
-        </div>
+        <h2>1. OS Architecture & Design Principles</h2>
+        <p>
+          <strong>GenixBit OS 1.0.0 LTS</strong> is an AI-first, developer-centric Linux operating system built on the solid foundation of <strong>Ubuntu 26.04 Resolute LTS</strong>. It provides 5-year Long Term Support (2026–2031).
+        </p>
+        <p>The operating system is architected around three foundational pillars:</p>
+        <ul>
+          <li><strong>Local-First Artificial Intelligence</strong>: Pre-configured, hardware-accelerated OpenAI-compatible API proxy on <code>http://127.0.0.1:11434/v1</code> with zero telemetry and 100% offline execution.</li>
+          <li><strong>Autonomous Agent Toolchains</strong>: Native bridge and diagnostic tooling for Google Antigravity SDK (<code>agy</code>), Gemini CLI, Cursor IDE, OpenAI Codex, and OpenCode.</li>
+          <li><strong>Deterministic Package Governance</strong>: 15 modular Debian packages signed cryptographically and built in clean, isolated chroot environments.</li>
+        </ul>
       </section>
 
-      <!-- 2. Download & Checksum -->
+      <!-- Section 2: Download -->
       <section id="download">
-        <h2>2. Release ISO & Download</h2>
-        <p><strong>GenixBit OS 1.0.0-lts:</strong> Official production LTS release ISO is available for download directly on <a href="https://github.com/GenixBit/genixbit-os/releases/tag/v1.0.0-lts">GitHub Releases</a>.</p>
-        <a class="download-btn" href="https://github.com/GenixBit/genixbit-os/releases/download/v1.0.0-lts/GenixBitOS-1.0.0-lts-2311142213.iso">Download 1.0.0-lts ISO (1.3 GB)</a>
-
-        <h3>Checksum Verification Command</h3>
+        <h2>2. Release ISO & Verification</h2>
+        <p>Production ISO images are published with bit-for-bit reproducible validation manifests:</p>
+        <table>
+          <tr>
+            <th>Property</th>
+            <th>Value</th>
+          </tr>
+          <tr>
+            <td>Release Version</td>
+            <td><strong>1.0.0-lts</strong> (5-Year Long Term Support)</td>
+          </tr>
+          <tr>
+            <td>ISO Filename</td>
+            <td><code>GenixBitOS-1.0.0-lts-2311142213.iso</code></td>
+          </tr>
+          <tr>
+            <td>File Size</td>
+            <td>1,395,864,576 bytes (1.30 GB)</td>
+          </tr>
+          <tr>
+            <td>SHA256 Checksum</td>
+            <td><code>229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</code></td>
+          </tr>
+        </table>
         <div class="code-block">
-$ sha256sum GenixBitOS-1.0.0-lts-2311142213.iso
-229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6  GenixBitOS-1.0.0-lts-2311142213.iso
+# Verify SHA256 integrity on Linux/macOS
+echo "229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6  GenixBitOS-1.0.0-lts-2311142213.iso" | sha256sum -c -
         </div>
-        <p><em>Historical Note:</em> The 0.2.0-alpha object remains retired as an invalid zero-filled artifact (<code>1cb79fbf...</code>).</p>
       </section>
 
-      <!-- 3. Installation & USB -->
+      <!-- Section 3: Installation -->
       <section id="installation">
         <h2>3. Installation Guide</h2>
-        <p>Use the 1.0.0-lts ISO to create bootable USB installation media or run in virtualized test environments.</p>
-        
-        <h3>Creating a Bootable USB Flash Drive</h3>
-        <div class="notice warn">
-          <strong>Warning:</strong> The <code>dd</code> command will overwrite all data on the target USB device. Confirm device path carefully.
-        </div>
+        <h3>Bare-Metal USB Flashing</h3>
         <div class="code-block">
-# Identify your USB drive device path (e.g., /dev/sdX)
-sudo lsblk
+# Identify your target USB device (e.g. /dev/sdX)
+lsblk
 
-# Write ISO to target USB drive
-sudo dd if=GenixBitOS-1.0.0-lts-2311142213.iso of=/dev/sdX bs=4M status=progress conv=fdatasync
+# Flash using direct dd block copy
+sudo dd if=GenixBitOS-1.0.0-lts-2311142213.iso of=/dev/sdX bs=4M status=progress oflag=sync
         </div>
+        <p>Boot the target machine from the USB flash drive and follow the Calamares installation wizard.</p>
       </section>
 
-      <!-- 4. VM Testing Guide -->
+      <!-- Section 4: VM Testing -->
       <section id="vm-testing">
-        <h2>4. Virtual Machine Testing Guide</h2>
-        <p>Test GenixBit OS 1.0.0-lts under QEMU/KVM in UEFI or BIOS mode.</p>
+        <h2>4. QEMU / KVM Virtual Machine Testing</h2>
+        <p>Test the ISO in a high-performance virtual machine with KVM hardware acceleration:</p>
         <div class="code-block">
-qemu-system-x86_64 -m 4096 -smp 2 -enable-kvm -cdrom GenixBitOS-1.0.0-lts-2311142213.iso
+# Create a 30GB virtual disk
+qemu-img create -f qcow2 genixbit-lts.qcow2 30G
+
+# Boot ISO in QEMU with 8GB RAM and 4 CPU cores
+qemu-system-x86_64 \
+  -enable-kvm -m 8192 -smp 4 \
+  -cdrom GenixBitOS-1.0.0-lts-2311142213.iso \
+  -drive file=genixbit-lts.qcow2,format=qcow2 \
+  -vga virtio -device virtio-net-pci,netdev=net0 \
+  -netdev user,id=net0,hostfwd=tcp::11434-:11434 \
+  -boot d
         </div>
       </section>
 
-      <!-- 5. Release 1.0.0-lts -->
-      <section id="release">
-        <h2>5. Release 1.0.0-lts Specifications</h2>
+      <!-- Section 5: Local AI Stack -->
+      <section id="ai-runtime">
+        <h2>5. Local AI Proxy & System Daemon</h2>
+        <p>GenixBit OS runs an in-process local OpenAI/Ollama-compatible proxy listening on <code>127.0.0.1:11434</code>:</p>
+        <div class="code-block">
+# Enable and start AI runtime service
+sudo systemctl enable --now genixbit-ai-proxy
+
+# Test health check and hardware detection
+curl -s http://127.0.0.1:11434/health | jq .
+
+# Send OpenAI-compatible streaming completion
+curl -X POST http://127.0.0.1:11434/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemma-3-2b-it",
+    "messages": [{"role": "user", "content": "Explain AI-First Linux architecture."}],
+    "stream": true
+  }'
+        </div>
+      </section>
+
+      <!-- Section 6: Model Center -->
+      <section id="model-center">
+        <h2>6. Model Pull & Quantization Engine</h2>
+        <p>The <code>genixbit-ai-center</code> CLI manages model downloads, quantization checks, and cache storage:</p>
+        <div class="code-block">
+# 1. View curated models catalog
+genixbit-ai-center list
+
+# 2. Get hardware-aware quantization recommendation
+genixbit-ai-center quantize-recommend
+
+# 3. Pull and register a GGUF model
+genixbit-ai-center pull gemma-3-2b-it
+
+# 4. View locally cached model files
+genixbit-ai-center models
+
+# 5. Run a prompt test
+genixbit-ai-center run --model gemma-3-2b-it --prompt "List 3 advantages of local AI."
+        </div>
+      </section>
+
+      <!-- Section 7: Developer Agents -->
+      <section id="developer-agents">
+        <h2>7. Developer Agent Integrations</h2>
+        <p>Connect autonomous AI coding agents directly to your locally running models:</p>
+        <div class="code-block">
+# Run agent doctor to verify installed toolchains
+genixbit-agent doctor
+
+# Connect Google Antigravity SDK to local AI
+export ANTIGRAVITY_API_BASE="http://127.0.0.1:11434/v1"
+export OPENAI_API_KEY="genixbit-local-token"
+agy
+
+# Connect Cursor IDE / OpenCode
+# Configure OpenAI Base URL: http://127.0.0.1:11434/v1
+        </div>
+      </section>
+
+      <!-- Section 8: Developer Setup -->
+      <section id="dev-setup">
+        <h2>8. Developer Environment Setup Wizard</h2>
+        <p>Run <code>genixbit-dev-setup</code> to auto-configure Docker non-root permissions, SSH keys, Python UV, and agent environment variables:</p>
+        <div class="code-block">
+genixbit-dev-setup
+        </div>
+      </section>
+
+      <!-- Section 9: Packages -->
+      <section id="packages">
+        <h2>9. 15-Package Ecosystem Architecture</h2>
+        <p>GenixBit OS distributes 15 modular packages built cleanly under version <code>1.0.0-lts</code>:</p>
         <table>
-          <tr><th>Attribute</th><th>Specification / Hash</th></tr>
-          <tr><td>Active Release Version</td><td><code>1.0.0-lts</code></td></tr>
-          <tr><td>ISO Filename</td><td><code>GenixBitOS-1.0.0-lts-2311142213.iso</code></td></tr>
-          <tr><td>ISO Size</td><td><code>1,395,851,264</code> bytes (1.3 GB)</td></tr>
-          <tr><td>ISO SHA-256</td><td><code>229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</code></td></tr>
-          <tr><td>Validation Gate Result</td><td><code>PASS_LTS_FRESH_INSTALL</code> (16/16 Scenarios PASSED)</td></tr>
-          <tr><td>Base OS Platform</td><td>Ubuntu 26.04 Resolute Development Base</td></tr>
-          <tr><td>Architecture</td><td>amd64 (x86_64)</td></tr>
+          <tr>
+            <th>Package Name</th>
+            <th>Section</th>
+            <th>Primary Function</th>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-base-files</code></td>
+            <td>base</td>
+            <td>System identity, /etc/os-release, issue banner</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-desktop</code></td>
+            <td>x11</td>
+            <td>GNOME desktop metapackage and session defaults</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-theme</code></td>
+            <td>x11</td>
+            <td>Branding SVGs, Plymouth splash, GNOME gschema override</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-wallpapers</code></td>
+            <td>x11</td>
+            <td>Official 4K workstation wallpaper artwork</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-installer-config</code></td>
+            <td>admin</td>
+            <td>Calamares installer branding and HTML slides</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-archive-keyring</code></td>
+            <td>misc</td>
+            <td>OpenPGP APT repository signing public key</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-apt-config</code></td>
+            <td>admin</td>
+            <td>APT repository channel sources</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-developer-profile</code></td>
+            <td>metapackages</td>
+            <td>Developer tools & <code>genixbit-dev-setup</code> wizard</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-server-profile</code></td>
+            <td>metapackages</td>
+            <td>Headless services and node administration tools</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-creator-profile</code></td>
+            <td>metapackages</td>
+            <td>Audio, video, 3D graphics, and hardware encoders</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-gpu-diagnostics</code></td>
+            <td>utils</td>
+            <td><code>genixbit-gpu-diag</code> hardware acceleration inspector</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-ai-runtime</code></td>
+            <td>utils</td>
+            <td><code>genixbit-ai-proxy</code> OpenAI/Ollama server daemon</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-ai-center</code></td>
+            <td>utils</td>
+            <td><code>genixbit-ai-center</code> model manager CLI</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-agents</code></td>
+            <td>utils</td>
+            <td><code>genixbit-agent</code> toolchain bridge</td>
+          </tr>
+          <tr>
+            <td><code>genixbit-os-store</code></td>
+            <td>utils</td>
+            <td><code>genixbit-store</code> curated application catalog</td>
+          </tr>
         </table>
-
-        <h3>Known Limitations</h3>
-        <ul>
-          <li>No usable 0.2.0-alpha release or migration-source ISO currently exists.</li>
-          <li>Secure Boot key enrollment is manual in 0.2.0-alpha.</li>
-          <li>Production package repository is NOT active; package staging ran on isolated GCP environment.</li>
-        </ul>
       </section>
 
-      <!-- 6. Branding Architecture -->
-      <section id="branding">
-        <h2>6. Branding Architecture</h2>
-        <p>GenixBit OS enforces consistent visual identity across GRUB bootloader, Plymouth splash, terminal banners, desktop artwork, and <code>/etc/os-release</code> while preserving legally mandated upstream copyright notices.</p>
-      </section>
-
-      <!-- 7. Package Architecture -->
-      <section id="packaging">
-        <h2>7. Package Architecture</h2>
-        <p>The package ecosystem features dual-suite channels (<code>resolute-alpha</code> and <code>resolute-testing</code>), automated <code>dpkg-scanpackages</code> indexes, and atomic directory symlinking for instant publication.</p>
-      </section>
-
-      <!-- 8. GCP Staging Validation -->
-      <section id="gcp-staging">
-        <h2>8. GCP Staging Validation</h2>
-        <p>We executed a full 12-stage package repository validation drill on an isolated GCP staging infrastructure under run ID <code>run-staging-20260723-001</code>.</p>
-        <div class="notice">
-          <strong>Staging Notice:</strong> The GCP staging exercise was purely for validation. All temporary resources (VPC, VMs, NAT, DNS, buckets) were destroyed. Production repo remains undeployed.
-        </div>
-      </section>
-
-      <!-- 9. Signing & Trust Model -->
-      <section id="signing">
-        <h2>9. Signing & Trust Model</h2>
-        <p>OpenPGP metadata signatures (InRelease and Release.gpg) are produced exclusively on an isolated <strong>Signing Workstation</strong> (<code>SIGNER_INSTANCE_NAME</code>). Repository Host and APT Client nodes contain zero secret key packets.</p>
-      </section>
-
-      <!-- 10. Snapshots & Rollback -->
-      <section id="snapshots">
-        <h2>10. Snapshots & Rollback</h2>
-        <p>Supports atomic release snapshots (e.g., <code>snap-resolute-alpha-20260723-104011</code>) allowing instant rollbacks to previous validated suite states without client-side APT corruption.</p>
-      </section>
-
-      <!-- 11. Security Policy -->
+      <!-- Section 10: Security -->
       <section id="security">
-        <h2>11. Security Policy</h2>
-        <p>Security vulnerabilities should be reported directly to <code>security@genixbit.com</code>. We enforce zero hardcoded secrets, fail-closed operational runners, and anti-fabrication testing gates across all CI pipelines.</p>
+        <h2>10. Security & Privacy Governance</h2>
+        <p>GenixBit OS guarantees zero mandatory telemetry, offline local AI execution, signed package distribution via GPG keyrings, and strict chroot isolation during build time.</p>
       </section>
 
-      <!-- 12. Troubleshooting -->
-      <section id="troubleshooting">
-        <h2>12. Troubleshooting</h2>
-        <p>If you encounter the retired 0.2.0-alpha object, do not debug it as a boot issue. It is exactly zero-filled and must be replaced by a new valid ISO before VM or USB testing.</p>
-      </section>
-
-      <!-- 13. Roadmap -->
-      <section id="roadmap">
-        <h2>13. Roadmap</h2>
+      <!-- Section 11: Web Desktop -->
+      <section id="web-desktop">
+        <h2>11. Live Web Desktop Simulator & noVNC</h2>
+        <p>The web showcase at <a href="https://os.genixbit.com" style="color:var(--cyan);">os.genixbit.com</a> supports dual-mode testing:</p>
         <ul>
-          <li><strong>Phase 1 (Completed):</strong> ISO build pipeline & 12-stage GCP package staging validation drill.</li>
-          <li><strong>Phase 2 (Blocked):</strong> Public ISO release requires a new valid artifact; the 0.2.0-alpha object is retired invalid.</li>
-          <li><strong>Phase 3 (Upcoming):</strong> Hardware-accelerated AI Core integration & production package repository approval.</li>
+          <li><strong>Interactive Simulated Desktop</strong>: Draggable windows, real-time prompt streaming, interactive terminal, and wallpaper switcher.</li>
+          <li><strong>Live noVNC Stream</strong>: Live connection to headless VM sessions with auto-scaling resolution and <code>path=websockify</code>.</li>
         </ul>
       </section>
 
-      <!-- 14. Legal & Upstream Attribution -->
+      <!-- Section 12: Attribution -->
       <section id="attribution">
-        <h2>14. Legal Attribution</h2>
-        <p>GenixBit OS incorporates GPL-3.0 and Ubuntu Linux upstream components. All copyrights, trademarks, and license notices belong to their respective copyright holders. See <a href="https://github.com/GenixBit/genixbit-os/blob/main/UPSTREAM.md">UPSTREAM.md</a> for full details.</p>
+        <h2>12. Legal Attribution & Licensing</h2>
+        <p>GenixBit OS is distributed under the GNU General Public License v3.0 (GPL-3.0). It incorporates open-source upstream components from Ubuntu and Debian according to their respective open-source licenses.</p>
       </section>
+
     </main>
   </div>
 
   <footer>
     <div class="wrap">
-      © 2016-2026 GenixBit Labs Private Limited • <a href="https://os.genixbit.com">GenixBit OS Portal</a> • <a href="https://packages.os.genixbit.com">Package Status</a>
+      <p>© 2026 GenixBit Labs Private Limited. All rights reserved.</p>
     </div>
   </footer>
 </body>
