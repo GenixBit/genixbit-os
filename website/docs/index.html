@@ -116,19 +116,23 @@
         <li><a href="#installation">3. Installation Guide</a></li>
         <li><a href="#vm-testing">4. QEMU / KVM VM Testing</a></li>
       </ul>
-      <h4>Local AI Stack</h4>
+      <h4>Local AI & Intelligence</h4>
       <ul>
         <li><a href="#ai-runtime">5. AI Proxy & Daemon</a></li>
         <li><a href="#model-center">6. Model Pull & Quantization</a></li>
-        <li><a href="#developer-agents">7. Developer Agent Integrations</a></li>
-        <li><a href="#dev-setup">8. Developer Setup Wizard</a></li>
+        <li><a href="#bharat-ai">7. Bharat AI Multilingual Engine</a></li>
+        <li><a href="#lan-mesh">8. LAN Mesh & Remote Tunnel</a></li>
+        <li><a href="#voice-engine">9. Offline Voice Assistant</a></li>
+        <li><a href="#native-guis">10. Native Desktop GUI Suite</a></li>
+        <li><a href="#developer-agents">11. Developer Agents</a></li>
+        <li><a href="#dev-setup">12. Developer Setup Wizard</a></li>
       </ul>
       <h4>Infrastructure & Governance</h4>
       <ul>
-        <li><a href="#packages">9. Package Architecture</a></li>
-        <li><a href="#security">10. Security & Privacy Model</a></li>
-        <li><a href="#web-desktop">11. Live Web Desktop & noVNC</a></li>
-        <li><a href="#attribution">12. Legal Attribution</a></li>
+        <li><a href="#packages">13. Package Architecture</a></li>
+        <li><a href="#security">14. Security & Privacy Model</a></li>
+        <li><a href="#web-desktop">15. Live Web Desktop & noVNC</a></li>
+        <li><a href="#attribution">16. Legal Attribution</a></li>
       </ul>
     </aside>
 
@@ -138,60 +142,54 @@
       <section id="overview">
         <h2>1. OS Architecture & Design Principles</h2>
         <p>
-          <strong>GenixBit OS 1.0.0 LTS</strong> is an AI-first, developer-centric Linux operating system built on the solid foundation of <strong>Ubuntu 26.04 Resolute LTS</strong>. It provides 5-year Long Term Support (2026–2031).
+          GenixBit OS is an AI-first, developer-centric Linux distribution designed on top of the Ubuntu 26.04 Resolute LTS foundation. 
+          It pairs an optimized local AI inference stack with developer tooling, autonomous agent bridges, and a privacy-preserving desktop environment.
         </p>
-        <p>The operating system is architected around three foundational pillars:</p>
-        <ul>
-          <li><strong>Local-First Artificial Intelligence</strong>: Pre-configured, hardware-accelerated OpenAI-compatible API proxy on <code>http://127.0.0.1:11434/v1</code> with zero telemetry and 100% offline execution.</li>
-          <li><strong>Autonomous Agent Toolchains</strong>: Native bridge and diagnostic tooling for Google Antigravity SDK (<code>agy</code>), Gemini CLI, Cursor IDE, OpenAI Codex, and OpenCode.</li>
-          <li><strong>Deterministic Package Governance</strong>: 15 modular Debian packages signed cryptographically and built in clean, isolated chroot environments.</li>
-        </ul>
+        <div class="notice success">
+          <strong>✓ 100% Zero Mandatory Telemetry:</strong> All AI inference, model quantization, and agent execution runs strictly on local hardware (CPU, NVIDIA CUDA, AMD ROCm, Intel SYCL, and NPU).
+        </div>
       </section>
 
       <!-- Section 2: Download -->
       <section id="download">
-        <h2>2. Release ISO & Verification</h2>
-        <p>Production ISO images are published with bit-for-bit reproducible validation manifests:</p>
+        <h2>2. ISO Download & Integrity Verification</h2>
+        <p>Official release image metadata:</p>
         <table>
           <tr>
-            <th>Property</th>
+            <th>Attribute</th>
             <th>Value</th>
           </tr>
           <tr>
-            <td>Release Version</td>
-            <td><strong>1.0.0-lts</strong> (5-Year Long Term Support)</td>
+            <td><strong>Release Tag</strong></td>
+            <td><code>v1.0.0-lts</code> / <code>v1.1.0-alpha</code></td>
           </tr>
           <tr>
-            <td>ISO Filename</td>
+            <td><strong>ISO Filename</strong></td>
             <td><code>GenixBitOS-1.0.0-lts-2311142213.iso</code></td>
           </tr>
           <tr>
-            <td>File Size</td>
-            <td>1,395,864,576 bytes (1.30 GB)</td>
+            <td><strong>ISO Size</strong></td>
+            <td><code>1.3 GB</code></td>
           </tr>
           <tr>
-            <td>SHA256 Checksum</td>
-            <td><code>229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6</code></td>
+            <td><strong>SHA256 Checksum</strong></td>
+            <td><code>229b3f70ee38dbd4da70ae3b21841f3d350392faeaeeec62be7e9ae8b7470f1a</code></td>
           </tr>
         </table>
+        <p>Verify your ISO checksum after downloading:</p>
         <div class="code-block">
-# Verify SHA256 integrity on Linux/macOS
-echo "229b3f70f94d0ced3a3d33116a64a0f5a8c2a339070443e1d023938739873ce6  GenixBitOS-1.0.0-lts-2311142213.iso" | sha256sum -c -
+sha256sum GenixBitOS-1.0.0-lts-2311142213.iso
         </div>
       </section>
 
       <!-- Section 3: Installation -->
       <section id="installation">
         <h2>3. Installation Guide</h2>
-        <h3>Bare-Metal USB Flashing</h3>
+        <p>Flash the verified ISO onto a USB flash drive (minimum 8GB) using <code>dd</code> or standard disk writers:</p>
         <div class="code-block">
-# Identify your target USB device (e.g. /dev/sdX)
-lsblk
-
-# Flash using direct dd block copy
+# Linux / macOS (replace /dev/sdX with target USB device)
 sudo dd if=GenixBitOS-1.0.0-lts-2311142213.iso of=/dev/sdX bs=4M status=progress oflag=sync
         </div>
-        <p>Boot the target machine from the USB flash drive and follow the Calamares installation wizard.</p>
       </section>
 
       <!-- Section 4: VM Testing -->
@@ -257,37 +255,119 @@ genixbit-ai-center run --model gemma-3-2b-it --prompt "List 3 advantages of loca
         </div>
       </section>
 
-      <!-- Section 7: Developer Agents -->
+      <!-- Section 7: Bharat AI Subsystem -->
+      <section id="bharat-ai">
+        <h2>7. Bharat AI (IndicLLM) Multilingual Subsystem</h2>
+        <p>GenixBit OS natively supports 22 scheduled Indian languages with phonetic transliteration and translation routing:</p>
+        <div class="code-block">
+# List all 22 supported Indian languages and scripts
+genixbit-ai-center bharat-languages
+
+# Phonetic transliteration from English Latin to Devanagari
+genixbit-ai-center bharat-transliterate "namaste bharat swagat genixbit"
+
+# Localized translation prompt dispatch
+genixbit-ai-center bharat-translate "Welcome to the AI-first operating system" --lang hi
+        </div>
+      </section>
+
+      <!-- Section 8: LAN Mesh & Remote Tunnel -->
+      <section id="lan-mesh">
+        <h2>8. LAN Compute Mesh & Zero-Trust Developer Tunnel</h2>
+        <p>Pool GPU VRAM across local network workstations or access models remotely from laptop/mobile:</p>
+        <div class="code-block">
+# Initialize LAN mesh node
+genixbit-mesh init
+
+# Discover peer GenixBit workstations on subnet
+genixbit-mesh discover
+
+# Join a cluster peer to pool inference capacity
+genixbit-mesh join 192.168.1.105:11435
+
+# View cluster topology and aggregate VRAM
+genixbit-mesh status
+
+# Generate Zero-Trust remote authorization token
+genixbit-tunnel token
+
+# Launch encrypted developer tunnel for remote access
+genixbit-tunnel start --port 11434
+        </div>
+      </section>
+
+      <!-- Section 9: Offline Voice Assistant -->
+      <section id="voice-engine">
+        <h2>9. Offline Voice Assistant & Dictation</h2>
+        <p>Perform hardware-accelerated speech-to-text transcription with zero cloud connectivity:</p>
+        <div class="code-block">
+# Verify audio recording backends (PipeWire / ALSA)
+genixbit-voice doctor
+
+# Record audio snippet
+genixbit-voice record --duration 5 --out sample.wav
+
+# Transcribe audio file offline (supporting Indic languages)
+genixbit-voice transcribe sample.wav --lang hi
+
+# Start live interactive voice dictation loop
+genixbit-voice listen
+        </div>
+      </section>
+
+      <!-- Section 10: Native GUI Suite -->
+      <section id="native-guis">
+        <h2>10. Native Standalone Desktop GUI Suite</h2>
+        <p>GenixBit OS provides zero-dependency standalone graphical applications with <code>GenixBit-Dark</code> styling:</p>
+        <div class="code-block">
+# Launch GenixBit App Store GUI
+genixbit-store-gui
+
+# Launch GenixBit Agent Studio GUI
+genixbit-agent-studio
+
+# Launch GenixBit Hardware & AI System Monitor GUI
+genixbit-monitor-gui
+
+# Launch GenixBit AI Center GUI
+genixbit-ai-center-gui
+        </div>
+      </section>
+
+      <!-- Section 11: Developer Agents -->
       <section id="developer-agents">
-        <h2>7. Developer Agent Integrations</h2>
+        <h2>11. Developer Agent Integrations</h2>
         <p>Connect autonomous AI coding agents directly to your locally running models:</p>
         <div class="code-block">
 # Run agent doctor to verify installed toolchains
 genixbit-agent doctor
 
+# Index codebase into offline vector embeddings
+genixbit-agent index ./my-project
+
+# Semantic search codebase offline
+genixbit-agent search "where is the SSE streaming handler defined?"
+
 # Connect Google Antigravity SDK to local AI
 export ANTIGRAVITY_API_BASE="http://127.0.0.1:11434/v1"
 export OPENAI_API_KEY="genixbit-local-token"
 agy
-
-# Connect Cursor IDE / OpenCode
-# Configure OpenAI Base URL: http://127.0.0.1:11434/v1
         </div>
       </section>
 
-      <!-- Section 8: Developer Setup -->
+      <!-- Section 12: Developer Setup -->
       <section id="dev-setup">
-        <h2>8. Developer Environment Setup Wizard</h2>
+        <h2>12. Developer Environment Setup Wizard</h2>
         <p>Run <code>genixbit-dev-setup</code> to auto-configure Docker non-root permissions, SSH keys, Python UV, and agent environment variables:</p>
         <div class="code-block">
 genixbit-dev-setup
         </div>
       </section>
 
-      <!-- Section 9: Packages -->
+      <!-- Section 13: Packages -->
       <section id="packages">
-        <h2>9. 15-Package Ecosystem Architecture</h2>
-        <p>GenixBit OS distributes 15 modular packages built cleanly under version <code>1.0.0-lts</code>:</p>
+        <h2>13. 15-Package Ecosystem & APT Staging</h2>
+        <p>GenixBit OS distributes 15 modular packages built cleanly under version <code>1.0.0-lts</code> / <code>1.1.0</code>:</p>
         <table>
           <tr>
             <th>Package Name</th>
@@ -297,17 +377,17 @@ genixbit-dev-setup
           <tr>
             <td><code>genixbit-os-base-files</code></td>
             <td>base</td>
-            <td>System identity, /etc/os-release, issue banner</td>
+            <td>System identity, sysctl AI memory profile, security limits</td>
           </tr>
           <tr>
             <td><code>genixbit-os-desktop</code></td>
             <td>x11</td>
-            <td>GNOME desktop metapackage and session defaults</td>
+            <td>macOS-style top bar and floating centered dock profile</td>
           </tr>
           <tr>
             <td><code>genixbit-os-theme</code></td>
             <td>x11</td>
-            <td>Branding SVGs, Plymouth splash, GNOME gschema override</td>
+            <td>Branding SVGs, GenixBit-Dark theme, sound theme, icons</td>
           </tr>
           <tr>
             <td><code>genixbit-os-wallpapers</code></td>
@@ -347,40 +427,40 @@ genixbit-dev-setup
           <tr>
             <td><code>genixbit-os-gpu-diagnostics</code></td>
             <td>utils</td>
-            <td><code>genixbit-gpu-diag</code> hardware acceleration inspector</td>
+            <td><code>genixbit-gpu-diag</code>, <code>genixbit-top</code>, <code>genixbit-monitor-gui</code></td>
           </tr>
           <tr>
             <td><code>genixbit-os-ai-runtime</code></td>
             <td>utils</td>
-            <td><code>genixbit-ai-proxy</code> OpenAI/Ollama server daemon</td>
+            <td><code>genixbit-ai-proxy</code>, <code>genixbit-mesh</code>, <code>genixbit-tunnel</code></td>
           </tr>
           <tr>
             <td><code>genixbit-os-ai-center</code></td>
             <td>utils</td>
-            <td><code>genixbit-ai-center</code> model manager CLI</td>
+            <td><code>genixbit-ai-center</code>, <code>genixbit-voice</code>, <code>genixbit-ai-center-gui</code></td>
           </tr>
           <tr>
             <td><code>genixbit-os-agents</code></td>
             <td>utils</td>
-            <td><code>genixbit-agent</code> toolchain bridge</td>
+            <td><code>genixbit-agent</code>, <code>genixbit-agent-studio</code>, vector search</td>
           </tr>
           <tr>
             <td><code>genixbit-os-store</code></td>
             <td>utils</td>
-            <td><code>genixbit-store</code> curated application catalog</td>
+            <td><code>genixbit-store</code>, <code>genixbit-store-gui</code> application catalog</td>
           </tr>
         </table>
       </section>
 
-      <!-- Section 10: Security -->
+      <!-- Section 14: Security -->
       <section id="security">
-        <h2>10. Security & Privacy Governance</h2>
+        <h2>14. Security & Privacy Governance</h2>
         <p>GenixBit OS guarantees zero mandatory telemetry, offline local AI execution, signed package distribution via GPG keyrings, and strict chroot isolation during build time.</p>
       </section>
 
-      <!-- Section 11: Web Desktop -->
+      <!-- Section 15: Web Desktop -->
       <section id="web-desktop">
-        <h2>11. Live Web Desktop Simulator & noVNC</h2>
+        <h2>15. Live Web Desktop Simulator & noVNC</h2>
         <p>The web showcase at <a href="https://os.genixbit.com" style="color:var(--cyan);">os.genixbit.com</a> supports dual-mode testing:</p>
         <ul>
           <li><strong>Interactive Simulated Desktop</strong>: Draggable windows, real-time prompt streaming, interactive terminal, and wallpaper switcher.</li>
@@ -388,9 +468,9 @@ genixbit-dev-setup
         </ul>
       </section>
 
-      <!-- Section 12: Attribution -->
+      <!-- Section 16: Attribution -->
       <section id="attribution">
-        <h2>12. Legal Attribution & Licensing</h2>
+        <h2>16. Legal Attribution & Licensing</h2>
         <p>GenixBit OS is distributed under the GNU General Public License v3.0 (GPL-3.0). It incorporates open-source upstream components from Ubuntu and Debian according to their respective open-source licenses.</p>
       </section>
 
