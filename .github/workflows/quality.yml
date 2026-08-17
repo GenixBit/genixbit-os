@@ -239,5 +239,9 @@ jobs:
             bash tools/validation/check-release-version-consistency.sh
           fi
 
+      - name: Run GenixBit 1.0.0 LTS Full Release Gate
+        shell: bash
+        run: bash tools/ci-full-release-gate.sh
+
       - name: Confirm CI scope
         run: echo 'Repository checks completed. Full ISO builds require a compatible Ubuntu 26.04 amd64 environment.'

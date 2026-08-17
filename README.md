@@ -74,25 +74,22 @@ Read:
 
 | Feature / Gate Area | Status | Notes |
 | --- | --- | --- |
-| Release 0.3.0-alpha Candidate Gate | **PASS** | 16/16 candidate validation scenarios passed (`PASS_ALPHA_FRESH_INSTALL`) |
-| 0.3.0-alpha ISO Artifact | **PASS** | `GenixBitOS-0.3.0-alpha-2311142213.iso` (1.3 GB) published on GitHub Releases |
+| Release 1.0.0-lts Candidate Gate | **PASS** | 16/16 candidate validation scenarios passed (`PASS_LTS_FRESH_INSTALL`) |
+| 1.0.0-lts ISO Artifact | **PASS** | `GenixBitOS-1.0.0-lts-2311142213.iso` (1.3 GB) published on GitHub Releases |
 | Build A / Build B Reproducibility | **PASS** | Independent build passes compiled bit-for-bit identical installation media |
 | QEMU VM Autoinstallation | **PASS** | Boot, live desktop, and systemd autoinstallation verified on UEFI and BIOS |
 | OpenPGP Key Isolation | **PASS** | Passphrase-protected 3-role OpenPGP key pair separation verified |
 | Repository & Build Preparation | **Complete** | Governance, licensing, CI, documentation and VM tooling active |
-| `genixbit-os-base-files` | **PASS** | Identity templates & Debian package metadata verified |
-| `genixbit-os-desktop` | **PASS** | GNOME desktop & local AI workspace defaults package verified |
-| `genixbit-os-theme` | **PASS** | Plymouth boot splash & desktop artwork package verified |
-| `genixbit-os-wallpapers` | **PASS** | High-resolution workstation background wallpapers package verified |
-| `genixbit-os-installer-config` | **PASS** | Ubiquity / Calamares installer slides & profiles package verified |
-| `genixbit-os-archive-keyring` | **PASS** | OpenPGP public key keyring package verified |
-| `genixbit-os-apt-config` | **PASS** | APT repository channel configuration package verified |
-| Product Website Portal | **Active** | Live at `https://os.genixbit.com` |
-| Documentation Portal | **Active** | Live at `https://docs.os.genixbit.com` |
-| Package Status Portal | **Active** | Live at `https://packages.os.genixbit.com` |
-| GenixBit AI Center | **Planned** | Runtime and model-management application |
-| GenixBit Agents Integration | **Planned** | Optional connection to `GenixBit/agency-agents` |
-| GenixBit Store | **Planned** | Curated applications, packages, runtimes and model integrations |
+| `genixbit-os-ai-runtime` | **PASS** | OpenAI/Ollama-compatible local server daemon on port 11434 (`genixbit-ai-proxy.service`) |
+| `genixbit-os-ai-center` | **PASS** | GGUF model puller, cache manager, and hardware quantization recommender |
+| `genixbit-os-agents` | **PASS** | Developer agent bridge (Google Antigravity SDK, Gemini CLI, Cursor, Codex) |
+| `genixbit-os-developer-profile` | **PASS** | Developer workstation toolchain & `genixbit-dev-setup` onboarding tool |
+| `genixbit-os-gpu-diagnostics` | **PASS** | Hardware accelerator detection tool (`genixbit-gpu-diag`) |
+| `genixbit-os-store` | **PASS** | Curated Flatpak, APT, and native GenixBit application store |
+| `genixbit-os-theme` | **PASS** | GNOME 46+ gschema dark theme override, wallpapers, and Plymouth boot splash |
+| Product Website Portal | **Active** | Live at `https://os.genixbit.com` with interactive Web Desktop Simulator |
+| Documentation Portal | **Active** | Live at `https://docs.os.genixbit.com` with 12-chapter technical manual |
+| Package Status Portal | **Active** | Live at `https://packages.os.genixbit.com` with searchable 15-package catalog |
 
 ## Branding & Package Scaffolding
 
