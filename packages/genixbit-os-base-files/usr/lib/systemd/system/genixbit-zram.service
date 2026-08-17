@@ -1,0 +1,12 @@
+[Unit]
+Description=GenixBit OS Dynamic ZRAM Memory Compaction Service
+After=local-fs.target
+Before=swap.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/genixbit-zram enable
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -18,6 +18,8 @@ PACKAGES = [
         "description": "GenixBit OS base system identity files\n Provides system release identity, issue files, and OS branding.",
         "files": [
             ("packages/genixbit-os-base-files/usr/bin/genixbit-fetch", "usr/bin/genixbit-fetch", 0o755),
+            ("packages/genixbit-os-base-files/usr/bin/genixbit-zram", "usr/bin/genixbit-zram", 0o755),
+            ("packages/genixbit-os-base-files/usr/lib/systemd/system/genixbit-zram.service", "usr/lib/systemd/system/genixbit-zram.service", 0o644),
             ("packages/genixbit-os-base-files/etc/profile.d/99-genixbit-shell.sh", "etc/profile.d/99-genixbit-shell.sh", 0o644),
             ("packages/genixbit-os-base-files/etc/sysctl.d/99-genixbit-ai.conf", "etc/sysctl.d/99-genixbit-ai.conf", 0o644),
             ("packages/genixbit-os-base-files/etc/security/limits.d/99-genixbit-ai.conf", "etc/security/limits.d/99-genixbit-ai.conf", 0o644)
@@ -182,6 +184,7 @@ PACKAGES = [
             ("packages/genixbit-os-agents/bin/genixbit-agent", "usr/bin/genixbit-agent", 0o755),
             ("packages/genixbit-os-agents/bin/genixbit-agent-studio", "usr/bin/genixbit-agent-studio", 0o755),
             ("packages/genixbit-os-agents/bin/genixbit-guard", "usr/bin/genixbit-guard", 0o755),
+            ("packages/genixbit-os-agents/bin/genixbit-sandbox", "usr/bin/genixbit-sandbox", 0o755),
             ("packages/genixbit-os-agents/usr/share/applications/genixbit-agent.desktop", "usr/share/applications/genixbit-agent.desktop", 0o644)
         ]
     },
