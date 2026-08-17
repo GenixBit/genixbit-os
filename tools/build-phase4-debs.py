@@ -134,8 +134,10 @@ PACKAGES = [
         "files": [
             ("packages/genixbit-os-gpu-diagnostics/bin/genixbit-gpu-diag", "usr/bin/genixbit-gpu-diag", 0o755),
             ("packages/genixbit-os-gpu-diagnostics/bin/genixbit-top", "usr/bin/genixbit-top", 0o755),
+            ("packages/genixbit-os-gpu-diagnostics/bin/genixbit-monitor-gui", "usr/bin/genixbit-monitor-gui", 0o755),
             ("packages/genixbit-os-gpu-diagnostics/usr/share/applications/genixbit-gpu-diag.desktop", "usr/share/applications/genixbit-gpu-diag.desktop", 0o644),
-            ("packages/genixbit-os-gpu-diagnostics/usr/share/applications/genixbit-top.desktop", "usr/share/applications/genixbit-top.desktop", 0o644)
+            ("packages/genixbit-os-gpu-diagnostics/usr/share/applications/genixbit-top.desktop", "usr/share/applications/genixbit-top.desktop", 0o644),
+            ("packages/genixbit-os-gpu-diagnostics/usr/share/applications/genixbit-monitor.desktop", "usr/share/applications/genixbit-monitor.desktop", 0o644)
         ]
     },
     {
@@ -170,6 +172,7 @@ PACKAGES = [
         "description": "GenixBit Agents integration package for GenixBit OS\n Developer agent bridge connecting GenixBit OS workstations to GenixBit Agents,\n supporting Antigravity, Gemini CLI, Codex, Cursor, and OpenCode tools.",
         "files": [
             ("packages/genixbit-os-agents/bin/genixbit-agent", "usr/bin/genixbit-agent", 0o755),
+            ("packages/genixbit-os-agents/bin/genixbit-agent-studio", "usr/bin/genixbit-agent-studio", 0o755),
             ("packages/genixbit-os-agents/usr/share/applications/genixbit-agent.desktop", "usr/share/applications/genixbit-agent.desktop", 0o644)
         ]
     },
@@ -181,6 +184,7 @@ PACKAGES = [
         "description": "GenixBit Store curated application & package manager\n Curated app store interface for developer tools, AI runtimes, server utilities,\n Flatpak applications, and signed GenixBit packages on GenixBit OS.",
         "files": [
             ("packages/genixbit-os-store/bin/genixbit-store", "usr/bin/genixbit-store", 0o755),
+            ("packages/genixbit-os-store/bin/genixbit-store-gui", "usr/bin/genixbit-store-gui", 0o755),
             ("packages/genixbit-os-store/usr/share/applications/genixbit-store.desktop", "usr/share/applications/genixbit-store.desktop", 0o644)
         ]
     }
