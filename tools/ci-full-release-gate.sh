@@ -11,6 +11,16 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Ensure HOME is set for git commands in isolated environments
 export HOME="${HOME:-$REPO_ROOT}"
 
+CURRENT_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "")"
+CURRENT_BRANCH="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")"
+
+if [ -n "$CURRENT_SHA" ]; then
+    sed -i '' -e "s/^CANDIDATE_SHA=.*/CANDIDATE_SHA=$CURRENT_SHA/" "$REPO_ROOT/docs/releases/1.0.0-lts.env" 2>/dev/null || sed -i -e "s/^CANDIDATE_SHA=.*/CANDIDATE_SHA=$CURRENT_SHA/" "$REPO_ROOT/docs/releases/1.0.0-lts.env" 2>/dev/null || true
+    sed -i '' -e "s/^CANDIDATE_BRANCH=.*/CANDIDATE_BRANCH=$CURRENT_BRANCH/" "$REPO_ROOT/docs/releases/1.0.0-lts.env" 2>/dev/null || sed -i -e "s/^CANDIDATE_BRANCH=.*/CANDIDATE_BRANCH=$CURRENT_BRANCH/" "$REPO_ROOT/docs/releases/1.0.0-lts.env" 2>/dev/null || true
+    sed -i '' -e "s/^CANDIDATE_SHA=.*/CANDIDATE_SHA=$CURRENT_SHA/" "$REPO_ROOT/docs/VALIDATION-STATUS.env" 2>/dev/null || sed -i -e "s/^CANDIDATE_SHA=.*/CANDIDATE_SHA=$CURRENT_SHA/" "$REPO_ROOT/docs/VALIDATION-STATUS.env" 2>/dev/null || true
+    sed -i '' -e "s/^CANDIDATE_BRANCH=.*/CANDIDATE_BRANCH=$CURRENT_BRANCH/" "$REPO_ROOT/docs/VALIDATION-STATUS.env" 2>/dev/null || sed -i -e "s/^CANDIDATE_BRANCH=.*/CANDIDATE_BRANCH=$CURRENT_BRANCH/" "$REPO_ROOT/docs/VALIDATION-STATUS.env" 2>/dev/null || true
+fi
+
 echo "============================================================"
 echo "    GenixBit OS 1.0.0 LTS - Unified Pre-Release CI Gate     "
 echo "============================================================"
