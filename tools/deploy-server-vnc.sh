@@ -25,6 +25,12 @@ if command -v apt-get &>/dev/null; then
     echo "[1/4] Checking server virtualization & noVNC prerequisites..."
     sudo apt-get update -qq
     sudo apt-get install -y -qq qemu-system-x86 ovmf websockify novnc curl procps || true
+    if [[ -d "${REPO_ROOT}/packages/build-debs" ]]; then
+        sudo dpkg -i "${REPO_ROOT}/packages/build-debs/"*.deb 2>/dev/null || true
+        if command -v genixbit-desktop-setup &>/dev/null; then
+            genixbit-desktop-setup || true
+        fi
+    fi
 fi
 
 # Step 2: Download Release ISO if missing

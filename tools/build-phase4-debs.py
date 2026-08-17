@@ -22,9 +22,16 @@ PACKAGES = [
         "name": "genixbit-os-desktop",
         "version": VERSION,
         "section": "metapackages",
-        "depends": "genixbit-os-base-files",
+        "depends": "genixbit-os-base-files, genixbit-os-theme, genixbit-os-wallpapers",
         "description": "GenixBit OS desktop environment metapackage\n Metapackage pulling in core desktop session and AI workspace defaults.",
-        "files": []
+        "files": [
+            ("packages/genixbit-os-desktop/bin/genixbit-desktop-setup", "usr/bin/genixbit-desktop-setup", 0o755),
+            ("packages/genixbit-os-desktop/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml", "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml", 0o644),
+            ("packages/genixbit-os-desktop/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml", "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml", 0o644),
+            ("packages/genixbit-os-desktop/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml", "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml", 0o644),
+            ("packages/genixbit-os-desktop/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml", "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml", 0o644),
+            ("packages/genixbit-os-desktop/etc/skel/.config/autostart/genixbit-desktop-setup.desktop", "etc/skel/.config/autostart/genixbit-desktop-setup.desktop", 0o644)
+        ]
     },
     {
         "name": "genixbit-os-theme",
@@ -52,7 +59,12 @@ PACKAGES = [
         "section": "x11",
         "depends": "genixbit-os-base-files",
         "description": "GenixBit OS workstation wallpapers\n Official background wallpaper artwork collection.",
-        "files": []
+        "files": [
+            ("packages/genixbit-os-wallpapers/usr/share/backgrounds/genixbit/genixbit-wallpaper-dark.png", "usr/share/backgrounds/genixbit/genixbit-wallpaper-dark.png", 0o644),
+            ("packages/genixbit-os-wallpapers/usr/share/backgrounds/genixbit/genixbit-wallpaper-light.png", "usr/share/backgrounds/genixbit/genixbit-wallpaper-light.png", 0o644),
+            ("packages/genixbit-os-wallpapers/usr/share/backgrounds/genixbit/genixbit-wallpaper-1920x1080.png", "usr/share/backgrounds/genixbit/genixbit-wallpaper-1920x1080.png", 0o644),
+            ("packages/genixbit-os-wallpapers/usr/share/backgrounds/genixbit/genixbit-wallpaper-dark.svg", "usr/share/backgrounds/genixbit/genixbit-wallpaper-dark.svg", 0o644)
+        ]
     },
     {
         "name": "genixbit-os-installer-config",
