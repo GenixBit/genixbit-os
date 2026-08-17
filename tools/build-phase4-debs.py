@@ -110,6 +110,7 @@ PACKAGES = [
         "description": "Developer profile metapackage for GenixBit OS\n Provides developer toolchains, container runtimes, version control,\n and language environments for GenixBit OS developer workstations.",
         "files": [
             ("packages/genixbit-os-developer-profile/bin/genixbit-dev-setup", "usr/bin/genixbit-dev-setup", 0o755),
+            ("packages/genixbit-os-developer-profile/bin/genixbit-pipeline", "usr/bin/genixbit-pipeline", 0o755),
             ("packages/genixbit-os-developer-profile/usr/share/applications/genixbit-dev-setup.desktop", "usr/share/applications/genixbit-dev-setup.desktop", 0o644)
         ]
     },
@@ -189,6 +190,7 @@ PACKAGES = [
             ("packages/genixbit-os-agents/bin/genixbit-guard", "usr/bin/genixbit-guard", 0o755),
             ("packages/genixbit-os-agents/bin/genixbit-sandbox", "usr/bin/genixbit-sandbox", 0o755),
             ("packages/genixbit-os-agents/bin/genixbit-microvm", "usr/bin/genixbit-microvm", 0o755),
+            ("packages/genixbit-os-agents/bin/genixbit-swarm", "usr/bin/genixbit-swarm", 0o755),
             ("packages/genixbit-os-agents/usr/share/applications/genixbit-agent.desktop", "usr/share/applications/genixbit-agent.desktop", 0o644)
         ]
     },
