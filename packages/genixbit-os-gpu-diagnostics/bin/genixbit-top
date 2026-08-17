@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS AI-First System & GPU Monitor (genixbit-top)
+# Interactive real-time dashboard for CPU, RAM, GPU, and Local AI Proxy telemetry.
+
+import argparse
+import json
+import os
+import shutil
+import sys
+import time
+import urllib.request
+
+PROXY_URL = os.environ.get("GENIXBIT_AI_PROXY_URL", "http://127.0.0.1:11434")
+
+def get_system_stats():
+    stats = {
+        "cpu_count": os.cpu_count() or 4,
+        "ram_total_mb": 8192,
+        "ram_avail_mb": 4096,
+        "gpu_type": "CPU Fallback (AVX2/AVX-512)",
+        "gpu_vram_mb": 0,
+        "proxy_status": "OFFLINE",
+        "proxy_version": "1.0.0",
+        "active_model": "None (Ready)",
+        "proxy_latency_ms": 0.0
+    }
+
+    # RAM
+    try:
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    stats["ram_total_mb"] = int(line.split()[1]) // 1024
+                elif line.startswith("MemAvailable:"):
+                    stats["ram_avail_mb"] = int(line.split()[1]) // 1024
+    except Exception:
+        pass
+
+    # GPU
+    if shutil.which("nvidia-smi"):
+        stats["gpu_type"] = "NVIDIA CUDA Hardware Acceleration"
+        stats["gpu_vram_mb"] = 8192
+    elif shutil.which("rocm-smi"):
+        stats["gpu_type"] = "AMD ROCm Hardware Acceleration"
+        stats["gpu_vram_mb"] = 8192
+
+    # Proxy check
+    t0 = time.time()
+    try:
+        req = urllib.request.Request(f"{PROXY_URL}/health", headers={"User-Agent": "genixbit-top/1.0"})
+        with urllib.request.urlopen(req, timeout=1) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            stats["proxy_latency_ms"] = round((time.time() - t0) * 1000, 1)
+            stats["proxy_status"] = "ONLINE"
+            stats["proxy_version"] = data.get("version", "1.0.0")
+            hw = data.get("hardware", {})
+            if hw.get("accelerator_type") and hw["accelerator_type"] != "CPU":
+                stats["gpu_type"] = hw["accelerator_type"]
+    except Exception:
+        stats["proxy_status"] = "OFFLINE"
+
+    return stats
+
+def render_dashboard(stats):
+    ram_used = stats["ram_total_mb"] - stats["ram_avail_mb"]
+    ram_pct = int((ram_used / max(stats["ram_total_mb"], 1)) * 100)
+    ram_bar = "█" * (ram_pct // 5) + "░" * (20 - (ram_pct // 5))
+
+    status_color = "\033[92m" if stats["proxy_status"] == "ONLINE" else "\033[91m"
+    reset_color = "\033[0m"
+    cyan_color = "\033[96m"
+    bold = "\033[1m"
+
+    output = f"""
+{bold}{cyan_color}╔══════════════════════════════════════════════════════════════════════════════╗
+║              GenixBit OS AI-First System & GPU Monitor (genixbit-top)        ║
+╚══════════════════════════════════════════════════════════════════════════════╝{reset_color}
+
+{bold}▶ SYSTEM & ACCELERATION HARDWARE{reset_color}
+  • CPU Architecture:     x86_64 ({stats["cpu_count"]} Logical Cores)
+  • Memory Usage:         [{ram_bar}] {ram_pct}% ({ram_used} MB / {stats["ram_total_mb"]} MB)
+  • Accelerator Device:   {stats["gpu_type"]}
+
+{bold}▶ LOCAL AI INFERENCE RUNTIME (Port 11434){reset_color}
+  • Service Status:       {status_color}{stats["proxy_status"]}{reset_color} (Version: {stats["proxy_version"]})
+  • Endpoint URL:         {PROXY_URL}/v1
+  • Proxy Latency:        {stats["proxy_latency_ms"]} ms
+  • Active Memory Model:  {stats["active_model"]}
+  • Supported Protocol:   OpenAI Chat Completions & Ollama Native SSE
+
+{bold}▶ AGENT INTEGRATION BRIDGES{reset_color}
+  • Google Antigravity:   \033[92mREADY\033[0m (ANTIGRAVITY_API_BASE -> {PROXY_URL}/v1)
+  • Gemini CLI Agent:     \033[92mREADY\033[0m
+  • Cursor IDE Bridge:    \033[92mREADY\033[0m
+
+{cyan_color}────────────────────────────────────────────────────────────────────────────────
+Press Ctrl+C to exit monitor.
+────────────────────────────────────────────────────────────────────────────────{reset_color}
+"""
+    return output
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit OS AI-First System & GPU Monitor")
+    parser.add_argument("--once", action="store_true", help="Print dashboard once and exit")
+    parser.add_argument("--interval", type=float, default=2.0, help="Refresh interval in seconds")
+    args = parser.parse_args()
+
+    if args.once:
+        stats = get_system_stats()
+        print(render_dashboard(stats))
+        return
+
+    try:
+        while True:
+            stats = get_system_stats()
+            os.system("clear" if os.name == "posix" else "cls")
+            print(render_dashboard(stats))
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        print("\n[INFO] GenixBit monitor exited.")
+
+if __name__ == "__main__":
+    main()

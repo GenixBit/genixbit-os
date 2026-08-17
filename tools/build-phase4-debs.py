@@ -108,7 +108,9 @@ PACKAGES = [
         "description": "Hardware & GPU diagnostic package for GenixBit OS\n Automatic NVIDIA, AMD, and Intel GPU detection tool providing CUDA and ROCm\n runtime capability diagnostics for local AI model acceleration.",
         "files": [
             ("packages/genixbit-os-gpu-diagnostics/bin/genixbit-gpu-diag", "usr/bin/genixbit-gpu-diag", 0o755),
-            ("packages/genixbit-os-gpu-diagnostics/usr/share/applications/genixbit-gpu-diag.desktop", "usr/share/applications/genixbit-gpu-diag.desktop", 0o644)
+            ("packages/genixbit-os-gpu-diagnostics/bin/genixbit-top", "usr/bin/genixbit-top", 0o755),
+            ("packages/genixbit-os-gpu-diagnostics/usr/share/applications/genixbit-gpu-diag.desktop", "usr/share/applications/genixbit-gpu-diag.desktop", 0o644),
+            ("packages/genixbit-os-gpu-diagnostics/usr/share/applications/genixbit-top.desktop", "usr/share/applications/genixbit-top.desktop", 0o644)
         ]
     },
     {

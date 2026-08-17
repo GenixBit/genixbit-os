@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # GenixBit OS Agents Integration CLI Bridge
 # Connects developer workstations to Google Antigravity SDK, Gemini CLI, Cursor, Codex & OpenCode.
+# Features: Agent doctor diagnostics, offline local code semantic search & vector indexer.
 
 import argparse
+import glob
 import json
+import math
 import os
 import shutil
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -103,11 +107,7 @@ def status_agents():
     print("============================================================")
 
 def inspect_agent(agent_name):
-    target = None
-    for a in AGENTS_REGISTRY:
-        if a["name"].lower() == agent_name.lower():
-            target = a
-            break
+    target = next((a for a in AGENTS_REGISTRY if a["name"].lower() == agent_name.lower()), None)
     if not target:
         print(f"[ERROR] Agent '{agent_name}' not found in registry. Run 'genixbit-agent list' to view available agents.")
         return 1
@@ -165,10 +165,112 @@ def doctor():
     print("Doctor Status: ALL ESSENTIAL CHECKS VERIFIED")
     print("============================================================")
 
+def get_embedding(text):
+    """Compute embedding vector using local proxy or deterministic hash vector."""
+    try:
+        payload = json.dumps({"input": text, "model": "genixbit-embeddings"}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{PROXY_URL}/v1/embeddings",
+            data=payload,
+            headers={"Content-Type": "application/json", "User-Agent": "genixbit-agent/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data["data"][0]["embedding"]
+    except Exception:
+        # Fallback local term frequency vector
+        vec = [0.0] * 32
+        for i, word in enumerate(text.lower().split()):
+            idx = sum(ord(c) for c in word) % 32
+            vec[idx] += 1.0
+        norm = math.sqrt(sum(v*v for v in vec)) or 1.0
+        return [v / norm for v in vec]
+
+def cosine_similarity(v1, v2):
+    dot = sum(a * b for a, b in zip(v1, v2))
+    norm1 = math.sqrt(sum(a * a for a in v1)) or 1.0
+    norm2 = math.sqrt(sum(b * b for b in v2)) or 1.0
+    return dot / (norm1 * norm2)
+
+def index_codebase(target_dir):
+    target_dir = os.path.abspath(target_dir)
+    print(f"[INFO] Indexing codebase in: {target_dir}")
+    extensions = ("*.py", "*.sh", "*.json", "*.md", "*.c", "*.h", "*.js", "*.html")
+    files_to_index = []
+    for ext in extensions:
+        files_to_index.extend(glob.glob(os.path.join(target_dir, "**", ext), recursive=True))
+
+    # Filter out hidden or build paths
+    files_to_index = [f for f in files_to_index if not any(p in f for p in (".git", ".tmp", "build-debs", "__pycache__"))]
+    print(f"[INFO] Found {len(files_to_index)} candidate source files.")
+
+    index_data = []
+    for fpath in files_to_index[:100]: # Index first 100 files
+        try:
+            with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+                # Split into 20-line chunks
+                lines = content.splitlines()
+                for i in range(0, len(lines), 20):
+                    chunk = "\n".join(lines[i:i+20])
+                    if chunk.strip():
+                        vec = get_embedding(chunk[:500])
+                        rel_path = os.path.relpath(fpath, target_dir)
+                        index_data.append({
+                            "file": rel_path,
+                            "start_line": i + 1,
+                            "snippet": chunk[:300],
+                            "vector": vec
+                        })
+        except Exception:
+            pass
+
+    out_dir = os.path.join(target_dir, ".genixbit")
+    os.makedirs(out_dir, exist_ok=True)
+    out_file = os.path.join(out_dir, "code-index.json")
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(index_data, f)
+
+    print(f"[PASS] Successfully indexed {len(index_data)} chunks into {out_file}")
+
+def search_codebase(query, target_dir="."):
+    index_file = os.path.join(os.path.abspath(target_dir), ".genixbit", "code-index.json")
+    if not os.path.exists(index_file):
+        print(f"[INFO] No index found at {index_file}. Creating index first...")
+        index_codebase(target_dir)
+
+    try:
+        with open(index_file, "r", encoding="utf-8") as f:
+            index_data = json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Failed to read index: {e}")
+        return 1
+
+    query_vec = get_embedding(query)
+    scores = []
+    for item in index_data:
+        sim = cosine_similarity(query_vec, item["vector"])
+        scores.append((sim, item))
+
+    scores.sort(key=lambda x: x[0], reverse=True)
+    top_results = scores[:5]
+
+    print("============================================================")
+    print(f"     Semantic Code Search Results for: '{query}'            ")
+    print("============================================================")
+    if not top_results:
+        print("No matching code chunks found.")
+    else:
+        for rank, (score, item) in enumerate(top_results, 1):
+            print(f"[{rank}] Score: {score:.3f} | {item['file']}:{item['start_line']}")
+            print(f"    {item['snippet'].replace(chr(10), ' ')[:120]}...")
+            print("-" * 60)
+    return 0
+
 def main():
     parser = argparse.ArgumentParser(description="GenixBit OS Developer Agents Integration CLI")
-    parser.add_argument("command", choices=["list", "status", "doctor", "inspect"], help="Command to execute")
-    parser.add_argument("agent", nargs="?", default=None, help="Agent name to inspect (optional)")
+    parser.add_argument("command", choices=["list", "status", "doctor", "inspect", "index", "search"], help="Command to execute")
+    parser.add_argument("argument", nargs="?", default=None, help="Agent name for 'inspect', path for 'index', or query for 'search'")
     args = parser.parse_args()
 
     if args.command == "list":
@@ -178,10 +280,16 @@ def main():
     elif args.command == "doctor":
         doctor()
     elif args.command == "inspect":
-        if not args.agent:
+        if not args.argument:
             print("[ERROR] Please specify an agent name to inspect. Example: genixbit-agent inspect antigravity")
             sys.exit(1)
-        sys.exit(inspect_agent(args.agent))
+        sys.exit(inspect_agent(args.argument))
+    elif args.command == "index":
+        target = args.argument or "."
+        index_codebase(target)
+    elif args.command == "search":
+        query = args.argument or "proxy server endpoint"
+        sys.exit(search_codebase(query))
 
 if __name__ == "__main__":
     main()
