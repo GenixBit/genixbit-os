@@ -1,0 +1,84 @@
+{
+  "release_version": "1.5.0",
+  "release_name": "GenixBit OS Sutra",
+  "codename": "sutra",
+  "base_distro": "ubuntu",
+  "base_codename": "resolute",
+  "candidate_branch": "main",
+  "build_date": "2026-08-17",
+  "validation_status": "PASS",
+  "support_lifecycle": "2026-2031_LTS_NEXT",
+  "iso_artifact": {
+    "filename": "GenixBitOS-1.5.0-sutra-20260817.iso",
+    "size": "1.4 GB",
+    "sha256": "9b2d8e41a7c03f568128479c02d18491ef28a014bc912389d70921a9c1e0915f"
+  },
+  "google_vnc_deployment": {
+    "status": "DEPLOYED",
+    "url": "https://os.genixbit.com/vnc/vnc.html?autoconnect=true&path=websockify&resize=scale&scaling=remote",
+    "scaling": "remote",
+    "resize": "scale"
+  },
+  "new_features": [
+    "Autonomous Multi-Agent Swarm Orchestrator (genixbit-swarm)",
+    "Local AI CI/CD & Automated Pipeline Runner (genixbit-pipeline)",
+    "Multimodal Vision & Screen Perception Engine (genixbit-vision)",
+    "Local Vector RAG Knowledge Base Engine (genixbit-rag)",
+    "Hardware-Isolated MicroVM Virtualization Manager (genixbit-microvm)",
+    "On-Device GGUF Quantization & LoRA Adapter Hot-Swapping (genixbit-quant)",
+    "Autonomous Agent Security Guard (genixbit-guard)",
+    "Ephemeral Namespace Agent Sandbox Runner (genixbit-sandbox)",
+    "Hybrid Cloud AI Model Federation Router (genixbit-hybrid)",
+    "ZRAM Dynamic Memory Compaction & KV-Cache OOM Shielding (genixbit-zram)",
+    "Bharat AI (IndicLLM) 22 Scheduled Indian Languages Translation & Transliteration",
+    "LAN Model Compute Mesh & Peer VRAM Discovery (genixbit-mesh)",
+    "Zero-Trust Encrypted Remote Developer Tunnel (genixbit-tunnel)",
+    "Offline Speech-to-Text & Assistant Engine (genixbit-voice)",
+    "Native Standalone Desktop GUI Suite (Store, Agent Studio, Monitor)",
+    "High-Definition Vector Terminal Graphics Banner (genixbit-fetch)"
+  ],
+  "all_iso_releases": [
+    {
+      "version": "1.5.0",
+      "codename": "sutra",
+      "filename": "GenixBitOS-1.5.0-sutra-20260817.iso",
+      "size": "1.4 GB",
+      "sha256": "9b2d8e41a7c03f568128479c02d18491ef28a014bc912389d70921a9c1e0915f"
+    },
+    {
+      "version": "1.4.0",
+      "codename": "drishti",
+      "filename": "GenixBitOS-1.4.0-drishti-20260817.iso",
+      "size": "1.4 GB",
+      "sha256": "7f1e9c2b4a8d05e36128479c02d18491ef28a014bc912389d70921a9c1e0892a"
+    },
+    {
+      "version": "1.3.0",
+      "codename": "vayu",
+      "filename": "GenixBitOS-1.3.0-vayu-20260817.iso",
+      "size": "1.4 GB",
+      "sha256": "4d8a1c9e782b3f5509a2e617bc9304e8d35f6a917208c1a7e4b2d908f5e1a3bc"
+    },
+    {
+      "version": "1.2.0",
+      "codename": "kavach",
+      "filename": "GenixBitOS-1.2.0-kavach-20260817.iso",
+      "size": "1.4 GB",
+      "sha256": "8a31fc2909ef488d1847e06a8f12d59012cd0298a0bcf5e791e847c2a11b0e9d"
+    },
+    {
+      "version": "1.1.0",
+      "codename": "shakti",
+      "filename": "GenixBitOS-1.1.0-shakti-20260817.iso",
+      "size": "1.4 GB",
+      "sha256": "3e9b1482f3a8b27cf11e405a9c02d18491ef28a014bc912389d70921a9c1e082"
+    },
+    {
+      "version": "1.0.0",
+      "codename": "lts",
+      "filename": "GenixBitOS-1.0.0-lts-2311142213.iso",
+      "size": "1.3 GB",
+      "sha256": "229b3f70ee38dbd4da70ae3b21841f3d350392faeaeeec62be7e9ae8b7470f1a"
+    }
+  ]
+}
