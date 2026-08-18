@@ -69,11 +69,18 @@ RELEASES = [
 
 def make_robust_grub_cfg(display_name):
     return f"""
-search --set=root --file /genixbitos
+if [ -s $prefix/grubenv ]; then
+  load_env
+fi
+
+# Locate root partition reliably across UTM, VMware, VirtualBox, QEMU
+search --no-floppy --set=root --file /casper/vmlinuz
 
 insmod all_video
 insmod gfxterm
 insmod font
+insmod png
+insmod jpeg
 
 if loadfont /boot/grub/fonts/unicode.pf2 ; then
     terminal_output gfxterm
@@ -84,15 +91,15 @@ fi
 set default="0"
 set timeout=5
 
-menuentry "Try or Install {display_name}" {{
+menuentry "Try or Install {display_name} (Live & Desktop Installer)" {{
     set gfxpayload=keep
-    linux   /casper/vmlinuz boot=casper nopersistent quiet splash ---
+    linux   /casper/vmlinuz boot=casper maybe-ubiquity quiet splash console=tty0 ---
     initrd  /casper/initrd
 }}
 
 menuentry "Try or Install {display_name} (Safe Graphics Mode - nomodeset)" {{
     set gfxpayload=keep
-    linux   /casper/vmlinuz boot=casper nopersistent nomodeset quiet splash ---
+    linux   /casper/vmlinuz boot=casper nomodeset console=tty0 ---
     initrd  /casper/initrd
 }}
 
@@ -135,7 +142,7 @@ def build_iso(rel):
     build_tree = f"/tmp/iso-tree-{rel['codename']}"
     
     print(f"\n============================================================")
-    print(f"[BUILD] Building Universal BIOS/UEFI ISO for {rel['version']} ({rel['codename'].capitalize()})...")
+    print(f"[BUILD] Building Universal UTM / VMware / VirtualBox BIOS & UEFI ISO for {rel['version']} ({rel['codename'].capitalize()})...")
     print(f"============================================================")
     
     if os.path.exists(build_tree):
@@ -146,11 +153,14 @@ def build_iso(rel):
     shutil.copytree(MASTER_ROOT, build_tree, copy_function=os.link)
     subprocess.run(["chmod", "-R", "u+w", build_tree], check=True)
     
-    # 1. Update release info in .disk/info
+    # 1. Update release info in .disk/info and create root marker /genixbitos
     disk_info_path = os.path.join(build_tree, ".disk", "info")
     os.makedirs(os.path.dirname(disk_info_path), exist_ok=True)
     with open(disk_info_path, "w") as f:
         f.write(f"GenixBit OS {rel['version']} \"{rel['codename'].capitalize()}\" - Release amd64 (20260817)\n")
+        
+    with open(os.path.join(build_tree, "genixbitos"), "w") as f:
+        f.write(f"GenixBit OS {rel['version']} {rel['codename']}\n")
         
     # 2. Extract and configure /EFI/BOOT/ directory on the ISO root for direct UEFI VM boot
     efi_boot_dir = os.path.join(build_tree, "EFI", "BOOT")
@@ -169,7 +179,8 @@ def build_iso(rel):
         print(f"[WARN] Error copying EFI binaries: {e}")
     finally:
         subprocess.run(["sudo", "umount", tmp_mnt], check=False)
-        os.rmdir(tmp_mnt)
+        if os.path.exists(tmp_mnt):
+            os.rmdir(tmp_mnt)
 
     # 3. Write robust, direct boot GRUB configurations across all bootloader paths
     grub_content = make_robust_grub_cfg(rel["display_name"])
@@ -242,30 +253,31 @@ def test_dual_boot(raw_iso_path, rel):
     proc.wait(timeout=5)
     print(f"[PASS] BIOS Boot Test PASSED.")
 
-    # UEFI Boot Test if OVMF exists
-    ovmf_path = "/usr/share/OVMF/OVMF_CODE.fd"
-    if os.path.exists(ovmf_path):
-        print(f"[TEST 2/2] Testing UEFI Virtual Machine boot for {rel['iso_name']}...")
-        uefi_cmd = [
-            "qemu-system-x86_64",
-            "-drive", f"if=pflash,format=raw,readonly=on,file={ovmf_path}",
-            "-cdrom", raw_iso_path,
-            "-m", "1024",
-            "-boot", "d",
-            "-display", "none",
-            "-vnc", "127.0.0.1:97",
-            "-no-reboot"
-        ]
-        proc = subprocess.Popen(uefi_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        time.sleep(3)
-        poll = proc.poll()
-        if poll is not None and poll != 0:
-            _, stderr = proc.communicate()
-            print(f"[FAIL] UEFI boot failed: {stderr.decode('utf-8')}")
-            sys.exit(1)
-        proc.terminate()
-        proc.wait(timeout=5)
-        print(f"[PASS] UEFI Boot Test PASSED.")
+    # UEFI Boot Test with OVMF_CODE_4M.fd
+    for ovmf in ["/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/ovmf/OVMF.fd", "/usr/share/qemu/OVMF.fd"]:
+        if os.path.exists(ovmf):
+            print(f"[TEST 2/2] Testing UEFI Virtual Machine boot with {ovmf} for {rel['iso_name']}...")
+            uefi_cmd = [
+                "qemu-system-x86_64",
+                "-drive", f"if=pflash,format=raw,readonly=on,file={ovmf}",
+                "-cdrom", raw_iso_path,
+                "-m", "1024",
+                "-boot", "d",
+                "-display", "none",
+                "-vnc", "127.0.0.1:97",
+                "-no-reboot"
+            ]
+            proc = subprocess.Popen(uefi_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            time.sleep(3)
+            poll = proc.poll()
+            if poll is not None and poll != 0:
+                _, stderr = proc.communicate()
+                print(f"[FAIL] UEFI boot failed: {stderr.decode('utf-8')}")
+                sys.exit(1)
+            proc.terminate()
+            proc.wait(timeout=5)
+            print(f"[PASS] UEFI Boot Test PASSED.")
+            break
 
 def package_release_assets(raw_iso_path, rel):
     iso_name = rel["iso_name"]
@@ -296,7 +308,10 @@ def package_release_assets(raw_iso_path, rel):
     print(f"[PASS] SHA256: {sha256_hex}")
     
     for p in [zip_path, sha256_path, sha512_path]:
-        shutil.copy2(p, os.path.join(WEB_PKG_DIR, os.path.basename(p)))
+        dst = os.path.join(WEB_PKG_DIR, os.path.basename(p))
+        if os.path.exists(dst):
+            os.remove(dst)
+        shutil.move(p, dst)
 
 def main():
     check_master_template()
@@ -304,17 +319,16 @@ def main():
     
     for rel in RELEASES:
         build_iso(rel)
-        sha256_file = os.path.join(DIST_DIR, f"{rel['iso_name']}.sha256")
+        sha256_file = os.path.join(WEB_PKG_DIR, f"{rel['iso_name']}.sha256")
         with open(sha256_file, "r") as f:
             all_sha256.append(f.read().strip())
             
     sha256sums_path = os.path.join(WEB_PKG_DIR, "SHA256SUMS")
     with open(sha256sums_path, "w") as f:
         f.write("\n".join(all_sha256) + "\n")
-    shutil.copy2(sha256sums_path, os.path.join(DIST_DIR, "SHA256SUMS"))
     
     print("\n============================================================")
-    print(">>> ALL 6 UNIVERSAL HYBRID BIOS/UEFI ISOS VERIFIED & PACKAGED <<<")
+    print(">>> ALL 6 UNIVERSAL UTM / VMWARE / VIRTUALBOX ISOS VERIFIED & PACKAGED <<<")
     print("============================================================")
     for s in all_sha256:
         print(s)
