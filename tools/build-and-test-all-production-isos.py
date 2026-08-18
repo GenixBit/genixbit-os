@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# GenixBit OS — Universal Multi-Architecture (x86_64 & ARM64) Hybrid BIOS/UEFI ISO Builder
+# GenixBit OS — Universal Hybrid BIOS/UEFI ISO Builder & Verification Suite
 import hashlib
 import os
 import subprocess
@@ -11,7 +11,6 @@ import time
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MASTER_ROOT = "/home/ubuntu/iso-build/iso-root"
-ARM64_EFI_SRC = "/home/ubuntu/iso-build/efi-arm64/extracted/usr/lib/grub/arm64-efi-signed"
 DIST_DIR = os.path.join(REPO_ROOT, "dist", "iso-releases")
 WEB_PKG_DIR = os.path.join(REPO_ROOT, "website", "packages", "iso")
 os.makedirs(DIST_DIR, exist_ok=True)
@@ -68,34 +67,27 @@ RELEASES = [
     }
 ]
 
+GRUB_EARLY_CFG = """search --no-floppy --file --set=root /casper/vmlinuz
+set prefix=($root)/boot/grub
+configfile $prefix/grub.cfg
+"""
+
 STARTUP_NSH_CONTENT = """@echo -off
 echo ============================================================
-echo   Starting GenixBit OS Multi-Architecture Bootloader...
+echo   Starting GenixBit OS Live Bootloader...
 echo ============================================================
 FS0:
-if exist \\EFI\\BOOT\\BOOTAA64.EFI then
-  \\EFI\\BOOT\\BOOTAA64.EFI
-endif
 if exist \\EFI\\BOOT\\BOOTX64.EFI then
   \\EFI\\BOOT\\BOOTX64.EFI
-endif
-if exist \\EFI\\BOOT\\grubaa64.efi then
-  \\EFI\\BOOT\\grubaa64.efi
 endif
 if exist \\EFI\\BOOT\\grubx64.efi then
   \\EFI\\BOOT\\grubx64.efi
 endif
 FS1:
-if exist \\EFI\\BOOT\\BOOTAA64.EFI then
-  \\EFI\\BOOT\\BOOTAA64.EFI
-endif
 if exist \\EFI\\BOOT\\BOOTX64.EFI then
   \\EFI\\BOOT\\BOOTX64.EFI
 endif
-\\EFI\\BOOT\\BOOTAA64.EFI
 \\EFI\\BOOT\\BOOTX64.EFI
-\\EFI\\BOOT\\grubaa64.efi
-\\EFI\\BOOT\\grubx64.efi
 """
 
 def make_robust_grub_cfg(display_name):
@@ -157,14 +149,51 @@ def check_master_template():
     if not os.path.exists(MASTER_ROOT):
         print(f"[ERROR] Master template {MASTER_ROOT} does not exist!")
         sys.exit(1)
-    for req in ["casper/vmlinuz", "casper/initrd", "casper/filesystem.squashfs", "boot/grub/bios.img", "EFI/efiboot.img"]:
+    for req in ["casper/vmlinuz", "casper/initrd", "casper/filesystem.squashfs", "boot/grub/bios.img"]:
         req_path = os.path.join(MASTER_ROOT, req)
         if not os.path.exists(req_path):
             print(f"[ERROR] Missing required ISO asset: {req_path}")
             sys.exit(1)
     print(f"[PASS] Master ISO template verified at {MASTER_ROOT}")
 
-def build_iso(rel):
+def build_standalone_efi():
+    os.makedirs("/tmp/efi-gen", exist_ok=True)
+    early_cfg_path = "/tmp/efi-gen/grub-early.cfg"
+    bootx64_path = "/tmp/efi-gen/BOOTX64.EFI"
+    efiboot_img_path = "/tmp/efi-gen/efiboot.img"
+    startup_nsh_path = "/tmp/efi-gen/startup.nsh"
+    
+    with open(early_cfg_path, "w") as f:
+        f.write(GRUB_EARLY_CFG)
+    with open(startup_nsh_path, "w", newline="\r\n") as f:
+        f.write(STARTUP_NSH_CONTENT)
+        
+    # Generate standalone BOOTX64.EFI with grub-mkstandalone
+    cmd = [
+        "grub-mkstandalone",
+        "--format=x86_64-efi",
+        f"--output={bootx64_path}",
+        "--locales=",
+        "--fonts=",
+        f"boot/grub/grub.cfg={early_cfg_path}"
+    ]
+    subprocess.run(cmd, check=True)
+    
+    # Generate FAT12 efiboot.img using mtools
+    if os.path.exists(efiboot_img_path):
+        os.remove(efiboot_img_path)
+    subprocess.run(["dd", "if=/dev/zero", f"of={efiboot_img_path}", "bs=1M", "count=8"], check=True)
+    subprocess.run(["mkfs.vfat", "-F", "12", "-n", "EFI", efiboot_img_path], check=True)
+    subprocess.run(["mmd", "-i", efiboot_img_path, "::/EFI", "::/EFI/BOOT"], check=True)
+    subprocess.run(["mcopy", "-o", "-i", efiboot_img_path, bootx64_path, "::/EFI/BOOT/BOOTX64.EFI"], check=True)
+    subprocess.run(["mcopy", "-o", "-i", efiboot_img_path, bootx64_path, "::/EFI/BOOT/grubx64.efi"], check=True)
+    subprocess.run(["mcopy", "-o", "-i", efiboot_img_path, early_cfg_path, "::/EFI/BOOT/grub.cfg"], check=True)
+    subprocess.run(["mcopy", "-o", "-i", efiboot_img_path, startup_nsh_path, "::/startup.nsh"], check=True)
+    subprocess.run(["mcopy", "-o", "-i", efiboot_img_path, startup_nsh_path, "::/EFI/BOOT/startup.nsh"], check=True)
+    
+    return bootx64_path, efiboot_img_path, startup_nsh_path
+
+def build_iso(rel, bootx64_path, efiboot_img_path, startup_nsh_path):
     iso_name = rel["iso_name"]
     raw_iso_path = os.path.join(DIST_DIR, iso_name)
     zip_path = os.path.join(DIST_DIR, f"{iso_name}.zip")
@@ -173,7 +202,7 @@ def build_iso(rel):
     build_tree = f"/tmp/iso-tree-{rel['codename']}"
     
     print(f"\n============================================================")
-    print(f"[BUILD] Building Universal Multi-Arch (x86_64 & ARM64) ISO for {rel['version']} ({rel['codename'].capitalize()})...")
+    print(f"[BUILD] Building Bulletproof UTM / VMware / VirtualBox ISO for {rel['version']} ({rel['codename'].capitalize()})...")
     print(f"============================================================")
     
     if os.path.exists(build_tree):
@@ -193,80 +222,36 @@ def build_iso(rel):
     with open(os.path.join(build_tree, "genixbitos"), "w") as f:
         f.write(f"GenixBit OS {rel['version']} {rel['codename']}\n")
         
-    # 2. Add startup.nsh to ISO root and EFI directories for automated EDK II / UTM Shell boot
-    for nsh_path in [
+    # 2. Embed startup.nsh in root and EFI directories
+    for nsh in [
         os.path.join(build_tree, "startup.nsh"),
         os.path.join(build_tree, "STARTUP.NSH"),
         os.path.join(build_tree, "EFI", "BOOT", "startup.nsh"),
-        os.path.join(build_tree, "EFI", "BOOT", "STARTUP.NSH"),
-        os.path.join(build_tree, "efi", "boot", "startup.nsh"),
-        os.path.join(build_tree, "efi", "boot", "STARTUP.NSH")
+        os.path.join(build_tree, "EFI", "BOOT", "STARTUP.NSH")
     ]:
-        os.makedirs(os.path.dirname(nsh_path), exist_ok=True)
-        with open(nsh_path, "w", newline="\r\n") as f:
-            f.write(STARTUP_NSH_CONTENT)
-            
-    # 3. Extract and configure /EFI/BOOT/ directory on the ISO root with both x86_64 and ARM64 loaders
-    efi_boot_dirs = [
-        os.path.join(build_tree, "EFI", "BOOT"),
-        os.path.join(build_tree, "efi", "boot")
-    ]
-    for d in efi_boot_dirs:
-        os.makedirs(d, exist_ok=True)
-    
-    # Copy ARM64 EFI bootloaders if available
-    if os.path.exists(ARM64_EFI_SRC):
-        gcdaa64 = os.path.join(ARM64_EFI_SRC, "gcdaa64.efi.signed")
-        grubaa64 = os.path.join(ARM64_EFI_SRC, "grubaa64.efi.signed")
-        for d in efi_boot_dirs:
-            if os.path.exists(gcdaa64):
-                shutil.copy2(gcdaa64, os.path.join(d, "BOOTAA64.EFI"))
-                shutil.copy2(gcdaa64, os.path.join(d, "bootaa64.efi"))
-            if os.path.exists(grubaa64):
-                shutil.copy2(grubaa64, os.path.join(d, "grubaa64.efi"))
-                shutil.copy2(grubaa64, os.path.join(d, "GRUBAA64.EFI"))
-
-    # Mount efiboot.img to copy x86_64 BOOTX64.EFI and add ARM64 binaries
-    efiboot_img = os.path.join(build_tree, "EFI", "efiboot.img")
-    tmp_mnt = f"/tmp/efimnt-{rel['codename']}"
-    os.makedirs(tmp_mnt, exist_ok=True)
-    try:
-        subprocess.run(["sudo", "mount", "-o", "loop,rw", efiboot_img, tmp_mnt], check=True)
-        src_efi = os.path.join(tmp_mnt, "EFI", "BOOT", "BOOTX64.EFI")
-        if os.path.exists(src_efi):
-            for d in efi_boot_dirs:
-                shutil.copy2(src_efi, os.path.join(d, "BOOTX64.EFI"))
-                shutil.copy2(src_efi, os.path.join(d, "bootx64.efi"))
-                shutil.copy2(src_efi, os.path.join(d, "grubx64.efi"))
-                shutil.copy2(src_efi, os.path.join(d, "GRUBX64.EFI"))
-        # Copy ARM64 into efiboot.img as well
-        if os.path.exists(ARM64_EFI_SRC):
-            gcdaa64 = os.path.join(ARM64_EFI_SRC, "gcdaa64.efi.signed")
-            if os.path.exists(gcdaa64):
-                shutil.copy2(gcdaa64, os.path.join(tmp_mnt, "EFI", "BOOT", "BOOTAA64.EFI"))
-        # Write startup.nsh inside efiboot.img FAT partition
-        with open(os.path.join(tmp_mnt, "startup.nsh"), "w", newline="\r\n") as f:
-            f.write(STARTUP_NSH_CONTENT)
-    except Exception as e:
-        print(f"[WARN] Note on efiboot: {e}")
-    finally:
-        subprocess.run(["sudo", "umount", tmp_mnt], check=False)
-        if os.path.exists(tmp_mnt):
-            os.rmdir(tmp_mnt)
+        os.makedirs(os.path.dirname(nsh), exist_ok=True)
+        shutil.copy2(startup_nsh_path, nsh)
+        
+    # 3. Copy standalone BOOTX64.EFI and efiboot.img
+    efi_boot_dir = os.path.join(build_tree, "EFI", "BOOT")
+    os.makedirs(efi_boot_dir, exist_ok=True)
+    shutil.copy2(bootx64_path, os.path.join(efi_boot_dir, "BOOTX64.EFI"))
+    shutil.copy2(bootx64_path, os.path.join(efi_boot_dir, "bootx64.efi"))
+    shutil.copy2(bootx64_path, os.path.join(efi_boot_dir, "grubx64.efi"))
+    shutil.copy2(efiboot_img_path, os.path.join(build_tree, "EFI", "efiboot.img"))
 
     # 4. Write robust, direct boot GRUB configurations across all bootloader paths
     grub_content = make_robust_grub_cfg(rel["display_name"])
     for cfg_loc in [
         os.path.join(build_tree, "boot", "grub", "grub.cfg"),
         os.path.join(build_tree, "isolinux", "grub.cfg"),
-        os.path.join(build_tree, "EFI", "BOOT", "grub.cfg"),
-        os.path.join(build_tree, "efi", "boot", "grub.cfg")
+        os.path.join(build_tree, "EFI", "BOOT", "grub.cfg")
     ]:
         os.makedirs(os.path.dirname(cfg_loc), exist_ok=True)
         with open(cfg_loc, "w") as f:
             f.write(grub_content)
 
-    # 5. Build ISO using xorriso with hybrid MBR + GPT + dual-EFI boot sectors
+    # 5. Build ISO using xorriso with hybrid MBR + GPT + EFI boot sectors
     cmd = [
         "xorriso", "-as", "mkisofs",
         "-r", "-V", rel["vol_id"],
@@ -388,10 +373,11 @@ def package_release_assets(raw_iso_path, rel):
 
 def main():
     check_master_template()
+    bootx64_path, efiboot_img_path, startup_nsh_path = build_standalone_efi()
     all_sha256 = []
     
     for rel in RELEASES:
-        build_iso(rel)
+        build_iso(rel, bootx64_path, efiboot_img_path, startup_nsh_path)
         sha256_file = os.path.join(WEB_PKG_DIR, f"{rel['iso_name']}.sha256")
         with open(sha256_file, "r") as f:
             all_sha256.append(f.read().strip())
@@ -401,7 +387,7 @@ def main():
         f.write("\n".join(all_sha256) + "\n")
     
     print("\n============================================================")
-    print(">>> ALL 6 UNIVERSAL MULTI-ARCH ISOS VERIFIED & PACKAGED <<<")
+    print(">>> ALL 6 STANDALONE EFI & BIOS ISOS VERIFIED & PACKAGED <<<")
     print("============================================================")
     for s in all_sha256:
         print(s)
