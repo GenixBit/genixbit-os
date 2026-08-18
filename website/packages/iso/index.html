@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GenixBit OS — Official ISO Download Server &amp; Mirror</title>
+  <meta name="description" content="Direct high-speed official server downloads for GenixBit OS ISO images (1.0.0 LTS through 1.5.0 Sutra) with bit-for-bit SHA256 checksums.">
+  <style>
+    :root {
+      --bg: #070d18;
+      --panel: #0d1728;
+      --panel-border: rgba(82, 217, 255, 0.15);
+      --cyan: #52d9ff;
+      --green: #4ade80;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 30px 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    h1 {
+      font-size: 32px;
+      color: #fff;
+      margin-bottom: 10px;
+      letter-spacing: -0.5px;
+    }
+    h1 span { color: var(--cyan); }
+    p.lead {
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 800px;
+      margin: 0 auto 15px;
+    }
+    .nav-links {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .nav-links a {
+      color: var(--cyan);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      background: rgba(82, 217, 255, 0.08);
+      border: 1px solid var(--panel-border);
+    }
+    .nav-links a:hover {
+      background: rgba(82, 217, 255, 0.15);
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 30px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 14px 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    th {
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    td { font-size: 14px; }
+    code {
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      color: var(--cyan);
+      background: rgba(82, 217, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .badge-cyan { background: rgba(82, 217, 255, 0.15); color: var(--cyan); border: 1px solid var(--cyan); }
+    .btn {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+    .btn.primary {
+      background: var(--cyan);
+      color: #070d18;
+      border: 0;
+    }
+    .btn.primary:hover {
+      background: #7ae1ff;
+    }
+    .btn.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .verification-box {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 16px;
+      border-radius: 8px;
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+      color: var(--text);
+      margin-top: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    footer {
+      text-align: center;
+      margin-top: 50px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>GenixBit OS <span>Official ISO Download Server</span></h1>
+      <p class="lead">High-speed direct server downloads for all official GenixBit OS Linux live installation media. Every build is accompanied by verifiable SHA256 cryptographic signatures.</p>
+      <div class="nav-links">
+        <a href="https://os.genixbit.com">← Back to Main OS Portal</a>
+        <a href="https://packages.os.genixbit.com">APT Package Repository</a>
+        <a href="https://docs.os.genixbit.com">Documentation &amp; Guides</a>
+        <a href="https://os.genixbit.com/vnc/vnc.html?autoconnect=true&path=websockify&resize=scale&scaling=remote" target="_blank">🌐 Live Cloud Stream (noVNC)</a>
+      </div>
+    </header>
+
+    <div class="card">
+      <h2 style="font-size:20px; color:#fff; margin-bottom:12px;">Available ISO Images</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Version</th>
+              <th>Release / Codename</th>
+              <th>ISO Filename</th>
+              <th>Full ISO Size</th>
+              <th>SHA256 Hash</th>
+              <th>Direct Server Download</th>
+            </tr>
+          </thead>
+          <tbody>
+
+        <tr>
+          <td><span class="badge badge-cyan">1.5.0</span></td>
+          <td><strong>Sutra</strong><br><span style="color:var(--muted); font-size:12px;">Autonomous Multi-Agent Swarm Orchestrator & AI CI/CD Pipelines</span></td>
+          <td><code>GenixBitOS-1.5.0-sutra-20260817.iso</code></td>
+          <td><strong style="color:var(--text);">1.4 GB</strong> <span style="color:var(--muted); font-size:11px;">(Uncompressed)</span></td>
+          <td><code style="font-size:11px;" title="f1a29fef5738239e1718869a3307faf2f09a05ee036fbe2a3e61fdfb91ef3ea2">f1a29fef57...91ef3ea2</code></td>
+          <td>
+            <a href="/iso/GenixBitOS-1.5.0-sutra-20260817.iso.zip" class="btn primary" download>Download .iso.zip (1.4 GB)</a>
+            <a href="/iso/GenixBitOS-1.5.0-sutra-20260817.iso.gz" class="btn secondary" download>.iso.gz</a>
+            <a href="/iso/GenixBitOS-1.5.0-sutra-20260817.iso.sha256" class="btn secondary" download>.sha256</a>
+          </td>
+        </tr>
+
+        <tr>
+          <td><span class="badge badge-cyan">1.4.0</span></td>
+          <td><strong>Drishti</strong><br><span style="color:var(--muted); font-size:12px;">Multimodal Vision Perception & Local Vector RAG Knowledge Base</span></td>
+          <td><code>GenixBitOS-1.4.0-drishti-20260817.iso</code></td>
+          <td><strong style="color:var(--text);">1.4 GB</strong> <span style="color:var(--muted); font-size:11px;">(Uncompressed)</span></td>
+          <td><code style="font-size:11px;" title="959f210770b03cde958df4ca642ffaf711adef8b72c7a4e631dc9d6bad2d95e2">959f210770...ad2d95e2</code></td>
+          <td>
+            <a href="/iso/GenixBitOS-1.4.0-drishti-20260817.iso.zip" class="btn primary" download>Download .iso.zip (1.4 GB)</a>
+            <a href="/iso/GenixBitOS-1.4.0-drishti-20260817.iso.gz" class="btn secondary" download>.iso.gz</a>
+            <a href="/iso/GenixBitOS-1.4.0-drishti-20260817.iso.sha256" class="btn secondary" download>.sha256</a>
+          </td>
+        </tr>
+
+        <tr>
+          <td><span class="badge badge-cyan">1.3.0</span></td>
+          <td><strong>Vayu</strong><br><span style="color:var(--muted); font-size:12px;">MicroVM Agent Virtualization & Dynamic LoRA Fine-Tuning Adapters</span></td>
+          <td><code>GenixBitOS-1.3.0-vayu-20260817.iso</code></td>
+          <td><strong style="color:var(--text);">1.4 GB</strong> <span style="color:var(--muted); font-size:11px;">(Uncompressed)</span></td>
+          <td><code style="font-size:11px;" title="b4bea7f5d43d7b2a79794b883c735633e84a661b2d8fea3819dea2006f458b2a">b4bea7f5d4...6f458b2a</code></td>
+          <td>
+            <a href="/iso/GenixBitOS-1.3.0-vayu-20260817.iso.zip" class="btn primary" download>Download .iso.zip (1.4 GB)</a>
+            <a href="/iso/GenixBitOS-1.3.0-vayu-20260817.iso.gz" class="btn secondary" download>.iso.gz</a>
+            <a href="/iso/GenixBitOS-1.3.0-vayu-20260817.iso.sha256" class="btn secondary" download>.sha256</a>
+          </td>
+        </tr>
+
+        <tr>
+          <td><span class="badge badge-cyan">1.2.0</span></td>
+          <td><strong>Kavach</strong><br><span style="color:var(--muted); font-size:12px;">Autonomous Security Guard, Sandbox Runner & LZ4 ZRAM Compactor</span></td>
+          <td><code>GenixBitOS-1.2.0-kavach-20260817.iso</code></td>
+          <td><strong style="color:var(--text);">1.4 GB</strong> <span style="color:var(--muted); font-size:11px;">(Uncompressed)</span></td>
+          <td><code style="font-size:11px;" title="d83fad2b2c6efe2152a013f2be2861fea625b70b666ae46cbc481015f66dbd72">d83fad2b2c...f66dbd72</code></td>
+          <td>
+            <a href="/iso/GenixBitOS-1.2.0-kavach-20260817.iso.zip" class="btn primary" download>Download .iso.zip (1.4 GB)</a>
+            <a href="/iso/GenixBitOS-1.2.0-kavach-20260817.iso.gz" class="btn secondary" download>.iso.gz</a>
+            <a href="/iso/GenixBitOS-1.2.0-kavach-20260817.iso.sha256" class="btn secondary" download>.sha256</a>
+          </td>
+        </tr>
+
+        <tr>
+          <td><span class="badge badge-cyan">1.1.0</span></td>
+          <td><strong>Shakti</strong><br><span style="color:var(--muted); font-size:12px;">Bharat AI 22 Indian Languages & LAN Model Compute Mesh</span></td>
+          <td><code>GenixBitOS-1.1.0-shakti-20260817.iso</code></td>
+          <td><strong style="color:var(--text);">1.4 GB</strong> <span style="color:var(--muted); font-size:11px;">(Uncompressed)</span></td>
+          <td><code style="font-size:11px;" title="5845e5daf98e7a153e286bf64f6d126c606c8c1ad8c6e8a9e7fd3bdf2907a43f">5845e5daf9...2907a43f</code></td>
+          <td>
+            <a href="/iso/GenixBitOS-1.1.0-shakti-20260817.iso.zip" class="btn primary" download>Download .iso.zip (1.4 GB)</a>
+            <a href="/iso/GenixBitOS-1.1.0-shakti-20260817.iso.gz" class="btn secondary" download>.iso.gz</a>
+            <a href="/iso/GenixBitOS-1.1.0-shakti-20260817.iso.sha256" class="btn secondary" download>.sha256</a>
+          </td>
+        </tr>
+
+        <tr>
+          <td><span class="badge badge-cyan">1.0.0 LTS</span></td>
+          <td><strong>Foundation LTS</strong><br><span style="color:var(--muted); font-size:12px;">Core Linux 6.14 LTS OS & 5-Year Enterprise Support Lifecycle</span></td>
+          <td><code>GenixBitOS-1.0.0-lts-2311142213.iso</code></td>
+          <td><strong style="color:var(--text);">1.3 GB</strong> <span style="color:var(--muted); font-size:11px;">(Uncompressed)</span></td>
+          <td><code style="font-size:11px;" title="ae6ed0e9c748c19431e8bb67ad85c180bcc4cba0df7f8d6192760010caf32466">ae6ed0e9c7...caf32466</code></td>
+          <td>
+            <a href="/iso/GenixBitOS-1.0.0-lts-2311142213.iso.zip" class="btn primary" download>Download .iso.zip (1.3 GB)</a>
+            <a href="/iso/GenixBitOS-1.0.0-lts-2311142213.iso.gz" class="btn secondary" download>.iso.gz</a>
+            <a href="/iso/GenixBitOS-1.0.0-lts-2311142213.iso.sha256" class="btn secondary" download>.sha256</a>
+          </td>
+        </tr>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:18px; color:#fff; margin-bottom:10px;">Verification Instructions</h2>
+      <p style="color:var(--muted); font-size:14px;">Verify the integrity of downloaded installation media before flashing to USB storage or loading into a hypervisor:</p>
+      <div class="verification-box">
+# Linux / macOS checksum verification:<br>
+curl -sL https://packages.os.genixbit.com/iso/SHA256SUMS | sha256sum -c --ignore-missing<br><br>
+# Or direct file check:<br>
+sha256sum GenixBitOS-1.5.0-sutra-20260817.iso
+      </div>
+    </div>
+
+    <footer>
+      <p>© 2026 GenixBit OS Project. Released under GPL-3.0 License. 5-Year Enterprise LTS Lifecycle (2026–2031).</p>
+    </footer>
+  </div>
+</body>
+</html>
