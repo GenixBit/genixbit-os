@@ -11,7 +11,7 @@
   "iso_artifact": {
     "filename": "GenixBitOS-1.5.0-sutra-20260817.iso",
     "size": "1.4 GB",
-    "sha256": "9b2d8e41a7c03f568128479c02d18491ef28a014bc912389d70921a9c1e0915f"
+    "sha256": "f1a29fef5738239e1718869a3307faf2f09a05ee036fbe2a3e61fdfb91ef3ea2"
   },
   "google_vnc_deployment": {
     "status": "DEPLOYED",
@@ -43,42 +43,42 @@
       "codename": "sutra",
       "filename": "GenixBitOS-1.5.0-sutra-20260817.iso",
       "size": "1.4 GB",
-      "sha256": "9b2d8e41a7c03f568128479c02d18491ef28a014bc912389d70921a9c1e0915f"
+      "sha256": "f1a29fef5738239e1718869a3307faf2f09a05ee036fbe2a3e61fdfb91ef3ea2"
     },
     {
       "version": "1.4.0",
       "codename": "drishti",
       "filename": "GenixBitOS-1.4.0-drishti-20260817.iso",
       "size": "1.4 GB",
-      "sha256": "7f1e9c2b4a8d05e36128479c02d18491ef28a014bc912389d70921a9c1e0892a"
+      "sha256": "959f210770b03cde958df4ca642ffaf711adef8b72c7a4e631dc9d6bad2d95e2"
     },
     {
       "version": "1.3.0",
       "codename": "vayu",
       "filename": "GenixBitOS-1.3.0-vayu-20260817.iso",
       "size": "1.4 GB",
-      "sha256": "4d8a1c9e782b3f5509a2e617bc9304e8d35f6a917208c1a7e4b2d908f5e1a3bc"
+      "sha256": "b4bea7f5d43d7b2a79794b883c735633e84a661b2d8fea3819dea2006f458b2a"
     },
     {
       "version": "1.2.0",
       "codename": "kavach",
       "filename": "GenixBitOS-1.2.0-kavach-20260817.iso",
       "size": "1.4 GB",
-      "sha256": "8a31fc2909ef488d1847e06a8f12d59012cd0298a0bcf5e791e847c2a11b0e9d"
+      "sha256": "d83fad2b2c6efe2152a013f2be2861fea625b70b666ae46cbc481015f66dbd72"
     },
     {
       "version": "1.1.0",
       "codename": "shakti",
       "filename": "GenixBitOS-1.1.0-shakti-20260817.iso",
       "size": "1.4 GB",
-      "sha256": "3e9b1482f3a8b27cf11e405a9c02d18491ef28a014bc912389d70921a9c1e082"
+      "sha256": "5845e5daf98e7a153e286bf64f6d126c606c8c1ad8c6e8a9e7fd3bdf2907a43f"
     },
     {
       "version": "1.0.0",
       "codename": "lts",
       "filename": "GenixBitOS-1.0.0-lts-2311142213.iso",
       "size": "1.3 GB",
-      "sha256": "229b3f70ee38dbd4da70ae3b21841f3d350392faeaeeec62be7e9ae8b7470f1a"
+      "sha256": "ae6ed0e9c748c19431e8bb67ad85c180bcc4cba0df7f8d6192760010caf32466"
     }
   ]
 }
