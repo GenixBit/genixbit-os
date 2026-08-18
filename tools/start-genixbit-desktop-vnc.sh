@@ -7,6 +7,8 @@ echo '>>> Stopping existing VNC and XFCE processes...'
 pkill -f 'websockify.*6080' || true
 pkill -f 'x11vnc.*5900' || true
 pkill -f 'xfce4-session' || true
+pkill -f 'xfdesktop' || true
+pkill -f 'xfwm4' || true
 pkill -f 'plank' || true
 pkill -f 'Xvfb.*:99' || true
 sleep 2
@@ -111,13 +113,17 @@ X-GNOME-Autostart-enabled=true
 Name=Plank Dock
 AS
 
-echo '>>> Starting Xvfb at 1920x1080x24...'
+echo '>>> Starting Xvfb at 1920x1080x24 on display :99...'
 nohup Xvfb :99 -screen 0 1920x1080x24 > /home/ubuntu/xvfb.log 2>&1 &
 sleep 2
 
 echo '>>> Starting XFCE Desktop session...'
 nohup dbus-launch --exit-with-session xfce4-session > /home/ubuntu/xfce4.log 2>&1 &
 sleep 3
+
+if [ -f /home/ubuntu/genixbit-os-wallpaper.png ]; then
+  DISPLAY=:99 feh --bg-fill /home/ubuntu/genixbit-os-wallpaper.png || true
+fi
 
 echo '>>> Starting Plank Dock...'
 nohup plank > /home/ubuntu/plank.log 2>&1 &
@@ -128,11 +134,7 @@ nohup x11vnc -display :99 -rfbport 5900 -forever -shared -nopw -noxrecord -noxfi
 sleep 2
 
 echo '>>> Starting websockify noVNC bridge on 0.0.0.0:6080...'
-NOVNC_DIR=/home/ubuntu/genixbit-os/website/os/vnc
-if [ ! -d "$NOVNC_DIR" ]; then
-  NOVNC_DIR=/usr/share/novnc
-fi
-nohup websockify --web "$NOVNC_DIR" 6080 127.0.0.1:5900 > /home/ubuntu/websockify.log 2>&1 &
+nohup websockify --web /usr/share/novnc 6080 127.0.0.1:5900 > /home/ubuntu/websockify.log 2>&1 &
 sleep 2
 
 echo '>>> Desktop VNC Stack is fully active!'

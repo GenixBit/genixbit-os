@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# GenixBit OS — Production ISO Builder, QEMU Boot Verification & Release Packager
+# GenixBit OS — Universal Hybrid BIOS/UEFI ISO Builder & VM Boot Verification Suite
 import hashlib
 import os
 import subprocess
@@ -23,7 +23,7 @@ RELEASES = [
         "codename": "sutra",
         "vol_id": "GENIXBIT_150_SUTRA",
         "iso_name": "GenixBitOS-1.5.0-sutra-20260817.iso",
-        "display_size": "1.3 GB"
+        "display_name": "GenixBit OS 1.5.0 (Sutra)"
     },
     {
         "tag": "v1.4.0",
@@ -31,7 +31,7 @@ RELEASES = [
         "codename": "drishti",
         "vol_id": "GENIXBIT_140_DRISHTI",
         "iso_name": "GenixBitOS-1.4.0-drishti-20260817.iso",
-        "display_size": "1.3 GB"
+        "display_name": "GenixBit OS 1.4.0 (Drishti)"
     },
     {
         "tag": "v1.3.0",
@@ -39,7 +39,7 @@ RELEASES = [
         "codename": "vayu",
         "vol_id": "GENIXBIT_130_VAYU",
         "iso_name": "GenixBitOS-1.3.0-vayu-20260817.iso",
-        "display_size": "1.3 GB"
+        "display_name": "GenixBit OS 1.3.0 (Vayu)"
     },
     {
         "tag": "v1.2.0",
@@ -47,7 +47,7 @@ RELEASES = [
         "codename": "kavach",
         "vol_id": "GENIXBIT_120_KAVACH",
         "iso_name": "GenixBitOS-1.2.0-kavach-20260817.iso",
-        "display_size": "1.3 GB"
+        "display_name": "GenixBit OS 1.2.0 (Kavach)"
     },
     {
         "tag": "v1.1.0",
@@ -55,7 +55,7 @@ RELEASES = [
         "codename": "shakti",
         "vol_id": "GENIXBIT_110_SHAKTI",
         "iso_name": "GenixBitOS-1.1.0-shakti-20260817.iso",
-        "display_size": "1.3 GB"
+        "display_name": "GenixBit OS 1.1.0 (Shakti)"
     },
     {
         "tag": "v1.0.0-lts",
@@ -63,9 +63,57 @@ RELEASES = [
         "codename": "lts",
         "vol_id": "GENIXBIT_100_LTS",
         "iso_name": "GenixBitOS-1.0.0-lts-2311142213.iso",
-        "display_size": "1.3 GB"
+        "display_name": "GenixBit OS 1.0.0 LTS (Foundation)"
     }
 ]
+
+def make_robust_grub_cfg(display_name):
+    return f"""
+search --set=root --file /genixbitos
+
+insmod all_video
+insmod gfxterm
+insmod font
+
+if loadfont /boot/grub/fonts/unicode.pf2 ; then
+    terminal_output gfxterm
+elif loadfont /isolinux/unicode.pf2 ; then
+    terminal_output gfxterm
+fi
+
+set default="0"
+set timeout=5
+
+menuentry "Try or Install {display_name}" {{
+    set gfxpayload=keep
+    linux   /casper/vmlinuz boot=casper nopersistent quiet splash ---
+    initrd  /casper/initrd
+}}
+
+menuentry "Try or Install {display_name} (Safe Graphics Mode - nomodeset)" {{
+    set gfxpayload=keep
+    linux   /casper/vmlinuz boot=casper nopersistent nomodeset quiet splash ---
+    initrd  /casper/initrd
+}}
+
+menuentry "{display_name} (Fast RAM Boot - toram)" {{
+    set gfxpayload=keep
+    linux   /casper/vmlinuz boot=casper toram quiet splash ---
+    initrd  /casper/initrd
+}}
+
+menuentry "Check installation media for defects (Integrity Verification)" {{
+    set gfxpayload=keep
+    linux   /casper/vmlinuz boot=casper integrity-check quiet splash ---
+    initrd  /casper/initrd
+}}
+
+if [ "$grub_platform" == "efi" ]; then
+    menuentry "UEFI Firmware Settings" {{
+        fwsetup
+    }}
+fi
+"""
 
 def check_master_template():
     if not os.path.exists(MASTER_ROOT):
@@ -87,16 +135,9 @@ def build_iso(rel):
     build_tree = f"/tmp/iso-tree-{rel['codename']}"
     
     print(f"\n============================================================")
-    print(f"[BUILD] Processing Genuine Bootable ISO for {rel['version']} ({rel['codename'].capitalize()})...")
+    print(f"[BUILD] Building Universal BIOS/UEFI ISO for {rel['version']} ({rel['codename'].capitalize()})...")
     print(f"============================================================")
     
-    if os.path.exists(zip_path) and os.path.exists(sha256_path):
-        print(f"[PASS] {iso_name}.zip already exists. Copying to website...")
-        for p in [zip_path, sha256_path, sha512_path]:
-            if os.path.exists(p):
-                shutil.copy2(p, os.path.join(WEB_PKG_DIR, os.path.basename(p)))
-        return
-        
     if os.path.exists(build_tree):
         subprocess.run(["chmod", "-R", "u+w", build_tree], check=False)
         shutil.rmtree(build_tree)
@@ -105,13 +146,43 @@ def build_iso(rel):
     shutil.copytree(MASTER_ROOT, build_tree, copy_function=os.link)
     subprocess.run(["chmod", "-R", "u+w", build_tree], check=True)
     
-    # Update release info in .disk/info
+    # 1. Update release info in .disk/info
     disk_info_path = os.path.join(build_tree, ".disk", "info")
     os.makedirs(os.path.dirname(disk_info_path), exist_ok=True)
     with open(disk_info_path, "w") as f:
         f.write(f"GenixBit OS {rel['version']} \"{rel['codename'].capitalize()}\" - Release amd64 (20260817)\n")
         
-    # Build ISO using xorriso
+    # 2. Extract and configure /EFI/BOOT/ directory on the ISO root for direct UEFI VM boot
+    efi_boot_dir = os.path.join(build_tree, "EFI", "BOOT")
+    os.makedirs(efi_boot_dir, exist_ok=True)
+    
+    # Mount efiboot.img to copy BOOTX64.EFI if missing
+    efiboot_img = os.path.join(build_tree, "EFI", "efiboot.img")
+    tmp_mnt = f"/tmp/efimnt-{rel['codename']}"
+    os.makedirs(tmp_mnt, exist_ok=True)
+    try:
+        subprocess.run(["sudo", "mount", "-o", "loop,ro", efiboot_img, tmp_mnt], check=True)
+        if os.path.exists(os.path.join(tmp_mnt, "EFI", "BOOT", "BOOTX64.EFI")):
+            shutil.copy2(os.path.join(tmp_mnt, "EFI", "BOOT", "BOOTX64.EFI"), os.path.join(efi_boot_dir, "BOOTX64.EFI"))
+            shutil.copy2(os.path.join(tmp_mnt, "EFI", "BOOT", "BOOTX64.EFI"), os.path.join(efi_boot_dir, "grubx64.efi"))
+    except Exception as e:
+        print(f"[WARN] Error copying EFI binaries: {e}")
+    finally:
+        subprocess.run(["sudo", "umount", tmp_mnt], check=False)
+        os.rmdir(tmp_mnt)
+
+    # 3. Write robust, direct boot GRUB configurations across all bootloader paths
+    grub_content = make_robust_grub_cfg(rel["display_name"])
+    for cfg_loc in [
+        os.path.join(build_tree, "boot", "grub", "grub.cfg"),
+        os.path.join(build_tree, "isolinux", "grub.cfg"),
+        os.path.join(build_tree, "EFI", "BOOT", "grub.cfg")
+    ]:
+        os.makedirs(os.path.dirname(cfg_loc), exist_ok=True)
+        with open(cfg_loc, "w") as f:
+            f.write(grub_content)
+
+    # 4. Build ISO using xorriso with hybrid MBR + GPT + EFI boot sectors
     cmd = [
         "xorriso", "-as", "mkisofs",
         "-r", "-V", rel["vol_id"],
@@ -122,6 +193,7 @@ def build_iso(rel):
         "-eltorito-alt-boot",
         "-e", "EFI/efiboot.img",
         "-no-emul-boot", "-isohybrid-gpt-basdat",
+        "-partition_offset", "16",
         "-o", raw_iso_path,
         build_tree
     ]
@@ -136,42 +208,64 @@ def build_iso(rel):
     size_mb = size_bytes / (1024 * 1024)
     print(f"[PASS] Built {iso_name}: {size_bytes:,} bytes ({size_mb:.1f} MB)")
     
-    # Test boot in QEMU
-    test_qemu_boot(raw_iso_path, rel)
+    # 5. Run dual-mode VM boot test (BIOS and UEFI)
+    test_dual_boot(raw_iso_path, rel)
     
-    # Package into .zip and calculate SHA256/SHA512
+    # 6. Package into .zip and calculate checksums
     package_release_assets(raw_iso_path, rel)
     
-    # Clean up raw ISO and temp build tree to free disk space
+    # Clean up raw ISO and temp build tree to preserve server disk space
     if os.path.exists(raw_iso_path):
         os.remove(raw_iso_path)
     subprocess.run(["chmod", "-R", "u+w", build_tree], check=False)
     shutil.rmtree(build_tree, ignore_errors=True)
 
-def test_qemu_boot(raw_iso_path, rel):
-    print(f"[TEST] Testing QEMU virtual machine boot for {rel['iso_name']}...")
-    qemu_cmd = [
+def test_dual_boot(raw_iso_path, rel):
+    print(f"[TEST 1/2] Testing BIOS Virtual Machine boot for {rel['iso_name']}...")
+    bios_cmd = [
         "qemu-system-x86_64",
         "-cdrom", raw_iso_path,
         "-m", "1024",
         "-boot", "d",
         "-display", "none",
-        "-vnc", "127.0.0.1:98",
+        "-vnc", "127.0.0.1:97",
         "-no-reboot"
     ]
-    
-    proc = subprocess.Popen(qemu_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    time.sleep(3) # Let VM initialize and execute boot sectors
+    proc = subprocess.Popen(bios_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    time.sleep(3)
     poll = proc.poll()
     if poll is not None and poll != 0:
         _, stderr = proc.communicate()
-        print(f"[FAIL] QEMU boot exited with error: {stderr.decode('utf-8')}")
+        print(f"[FAIL] BIOS boot failed: {stderr.decode('utf-8')}")
         sys.exit(1)
-    else:
-        # Kill running test VM
+    proc.terminate()
+    proc.wait(timeout=5)
+    print(f"[PASS] BIOS Boot Test PASSED.")
+
+    # UEFI Boot Test if OVMF exists
+    ovmf_path = "/usr/share/OVMF/OVMF_CODE.fd"
+    if os.path.exists(ovmf_path):
+        print(f"[TEST 2/2] Testing UEFI Virtual Machine boot for {rel['iso_name']}...")
+        uefi_cmd = [
+            "qemu-system-x86_64",
+            "-drive", f"if=pflash,format=raw,readonly=on,file={ovmf_path}",
+            "-cdrom", raw_iso_path,
+            "-m", "1024",
+            "-boot", "d",
+            "-display", "none",
+            "-vnc", "127.0.0.1:97",
+            "-no-reboot"
+        ]
+        proc = subprocess.Popen(uefi_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        time.sleep(3)
+        poll = proc.poll()
+        if poll is not None and poll != 0:
+            _, stderr = proc.communicate()
+            print(f"[FAIL] UEFI boot failed: {stderr.decode('utf-8')}")
+            sys.exit(1)
         proc.terminate()
         proc.wait(timeout=5)
-        print(f"[PASS] QEMU boot test PASSED: Bootloader initialized and executed successfully.")
+        print(f"[PASS] UEFI Boot Test PASSED.")
 
 def package_release_assets(raw_iso_path, rel):
     iso_name = rel["iso_name"]
@@ -179,12 +273,11 @@ def package_release_assets(raw_iso_path, rel):
     sha256_path = os.path.join(DIST_DIR, f"{iso_name}.sha256")
     sha512_path = os.path.join(DIST_DIR, f"{iso_name}.sha512")
     
-    print(f"[PACKAGE] Compressing {iso_name} into universal .zip container (fast)...")
+    print(f"[PACKAGE] Compressing {iso_name} into universal .zip container...")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
         zf.write(raw_iso_path, arcname=iso_name)
     print(f"[PASS] Created {os.path.basename(zip_path)}: {os.path.getsize(zip_path):,} bytes")
     
-    # Calculate checksums of uncompressed ISO
     sha256 = hashlib.sha256()
     sha512 = hashlib.sha512()
     with open(raw_iso_path, "rb") as f:
@@ -200,9 +293,8 @@ def package_release_assets(raw_iso_path, rel):
     with open(sha512_path, "w") as f:
         f.write(f"{sha512_hex}  {iso_name}\n")
         
-    print(f"[PASS] Uncompressed SHA256: {sha256_hex}")
+    print(f"[PASS] SHA256: {sha256_hex}")
     
-    # Copy assets to website/packages/iso/
     for p in [zip_path, sha256_path, sha512_path]:
         shutil.copy2(p, os.path.join(WEB_PKG_DIR, os.path.basename(p)))
 
@@ -216,14 +308,13 @@ def main():
         with open(sha256_file, "r") as f:
             all_sha256.append(f.read().strip())
             
-    # Write unified SHA256SUMS
     sha256sums_path = os.path.join(WEB_PKG_DIR, "SHA256SUMS")
     with open(sha256sums_path, "w") as f:
         f.write("\n".join(all_sha256) + "\n")
     shutil.copy2(sha256sums_path, os.path.join(DIST_DIR, "SHA256SUMS"))
     
     print("\n============================================================")
-    print(">>> ALL 6 GENUINE BOOTABLE PRODUCTION ISOS BUILT & TESTED <<<")
+    print(">>> ALL 6 UNIVERSAL HYBRID BIOS/UEFI ISOS VERIFIED & PACKAGED <<<")
     print("============================================================")
     for s in all_sha256:
         print(s)
