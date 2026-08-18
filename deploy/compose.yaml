@@ -3,14 +3,8 @@ services:
     image: caddy:2-alpine
     container_name: genixbit-os-web
     restart: unless-stopped
-    environment:
-      OS_DOMAIN: ${OS_DOMAIN:-os.genixbit.com}
-      DOCS_DOMAIN: ${DOCS_DOMAIN:-docs.os.genixbit.com}
-      PACKAGES_DOMAIN: ${PACKAGES_DOMAIN:-packages.os.genixbit.com}
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - "${HOST_PORT:-127.0.0.1:8081}:80"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

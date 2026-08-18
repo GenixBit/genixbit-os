@@ -1,11 +1,11 @@
 {
-  servers {
-    protocols h1 h2 h3
-  }
+  admin off
+  auto_https off
 }
 
-(common_headers) {
+:80 {
   encode zstd gzip
+
   header {
     Strict-Transport-Security "max-age=31536000; includeSubDomains"
     X-Content-Type-Options "nosniff"
@@ -14,51 +14,38 @@
     Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: https:; frame-ancestors 'self' https://os.genixbit.com; base-uri 'self'; form-action 'self'"
     -Server
   }
-}
 
-{$OS_DOMAIN:-os.genixbit.com} {
-  import common_headers
-  
-  # Reverse proxy noVNC websockify bridge
-  @websockify {
-    path /websockify*
-  }
-  handle @websockify {
-    reverse_proxy host.docker.internal:6080 {
-      header_up Host {upstream_hostport}
-      header_up X-Real-IP {remote_host}
+  @os host os.genixbit.com os.genixbit.local localhost 127.0.0.1
+  handle @os {
+    handle_path /downloads/* {
+      root * /srv/packages/iso
+      file_server browse
     }
+    handle_path /iso/* {
+      root * /srv/packages/iso
+      file_server browse
+    }
+    root * /srv/os
+    file_server
   }
 
-  # Direct downloads and ISO directories
-  handle_path /downloads/* {
-    root * /srv/packages/iso
-    file_server browse
+  @docs host docs.os.genixbit.com docs.os.genixbit.local
+  handle @docs {
+    root * /srv/docs
+    file_server
   }
 
-  handle_path /iso/* {
-    root * /srv/packages/iso
-    file_server browse
-  }
-
-  root * /srv/os
-  file_server
-}
-
-{$DOCS_DOMAIN:-docs.os.genixbit.com} {
-  import common_headers
-  root * /srv/docs
-  file_server
-}
-
-{$PACKAGES_DOMAIN:-packages.os.genixbit.com} {
-  import common_headers
-  
-  handle /iso/* {
+  @packages host packages.os.genixbit.com packages.os.genixbit.local
+  handle @packages {
+    handle /iso/* {
+      root * /srv/packages
+      file_server browse
+    }
     root * /srv/packages
-    file_server browse
+    file_server
   }
 
-  root * /srv/packages
+  # Default fallback
+  root * /srv/os
   file_server
 }
