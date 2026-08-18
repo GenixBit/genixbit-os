@@ -5,6 +5,8 @@ dist/
 
 # Generated ISO & Image Artifacts
 *.iso
+*.iso.zip
+*.iso.gz
 *.img
 *.torrent
 *.sha256
