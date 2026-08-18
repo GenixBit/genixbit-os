@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# GenixBit OS — Universal Hybrid BIOS/UEFI ISO Builder & VM Boot Verification Suite
+# GenixBit OS — Universal Hybrid BIOS/UEFI & UTM VM ISO Builder & Boot Verification Suite
 import hashlib
 import os
 import subprocess
@@ -66,6 +66,28 @@ RELEASES = [
         "display_name": "GenixBit OS 1.0.0 LTS (Foundation)"
     }
 ]
+
+STARTUP_NSH_CONTENT = """@echo -off
+echo Starting GenixBit OS EFI Bootloader...
+FS0:
+if exist \\EFI\\BOOT\\BOOTX64.EFI then
+  \\EFI\\BOOT\\BOOTX64.EFI
+endif
+if exist \\EFI\\BOOT\\grubx64.efi then
+  \\EFI\\BOOT\\grubx64.efi
+endif
+FS1:
+if exist \\EFI\\BOOT\\BOOTX64.EFI then
+  \\EFI\\BOOT\\BOOTX64.EFI
+endif
+if exist \\EFI\\BOOT\\grubx64.efi then
+  \\EFI\\BOOT\\grubx64.efi
+endif
+\\EFI\\BOOT\\BOOTX64.EFI
+\\EFI\\BOOT\\grubx64.efi
+\\efi\\boot\\bootx64.efi
+\\efi\\boot\\grubx64.efi
+"""
 
 def make_robust_grub_cfg(display_name):
     return f"""
@@ -162,38 +184,65 @@ def build_iso(rel):
     with open(os.path.join(build_tree, "genixbitos"), "w") as f:
         f.write(f"GenixBit OS {rel['version']} {rel['codename']}\n")
         
-    # 2. Extract and configure /EFI/BOOT/ directory on the ISO root for direct UEFI VM boot
-    efi_boot_dir = os.path.join(build_tree, "EFI", "BOOT")
-    os.makedirs(efi_boot_dir, exist_ok=True)
+    # 2. Add startup.nsh to ISO root and EFI directories for automated EDK II / UTM Shell boot
+    for nsh_path in [
+        os.path.join(build_tree, "startup.nsh"),
+        os.path.join(build_tree, "STARTUP.NSH"),
+        os.path.join(build_tree, "EFI", "BOOT", "startup.nsh"),
+        os.path.join(build_tree, "EFI", "BOOT", "STARTUP.NSH"),
+        os.path.join(build_tree, "efi", "boot", "startup.nsh"),
+        os.path.join(build_tree, "efi", "boot", "STARTUP.NSH")
+    ]:
+        os.makedirs(os.path.dirname(nsh_path), exist_ok=True)
+        with open(nsh_path, "w", newline="\r\n") as f:
+            f.write(STARTUP_NSH_CONTENT)
+            
+    # 3. Extract and configure /EFI/BOOT/ directory on the ISO root for direct UEFI VM boot
+    efi_boot_dirs = [
+        os.path.join(build_tree, "EFI", "BOOT"),
+        os.path.join(build_tree, "efi", "boot")
+    ]
+    for d in efi_boot_dirs:
+        os.makedirs(d, exist_ok=True)
     
-    # Mount efiboot.img to copy BOOTX64.EFI if missing
+    # Mount efiboot.img to copy BOOTX64.EFI
     efiboot_img = os.path.join(build_tree, "EFI", "efiboot.img")
     tmp_mnt = f"/tmp/efimnt-{rel['codename']}"
     os.makedirs(tmp_mnt, exist_ok=True)
     try:
-        subprocess.run(["sudo", "mount", "-o", "loop,ro", efiboot_img, tmp_mnt], check=True)
-        if os.path.exists(os.path.join(tmp_mnt, "EFI", "BOOT", "BOOTX64.EFI")):
-            shutil.copy2(os.path.join(tmp_mnt, "EFI", "BOOT", "BOOTX64.EFI"), os.path.join(efi_boot_dir, "BOOTX64.EFI"))
-            shutil.copy2(os.path.join(tmp_mnt, "EFI", "BOOT", "BOOTX64.EFI"), os.path.join(efi_boot_dir, "grubx64.efi"))
+        subprocess.run(["sudo", "mount", "-o", "loop,rw", efiboot_img, tmp_mnt], check=True)
+        src_efi = os.path.join(tmp_mnt, "EFI", "BOOT", "BOOTX64.EFI")
+        if os.path.exists(src_efi):
+            for d in efi_boot_dirs:
+                shutil.copy2(src_efi, os.path.join(d, "BOOTX64.EFI"))
+                shutil.copy2(src_efi, os.path.join(d, "bootx64.efi"))
+                shutil.copy2(src_efi, os.path.join(d, "grubx64.efi"))
+                shutil.copy2(src_efi, os.path.join(d, "GRUBX64.EFI"))
+            # Write startup.nsh inside efiboot.img FAT partition
+            with open(os.path.join(tmp_mnt, "startup.nsh"), "w", newline="\r\n") as f:
+                f.write(STARTUP_NSH_CONTENT)
+            with open(os.path.join(tmp_mnt, "EFI", "BOOT", "startup.nsh"), "w", newline="\r\n") as f:
+                f.write(STARTUP_NSH_CONTENT)
     except Exception as e:
-        print(f"[WARN] Error copying EFI binaries: {e}")
+        print(f"[WARN] Error updating EFI image: {e}")
     finally:
         subprocess.run(["sudo", "umount", tmp_mnt], check=False)
         if os.path.exists(tmp_mnt):
             os.rmdir(tmp_mnt)
 
-    # 3. Write robust, direct boot GRUB configurations across all bootloader paths
+    # 4. Write robust, direct boot GRUB configurations across all bootloader paths
     grub_content = make_robust_grub_cfg(rel["display_name"])
     for cfg_loc in [
         os.path.join(build_tree, "boot", "grub", "grub.cfg"),
         os.path.join(build_tree, "isolinux", "grub.cfg"),
-        os.path.join(build_tree, "EFI", "BOOT", "grub.cfg")
+        os.path.join(build_tree, "EFI", "BOOT", "grub.cfg"),
+        os.path.join(build_tree, "efi", "boot", "grub.cfg")
     ]:
         os.makedirs(os.path.dirname(cfg_loc), exist_ok=True)
         with open(cfg_loc, "w") as f:
             f.write(grub_content)
 
-    # 4. Build ISO using xorriso with hybrid MBR + GPT + EFI boot sectors
+    # 5. Build ISO using xorriso with hybrid MBR + GPT + EFI boot sectors
     cmd = [
         "xorriso", "-as", "mkisofs",
         "-r", "-V", rel["vol_id"],
@@ -219,10 +268,10 @@ def build_iso(rel):
     size_mb = size_bytes / (1024 * 1024)
     print(f"[PASS] Built {iso_name}: {size_bytes:,} bytes ({size_mb:.1f} MB)")
     
-    # 5. Run dual-mode VM boot test (BIOS and UEFI)
+    # 6. Run dual-mode VM boot test (BIOS and UEFI)
     test_dual_boot(raw_iso_path, rel)
     
-    # 6. Package into .zip and calculate checksums
+    # 7. Package into .zip and calculate checksums
     package_release_assets(raw_iso_path, rel)
     
     # Clean up raw ISO and temp build tree to preserve server disk space
