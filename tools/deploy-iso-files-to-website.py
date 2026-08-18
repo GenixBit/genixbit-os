@@ -93,6 +93,9 @@ RELEASES = [
 ]
 
 def copy_release_files():
+    if not os.path.exists(DIST_DIR):
+        print(f"[INFO] {DIST_DIR} not found; using repository website/packages/iso/ assets.")
+        return
     print(">>> Copying ISO and checksum files to website server directory...")
     files_to_copy = os.listdir(DIST_DIR)
     for f in files_to_copy:
