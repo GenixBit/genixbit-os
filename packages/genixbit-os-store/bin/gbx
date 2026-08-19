@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+import os
+import sys
+
+INSTALLED_LIB = "/usr/lib/genixbit-os/gbx_core.py"
+LOCAL_LIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "usr", "lib", "genixbit-os", "gbx_core.py")
+
+if os.path.exists(INSTALLED_LIB):
+    sys.path.insert(0, "/usr/lib/genixbit-os")
+    import gbx_core
+    sys.exit(gbx_core.main())
+elif os.path.exists(LOCAL_LIB):
+    sys.path.insert(0, os.path.dirname(LOCAL_LIB))
+    import gbx_core
+    sys.exit(gbx_core.main())
+else:
+    print("[GBX ERROR] Core engine module not found.", file=sys.stderr)
+    sys.exit(1)

@@ -1,2 +1,3 @@
 bin/genixbit-agent usr/bin/
+usr/lib/genixbit-os/genixkit/* usr/lib/genixbit-os/genixkit/
 usr/share/applications/genixbit-agent.desktop usr/share/applications/
