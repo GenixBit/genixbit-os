@@ -60,5 +60,21 @@ class TestGenixKitSDK(unittest.TestCase):
         resp = ai.chat("Hello AI")
         self.assertIn("Hello AI", resp)
 
+    def test_genix_system(self):
+        from genixkit import GenixSystem
+        rel = GenixSystem.get_os_release()
+        self.assertEqual(rel["name"], "GenixBit OS")
+        self.assertEqual(rel["id"], "genixbit")
+        self.assertTrue(len(GenixSystem.get_hostname()) > 0)
+        self.assertIn(GenixSystem.get_active_theme(), ["dark", "light"])
+
+    def test_genix_ipc(self):
+        from genixkit import GenixIPC
+        ipc = GenixIPC("test_channel")
+        self.assertTrue(ipc.send_message("test_app", {"action": "ping"}))
+        msgs = ipc.read_messages()
+        self.assertTrue(len(msgs) >= 1)
+        self.assertEqual(msgs[-1]["payload"]["action"], "ping")
+
 if __name__ == "__main__":
     unittest.main()
