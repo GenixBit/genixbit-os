@@ -1,2 +1,4 @@
 bin/genixbit-store usr/bin/
+bin/gbx usr/bin/
+usr/lib/genixbit-os/gbx_core.py usr/lib/genixbit-os/
 usr/share/applications/genixbit-store.desktop usr/share/applications/
