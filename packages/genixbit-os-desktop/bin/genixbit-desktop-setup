@@ -48,6 +48,13 @@ if command -v xfconf-query &>/dev/null; then
     xfconf-query -c xfwm4 -p /general/use_compositing -s "true" --create -t bool 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/show_frame_shadow -s "true" --create -t bool 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/show_popup_shadow -s "true" --create -t bool 2>/dev/null || true
+
+    # Docked Top Bar (Panel 1)
+    xfconf-query -c xfce4-panel -p /panels/panel-1/position -s "p=6;x=0;y=0" --create -t string 2>/dev/null || true
+    xfconf-query -c xfce4-panel -p /panels/panel-1/size -s 36 --create -t int 2>/dev/null || true
+    xfconf-query -c xfce4-panel -p /panels/panel-1/length -s 100 --create -t int 2>/dev/null || true
+    xfconf-query -c xfce4-panel -p /panels/panel-1/span-monitors -s true --create -t bool 2>/dev/null || true
+    xfconf-query -c xfce4-panel -p /panels/panel-1/autohide-behavior -s 0 --create -t int 2>/dev/null || true
 fi
 
 # 3. Plank Dock Setup (GenixBit-Glass)
