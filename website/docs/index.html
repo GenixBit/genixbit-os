@@ -148,12 +148,15 @@
         <li><a href="#agent-swarm">20. Multi-Agent Swarm</a></li>
         <li><a href="#ai-pipeline">21. Local AI CI/CD Pipelines</a></li>
       </ul>
-      <h4>Infrastructure & Governance</h4>
+      <h4>Ecosystem & Platform (Master Spec)</h4>
       <ul>
-        <li><a href="#packages">22. Package Architecture</a></li>
+        <li><a href="#packages">22. APT Package Architecture</a></li>
         <li><a href="#security">23. Security & Privacy Model</a></li>
         <li><a href="#web-desktop">24. Live Web Desktop & noVNC</a></li>
-        <li><a href="#attribution">25. Legal Attribution</a></li>
+        <li><a href="#gbx-package-manager">26. .gbx Package Manager</a></li>
+        <li><a href="#genixkit-sdk">27. GenixKit Developer SDK</a></li>
+        <li><a href="#master-architecture">28. Master OS Platform & 25 Phases</a></li>
+        <li><a href="#attribution">29. Legal Attribution</a></li>
       </ul>
     </aside>
 
@@ -679,9 +682,62 @@ https://os.genixbit.com/vnc/vnc.html?autoconnect=true&path=websockify&resize=sca
         </ul>
       </section>
 
-      <!-- Section 25: Attribution -->
+      <!-- Section 26: GBX Package Manager -->
+      <section id="gbx-package-manager">
+        <h2>26. Native .gbx Package Manager &amp; Distribution</h2>
+        <p>GenixBit OS introduces the native <code>.gbx</code> package format — a self-contained, cryptographically verifiable application bundle format for sandboxed desktop software.</p>
+        <div class="code-block">
+# Scaffold a new GenixKit application project
+gbx create my-app
+
+# Build into a signed .gbx bundle
+gbx build my-app/
+
+# Verify digital signature and manifest integrity
+gbx verify com.genixbit.my-app_1.0.0.gbx
+
+# Install into sandboxed user directory
+gbx install com.genixbit.my-app_1.0.0.gbx
+
+# Run system integrity and security audit
+gbx audit
+gbx doctor
+        </div>
+      </section>
+
+      <!-- Section 27: GenixKit SDK -->
+      <section id="genixkit-sdk">
+        <h2>27. GenixKit Developer SDK &amp; Local AI Framework</h2>
+        <p>GenixKit provides Python and C++ developers with standardized application lifecycles, scoped capability negotiation, and local AI streaming inference over <code>http://127.0.0.1:11434</code>.</p>
+        <div class="code-block">
+from genixkit import GenixApp, GenixAI, GenixSecurity, Permission
+
+class CalculatorPro(GenixApp):
+    def on_launch(self):
+        sec = GenixSecurity(self.app_id)
+        if sec.request_permission(Permission.AI_RUNTIME):
+            ai = GenixAI()
+            response = ai.chat("Compute 24 * 1024")
+            print(f"AI Result: {response}")
+
+if __name__ == "__main__":
+    app = CalculatorPro("com.genixbit.calculator-pro", "Calculator Pro")
+    app.run()
+        </div>
+      </section>
+
+      <!-- Section 28: Master Architecture -->
+      <section id="master-architecture">
+        <h2>28. Master Operating System Platform Architecture &amp; 25 Phases</h2>
+        <p>GenixBit OS is structured across 25 progressive development phases and 70 engineering principles ensuring long-term security, reproducibility, and platform ownership.</p>
+        <div class="code-block">
+genixbit-control-center --spec
+        </div>
+      </section>
+
+      <!-- Section 29: Attribution -->
       <section id="attribution">
-        <h2>25. Legal Attribution &amp; Licensing</h2>
+        <h2>29. Legal Attribution &amp; Licensing</h2>
         <p>GenixBit OS is distributed under the GNU General Public License v3.0 (GPL-3.0). It incorporates open-source upstream components from Ubuntu and Debian according to their respective open-source licenses.</p>
       </section>
 
