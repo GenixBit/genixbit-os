@@ -130,6 +130,30 @@ def launch_gui():
                 pills_box.pack_start(btn, False, False, 0)
             main_vbox.pack_start(pills_box, False, False, 0)
 
+            # Quick Prompt Suggestions based on Master OS Platform
+            pill_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            main_vbox.pack_start(pill_box, False, False, 0)
+            
+            p1 = Gtk.Button(label="🏗️ Architecture")
+            p1.get_style_context().add_class("pill-btn")
+            p1.connect("clicked", lambda b: self.prompt_entry.set_text("Explain the GenixBit OS Master Platform Architecture and 25-phase roadmap."))
+            pill_box.pack_start(p1, False, False, 0)
+
+            p2 = Gtk.Button(label="🛡️ AI Security")
+            p2.get_style_context().add_class("pill-btn")
+            p2.connect("clicked", lambda b: self.prompt_entry.set_text("How does the GenixBit OS privileged AI actor permission engine and audit log work?"))
+            pill_box.pack_start(p2, False, False, 0)
+
+            p3 = Gtk.Button(label="📦 .gbx Packages")
+            p3.get_style_context().add_class("pill-btn")
+            p3.connect("clicked", lambda b: self.prompt_entry.set_text("Show me how to scaffold, build, sign, and install a native .gbx application using gbx."))
+            pill_box.pack_start(p3, False, False, 0)
+
+            p4 = Gtk.Button(label="🛠️ GenixKit SDK")
+            p4.get_style_context().add_class("pill-btn")
+            p4.connect("clicked", lambda b: self.prompt_entry.set_text("Write a native GenixKit application with lifecycle management and local AI streaming inference."))
+            pill_box.pack_start(p4, False, False, 0)
+
             # 4. Input Box & Run Button
             input_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
             self.prompt_entry = Gtk.Entry()

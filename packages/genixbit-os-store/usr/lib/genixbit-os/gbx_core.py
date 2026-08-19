@@ -325,6 +325,8 @@ def main():
     p_bld = sub.add_parser("build", help="Build a project into a .gbx package bundle")
     p_bld.add_argument("project_dir", nargs="?", default=".", help="Project directory")
 
+    sub.add_parser("spec", help="Display the GenixBit OS Master Platform Specification")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -343,6 +345,14 @@ def main():
     elif args.command == "rollback": return cmd_rollback(args.package_id)
     elif args.command == "create": return cmd_create(args.name)
     elif args.command == "build": return cmd_build(args.project_dir)
+    elif args.command == "spec":
+        spec_p = "/etc/genixbit/master-spec.txt"
+        if os.path.exists(spec_p):
+            with open(spec_p, "r", encoding="utf-8") as f:
+                print(f.read())
+        else:
+            print("============================================================\nGENIXBIT OS — MASTER OPERATING SYSTEM BUILD SPECIFICATION\n============================================================\nGenixBit OS is a complete, secure, AI-native operating system platform.")
+        return 0
     return 0
 
 if __name__ == "__main__":
