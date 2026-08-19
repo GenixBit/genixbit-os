@@ -1,5 +1,5 @@
 /* GenixBit OS Modern Clean Light Theme - GTK 3.0 & GTK 4.0
- * Crisp Modern Aesthetic, Clean Frosted Cards, Royal Indigo & Cyan Accents
+ * Crisp Modern Aesthetic, Glassmorphic Clean Top Bar, Royal Indigo Accents
  */
 
 @define-color accent_color #4f46e5;
@@ -20,17 +20,54 @@
 window {
     background-color: @window_bg_color;
     color: @window_fg_color;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* Glassmorphic Headerbar */
+/* ==========================================================================
+   TOP BAR / XFCE4 PANEL STYLING (macOS / COSMIC Inspired Glassmorphic Header)
+   ========================================================================== */
+
+.xfce4-panel, #XfcePanelWindow, panel {
+    background-color: rgba(255, 255, 255, 0.94);
+    color: #0f172a;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    font-weight: 500;
+}
+
+.xfce4-panel button, #XfcePanelWindow button, panel button {
+    background-color: transparent;
+    color: #0f172a;
+    border: none;
+    border-radius: 8px;
+    padding: 3px 10px;
+    margin: 2px 2px;
+    box-shadow: none;
+}
+
+.xfce4-panel button:hover, #XfcePanelWindow button:hover, panel button:hover {
+    background-color: rgba(79, 70, 229, 0.08);
+    color: #4f46e5;
+}
+
+.xfce4-panel button:checked, .xfce4-panel button:active {
+    background-color: rgba(79, 70, 229, 0.15);
+    color: #4f46e5;
+    border-bottom: 2px solid #4f46e5;
+}
+
+/* Clock in Top Bar */
+.xfce4-panel .clock, #XfcePanelWindow .clock {
+    font-weight: 700;
+    color: #0f172a;
+    padding: 0 12px;
+}
+
+/* Window Headerbars */
 headerbar {
     background: @headerbar_bg_color;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
     padding: 8px 12px;
-    border-radius: 16px 16px 0 0;
+    border-radius: 14px 14px 0 0;
 }
 
 headerbar:backdrop {
@@ -43,7 +80,6 @@ card, .card {
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: 16px;
     padding: 18px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
 /* Modern Interactive Buttons */
@@ -54,15 +90,12 @@ button {
     border-radius: 12px;
     padding: 8px 18px;
     font-weight: 600;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
-    transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 button:hover {
     background: rgba(79, 70, 229, 0.08);
     border-color: rgba(79, 70, 229, 0.35);
     color: #4f46e5;
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
 }
 
 button:active {
@@ -72,14 +105,9 @@ button:active {
 }
 
 button.suggested-action {
-    background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+    background-image: linear-gradient(to bottom right, #4f46e5, #06b6d4);
     color: #ffffff;
     border: none;
-    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
-}
-
-button.suggested-action:hover {
-    box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
 }
 
 /* Inputs & Text Entry */
@@ -93,7 +121,6 @@ entry {
 
 entry:focus {
     border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
 }
 
 /* Minimal Scrollbars */
@@ -119,5 +146,4 @@ tooltip {
     border-radius: 10px;
     color: #ffffff;
     padding: 6px 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
