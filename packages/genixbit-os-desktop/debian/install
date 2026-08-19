@@ -1,4 +1,6 @@
 bin/genixbit-desktop-setup usr/bin/
+bin/genixbit-topbar usr/bin/
+usr/lib/genixbit-os/genixbit-macos-topbar.py usr/lib/genixbit-os/
 etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/
 etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/
 etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/

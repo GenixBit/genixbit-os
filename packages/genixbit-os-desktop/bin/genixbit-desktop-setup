@@ -171,4 +171,24 @@ EOF
 
 chmod +x "$DESKTOP_DIR"/*.desktop 2>/dev/null || true
 
+# 5. Autostart macOS Top Menu Bar
+AUTOSTART_DIR="${HOME}/.config/autostart"
+mkdir -p "$AUTOSTART_DIR"
+cat <<EOF > "$AUTOSTART_DIR/genixbit-topbar.desktop"
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GenixBit Top Bar
+Comment=macOS Style Top Menu Bar
+Exec=genixbit-topbar
+Terminal=false
+StartupNotify=false
+EOF
+
+# Kill any existing topbar and launch in background if DISPLAY is active
+if [[ -n "${DISPLAY:-}" ]]; then
+    pkill -f genixbit-macos-topbar.py 2>/dev/null || true
+    (genixbit-topbar &>/dev/null &) || true
+fi
+
 echo "[GenixBit Desktop Setup] GenixBit OS macOS Cyber layout successfully configured."
