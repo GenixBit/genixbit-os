@@ -90,5 +90,35 @@ def set_accent_color(accent_key):
     cur["accent_hex"] = ACCENT_COLORS[accent_key]["hex"]
     return apply_settings(cur)
 
+def get_master_spec():
+    spec_path = "/etc/genixbit/master-spec.txt"
+    if os.path.exists(spec_path):
+        try:
+            with open(spec_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception:
+            pass
+    return """============================================================
+GENIXBIT OS — MASTER OPERATING SYSTEM BUILD PROMPT
+============================================================
+GenixBit OS is a complete, secure, AI-native, local-first,
+enterprise-capable desktop operating system platform.
+"""
+
+def toggle_theme():
+    settings = get_current_settings()
+    current = settings.get("theme_mode", "dark")
+    settings["theme_mode"] = "light" if current == "dark" else "dark"
+    apply_settings(settings)
+    print(f"Switched GenixBit OS theme to: {settings['theme_mode'].upper()}")
+    return 0
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--toggle-theme":
+            toggle_theme()
+            sys.exit(0)
+        elif sys.argv[1] in ("--spec", "--architecture", "--info"):
+            print(get_master_spec())
+            sys.exit(0)
     print(json.dumps(get_current_settings(), indent=2))
