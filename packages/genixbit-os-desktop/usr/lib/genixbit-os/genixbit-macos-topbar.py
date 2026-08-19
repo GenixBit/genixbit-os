@@ -28,9 +28,8 @@ def launch_topbar():
             self.set_keep_above(True)
 
             screen = Gdk.Screen.get_default()
-            monitor = screen.get_primary_monitor() or screen.get_monitor_at_point(0, 0)
-            geom = monitor.get_geometry()
-            self.set_default_size(geom.width, 28)
+            width = screen.get_width() if screen else 1920
+            self.set_default_size(width, 28)
             self.move(0, 0)
 
             # Modern macOS Translucent Top Bar CSS
