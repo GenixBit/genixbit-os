@@ -144,13 +144,164 @@
     .top-brand { display: flex; align-items: center; gap: 6px; color: var(--text); font-weight: 800; cursor: pointer; }
     .top-brand .mini-mark { width: 18px; height: 18px; border-radius: 5px; background: linear-gradient(135deg, var(--cyan), var(--blue)); display: grid; place-items: center; color: #07111f; font-weight: 900; font-size: 11px; }
     .top-active-app { color: #ffffff; font-weight: 800; font-size: 13px; margin-right: 4px; }
-    .top-menu-item { color: #cbd5e1; font-size: 12.5px; font-weight: 500; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background .15s, color .15s; }
-    .top-menu-item:hover { background: rgba(255,255,255,.08); color: #ffffff; }
-    .top-right { display: flex; align-items: center; gap: 12px; }
-    .top-status-icon { color: #cbd5e1; font-size: 12px; cursor: pointer; transition: color .15s; }
-    .top-status-icon:hover { color: #52d9ff; }
-    .top-stat-pill { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--cyan); background: rgba(82,217,255,.1); padding: 2px 8px; border-radius: 16px; border: 1px solid rgba(82,217,255,.2); font-weight: 600; }
-    .top-clock { color: #ffffff; font-weight: 600; font-size: 12px; margin-left: 4px; }
+    .top-menu-item { color: #cbd5e1; font-size: 12.5px; font-weight: 500; cursor: pointer; padding: 2px 7px; border-radius: 4px; transition: background .15s, color .15s; user-select: none; }
+    .top-menu-item:hover, .top-menu-item.active { background: rgba(255,255,255,.12); color: #ffffff; }
+    .top-right { display: flex; align-items: center; gap: 10px; }
+    .top-status-icon { color: #cbd5e1; font-size: 13px; cursor: pointer; padding: 3px 5px; border-radius: 4px; transition: all .15s; user-select: none; }
+    .top-status-icon:hover, .top-status-icon.active { background: rgba(255,255,255,.12); color: #52d9ff; }
+    .top-clock { color: #ffffff; font-weight: 600; font-size: 12px; margin-left: 4px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+    .top-clock:hover { background: rgba(255,255,255,.1); }
+
+    /* Smart Dropdown Menus */
+    .smart-dropdown {
+      position: absolute;
+      top: 38px;
+      background: rgba(15, 25, 45, 0.94);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255,255,255,0.06);
+      padding: 6px;
+      min-width: 200px;
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      animation: menuFadeIn .12s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes menuFadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .smart-dropdown.show { display: flex; }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      font-size: 12.5px;
+      color: #f1f5f9;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background .12s, color .12s;
+    }
+    .menu-item:hover {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #ffffff;
+    }
+    .menu-item .shortcut { color: #94a3b8; font-size: 11px; margin-left: 14px; }
+    .menu-item:hover .shortcut { color: rgba(255,255,255,0.85); }
+    .menu-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+      margin: 4px 6px;
+    }
+
+    /* Smart Control Center Popover */
+    .cc-popover {
+      position: absolute;
+      top: 42px;
+      right: 14px;
+      width: 320px;
+      background: rgba(14, 24, 44, 0.94);
+      backdrop-filter: blur(32px);
+      -webkit-backdrop-filter: blur(32px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+      padding: 14px;
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      animation: menuFadeIn .15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .cc-popover.show { display: flex; }
+    .cc-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .cc-tile {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .cc-tile:hover { background: rgba(255, 255, 255, 0.1); }
+    .cc-tile.active {
+      background: rgba(82, 217, 255, 0.18);
+      border-color: rgba(82, 217, 255, 0.4);
+    }
+    .cc-tile-icon { font-size: 18px; }
+    .cc-tile-info { display: flex; flex-direction: column; }
+    .cc-tile-title { font-size: 12px; font-weight: 700; color: #ffffff; }
+    .cc-tile-sub { font-size: 10.5px; color: #94a3b8; }
+    .cc-slider-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .cc-slider-label { font-size: 11px; font-weight: 600; color: #cbd5e1; display: flex; justify-content: space-between; }
+    .cc-slider-input { width: 100%; accent-color: #52d9ff; cursor: pointer; }
+
+    /* Spotlight Search Modal */
+    .spotlight-modal {
+      position: absolute;
+      top: 15%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(560px, 90%);
+      background: rgba(14, 24, 44, 0.96);
+      backdrop-filter: blur(36px);
+      -webkit-backdrop-filter: blur(36px);
+      border: 1px solid rgba(82, 217, 255, 0.35);
+      border-radius: 18px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 40px rgba(82, 217, 255, 0.2);
+      padding: 16px;
+      z-index: 1200;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      animation: menuFadeIn .15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .spotlight-modal.show { display: flex; }
+    .spotlight-input-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+    .spotlight-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 500;
+      outline: none;
+    }
+    .spotlight-results { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+    .spotlight-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #f1f5f9;
+      transition: background .12s;
+    }
+    .spotlight-item:hover, .spotlight-item.active { background: rgba(82, 217, 255, 0.18); }
 
     /* Desktop Canvas */
     .desktop-canvas {
@@ -502,31 +653,206 @@
       <div class="desktop-showcase theme-dark" id="desktopContainer">
         
         <!-- Top System Bar (macOS Workstation Style) -->
-        <div class="top-panel">
+        <div class="top-panel" id="topPanel">
           <div class="top-left">
-            <div class="top-brand" onclick="toggleWindow('win-settings')">
+            <div class="top-brand" onclick="toggleSmartMenu('menu-apple', event)">
               <div class="mini-mark">G</div>
               <span>GenixBit</span>
             </div>
-            <span class="top-active-app" id="topActiveAppName">AI Center</span>
-            <span class="top-menu-item" onclick="openWindow('win-ai-center')">App</span>
-            <span class="top-menu-item" onclick="openWindow('win-files')">File</span>
-            <span class="top-menu-item" onclick="openWindow('win-terminal')">Edit</span>
-            <span class="top-menu-item" onclick="openWindow('win-settings')">View</span>
-            <span class="top-menu-item" onclick="openWindow('win-ai-center')">AI</span>
-            <span class="top-menu-item" onclick="openWindow('win-store')">Window</span>
-            <span class="top-menu-item" onclick="window.open('https://docs.os.genixbit.com', '_blank')">Help</span>
+            <span class="top-active-app" id="topActiveAppName" onclick="toggleSmartMenu('menu-app', event)">AI Center</span>
+            <span class="top-menu-item" onclick="toggleSmartMenu('menu-app', event)">App</span>
+            <span class="top-menu-item" onclick="toggleSmartMenu('menu-file', event)">File</span>
+            <span class="top-menu-item" onclick="toggleSmartMenu('menu-edit', event)">Edit</span>
+            <span class="top-menu-item" onclick="toggleSmartMenu('menu-view', event)">View</span>
+            <span class="top-menu-item" onclick="toggleSmartMenu('menu-ai', event)">AI</span>
+            <span class="top-menu-item" onclick="toggleSmartMenu('menu-window', event)">Window</span>
+            <span class="top-menu-item" onclick="toggleSmartMenu('menu-help', event)">Help</span>
           </div>
           <div class="top-right">
-            <span class="top-status-icon" title="Cloud Sync" onclick="toggleDesktopMode()">☁️</span>
-            <span class="top-status-icon" title="AI Runtime 11434" onclick="openWindow('win-ai-center')">✨</span>
-            <span class="top-status-icon" title="Privileged Security Guard Active">🛡️</span>
-            <span class="top-status-icon" title="Dark Glass Mode">🌙</span>
-            <span class="top-status-icon" title="Battery 100%">🔋</span>
-            <span class="top-status-icon" title="Wi-Fi Connected">📶</span>
-            <span class="top-status-icon" title="Spotlight Universal Search" onclick="toggleWindow('win-terminal')">🔍</span>
-            <span class="top-status-icon" title="Control Center" onclick="toggleWindow('win-settings')">🎛️</span>
+            <span class="top-status-icon" id="statCloud" title="Cloud Sync" onclick="toggleDesktopMode()">☁️</span>
+            <span class="top-status-icon" id="statAI" title="AI Runtime (127.0.0.1:11434)" onclick="toggleSmartMenu('popover-ai', event)">✨</span>
+            <span class="top-status-icon" id="statGuard" title="Privileged Security Guard Active" onclick="toggleSmartMenu('popover-guard', event)">🛡️</span>
+            <span class="top-status-icon" id="statNight" title="Toggle Dark / Light Theme" onclick="toggleThemeMode()">🌙</span>
+            <span class="top-status-icon" id="statBattery" title="Battery 100%" onclick="toggleSmartMenu('popover-battery', event)">🔋</span>
+            <span class="top-status-icon" id="statWifi" title="Wi-Fi: Connected" onclick="toggleSmartMenu('popover-wifi', event)">📶</span>
+            <span class="top-status-icon" id="statSpotlight" title="Spotlight Universal Search" onclick="toggleSpotlight(event)">🔍</span>
+            <span class="top-status-icon" id="statControl" title="Control Center" onclick="toggleSmartMenu('popover-control', event)">🎛️</span>
             <div class="top-clock" id="liveClock">Mon Aug 17 10:30 AM</div>
+          </div>
+        </div>
+
+        <!-- 1. Apple/GenixBit System Menu -->
+        <div class="smart-dropdown" id="menu-apple" style="left:12px;">
+          <div class="menu-item" onclick="openWindow('win-settings'); closeAllMenus();"><span>ℹ️ About GenixBit OS</span></div>
+          <div class="menu-item" onclick="openWindow('win-settings'); closeAllMenus();"><span>⚙️ System Settings...</span></div>
+          <div class="menu-item" onclick="openWindow('win-store'); closeAllMenus();"><span>🛍️ App Store...</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="openWindow('win-terminal'); closeAllMenus();"><span>📋 Master Platform Spec</span><span class="shortcut">@spec</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>💤 Sleep</span></div>
+          <div class="menu-item" onclick="location.reload()"><span>🔄 Restart...</span></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>🔒 Lock Screen</span><span class="shortcut">Ctrl+L</span></div>
+        </div>
+
+        <!-- 2. App Menu -->
+        <div class="smart-dropdown" id="menu-app" style="left:88px;">
+          <div class="menu-item" onclick="openWindow('win-ai-center'); closeAllMenus();"><span id="menuAppAboutLabel">About AI Center</span></div>
+          <div class="menu-item" onclick="openWindow('win-settings'); closeAllMenus();"><span>Preferences...</span><span class="shortcut">Ctrl+,</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>Hide Application</span><span class="shortcut">Ctrl+H</span></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>Hide Others</span><span class="shortcut">Alt+Ctrl+H</span></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>Show All</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="closeActiveWindow(); closeAllMenus();"><span style="color:#ff5f56;">Quit Application</span><span class="shortcut">Ctrl+Q</span></div>
+        </div>
+
+        <!-- 3. File Menu -->
+        <div class="smart-dropdown" id="menu-file" style="left:138px;">
+          <div class="menu-item" onclick="openWindow('win-terminal'); closeAllMenus();"><span>New Window</span><span class="shortcut">Ctrl+N</span></div>
+          <div class="menu-item" onclick="openWindow('win-ai-center'); closeAllMenus();"><span>New Prompt Tab</span><span class="shortcut">Ctrl+T</span></div>
+          <div class="menu-item" onclick="openWindow('win-store'); closeAllMenus();"><span>Open Package...</span><span class="shortcut">Ctrl+O</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="closeActiveWindow(); closeAllMenus();"><span>Close Window</span><span class="shortcut">Ctrl+W</span></div>
+        </div>
+
+        <!-- 4. Edit Menu -->
+        <div class="smart-dropdown" id="menu-edit" style="left:178px;">
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>Undo</span><span class="shortcut">Ctrl+Z</span></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>Redo</span><span class="shortcut">Ctrl+Y</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>Cut</span><span class="shortcut">Ctrl+X</span></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>Copy</span><span class="shortcut">Ctrl+C</span></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>Paste</span><span class="shortcut">Ctrl+V</span></div>
+          <div class="menu-item" onclick="playSound('click'); closeAllMenus();"><span>Select All</span><span class="shortcut">Ctrl+A</span></div>
+        </div>
+
+        <!-- 5. View Menu -->
+        <div class="smart-dropdown" id="menu-view" style="left:218px;">
+          <div class="menu-item" onclick="toggleThemeMode(); closeAllMenus();"><span>Toggle Dark / Light Theme</span></div>
+          <div class="menu-item" onclick="maximizeActiveWindow(); closeAllMenus();"><span>Enter Fullscreen</span><span class="shortcut">F11</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="toggleDesktopMode(); closeAllMenus();"><span>Switch to Live noVNC Stream</span></div>
+        </div>
+
+        <!-- 6. AI Menu -->
+        <div class="smart-dropdown" id="menu-ai" style="left:262px;">
+          <div class="menu-item" onclick="openWindow('win-ai-center'); closeAllMenus();"><span>✨ GenixBit AI Center</span></div>
+          <div class="menu-item" onclick="openWindow('win-agents'); closeAllMenus();"><span>🤖 Agent Studio &amp; Swarms</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="toggleSmartMenu('popover-ai', event)"><span>🧠 Model Status (127.0.0.1:11434)</span></div>
+          <div class="menu-item" onclick="toggleSmartMenu('popover-guard', event)"><span>🛡️ Privileged Actor Guard</span></div>
+        </div>
+
+        <!-- 7. Window Menu -->
+        <div class="smart-dropdown" id="menu-window" style="left:292px;">
+          <div class="menu-item" onclick="minimizeActiveWindow(); closeAllMenus();"><span>Minimize</span><span class="shortcut">Ctrl+M</span></div>
+          <div class="menu-item" onclick="maximizeActiveWindow(); closeAllMenus();"><span>Zoom</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="bringAllToFront(); closeAllMenus();"><span>Bring All to Front</span></div>
+        </div>
+
+        <!-- 8. Help Menu -->
+        <div class="smart-dropdown" id="menu-help" style="left:356px;">
+          <div class="menu-item" onclick="window.open('https://docs.os.genixbit.com', '_blank'); closeAllMenus();"><span>📖 GenixBit OS Documentation</span></div>
+          <div class="menu-item" onclick="openWindow('win-terminal'); closeAllMenus();"><span>⌨️ Keyboard Shortcuts</span></div>
+          <div class="menu-item" onclick="window.open('https://github.com/GenixBit/genixbit-os', '_blank'); closeAllMenus();"><span>🐙 GitHub Repository</span></div>
+        </div>
+
+        <!-- Right Popover: Control Center -->
+        <div class="cc-popover" id="popover-control">
+          <div class="cc-grid-2">
+            <div class="cc-tile active" onclick="this.classList.toggle('active')">
+              <span class="cc-tile-icon">📶</span>
+              <div class="cc-tile-info"><span class="cc-tile-title">Wi-Fi</span><span class="cc-tile-sub">GenixBit-Mesh</span></div>
+            </div>
+            <div class="cc-tile active" onclick="this.classList.toggle('active')">
+              <span class="cc-tile-icon">🔵</span>
+              <div class="cc-tile-info"><span class="cc-tile-title">Bluetooth</span><span class="cc-tile-sub">AirPods Pro</span></div>
+            </div>
+            <div class="cc-tile active" onclick="toggleThemeMode()">
+              <span class="cc-tile-icon">🌙</span>
+              <div class="cc-tile-info"><span class="cc-tile-title">Dark Mode</span><span class="cc-tile-sub">Cyber Dark</span></div>
+            </div>
+            <div class="cc-tile" onclick="this.classList.toggle('active')">
+              <span class="cc-tile-icon">🔕</span>
+              <div class="cc-tile-info"><span class="cc-tile-title">Focus</span><span class="cc-tile-sub">Off</span></div>
+            </div>
+          </div>
+          <div class="cc-slider-card">
+            <div class="cc-slider-label"><span>☀️ Display Brightness</span><span id="dispBrightVal">100%</span></div>
+            <input type="range" min="20" max="100" value="100" class="cc-slider-input" oninput="document.getElementById('dispBrightVal').textContent=this.value+'%'">
+          </div>
+          <div class="cc-slider-card">
+            <div class="cc-slider-label"><span>🔊 Sound Volume</span><span id="soundVolVal">85%</span></div>
+            <input type="range" min="0" max="100" value="85" class="cc-slider-input" oninput="document.getElementById('soundVolVal').textContent=this.value+'%'">
+          </div>
+        </div>
+
+        <!-- Right Popover: Wi-Fi -->
+        <div class="smart-dropdown" id="popover-wifi" style="right:90px; width:240px;">
+          <div style="font-size:12px; font-weight:700; color:#fff; padding:6px 12px; border-bottom:1px solid rgba(255,255,255,.08); display:flex; justify-content:space-between;">
+            <span>Wi-Fi</span><span style="color:#52d9ff;">On</span>
+          </div>
+          <div class="menu-item"><span style="color:#52d9ff;">✓ GenixBit-Mesh-5G</span><span class="shortcut">🔒</span></div>
+          <div class="menu-item"><span>Fiber-Workstation</span><span class="shortcut">🔒</span></div>
+          <div class="menu-item"><span>Guest-Secure</span><span class="shortcut">🔒</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="openWindow('win-settings'); closeAllMenus();"><span>Network Settings...</span></div>
+        </div>
+
+        <!-- Right Popover: Battery -->
+        <div class="smart-dropdown" id="popover-battery" style="right:120px; width:220px;">
+          <div style="font-size:12px; font-weight:700; color:#fff; padding:6px 12px; border-bottom:1px solid rgba(255,255,255,.08);">
+            Battery: 100% (Plugged In)
+          </div>
+          <div class="menu-item"><span>Power Mode: Performance</span></div>
+          <div class="menu-item"><span>Health: Normal (100%)</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="openWindow('win-settings'); closeAllMenus();"><span>Battery Settings...</span></div>
+        </div>
+
+        <!-- Right Popover: AI Runtime -->
+        <div class="smart-dropdown" id="popover-ai" style="right:160px; width:260px;">
+          <div style="font-size:12px; font-weight:700; color:#fff; padding:6px 12px; border-bottom:1px solid rgba(255,255,255,.08); display:flex; justify-content:space-between;">
+            <span>✨ AI Runtime</span><span style="color:#70e2a2;">Online</span>
+          </div>
+          <div class="menu-item"><span>Model: gemma-3-2b-it</span></div>
+          <div class="menu-item"><span>Proxy: 127.0.0.1:11434</span></div>
+          <div class="menu-item"><span>VRAM: 1.4 GB / 8.0 GB</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="openWindow('win-ai-center'); closeAllMenus();"><span>Open AI Center</span></div>
+        </div>
+
+        <!-- Right Popover: Security Guard -->
+        <div class="smart-dropdown" id="popover-guard" style="right:190px; width:250px;">
+          <div style="font-size:12px; font-weight:700; color:#fff; padding:6px 12px; border-bottom:1px solid rgba(255,255,255,.08); display:flex; justify-content:space-between;">
+            <span>🛡️ Privileged Guard</span><span style="color:#70e2a2;">Enforced</span>
+          </div>
+          <div class="menu-item"><span>AI Sandboxing: Active</span></div>
+          <div class="menu-item"><span>Audit Logs: Append-Only</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-item" onclick="openWindow('win-terminal'); closeAllMenus();"><span>Inspect Audit Logs</span></div>
+        </div>
+
+        <!-- Spotlight Search Modal -->
+        <div class="spotlight-modal" id="spotlightModal">
+          <div class="spotlight-input-box">
+            <span style="font-size:16px;">🔍</span>
+            <input type="text" id="spotlightInput" class="spotlight-input" placeholder="Search apps, files, actions or ask @ai..." oninput="handleSpotlightSearch(this.value)">
+          </div>
+          <div class="spotlight-results" id="spotlightResults">
+            <div class="spotlight-item" onclick="openWindow('win-ai-center'); closeAllMenus();">
+              <span>✨ GenixBit AI Center</span><span style="color:#94a3b8; font-size:11px;">Local LLMs &amp; Prompts</span>
+            </div>
+            <div class="spotlight-item" onclick="openWindow('win-terminal'); closeAllMenus();">
+              <span>&gt;_ Terminal</span><span style="color:#94a3b8; font-size:11px;">Command Line</span>
+            </div>
+            <div class="spotlight-item" onclick="openWindow('win-store'); closeAllMenus();">
+              <span>🛍️ GenixBit Store</span><span style="color:#94a3b8; font-size:11px;">.gbx Packages</span>
+            </div>
+            <div class="spotlight-item" onclick="openWindow('win-settings'); closeAllMenus();">
+              <span>⚙️ Settings &amp; Control Center</span><span style="color:#94a3b8; font-size:11px;">System &amp; Appearance</span>
+            </div>
           </div>
         </div>
 
@@ -1016,21 +1342,155 @@ Type 'help' to list commands, 'fetch', 'voice', 'mesh', 'genixbit-gpu-diag', or 
       }
     }
 
-    // Window Management
+    // Window Management & Active App Tracking
     let topZ = 40;
+    let activeAppId = 'win-ai-center';
+
+    function toggleSmartMenu(menuId, event) {
+      if (event) event.stopPropagation();
+      playSound('click');
+      const target = document.getElementById(menuId);
+      if (!target) return;
+      const isOpen = target.classList.contains('show');
+      closeAllMenus();
+      if (!isOpen) {
+        target.classList.add('show');
+      }
+    }
+
+    function closeAllMenus() {
+      document.querySelectorAll('.smart-dropdown, .cc-popover, .spotlight-modal').forEach(el => {
+        el.classList.remove('show');
+      });
+      document.querySelectorAll('.top-menu-item, .top-status-icon').forEach(el => {
+        el.classList.remove('active');
+      });
+    }
+
+    function toggleSpotlight(event) {
+      if (event) event.stopPropagation();
+      playSound('click');
+      const spot = document.getElementById('spotlightModal');
+      if (!spot) return;
+      const isOpen = spot.classList.contains('show');
+      closeAllMenus();
+      if (!isOpen) {
+        spot.classList.add('show');
+        const inp = document.getElementById('spotlightInput');
+        if (inp) {
+          inp.value = '';
+          inp.focus();
+        }
+      }
+    }
+
+    function handleSpotlightSearch(query) {
+      const q = query.toLowerCase().trim();
+      const resultsContainer = document.getElementById('spotlightResults');
+      if (!resultsContainer) return;
+      if (!q) {
+        resultsContainer.innerHTML = `
+          <div class="spotlight-item" onclick="openWindow('win-ai-center'); closeAllMenus();">
+            <span>✨ GenixBit AI Center</span><span style="color:#94a3b8; font-size:11px;">Local LLMs &amp; Prompts</span>
+          </div>
+          <div class="spotlight-item" onclick="openWindow('win-terminal'); closeAllMenus();">
+            <span>&gt;_ Terminal</span><span style="color:#94a3b8; font-size:11px;">Command Line</span>
+          </div>
+          <div class="spotlight-item" onclick="openWindow('win-store'); closeAllMenus();">
+            <span>🛍️ GenixBit Store</span><span style="color:#94a3b8; font-size:11px;">.gbx Packages</span>
+          </div>
+          <div class="spotlight-item" onclick="openWindow('win-settings'); closeAllMenus();">
+            <span>⚙️ Settings &amp; Control Center</span><span style="color:#94a3b8; font-size:11px;">System &amp; Appearance</span>
+          </div>
+        `;
+        return;
+      }
+      if (q.startsWith('@ai') || q.startsWith('?')) {
+        const prompt = q.replace(/^(@ai|\?)\s*/, '');
+        resultsContainer.innerHTML = `
+          <div class="spotlight-item" style="background:rgba(82,217,255,0.2);" onclick="openWindow('win-ai-center'); askAI('${prompt}'); closeAllMenus();">
+            <span>✨ Ask Local AI: <em>"${prompt || '...'}"</em></span><span style="color:#52d9ff; font-size:11px;">127.0.0.1:11434</span>
+          </div>
+        `;
+        return;
+      }
+      if (q.startsWith('@gbx')) {
+        const term = q.replace(/^@gbx\s*/, '');
+        resultsContainer.innerHTML = `
+          <div class="spotlight-item" onclick="openWindow('win-store'); closeAllMenus();">
+            <span>📦 GBX Package: <em>"${term || 'search'}"</em></span><span style="color:#52d9ff; font-size:11px;">App Store</span>
+          </div>
+        `;
+        return;
+      }
+      if (q === '@spec' || q === '@arch') {
+        resultsContainer.innerHTML = `
+          <div class="spotlight-item" onclick="openWindow('win-terminal'); closeAllMenus();">
+            <span>📋 Master Platform Specification</span><span style="color:#52d9ff; font-size:11px;">70 Principles</span>
+          </div>
+        `;
+        return;
+      }
+      resultsContainer.innerHTML = `
+        <div class="spotlight-item" onclick="openWindow('win-ai-center'); closeAllMenus();">
+          <span>✨ Search AI for "${query}"</span><span style="color:#94a3b8; font-size:11px;">AI Center</span>
+        </div>
+        <div class="spotlight-item" onclick="openWindow('win-terminal'); closeAllMenus();">
+          <span>&gt;_ Run: ${query}</span><span style="color:#94a3b8; font-size:11px;">Terminal</span>
+        </div>
+      `;
+    }
+
+    function closeActiveWindow() {
+      if (activeAppId) closeWindow(activeAppId);
+    }
+    function minimizeActiveWindow() {
+      if (activeAppId) minimizeWindow(activeAppId);
+    }
+    function maximizeActiveWindow() {
+      if (activeAppId) maximizeWindow(activeAppId);
+    }
+    function bringAllToFront() {
+      ['win-ai-center', 'win-terminal', 'win-store', 'win-agents', 'win-settings'].forEach(id => {
+        const win = document.getElementById(id);
+        if (win && win.style.display !== 'none') {
+          win.style.zIndex = ++topZ;
+        }
+      });
+    }
+
+    // Dismiss Listeners
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.smart-dropdown') && !e.target.closest('.cc-popover') && !e.target.closest('.top-panel') && !e.target.closest('.spotlight-modal')) {
+        closeAllMenus();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAllMenus();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === ' ') {
+        e.preventDefault();
+        toggleSpotlight();
+      }
+    });
+
     function openWindow(id) {
       playSound('click');
+      closeAllMenus();
       const win = document.getElementById(id);
       if (!win) return;
       win.style.display = 'flex';
       win.classList.remove('minimized');
       win.classList.add('active');
       win.style.zIndex = ++topZ;
+      activeAppId = id;
       updateActiveAppTitle(id);
       updateDockIndicator(id, true);
     }
     function closeWindow(id) {
       playSound('click');
+      closeAllMenus();
       const win = document.getElementById(id);
       if (!win) return;
       win.style.display = 'none';
@@ -1038,12 +1498,14 @@ Type 'help' to list commands, 'fetch', 'voice', 'mesh', 'genixbit-gpu-diag', or 
     }
     function minimizeWindow(id) {
       playSound('click');
+      closeAllMenus();
       const win = document.getElementById(id);
       if (!win) return;
       win.classList.add('minimized');
     }
     function maximizeWindow(id) {
       playSound('click');
+      closeAllMenus();
       const win = document.getElementById(id);
       if (!win) return;
       win.classList.toggle('maximized');
@@ -1067,6 +1529,8 @@ Type 'help' to list commands, 'fetch', 'voice', 'mesh', 'genixbit-gpu-diag', or 
       };
       const titleEl = document.getElementById('topActiveAppName');
       if (titleEl && titles[id]) titleEl.textContent = titles[id];
+      const aboutEl = document.getElementById('menuAppAboutLabel');
+      if (aboutEl && titles[id]) aboutEl.textContent = 'About ' + titles[id];
     }
     function updateDockIndicator(id, isOpen) {
       const dockMap = {
