@@ -1,0 +1,6 @@
+bin/genixbit-guard usr/bin/
+bin/genixbit-sandbox usr/bin/
+bin/genixbit-zram usr/bin/
+usr/lib/genixbit-os/agent_guard.py usr/lib/genixbit-os/
+usr/lib/genixbit-os/agent_sandbox.py usr/lib/genixbit-os/
+usr/lib/genixbit-os/zram_manager.py usr/lib/genixbit-os/

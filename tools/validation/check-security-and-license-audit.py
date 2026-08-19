@@ -22,6 +22,11 @@ REQUIRED_PACKAGES = [
     "genixbit-os-ai-center",
     "genixbit-os-agents",
     "genixbit-os-store",
+    "genixbit-os-indic-llm",
+    "genixbit-os-security-guard",
+    "genixbit-os-microvm",
+    "genixbit-os-vision-rag",
+    "genixbit-os-swarm",
 ]
 
 def main():

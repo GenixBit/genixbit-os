@@ -48,6 +48,11 @@ req_pkgs=(
     "genixbit-os-ai-center"
     "genixbit-os-agents"
     "genixbit-os-store"
+    "genixbit-os-indic-llm"
+    "genixbit-os-security-guard"
+    "genixbit-os-microvm"
+    "genixbit-os-vision-rag"
+    "genixbit-os-swarm"
 )
 
 for pkg in "${req_pkgs[@]}"; do

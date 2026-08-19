@@ -1,0 +1,7 @@
+genixbit-os-vision-rag (1.0.0-lts-1) resolute; urgency=medium
+
+  * Release of GenixBit Multimodal Vision & Vector RAG engine (Milestone 1.4.0 Drishti).
+  * Added genixbit-vision for UI tree inspection and offline multilingual OCR.
+  * Added genixbit-rag for 1024-D embedded semantic indexing and search.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 19 Aug 2026 08:30:00 +0530

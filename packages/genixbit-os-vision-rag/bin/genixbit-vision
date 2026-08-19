@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-vision CLI
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import vision_engine
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit Multimodal Desktop UI Vision & OCR Engine")
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # inspect
+    subparsers.add_parser("inspect", help="Inspect current desktop UI hierarchy and active windows")
+
+    # ocr
+    ocr_p = subparsers.add_parser("ocr", help="Run high-accuracy offline OCR on screen or image")
+    ocr_p.add_argument("image", nargs="?", default="screen", help="Image path or 'screen'")
+
+    args = parser.parse_args()
+
+    if args.command == "ocr":
+        res = vision_engine.perform_ocr(args.image)
+        print(json.dumps(res, indent=2))
+    else:
+        res = vision_engine.inspect_desktop_ui()
+        print("============================================================")
+        print("        GenixBit Multimodal Desktop UI Inspection           ")
+        print("============================================================")
+        print(f"Screen: {res['screen_resolution']} | Active Window: {res['active_window']}")
+        print(f"Confidence: {res['confidence']*100:.1f}% | Elements Detected: {len(res['elements_detected'])}")
+        for e in res['elements_detected']:
+            print(f" - [{e['type']}] {e['name']} at {e['bounds']}")
+
+if __name__ == "__main__":
+    main()

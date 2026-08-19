@@ -1,0 +1,28 @@
+{
+  "version": "1.1.0",
+  "name": "Bharat AI 22 Official Indian Languages Registry",
+  "languages": [
+    {"code": "hi", "name": "Hindi", "native": "हिन्दी", "script": "Devanagari"},
+    {"code": "bn", "name": "Bengali", "native": "বাংলা", "script": "Bengali"},
+    {"code": "mr", "name": "Marathi", "native": "मराठी", "script": "Devanagari"},
+    {"code": "te", "name": "Telugu", "native": "తెలుగు", "script": "Telugu"},
+    {"code": "ta", "name": "Tamil", "native": "தமிழ்", "script": "Tamil"},
+    {"code": "gu", "name": "Gujarati", "native": "ગુજરાતી", "script": "Gujarati"},
+    {"code": "kn", "name": "Kannada", "native": "ಕನ್ನಡ", "script": "Kannada"},
+    {"code": "ml", "name": "Malayalam", "native": "മലയാളം", "script": "Malayalam"},
+    {"code": "or", "name": "Odia", "native": "ଓଡ଼ିଆ", "script": "Odia"},
+    {"code": "pa", "name": "Punjabi", "native": "ਪੰਜਾਬੀ", "script": "Gurmukhi"},
+    {"code": "as", "name": "Assamese", "native": "অসমীয়া", "script": "Bengali-Assamese"},
+    {"code": "ur", "name": "Urdu", "native": "اردو", "script": "Perso-Arabic"},
+    {"code": "sa", "name": "Sanskrit", "native": "संस्कृतम्", "script": "Devanagari"},
+    {"code": "ne", "name": "Nepali", "native": "नेपाली", "script": "Devanagari"},
+    {"code": "sd", "name": "Sindhi", "native": "سنڌي", "script": "Perso-Arabic / Devanagari"},
+    {"code": "ks", "name": "Kashmiri", "native": "کٲشُر", "script": "Perso-Arabic / Devanagari"},
+    {"code": "kok", "name": "Konkani", "native": "कोंकणी", "script": "Devanagari"},
+    {"code": "mai", "name": "Maithili", "native": "मैथिली", "script": "Devanagari"},
+    {"code": "mni", "name": "Manipuri (Meitei)", "native": "মৈতৈলোন্", "script": "Meetei Mayek / Bengali"},
+    {"code": "sat", "name": "Santali", "native": "ᱥᱟᱱᱛᱟᱲᱤ", "script": "Ol Chiki"},
+    {"code": "brx", "name": "Bodo", "native": "बड़ो", "script": "Devanagari"},
+    {"code": "doi", "name": "Dogri", "native": "डोगरी", "script": "Devanagari"}
+  ]
+}

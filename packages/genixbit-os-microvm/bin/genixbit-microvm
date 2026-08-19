@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-microvm CLI
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import microvm_runner
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit Sub-Second MicroVM Agent Runner")
+    parser.add_argument("--vcpu", type=int, default=2, help="Virtual CPUs (default: 2)")
+    parser.add_argument("--mem", type=int, default=512, help="RAM in MB (default: 512)")
+    parser.add_argument("command", nargs="+", help="Command to execute inside MicroVM")
+
+    args = parser.parse_args()
+    res = microvm_runner.run_in_microvm(args.command, args.vcpu, args.mem)
+    print(res["stdout"], end="")
+    if res["stderr"]:
+        print(res["stderr"], file=sys.stderr, end="")
+    sys.exit(res["exit_code"])
+
+if __name__ == "__main__":
+    main()

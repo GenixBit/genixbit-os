@@ -1,0 +1,7 @@
+genixbit-os-swarm (1.0.0-lts-1) resolute; urgency=medium
+
+  * Release of GenixBit Multi-Agent Swarm Orchestration & Pipeline Engine (Milestone 1.5.0 Sutra).
+  * Added genixbit-swarm for coordinating multi-agent roles and consensus gates.
+  * Added genixbit-pipeline for offline automated testing and CI/CD pipelines.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 19 Aug 2026 08:30:00 +0530

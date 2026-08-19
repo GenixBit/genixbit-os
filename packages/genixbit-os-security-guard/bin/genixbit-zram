@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-zram CLI
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import zram_manager
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit Adaptive LZ4 ZRAM Memory Compactor")
+    parser.add_argument("--json", action="store_true", help="Output status as JSON")
+    args = parser.parse_args()
+
+    status = zram_manager.get_zram_status()
+    if args.json:
+        print(json.dumps(status, indent=2))
+    else:
+        print("============================================================")
+        print("      GenixBit Adaptive LZ4 ZRAM Memory Compactor          ")
+        print("============================================================")
+        print(f"Status: Active | Algorithm: {status['algorithm'].upper()}")
+        print(f"Allocated Disk Size: {status['disksize_mb']} MB | Ratio: {status['compression_ratio']}")
+
+if __name__ == "__main__":
+    main()

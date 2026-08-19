@@ -1,0 +1,6 @@
+bin/genixbit-microvm usr/bin/
+bin/genixbit-quant usr/bin/
+bin/genixbit-lora usr/bin/
+usr/lib/genixbit-os/microvm_runner.py usr/lib/genixbit-os/
+usr/lib/genixbit-os/quantization_engine.py usr/lib/genixbit-os/
+usr/lib/genixbit-os/lora_manager.py usr/lib/genixbit-os/

@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-sandbox CLI
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import agent_sandbox
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit Lightweight Agent Namespace Sandbox")
+    parser.add_argument("--workspace", help="Isolated workspace directory")
+    parser.add_argument("--timeout", type=int, default=30, help="Max execution timeout in seconds")
+    parser.add_argument("command", nargs="+", help="Command to execute sandboxed")
+
+    args = parser.parse_args()
+    res = agent_sandbox.execute_sandboxed(args.command, args.workspace, args.timeout)
+    print(res["stdout"], end="")
+    if res["stderr"]:
+        print(res["stderr"], file=sys.stderr, end="")
+    sys.exit(res["exit_code"])
+
+if __name__ == "__main__":
+    main()

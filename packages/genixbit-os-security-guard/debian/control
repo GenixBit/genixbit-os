@@ -1,0 +1,15 @@
+Source: genixbit-os-security-guard
+Section: utils
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-security-guard
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, python3, bubblewrap | bwrap | util-linux
+Description: GenixBit Autonomous Agent Security Guard & Sandboxing
+ Provides real-time syscall and secret leak policy enforcement (genixbit-guard),
+ lightweight user namespace sandboxing (genixbit-sandbox), and dynamic
+ LZ4 memory compression (genixbit-zram) for AI workloads.

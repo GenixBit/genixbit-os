@@ -1,0 +1,14 @@
+Source: genixbit-os-microvm
+Section: utils
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-microvm
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-ai-runtime, python3
+Description: GenixBit Sub-second MicroVM Runner & Model Quantization Toolchain
+ Launches lightweight copy-on-write MicroVMs (<120ms boot) for coding agents,
+ provides on-device GGUF quantization (Q8/Q4/Q2), and hot-swaps dynamic LoRA adapters.
