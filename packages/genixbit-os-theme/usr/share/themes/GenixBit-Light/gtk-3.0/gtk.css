@@ -1,10 +1,9 @@
-/* GenixBit OS - Ubuntu 24.04 / 26.04 GNOME 46 Style Clean Light Theme
- * Authentic 3-Section Top Bar (Activities Pill, Centered Clock Pill, Unified Quick Settings Pill)
+/* GenixBit OS macOS-Inspired Clean Light Theme - GTK 3.0 & GTK 4.0
+ * Authentic macOS Top Menu Bar, Traffic Light Window Controls (🔴 🟡 🟢), and Clean Glassmorphism
  */
 
-@define-color accent_color #e95420; /* Ubuntu Signature Warm Orange */
-@define-color accent_cyber #4f46e5;
-@define-color accent_bg_color #e95420;
+@define-color accent_color #2563eb;
+@define-color accent_bg_color #2563eb;
 @define-color accent_fg_color #ffffff;
 @define-color window_bg_color #f8fafc;
 @define-color window_fg_color #0f172a;
@@ -25,11 +24,67 @@ window {
 }
 
 /* ==========================================================================
-   UBUNTU GNOME 46 TOP BAR (Header Panel)
+   macOS TRAFFIC LIGHT WINDOW BUTTONS (🔴 🟡 🟢)
+   ========================================================================== */
+
+headerbar button.titlebutton {
+    min-width: 13px;
+    min-height: 13px;
+    border-radius: 9999px;
+    padding: 0;
+    margin: 0 3px;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    transition: all 120ms ease-in-out;
+}
+
+/* 🔴 Close Button */
+headerbar button.titlebutton.close {
+    background-color: #ff5f56;
+    border-color: #e0443e;
+}
+headerbar button.titlebutton.close:hover {
+    background-color: #ff3b30;
+    box-shadow: 0 0 8px rgba(255, 95, 86, 0.6);
+}
+
+/* 🟡 Minimize Button */
+headerbar button.titlebutton.minimize {
+    background-color: #ffbd2e;
+    border-color: #dea123;
+}
+headerbar button.titlebutton.minimize:hover {
+    background-color: #ff9500;
+    box-shadow: 0 0 8px rgba(255, 189, 46, 0.6);
+}
+
+/* 🟢 Maximize / Zoom Button */
+headerbar button.titlebutton.maximize {
+    background-color: #27c93f;
+    border-color: #1aab29;
+}
+headerbar button.titlebutton.maximize:hover {
+    background-color: #34c759;
+    box-shadow: 0 0 8px rgba(39, 201, 63, 0.6);
+}
+
+/* Window Headerbars */
+headerbar {
+    background: @headerbar_bg_color;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 6px 10px;
+    border-radius: 14px 14px 0 0;
+}
+
+headerbar:backdrop {
+    background: rgba(248, 250, 252, 0.98);
+}
+
+/* ==========================================================================
+   macOS TOP MENU BAR (Clean Translucent Header)
    ========================================================================== */
 
 .xfce4-panel, #XfcePanelWindow, panel {
-    background-color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.94);
     color: #0f172a;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     font-weight: 600;
@@ -37,109 +92,70 @@ window {
     padding: 0 4px;
 }
 
-/* Top Bar Buttons (Pill styling like GNOME 46) */
+/* Menu Items in Top Bar */
 .xfce4-panel button, #XfcePanelWindow button, panel button {
     background-color: transparent;
     color: #0f172a;
     border: none;
-    border-radius: 9999px;
-    padding: 3px 12px;
-    margin: 2px 2px;
+    border-radius: 6px;
+    padding: 3px 8px;
+    margin: 1px 1px;
     box-shadow: none;
-    transition: all 150ms ease-in-out;
+    transition: all 120ms ease;
 }
 
 .xfce4-panel button:hover, #XfcePanelWindow button:hover, panel button:hover {
     background-color: rgba(0, 0, 0, 0.06);
-    color: #e95420;
+    color: #2563eb;
 }
 
 .xfce4-panel button:checked, .xfce4-panel button:active {
-    background-color: rgba(233, 84, 32, 0.12);
-    color: #e95420;
+    background-color: rgba(37, 99, 235, 0.15);
+    color: #2563eb;
 }
 
-/* Left Section: "Activities" Pill Button */
+/* Left Section: [G] System Menu */
 .xfce4-panel .whisker-menu-button,
 .xfce4-panel #whiskermenu-button,
 .xfce4-panel button.flat {
     background-color: rgba(0, 0, 0, 0.06);
     color: #0f172a;
-    border-radius: 9999px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
     font-weight: 700;
-    padding: 3px 14px;
-    margin-left: 6px;
+    padding: 2px 10px;
+    margin-left: 4px;
 }
 
 .xfce4-panel .whisker-menu-button:hover,
 .xfce4-panel #whiskermenu-button:hover {
-    background-color: rgba(233, 84, 32, 0.15);
-    color: #e95420;
+    background-color: rgba(37, 99, 235, 0.15);
+    color: #2563eb;
 }
 
-/* Workspace Switcher Pips / Numbers (GNOME 46 Workspace Pill) */
-.xfce4-panel .pager, #XfcePanelWindow .pager {
-    background-color: rgba(0, 0, 0, 0.04);
-    border-radius: 9999px;
-    padding: 2px 6px;
-    margin: 0 4px;
-}
-
-.xfce4-panel .pager button {
-    border-radius: 9999px;
-    padding: 2px 6px;
-    min-width: 18px;
-    min-height: 18px;
-    font-size: 11px;
-}
-
-.xfce4-panel .pager button:checked {
-    background-color: #e95420;
-    color: #ffffff;
-}
-
-/* Center Section: Pill-Shaped Centered Clock (GNOME 46 Date/Time Pill) */
+/* Center Section: Centered Clock */
 .xfce4-panel .clock, #XfcePanelWindow .clock {
     background-color: rgba(0, 0, 0, 0.05);
     color: #0f172a;
     font-weight: 700;
     font-size: 13px;
-    border-radius: 9999px;
-    padding: 3px 16px;
+    border-radius: 8px;
+    padding: 2px 12px;
     margin: 0 4px;
-    transition: background-color 150ms ease;
 }
 
 .xfce4-panel .clock:hover, #XfcePanelWindow .clock:hover {
     background-color: rgba(0, 0, 0, 0.1);
 }
 
-/* Right Section: Unified Quick Settings Capsule Pill */
+/* Right Section: macOS Quick Icons */
 .xfce4-panel .systray,
 .xfce4-panel .statusnotifier,
 .xfce4-panel .pulseaudio-button {
     background-color: rgba(0, 0, 0, 0.04);
-    border-radius: 9999px;
-    padding: 2px 8px;
-    margin: 0 2px;
-}
-
-.xfce4-panel .systray:hover,
-.xfce4-panel .statusnotifier:hover,
-.xfce4-panel .pulseaudio-button:hover {
-    background-color: rgba(0, 0, 0, 0.08);
-}
-
-/* Window Headerbars */
-headerbar {
-    background: @headerbar_bg_color;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    padding: 8px 12px;
-    border-radius: 14px 14px 0 0;
-}
-
-headerbar:backdrop {
-    background: rgba(248, 250, 252, 0.98);
+    border-radius: 6px;
+    padding: 2px 6px;
+    margin: 0 1px;
 }
 
 /* Floating Clean Cards */
@@ -161,19 +177,19 @@ button {
 }
 
 button:hover {
-    background: rgba(233, 84, 32, 0.08);
-    border-color: #e95420;
-    color: #e95420;
+    background: rgba(37, 99, 235, 0.08);
+    border-color: rgba(37, 99, 235, 0.35);
+    color: #2563eb;
 }
 
 button:active {
-    background: #e95420;
-    border-color: #e95420;
-    color: #ffffff;
+    background: rgba(37, 99, 235, 0.2);
+    border-color: #2563eb;
+    color: #2563eb;
 }
 
 button.suggested-action {
-    background-color: #e95420;
+    background-image: linear-gradient(to bottom right, #2563eb, #38bdf8);
     color: #ffffff;
     border: none;
 }
@@ -188,7 +204,7 @@ entry {
 }
 
 entry:focus {
-    border-color: #e95420;
+    border-color: #2563eb;
 }
 
 /* Minimal Scrollbars */
@@ -204,12 +220,12 @@ scrollbar slider {
 }
 
 scrollbar slider:hover {
-    background-color: #e95420;
+    background-color: #2563eb;
 }
 
 /* Tooltips */
 tooltip {
-    background-color: rgba(18, 18, 18, 0.96);
+    background-color: rgba(15, 23, 42, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px;
     color: #ffffff;

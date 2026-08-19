@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# GenixBit OS Desktop Setup & Cyber Workstation Layout Provisioner
-# Configures exact pixel-perfect desktop layout matching os.genixbit.com:
-# - Translucent Top Bar with [G] GenixBit badge, Settings pill, and centered %a, %b %d, %I:%M %p clock
-# - Centered Floating Glass Bottom Dock with blue glowing active indicator dots
-# - Left-aligned large squircle desktop icons (AI Center, Terminal, App Store, Agents)
-# - Deep cyber midnight blue radial gradient wallpaper
+# GenixBit OS Desktop Setup & macOS Cyber Layout Provisioner
+# Configures authentic macOS Top Menu Bar & Traffic Light Window Controls (🔴 🟡 🟢):
+# - Left: [G] System Menu + App Menus (File, Edit, View, AI, Window, Help)
+# - Center: Centered Clock (%a, %b %d, %I:%M %p)
+# - Right: Quick Action Launchers (✨ AI Assistant, 🔍 Spotlight, 🎛️ Control Center) & Systray
+# - Bottom: Centered Floating Frosted Glass Dock with glowing active indicator dots
 
 set -Eeuo pipefail
 
@@ -14,7 +14,7 @@ THEME_NAME="GenixBit-Dark"
 ICON_THEME="GenixBit-Icons"
 FONT_NAME="Ubuntu 11"
 
-echo "[GenixBit Desktop Setup] Initializing GenixBit OS Cyber Workstation desktop environment..."
+echo "[GenixBit Desktop Setup] Initializing GenixBit OS macOS Cyber Workstation layout..."
 
 # 1. GNOME Desktop GSettings
 if command -v gsettings &>/dev/null; then
@@ -45,27 +45,28 @@ if command -v xfconf-query &>/dev/null; then
         done
     fi
 
-    # Set Window Manager Theme (Traffic Lights 🔴 🟡 🟢) & Compositor
+    # Set Window Manager Theme & macOS Traffic Light Controls (🔴 🟡 🟢)
     xfconf-query -c xfwm4 -p /general/theme -s "${THEME_NAME}" --create -t string 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/button_layout -s "CHM|" --create -t string 2>/dev/null || true
+    xfconf-query -c xfwm4 -p /general/button_spacing -s 6 --create -t int 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/use_compositing -s "true" --create -t bool 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/show_frame_shadow -s "true" --create -t bool 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/show_popup_shadow -s "true" --create -t bool 2>/dev/null || true
 
-    # Docked Top Bar (Panel 1) - Slim Glass Header (32px)
+    # Docked macOS Top Menu Bar (Panel 1) - 28px Sleek Height
     xfconf-query -c xfce4-panel -p /panels/panel-1/position -s "p=6;x=0;y=0" --create -t string 2>/dev/null || true
-    xfconf-query -c xfce4-panel -p /panels/panel-1/size -s 32 --create -t int 2>/dev/null || true
+    xfconf-query -c xfce4-panel -p /panels/panel-1/size -s 28 --create -t int 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /panels/panel-1/length -s 100 --create -t int 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /panels/panel-1/span-monitors -s true --create -t bool 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /panels/panel-1/autohide-behavior -s 0 --create -t int 2>/dev/null || true
 
-    # Whisker Menu configured as "[G] GenixBit" Branding Pill
+    # Whisker Menu configured as Apple-Style "[G] GenixBit" System Menu
     xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -s "GenixBit" --create -t string 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-icon -s "genixbit-mark" --create -t string 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /plugins/plugin-1/show-button-title -s true --create -t bool 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /plugins/plugin-1/show-button-icon -s true --create -t bool 2>/dev/null || true
 
-    # Centered Clock Format (%a, %b %d, %I:%M %p e.g. "Wed, Aug 19, 09:44 AM")
+    # Centered Clock Format (%a, %b %d, %I:%M %p)
     xfconf-query -c xfce4-panel -p /plugins/plugin-6/digital-format -s "%a, %b %d, %I:%M %p" --create -t string 2>/dev/null || true
 fi
 
@@ -170,4 +171,4 @@ EOF
 
 chmod +x "$DESKTOP_DIR"/*.desktop 2>/dev/null || true
 
-echo "[GenixBit Desktop Setup] GenixBit OS Cyber Workstation desktop successfully configured."
+echo "[GenixBit Desktop Setup] GenixBit OS macOS Cyber layout successfully configured."
