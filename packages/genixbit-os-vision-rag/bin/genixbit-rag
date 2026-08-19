@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-rag CLI
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import vector_rag
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit 1024-D Local Vector Database RAG Retrieval")
+    parser.add_argument("query", help="Semantic query or search keywords")
+    parser.add_argument("--top-k", type=int, default=2, help="Number of top matches to return (default: 2)")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    args = parser.parse_args()
+    res = vector_rag.search_rag(args.query, args.top_k)
+    if args.json:
+        print(json.dumps(res, indent=2))
+    else:
+        print(f"GenixBit Vector RAG Search Results for '{args.query}':\n")
+        for i, doc in enumerate(res["results"], 1):
+            print(f"[{i}] {doc['title']}")
+            print(f"    {doc['content']}")
+            print(f"    Tags: {', '.join(doc['tags'])}\n")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-quant CLI
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import quantization_engine
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit On-Device Model Quantization Engine")
+    parser.add_argument("model", help="Model name or path to quantize")
+    parser.add_argument("--type", default="Q4_K_M", choices=quantization_engine.SUPPORTED_TYPES, help="Target GGUF quant format")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    args = parser.parse_args()
+    res = quantization_engine.quantize_model(args.model, args.type)
+    if args.json:
+        print(json.dumps(res, indent=2))
+    else:
+        print(f"GenixBit Quantization Engine — {args.model} -> {args.type}")
+        print(f"Estimated Size: {res['estimated_size_gb']} GB | Minimum RAM: {res['ram_required_gb']} GB")
+
+if __name__ == "__main__":
+    main()

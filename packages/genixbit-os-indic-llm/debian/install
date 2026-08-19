@@ -1,0 +1,5 @@
+bin/genixbit-bharat usr/bin/
+bin/genixbit-mesh usr/bin/
+usr/lib/genixbit-os/bharat_ai.py usr/lib/genixbit-os/
+usr/lib/genixbit-os/compute_mesh.py usr/lib/genixbit-os/
+usr/share/genixbit-os/languages.json usr/share/genixbit-os/

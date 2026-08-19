@@ -1,0 +1,4 @@
+bin/genixbit-swarm usr/bin/
+bin/genixbit-pipeline usr/bin/
+usr/lib/genixbit-os/swarm_coordinator.py usr/lib/genixbit-os/
+usr/lib/genixbit-os/pipeline_engine.py usr/lib/genixbit-os/

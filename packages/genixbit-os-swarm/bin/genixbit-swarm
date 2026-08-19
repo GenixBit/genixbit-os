@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-swarm CLI
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import swarm_coordinator
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit Multi-Agent Swarm Orchestrator")
+    parser.add_argument("goal", nargs="+", help="Goal or task description for multi-agent swarm")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    args = parser.parse_args()
+    goal_str = " ".join(args.goal)
+    res = swarm_coordinator.coordinate_task(goal_str)
+    if args.json:
+        print(json.dumps(res, indent=2))
+    else:
+        print("============================================================")
+        print("        GenixBit Multi-Agent Swarm Orchestrator             ")
+        print("============================================================")
+        print(f"Goal: {res['goal']}")
+        print(f"Consensus: {res['swarm_consensus']} | Active Roles: {', '.join(res['active_roles'])}\n")
+        print("Generated Multi-Stage Execution Workflow:")
+        for s in res['workflow']:
+            print(f" [{s['step']}/5] {s['role']:<10} : {s['action']}")
+
+if __name__ == "__main__":
+    main()

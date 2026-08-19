@@ -1,0 +1,8 @@
+genixbit-os-security-guard (1.0.0-lts-1) resolute; urgency=medium
+
+  * Release of GenixBit Security Guard, Sandboxing & ZRAM engine (Milestone 1.2.0 Kavach).
+  * Added genixbit-guard for agent syscall and permission gatekeeping.
+  * Added genixbit-sandbox for isolated execution of AI-generated scripts.
+  * Added genixbit-zram for adaptive RAM memory compaction during LLM inference.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 19 Aug 2026 08:30:00 +0530

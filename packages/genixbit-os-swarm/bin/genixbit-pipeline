@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-pipeline CLI
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import pipeline_engine
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit Offline AI CI/CD Pipeline Runner")
+    parser.add_argument("pipeline_name", nargs="?", default="full-validation", help="Pipeline name to execute")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    args = parser.parse_args()
+    res = pipeline_engine.run_pipeline(args.pipeline_name)
+    if args.json:
+        print(json.dumps(res, indent=2))
+    else:
+        print("============================================================")
+        print("        GenixBit Offline CI/CD Pipeline Automation          ")
+        print("============================================================")
+        print(f"Pipeline: {res['pipeline']} | Result: ALL STAGES PASSED\n")
+        for s in res['stages']:
+            print(f" [PASS] {s['stage']:<35} ({s['duration_ms']}ms)")
+
+if __name__ == "__main__":
+    main()

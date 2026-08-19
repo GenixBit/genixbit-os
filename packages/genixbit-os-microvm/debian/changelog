@@ -1,0 +1,8 @@
+genixbit-os-microvm (1.0.0-lts-1) resolute; urgency=medium
+
+  * Release of GenixBit MicroVM, Quantization & LoRA engine (Milestone 1.3.0 Vayu).
+  * Added genixbit-microvm for sub-second isolated agent execution.
+  * Added genixbit-quant for adaptive FP16 to GGUF model conversion.
+  * Added genixbit-lora for zero-reload dynamic adapter hot-swapping.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 19 Aug 2026 08:30:00 +0530

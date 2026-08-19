@@ -87,6 +87,44 @@
 
 ---
 
+## Phase 9 — `1.1.0`: Bharat AI & Compute Mesh (*Shakti*) *(Completed)*
+
+- [x] **Bharat AI 22-Language Engine**: Package `genixbit-os-indic-llm` (`genixbit-bharat` CLI for translation, transliteration, prompt normalization).
+- [x] **LAN P2P Compute Mesh**: Local subnet AI model discovery and compute offloading (`genixbit-mesh`).
+
+---
+
+## Phase 10 — `1.2.0`: Security Guard, Sandboxing & ZRAM (*Kavach*) *(Completed)*
+
+- [x] **Agent Security Guard**: Package `genixbit-os-security-guard` (`genixbit-guard` real-time policy monitor, destructive command blocking & secret scanning).
+- [x] **Lightweight User Namespace Sandbox**: Isolated execution of AI-generated scripts (`genixbit-sandbox`).
+- [x] **Adaptive LZ4 ZRAM Compactor**: Dynamic memory compactor allocating RAM during LLM inference (`genixbit-zram`).
+
+---
+
+## Phase 11 — `1.3.0`: MicroVM Agent Runner & Quantization (*Vayu*) *(Completed)*
+
+- [x] **Sub-Second MicroVM Launcher**: Package `genixbit-os-microvm` (`genixbit-microvm` <120ms boot with copy-on-write RAM backing).
+- [x] **On-Device GGUF Quantization Engine**: Converts FP16 models to Q8_0, Q5_K_M, Q4_K_M, Q2_K, IQ3_M (`genixbit-quant`).
+- [x] **Dynamic LoRA Hot-Swapping**: Zero-reload task-specific fine-tuning adapter manager (`genixbit-lora`).
+
+---
+
+## Phase 12 — `1.4.0`: Multimodal Vision & Vector RAG (*Drishti*) *(Completed)*
+
+- [x] **Multimodal UI Perception & OCR**: Package `genixbit-os-vision-rag` (`genixbit-vision` screen & window hierarchy inspection, offline multilingual OCR).
+- [x] **1024-D Local Vector Database RAG**: Embedded semantic indexing and context retrieval across local codebases and documents (`genixbit-rag`).
+
+---
+
+## Phase 13 — `1.5.0`: Multi-Agent Swarm & Offline CI/CD (*Sutra*) *(Completed)*
+
+- [x] **Multi-Agent Swarm Orchestrator**: Package `genixbit-os-swarm` (`genixbit-swarm` coordinating Planner, Architect, Coder, Reviewer, Tester roles).
+- [x] **Offline CI/CD Pipeline Automation**: Multi-stage automated testing and test-driven code healing (`genixbit-pipeline`).
+- [x] **20-Package Native Ecosystem**: Complete set of 20 verified native GenixBit OS Debian packages integrated and validated.
+
+---
+
 ## Official Links & Resources
 
 - **Operating System Portal**: https://os.genixbit.com

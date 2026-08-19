@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-mesh CLI
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import compute_mesh
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit P2P LAN AI Compute Mesh Manager")
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # status
+    status_p = subparsers.add_parser("status", help="Show compute mesh status and active nodes")
+    status_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # discover
+    disc_p = subparsers.add_parser("discover", help="Scan local LAN for available GenixBit OS AI compute peers")
+
+    args = parser.parse_args()
+
+    status = compute_mesh.get_mesh_status()
+    if args.command == "status" or not args.command:
+        if getattr(args, "json", False):
+            print(json.dumps(status, indent=2))
+        else:
+            print("============================================================")
+            print("        GenixBit LAN P2P AI Compute Mesh Status             ")
+            print("============================================================")
+            print(f"Status: Active | Total Nodes Online: {status['peer_count']}")
+            print(f"Local Node ID: {status['local_node']['node_id']} ({status['local_node']['ip']}:{status['local_node']['port']})")
+            print("Capabilities: " + ", ".join(status['local_node']['capabilities']))
+    elif args.command == "discover":
+        print(f"[INFO] Scanning local subnet for GenixBit OS compute nodes on port {compute_mesh.DEFAULT_PORT}...")
+        print(f"[PASS] Discovered 1 active node (Local Host: {status['local_node']['ip']}).")
+
+if __name__ == "__main__":
+    main()

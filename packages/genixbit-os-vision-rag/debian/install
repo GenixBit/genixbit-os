@@ -1,0 +1,4 @@
+bin/genixbit-vision usr/bin/
+bin/genixbit-rag usr/bin/
+usr/lib/genixbit-os/vision_engine.py usr/lib/genixbit-os/
+usr/lib/genixbit-os/vector_rag.py usr/lib/genixbit-os/

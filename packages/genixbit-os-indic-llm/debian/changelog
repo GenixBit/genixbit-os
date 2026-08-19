@@ -1,0 +1,7 @@
+genixbit-os-indic-llm (1.0.0-lts-1) resolute; urgency=medium
+
+  * Release of GenixBit Bharat AI & LAN Compute Mesh (Milestone 1.1.0 Shakti).
+  * Added genixbit-bharat for 22 Indian languages translation and transliteration.
+  * Added genixbit-mesh for P2P local AI compute offloading and peer discovery.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 19 Aug 2026 08:30:00 +0530
