@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+import os
+import sys
+
+INSTALLED_TOPBAR = "/usr/lib/genixbit-os/genixbit-macos-topbar.py"
+LOCAL_TOPBAR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "usr", "lib", "genixbit-os", "genixbit-macos-topbar.py")
+
+if os.path.exists(INSTALLED_TOPBAR):
+    sys.path.insert(0, "/usr/lib/genixbit-os")
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("macos_topbar", INSTALLED_TOPBAR)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.launch_topbar()
+elif os.path.exists(LOCAL_TOPBAR):
+    sys.path.insert(0, os.path.dirname(LOCAL_TOPBAR))
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("macos_topbar", LOCAL_TOPBAR)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.launch_topbar()
