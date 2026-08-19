@@ -40,6 +40,39 @@ def search(query):
             ]
         }
 
+    # Inline Package Manager Query Mode
+    if q.startswith("@gbx "):
+        pkg_term = q[5:].strip()
+        return {
+            "query": q,
+            "mode": "gbx_package",
+            "results": [
+                {
+                    "name": f"GBX Package: '{pkg_term}'",
+                    "exec": f"gbx info '{pkg_term}'",
+                    "icon": "genixbit-store",
+                    "category": "GBX Package Platform",
+                    "description": f"Query package metadata and capabilities for {pkg_term}"
+                }
+            ]
+        }
+
+    # Platform Spec / Architecture shortcut
+    if q in ("@spec", "@arch", "@architecture"):
+        return {
+            "query": q,
+            "mode": "master_spec",
+            "results": [
+                {
+                    "name": "GenixBit OS Master Platform Specification",
+                    "exec": "genixbit-control-center --spec",
+                    "icon": "genixbit-control-center",
+                    "category": "Platform Architecture",
+                    "description": "View the 70 Engineering Principles & 25 Development Phases"
+                }
+            ]
+        }
+
     # Standard Fuzzy App & Command Search
     matches = []
     q_lower = q.lower()

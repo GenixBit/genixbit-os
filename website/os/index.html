@@ -127,28 +127,30 @@
     /* Top Bar */
     .top-panel {
       height: 38px;
-      background: rgba(8, 18, 34, 0.88);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: rgba(8, 18, 34, 0.94);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border-bottom: 1px solid var(--line);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 16px;
+      padding: 0 14px;
       font-size: 13px;
       font-weight: 500;
       color: var(--muted);
       z-index: 100;
     }
-    .top-left { display: flex; align-items: center; gap: 16px; }
-    .top-brand { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 750; cursor: pointer; }
-    .top-brand .mini-mark { width: 20px; height: 20px; border-radius: 6px; background: linear-gradient(135deg, var(--cyan), var(--blue)); display: grid; place-items: center; color: #07111f; font-weight: 900; font-size: 11px; }
-    .top-active-app { color: var(--text); font-weight: 600; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,.06); }
-    .top-center { color: var(--text); font-weight: 600; font-size: 13px; letter-spacing: -.01em; }
-    .top-right { display: flex; align-items: center; gap: 14px; }
-    .top-stat-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--cyan); background: rgba(82,217,255,.1); padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(82,217,255,.2); font-weight: 600; }
-    .top-control-btn { cursor: pointer; color: var(--muted); transition: color .15s; }
-    .top-control-btn:hover { color: var(--text); }
+    .top-left { display: flex; align-items: center; gap: 14px; }
+    .top-brand { display: flex; align-items: center; gap: 6px; color: var(--text); font-weight: 800; cursor: pointer; }
+    .top-brand .mini-mark { width: 18px; height: 18px; border-radius: 5px; background: linear-gradient(135deg, var(--cyan), var(--blue)); display: grid; place-items: center; color: #07111f; font-weight: 900; font-size: 11px; }
+    .top-active-app { color: #ffffff; font-weight: 800; font-size: 13px; margin-right: 4px; }
+    .top-menu-item { color: #cbd5e1; font-size: 12.5px; font-weight: 500; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background .15s, color .15s; }
+    .top-menu-item:hover { background: rgba(255,255,255,.08); color: #ffffff; }
+    .top-right { display: flex; align-items: center; gap: 12px; }
+    .top-status-icon { color: #cbd5e1; font-size: 12px; cursor: pointer; transition: color .15s; }
+    .top-status-icon:hover { color: #52d9ff; }
+    .top-stat-pill { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--cyan); background: rgba(82,217,255,.1); padding: 2px 8px; border-radius: 16px; border: 1px solid rgba(82,217,255,.2); font-weight: 600; }
+    .top-clock { color: #ffffff; font-weight: 600; font-size: 12px; margin-left: 4px; }
 
     /* Desktop Canvas */
     .desktop-canvas {
@@ -499,7 +501,7 @@
     <section id="simulator">
       <div class="desktop-showcase theme-dark" id="desktopContainer">
         
-        <!-- Top System Bar -->
+        <!-- Top System Bar (macOS Workstation Style) -->
         <div class="top-panel">
           <div class="top-left">
             <div class="top-brand" onclick="toggleWindow('win-settings')">
@@ -507,17 +509,24 @@
               <span>GenixBit</span>
             </div>
             <span class="top-active-app" id="topActiveAppName">AI Center</span>
+            <span class="top-menu-item" onclick="openWindow('win-ai-center')">App</span>
+            <span class="top-menu-item" onclick="openWindow('win-files')">File</span>
+            <span class="top-menu-item" onclick="openWindow('win-terminal')">Edit</span>
+            <span class="top-menu-item" onclick="openWindow('win-settings')">View</span>
+            <span class="top-menu-item" onclick="openWindow('win-ai-center')">AI</span>
+            <span class="top-menu-item" onclick="openWindow('win-store')">Window</span>
+            <span class="top-menu-item" onclick="window.open('https://docs.os.genixbit.com', '_blank')">Help</span>
           </div>
-          <div class="top-center" id="liveClock">Mon Aug 17 10:30 AM</div>
           <div class="top-right">
-            <div class="top-stat-pill" style="cursor:pointer;" onclick="toggleDesktopMode()" id="modeSwitchPill" title="Switch between Interactive Canvas & Live noVNC Stream">
-              <span>💻 Mode: <strong>Canvas</strong> (Click for noVNC)</span>
-            </div>
-            <div class="top-stat-pill">
-              <span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span>
-              <span>AI Runtime: 11434</span>
-            </div>
-            <span class="top-control-btn" title="System Settings" onclick="toggleWindow('win-settings')">⚙️</span>
+            <span class="top-status-icon" title="Cloud Sync" onclick="toggleDesktopMode()">☁️</span>
+            <span class="top-status-icon" title="AI Runtime 11434" onclick="openWindow('win-ai-center')">✨</span>
+            <span class="top-status-icon" title="Privileged Security Guard Active">🛡️</span>
+            <span class="top-status-icon" title="Dark Glass Mode">🌙</span>
+            <span class="top-status-icon" title="Battery 100%">🔋</span>
+            <span class="top-status-icon" title="Wi-Fi Connected">📶</span>
+            <span class="top-status-icon" title="Spotlight Universal Search" onclick="toggleWindow('win-terminal')">🔍</span>
+            <span class="top-status-icon" title="Control Center" onclick="toggleWindow('win-settings')">🎛️</span>
+            <div class="top-clock" id="liveClock">Mon Aug 17 10:30 AM</div>
           </div>
         </div>
 
