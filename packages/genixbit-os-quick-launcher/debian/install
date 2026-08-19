@@ -1,0 +1,3 @@
+bin/genixbit-launcher usr/bin/
+usr/lib/genixbit-os/quick_launcher.py usr/lib/genixbit-os/
+usr/share/applications/genixbit-launcher.desktop usr/share/applications/

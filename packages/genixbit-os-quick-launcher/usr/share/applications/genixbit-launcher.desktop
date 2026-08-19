@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GenixBit Quick Launcher
+GenericName=Spotlight HUD & Local AI Search
+Comment=Instantly launch apps, search files, or ask local AI via Super+Space
+Exec=genixbit-launcher
+Icon=genixbit-launcher
+Terminal=false
+Categories=Utility;Core;GTK;
+Keywords=spotlight;raycast;launcher;search;ai;apps;hud;
+StartupNotify=true

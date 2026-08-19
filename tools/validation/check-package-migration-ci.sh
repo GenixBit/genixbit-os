@@ -53,6 +53,9 @@ req_pkgs=(
     "genixbit-os-microvm"
     "genixbit-os-vision-rag"
     "genixbit-os-swarm"
+    "genixbit-os-control-center"
+    "genixbit-os-quick-launcher"
+    "genixbit-os-icons"
 )
 
 for pkg in "${req_pkgs[@]}"; do

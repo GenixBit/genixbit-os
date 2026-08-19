@@ -1,0 +1,6 @@
+genixbit-os-control-center (1.0.0-lts-1) resolute; urgency=medium
+
+  * Initial release of GenixBit OS Control Center & Appearance Hub.
+  * Added genixbit-control-center for themes, wallpapers, dock & AI settings.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 19 Aug 2026 08:30:00 +0530

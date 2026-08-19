@@ -1,0 +1,6 @@
+genixbit-os-quick-launcher (1.0.0-lts-1) resolute; urgency=medium
+
+  * Initial release of GenixBit OS Spotlight Quick Launcher & AI Search.
+  * Added genixbit-launcher for instant fuzzy app lookup and inline @ai execution.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 19 Aug 2026 08:30:00 +0530

@@ -1,0 +1,36 @@
+# GenixBit OS XFWM4 Theme - GenixBit-Dark
+# Modern Frameless Window Titlebar with Rounded Corners and Glowing Accent Focus
+
+active_text_color=#ffffff
+inactive_text_color=#94a3b8
+active_border_color=#52d9ff
+inactive_border_color=#1e293b
+active_color_1=#0f172a
+active_color_2=#0f172a
+inactive_color_1=#0a0f1d
+inactive_color_2=#0a0f1d
+
+title_shadow_active=false
+title_shadow_inactive=false
+title_vertical_offset_active=2
+title_vertical_offset_inactive=2
+title_horizontal_offset=12
+title_alignment=left
+
+button_offset=8
+button_spacing=6
+button_layout=CHM|
+
+frame_border_top=32
+frame_border_bottom=2
+frame_border_left=2
+frame_border_right=2
+
+show_app_icon=true
+full_width_title=true
+maximized_offset=0
+box_radius=14
+shadow_delta_x=0
+shadow_delta_y=8
+shadow_opacity=60
+shadow_radius=24

@@ -1,0 +1,36 @@
+# GenixBit OS XFWM4 Theme - GenixBit-Light
+# Clean Modern Window Titlebar with Rounded Corners and Royal Indigo Focus
+
+active_text_color=#0f172a
+inactive_text_color=#64748b
+active_border_color=#4f46e5
+inactive_border_color=#e2e8f0
+active_color_1=#ffffff
+active_color_2=#ffffff
+inactive_color_1=#f8fafc
+inactive_color_2=#f8fafc
+
+title_shadow_active=false
+title_shadow_inactive=false
+title_vertical_offset_active=2
+title_vertical_offset_inactive=2
+title_horizontal_offset=12
+title_alignment=left
+
+button_offset=8
+button_spacing=6
+button_layout=CHM|
+
+frame_border_top=32
+frame_border_bottom=2
+frame_border_left=2
+frame_border_right=2
+
+show_app_icon=true
+full_width_title=true
+maximized_offset=0
+box_radius=14
+shadow_delta_x=0
+shadow_delta_y=6
+shadow_opacity=20
+shadow_radius=20

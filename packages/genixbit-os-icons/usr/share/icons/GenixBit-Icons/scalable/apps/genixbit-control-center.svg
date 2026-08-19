@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad-cc" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <filter id="glow-cc" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#4f46e5" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="url(#grad-cc)" filter="url(#glow-cc)"/>
+  <!-- Sliders / Controls Graphic -->
+  <g fill="#ffffff">
+    <rect x="120" y="150" width="272" height="16" rx="8" fill="rgba(255,255,255,0.3)"/>
+    <circle cx="210" cy="158" r="28" fill="#ffffff"/>
+    <circle cx="210" cy="158" r="12" fill="#4f46e5"/>
+
+    <rect x="120" y="248" width="272" height="16" rx="8" fill="rgba(255,255,255,0.3)"/>
+    <circle cx="320" cy="256" r="28" fill="#ffffff"/>
+    <circle cx="320" cy="256" r="12" fill="#06b6d4"/>
+
+    <rect x="120" y="346" width="272" height="16" rx="8" fill="rgba(255,255,255,0.3)"/>
+    <circle cx="170" cy="354" r="28" fill="#ffffff"/>
+    <circle cx="170" cy="354" r="12" fill="#4f46e5"/>
+  </g>
+</svg>

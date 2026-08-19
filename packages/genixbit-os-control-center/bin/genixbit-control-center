@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-control-center CLI & GUI launcher
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import control_center
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit OS Control Center & Appearance Hub")
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # get
+    get_p = subparsers.add_parser("get", help="Get current desktop appearance & hardware settings")
+    get_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # set-theme
+    theme_p = subparsers.add_parser("set-theme", help="Set theme mode (dark or light)")
+    theme_p.add_argument("mode", choices=["dark", "light"], help="Theme mode")
+
+    # set-accent
+    accent_p = subparsers.add_parser("set-accent", help="Set accent color palette")
+    accent_p.add_argument("color", choices=list(control_center.ACCENT_COLORS.keys()), help="Accent color")
+
+    # list-accents
+    subparsers.add_parser("list-accents", help="List all available accent color palettes")
+
+    args = parser.parse_args()
+
+    if args.command == "set-theme":
+        res = control_center.set_theme_mode(args.mode)
+        print(f"[PASS] Theme set to: {args.mode.upper()} ({res['applied_settings']['gtk_theme']})")
+    elif args.command == "set-accent":
+        res = control_center.set_accent_color(args.color)
+        acc = control_center.ACCENT_COLORS[args.color]
+        print(f"[PASS] Accent color set to: {acc['name']} ({acc['hex']})")
+    elif args.command == "list-accents":
+        print("Available GenixBit OS Accent Color Palettes:\n")
+        for k, v in control_center.ACCENT_COLORS.items():
+            print(f" • {k:<8} : {v['name']:<16} ({v['hex']})")
+    else:
+        settings = control_center.get_current_settings()
+        if getattr(args, "json", False):
+            print(json.dumps(settings, indent=2))
+        else:
+            print("============================================================")
+            print("        GenixBit OS Control Center & Appearance Hub         ")
+            print("============================================================")
+            print(f"Theme Mode    : {settings['theme_mode'].upper()} ({settings['gtk_theme']})")
+            print(f"Icon Suite    : {settings['icon_theme']}")
+            print(f"Accent Color  : {settings['accent_color'].capitalize()} ({settings['accent_hex']})")
+            print(f"Plank Dock    : {settings['dock_theme']} (Position: {settings['dock_position']}, Size: {settings['dock_size']}px)")
+            print(f"Active Font   : {settings['font_family']} {settings['font_size']}pt | Mono: {settings['monospace_font']}")
+            print(f"Wallpaper     : {settings['wallpaper']}")
+
+if __name__ == "__main__":
+    main()
