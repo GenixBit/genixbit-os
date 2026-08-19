@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad-bh" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="50%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <filter id="glow-bh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#f97316" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="#1e293b" filter="url(#glow-bh)" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>
+  <!-- Indic Script Icon / Devanagari 'अ' + AI Sparkle -->
+  <text x="256" y="310" font-family="'Inter', 'Noto Sans Devanagari', sans-serif" font-size="200" font-weight="900" text-anchor="middle" fill="url(#grad-bh)">अ</text>
+  <path d="M 370 140 Q 370 170 400 170 Q 370 170 370 200 Q 370 170 340 170 Q 370 170 370 140 Z" fill="#52d9ff"/>
+</svg>

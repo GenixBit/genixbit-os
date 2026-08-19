@@ -1,0 +1,6 @@
+genixbit-os-icons (1.0.0-lts-1) resolute; urgency=medium
+
+  * Initial release of GenixBit OS Modern Vector Icon Suite.
+  * Added scalable SVG icons for Control Center, Launcher, Swarm, Security Guard, AI Center.
+
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 19 Aug 2026 08:30:00 +0530

@@ -1,0 +1,14 @@
+Source: genixbit-os-icons
+Section: utils
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-icons
+Architecture: all
+Depends: ${misc:Depends}, hicolor-icon-theme
+Description: GenixBit OS Modern Vector Icon Theme
+ Full suite of modern, sleek SVG vector icons for GenixBit OS native
+ applications, control center, AI center, store, developer tools, and system shortcuts.

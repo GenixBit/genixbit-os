@@ -1,0 +1,14 @@
+Source: genixbit-os-control-center
+Section: utils
+Priority: optional
+Maintainer: GenixBit Labs Private Limited <maintainers@genixbit.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://os.genixbit.com
+
+Package: genixbit-os-control-center
+Architecture: all
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-theme, genixbit-os-icons, python3
+Description: GenixBit OS Modern Control Center & Appearance Hub
+ Integrated settings manager for switching Dark/Light appearance, accent colors,
+ workstation wallpapers, Plank dock options, and monitoring local AI workloads.

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad-ln" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="grad-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#52d9ff"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <filter id="glow-ln" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#52d9ff" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="url(#grad-ln)" filter="url(#glow-ln)" stroke="rgba(255,255,255,0.15)" stroke-width="4"/>
+  <!-- Spotlight Search Magnifier + Sparkle -->
+  <g transform="translate(130, 130)">
+    <circle cx="100" cy="100" r="70" fill="none" stroke="url(#grad-accent)" stroke-width="24"/>
+    <line x1="152" y1="152" x2="220" y2="220" stroke="url(#grad-accent)" stroke-width="24" stroke-linecap="round"/>
+    <!-- AI Sparkle -->
+    <path d="M 100 50 Q 100 80 130 80 Q 100 80 100 110 Q 100 80 70 80 Q 100 80 100 50 Z" fill="#52d9ff"/>
+  </g>
+</svg>

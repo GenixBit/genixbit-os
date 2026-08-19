@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# GenixBit OS Desktop Setup & Layout Provisioner
-# Applies macOS-style top bar + floating bottom dock, sets GenixBit-Dark theme,
-# applies official wallpaper, and cleans up desktop clutter.
+# GenixBit OS Desktop Setup & Modern Layout Provisioner
+# Applies glassmorphic floating top bar + GenixBit-Glass bottom dock,
+# sets GenixBit-Dark theme & GenixBit-Icons, sets wallpaper, and configures compositor.
 
 set -Eeuo pipefail
 
 WALLPAPER_PATH="/usr/share/backgrounds/genixbit/genixbit-wallpaper-dark.png"
 THEME_NAME="GenixBit-Dark"
-ICON_THEME="Adwaita"
+ICON_THEME="GenixBit-Icons"
 FONT_NAME="Inter 11"
 
-echo "[GenixBit Desktop Setup] Initializing desktop environment..."
+echo "[GenixBit Desktop Setup] Initializing modern desktop environment..."
 
 # 1. GNOME Desktop GSettings
 if command -v gsettings &>/dev/null; then
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface gtk-theme "${THEME_NAME}" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface icon-theme "${ICON_THEME}" 2>/dev/null || true
     gsettings set org.gnome.desktop.interface font-name "${FONT_NAME}" 2>/dev/null || true
     if [[ -f "$WALLPAPER_PATH" ]]; then
         gsettings set org.gnome.desktop.background picture-uri "file://${WALLPAPER_PATH}" 2>/dev/null || true
@@ -26,7 +27,7 @@ fi
 
 # 2. XFCE4 / X11 Desktop Configuration (xfconf-query)
 if command -v xfconf-query &>/dev/null; then
-    # Set Theme & Font
+    # Set Theme & Icons & Font
     xfconf-query -c xsettings -p /Net/ThemeName -s "${THEME_NAME}" --create -t string 2>/dev/null || true
     xfconf-query -c xsettings -p /Net/IconThemeName -s "${ICON_THEME}" --create -t string 2>/dev/null || true
     xfconf-query -c xsettings -p /Gtk/FontName -s "${FONT_NAME}" --create -t string 2>/dev/null || true
@@ -41,20 +42,49 @@ if command -v xfconf-query &>/dev/null; then
         done
     fi
 
-    # Set Window Manager Theme
+    # Set Window Manager Theme & Compositor
     xfconf-query -c xfwm4 -p /general/theme -s "${THEME_NAME}" --create -t string 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/button_layout -s "CHM|" --create -t string 2>/dev/null || true
+    xfconf-query -c xfwm4 -p /general/use_compositing -s "true" --create -t bool 2>/dev/null || true
+    xfconf-query -c xfwm4 -p /general/show_frame_shadow -s "true" --create -t bool 2>/dev/null || true
+    xfconf-query -c xfwm4 -p /general/show_popup_shadow -s "true" --create -t bool 2>/dev/null || true
 fi
 
-# 3. Clean up desktop icon clutter (keep only AI Center, Terminal, and Files)
+# 3. Plank Dock Setup (GenixBit-Glass)
+PLANK_CONFIG_DIR="${HOME}/.config/plank/dock1"
+if [[ -d "$PLANK_CONFIG_DIR" ]]; then
+    mkdir -p "$PLANK_CONFIG_DIR"
+    cat <<EOF > "$PLANK_CONFIG_DIR/settings"
+[PlankDockPreferences]
+Alignment=3
+AutoPinning=true
+CurrentWorkspaceOnly=false
+DockItems=genixbit-ai-center.dockitem;;genixbit-control-center.dockitem;;genixbit-launcher.dockitem;;genixbit-store.dockitem;;xfce4-terminal.dockitem;;thunar.dockitem;;
+HideDelay=0
+HideMode=1
+IconSize=48
+ItemMoveTime=300
+LockItems=false
+Monitor=
+Offset=0
+PinnedOnly=false
+Position=3
+PressureReveal=false
+ShowDockItem=false
+Theme=GenixBit-Glass
+ZoomEnabled=true
+ZoomPercent=130
+EOF
+fi
+
+# 4. Clean up Desktop Icons
 DESKTOP_DIR="${HOME}/Desktop"
-if [[ -d "$DESKTOP_DIR" ]]; then
-    mkdir -p "$DESKTOP_DIR"
-    # Ensure clean standard launchers exist without duplicate overlapping shortcuts
-    if [[ -f "/usr/share/applications/genixbit-ai-center.desktop" ]]; then
-        cp -f "/usr/share/applications/genixbit-ai-center.desktop" "$DESKTOP_DIR/" 2>/dev/null || true
-        chmod +x "$DESKTOP_DIR/genixbit-ai-center.desktop" 2>/dev/null || true
+mkdir -p "$DESKTOP_DIR"
+for app in genixbit-control-center genixbit-launcher genixbit-ai-center genixbit-store; do
+    if [[ -f "/usr/share/applications/${app}.desktop" ]]; then
+        cp -f "/usr/share/applications/${app}.desktop" "$DESKTOP_DIR/" 2>/dev/null || true
+        chmod +x "$DESKTOP_DIR/${app}.desktop" 2>/dev/null || true
     fi
-fi
+done
 
-echo "[GenixBit Desktop Setup] Desktop environment successfully configured."
+echo "[GenixBit Desktop Setup] Modern desktop environment successfully configured."

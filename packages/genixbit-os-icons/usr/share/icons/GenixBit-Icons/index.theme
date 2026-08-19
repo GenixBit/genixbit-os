@@ -1,0 +1,12 @@
+[Icon Theme]
+Name=GenixBit-Icons
+Comment=Modern Flat Vector Icon Theme for GenixBit OS
+Inherits=hicolor
+Directories=scalable/apps
+
+[scalable/apps]
+Size=512
+Type=Scalable
+MinSize=16
+MaxSize=512
+Context=Applications

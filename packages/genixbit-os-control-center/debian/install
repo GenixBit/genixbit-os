@@ -1,0 +1,3 @@
+bin/genixbit-control-center usr/bin/
+usr/lib/genixbit-os/control_center.py usr/lib/genixbit-os/
+usr/share/applications/genixbit-control-center.desktop usr/share/applications/

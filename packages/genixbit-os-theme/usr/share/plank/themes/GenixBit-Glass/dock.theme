@@ -1,0 +1,35 @@
+# GenixBit OS Plank Dock Glass Theme
+# Frosted Translucent Glass Backing with Glowing Dot Indicators
+
+[PlankTheme]
+TopRoundness=18
+BottomRoundness=18
+LineWidth=1
+LineColor=255;;255;;255;;40
+FillStartColor=15;;23;;42;;210
+FillEndColor=10;;15;;29;;235
+InnerStrokeColor=82;;217;;255;;45
+
+[PlankDockTheme]
+HorizPadding=14
+TopPadding=8
+BottomPadding=8
+ItemPadding=6
+IndicatorSize=5
+IconShadowSize=4
+UrgentBounceHeight=18
+LaunchBounceHeight=12
+FadeOpacity=0.95
+ClickTime=250
+UrgentBounceTime=500
+LaunchBounceTime=500
+ActiveTime=300
+SlideTime=300
+FadeTime=250
+HideTime=150
+GlowSize=32
+GlowTime=800
+GlowPulseTime=1500
+UrgentHue=150
+ItemMoveTime=300
+BadgeColor=79;;70;;229;;255

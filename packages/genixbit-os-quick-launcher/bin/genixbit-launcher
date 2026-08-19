@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# GenixBit OS — genixbit-launcher CLI & Spotlight HUD Runner
+import argparse
+import json
+import os
+import sys
+
+for p in ["/usr/lib/genixbit-os", os.path.join(os.path.dirname(__file__), "../usr/lib/genixbit-os")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+import quick_launcher
+
+def main():
+    parser = argparse.ArgumentParser(description="GenixBit OS Spotlight HUD Quick Launcher")
+    parser.add_argument("query", nargs="*", help="Search terms or @ai query")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    args = parser.parse_args()
+    q_str = " ".join(args.query)
+    res = quick_launcher.search(q_str)
+
+    if args.json:
+        print(json.dumps(res, indent=2))
+    else:
+        print("============================================================")
+        print("        GenixBit OS Spotlight HUD Quick Launcher            ")
+        print("============================================================")
+        if res["mode"] == "ai_inference":
+            print(f"🧠 Local AI Mode: '{res['prompt']}'")
+            print(f"Action: {res['results'][0]['exec']}\n")
+        else:
+            print(f"Query: '{res['query']}' | Mode: Application Search ({len(res['results'])} found)\n")
+            for i, r in enumerate(res["results"], 1):
+                print(f"[{i}] {r['name']:<25} ({r['category']})")
+                print(f"    Exec: {r['exec']:<20} | {r['description']}")
+
+if __name__ == "__main__":
+    main()

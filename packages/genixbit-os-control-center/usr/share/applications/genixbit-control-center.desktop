@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GenixBit Control Center
+GenericName=System Settings & Appearance Hub
+Comment=Customize Dark/Light themes, accent colors, dock, wallpapers and AI monitors
+Exec=genixbit-control-center
+Icon=genixbit-control-center
+Terminal=false
+Categories=Settings;DesktopSettings;GTK;
+Keywords=appearance;theme;colors;dark;light;wallpaper;dock;ai;settings;
+StartupNotify=true

@@ -1,90 +1,93 @@
-/* GenixBit OS 1.0.0 LTS - GTK 3.0 / GTK 4.0 Stylesheet (GenixBit-Dark)
- * Modern glassmorphism, rounded window corners, cyan focus rings, and high contrast typography.
+/* GenixBit OS Modern Cyber Dark Theme - GTK 3.0 & GTK 4.0
+ * Ultra-Modern Glassmorphism, Floating Rounded Cards, Cyber Neon Accents
  */
 
 @define-color accent_color #52d9ff;
-@define-color accent_bg_color #1971c2;
+@define-color accent_bg_color #4f46e5;
 @define-color accent_fg_color #ffffff;
-@define-color window_bg_color #0a1322;
-@define-color window_fg_color #f0f6fc;
-@define-color view_bg_color #0d1a2d;
-@define-color view_fg_color #f0f6fc;
-@define-color headerbar_bg_color rgba(10, 20, 36, 0.92);
+@define-color window_bg_color #0a0f1d;
+@define-color window_fg_color #f8fafc;
+@define-color view_bg_color #0f172a;
+@define-color view_fg_color #f8fafc;
+@define-color headerbar_bg_color rgba(15, 23, 42, 0.88);
 @define-color headerbar_fg_color #ffffff;
-@define-color card_bg_color rgba(18, 32, 54, 0.75);
-@define-color card_fg_color #f0f6fc;
-@define-color dialog_bg_color #0d192c;
-@define-color popover_bg_color rgba(13, 25, 45, 0.96);
+@define-color card_bg_color rgba(30, 41, 59, 0.72);
+@define-color card_fg_color #f8fafc;
+@define-color dialog_bg_color #0f172a;
+@define-color popover_bg_color rgba(15, 23, 42, 0.95);
+@define-color sidebar_bg_color rgba(15, 23, 42, 0.80);
 
 window {
     background-color: @window_bg_color;
     color: @window_fg_color;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Glassmorphic Headerbar */
 headerbar {
     background: @headerbar_bg_color;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+    padding: 8px 12px;
+    border-radius: 16px 16px 0 0;
 }
 
 headerbar:backdrop {
-    background: #080f1b;
+    background: rgba(10, 15, 29, 0.95);
 }
 
-/* Rounded Cards */
+/* Floating Glass Cards */
 card, .card {
     background-color: @card_bg_color;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    border-radius: 14px;
-    padding: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
-/* Interactive Buttons */
+/* Modern Interactive Buttons */
 button {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.07);
     color: @window_fg_color;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 10px;
-    padding: 7px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 8px 18px;
     font-weight: 600;
-    transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 button:hover {
     background: rgba(82, 217, 255, 0.18);
-    border-color: rgba(82, 217, 255, 0.4);
+    border-color: rgba(82, 217, 255, 0.5);
     color: #52d9ff;
+    box-shadow: 0 0 16px rgba(82, 217, 255, 0.25);
 }
 
 button:active {
-    background: rgba(82, 217, 255, 0.32);
-    transform: scale(0.98);
+    background: rgba(79, 70, 229, 0.35);
+    border-color: #4f46e5;
+    color: #ffffff;
 }
 
 button.suggested-action {
-    background: linear-gradient(135deg, #1971c2 0%, #0c8599 100%);
+    background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
     color: #ffffff;
-    border: 1px solid rgba(82, 217, 255, 0.4);
-    box-shadow: 0 4px 14px rgba(25, 113, 194, 0.45);
+    border: none;
+    box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
 }
 
 button.suggested-action:hover {
-    box-shadow: 0 6px 20px rgba(82, 217, 255, 0.5);
-    filter: brightness(1.1);
+    box-shadow: 0 6px 24px rgba(6, 182, 212, 0.5);
 }
 
-/* Text Inputs & Search Bars */
-entry, searchbar {
-    background: rgba(8, 16, 28, 0.85);
-    color: @window_fg_color;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 10px;
-    padding: 8px 12px;
-    transition: border-color 150ms ease, box-shadow 150ms ease;
+/* Inputs & Text Entry */
+entry {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 8px 14px;
+    color: #ffffff;
 }
 
 entry:focus {
@@ -92,18 +95,28 @@ entry:focus {
     box-shadow: 0 0 0 3px rgba(82, 217, 255, 0.25);
 }
 
-/* Scrollbars */
+/* Sleek Minimal Scrollbars */
 scrollbar {
     background-color: transparent;
 }
 
 scrollbar slider {
-    background-color: rgba(255, 255, 255, 0.22);
-    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 9999px;
     min-width: 6px;
     min-height: 6px;
 }
 
 scrollbar slider:hover {
     background-color: #52d9ff;
+}
+
+/* Tooltips */
+tooltip {
+    background-color: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(82, 217, 255, 0.3);
+    border-radius: 10px;
+    color: #f8fafc;
+    padding: 6px 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
