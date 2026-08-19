@@ -1,15 +1,16 @@
-/* GenixBit OS Modern Clean Light Theme - GTK 3.0 & GTK 4.0
- * Crisp Modern Aesthetic, Glassmorphic Clean Top Bar, Royal Indigo Accents
+/* GenixBit OS - Ubuntu 24.04 / 26.04 GNOME 46 Style Clean Light Theme
+ * Authentic 3-Section Top Bar (Activities Pill, Centered Clock Pill, Unified Quick Settings Pill)
  */
 
-@define-color accent_color #4f46e5;
-@define-color accent_bg_color #4f46e5;
+@define-color accent_color #e95420; /* Ubuntu Signature Warm Orange */
+@define-color accent_cyber #4f46e5;
+@define-color accent_bg_color #e95420;
 @define-color accent_fg_color #ffffff;
 @define-color window_bg_color #f8fafc;
 @define-color window_fg_color #0f172a;
 @define-color view_bg_color #ffffff;
 @define-color view_fg_color #0f172a;
-@define-color headerbar_bg_color rgba(255, 255, 255, 0.92);
+@define-color headerbar_bg_color rgba(255, 255, 255, 0.94);
 @define-color headerbar_fg_color #0f172a;
 @define-color card_bg_color rgba(255, 255, 255, 0.95);
 @define-color card_fg_color #0f172a;
@@ -20,46 +21,113 @@
 window {
     background-color: @window_bg_color;
     color: @window_fg_color;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Ubuntu', 'Ubuntu Sans', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* ==========================================================================
-   TOP BAR / XFCE4 PANEL STYLING (macOS / COSMIC Inspired Glassmorphic Header)
+   UBUNTU GNOME 46 TOP BAR (Header Panel)
    ========================================================================== */
 
 .xfce4-panel, #XfcePanelWindow, panel {
-    background-color: rgba(255, 255, 255, 0.94);
+    background-color: #ffffff;
     color: #0f172a;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 0 4px;
 }
 
+/* Top Bar Buttons (Pill styling like GNOME 46) */
 .xfce4-panel button, #XfcePanelWindow button, panel button {
     background-color: transparent;
     color: #0f172a;
     border: none;
-    border-radius: 8px;
-    padding: 3px 10px;
+    border-radius: 9999px;
+    padding: 3px 12px;
     margin: 2px 2px;
     box-shadow: none;
+    transition: all 150ms ease-in-out;
 }
 
 .xfce4-panel button:hover, #XfcePanelWindow button:hover, panel button:hover {
-    background-color: rgba(79, 70, 229, 0.08);
-    color: #4f46e5;
+    background-color: rgba(0, 0, 0, 0.06);
+    color: #e95420;
 }
 
 .xfce4-panel button:checked, .xfce4-panel button:active {
-    background-color: rgba(79, 70, 229, 0.15);
-    color: #4f46e5;
-    border-bottom: 2px solid #4f46e5;
+    background-color: rgba(233, 84, 32, 0.12);
+    color: #e95420;
 }
 
-/* Clock in Top Bar */
-.xfce4-panel .clock, #XfcePanelWindow .clock {
-    font-weight: 700;
+/* Left Section: "Activities" Pill Button */
+.xfce4-panel .whisker-menu-button,
+.xfce4-panel #whiskermenu-button,
+.xfce4-panel button.flat {
+    background-color: rgba(0, 0, 0, 0.06);
     color: #0f172a;
-    padding: 0 12px;
+    border-radius: 9999px;
+    font-weight: 700;
+    padding: 3px 14px;
+    margin-left: 6px;
+}
+
+.xfce4-panel .whisker-menu-button:hover,
+.xfce4-panel #whiskermenu-button:hover {
+    background-color: rgba(233, 84, 32, 0.15);
+    color: #e95420;
+}
+
+/* Workspace Switcher Pips / Numbers (GNOME 46 Workspace Pill) */
+.xfce4-panel .pager, #XfcePanelWindow .pager {
+    background-color: rgba(0, 0, 0, 0.04);
+    border-radius: 9999px;
+    padding: 2px 6px;
+    margin: 0 4px;
+}
+
+.xfce4-panel .pager button {
+    border-radius: 9999px;
+    padding: 2px 6px;
+    min-width: 18px;
+    min-height: 18px;
+    font-size: 11px;
+}
+
+.xfce4-panel .pager button:checked {
+    background-color: #e95420;
+    color: #ffffff;
+}
+
+/* Center Section: Pill-Shaped Centered Clock (GNOME 46 Date/Time Pill) */
+.xfce4-panel .clock, #XfcePanelWindow .clock {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 13px;
+    border-radius: 9999px;
+    padding: 3px 16px;
+    margin: 0 4px;
+    transition: background-color 150ms ease;
+}
+
+.xfce4-panel .clock:hover, #XfcePanelWindow .clock:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Right Section: Unified Quick Settings Capsule Pill */
+.xfce4-panel .systray,
+.xfce4-panel .statusnotifier,
+.xfce4-panel .pulseaudio-button {
+    background-color: rgba(0, 0, 0, 0.04);
+    border-radius: 9999px;
+    padding: 2px 8px;
+    margin: 0 2px;
+}
+
+.xfce4-panel .systray:hover,
+.xfce4-panel .statusnotifier:hover,
+.xfce4-panel .pulseaudio-button:hover {
+    background-color: rgba(0, 0, 0, 0.08);
 }
 
 /* Window Headerbars */
@@ -93,19 +161,19 @@ button {
 }
 
 button:hover {
-    background: rgba(79, 70, 229, 0.08);
-    border-color: rgba(79, 70, 229, 0.35);
-    color: #4f46e5;
+    background: rgba(233, 84, 32, 0.08);
+    border-color: #e95420;
+    color: #e95420;
 }
 
 button:active {
-    background: rgba(79, 70, 229, 0.2);
-    border-color: #4f46e5;
-    color: #4f46e5;
+    background: #e95420;
+    border-color: #e95420;
+    color: #ffffff;
 }
 
 button.suggested-action {
-    background-image: linear-gradient(to bottom right, #4f46e5, #06b6d4);
+    background-color: #e95420;
     color: #ffffff;
     border: none;
 }
@@ -120,7 +188,7 @@ entry {
 }
 
 entry:focus {
-    border-color: #4f46e5;
+    border-color: #e95420;
 }
 
 /* Minimal Scrollbars */
@@ -136,12 +204,12 @@ scrollbar slider {
 }
 
 scrollbar slider:hover {
-    background-color: #4f46e5;
+    background-color: #e95420;
 }
 
 /* Tooltips */
 tooltip {
-    background-color: rgba(15, 23, 42, 0.95);
+    background-color: rgba(18, 18, 18, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px;
     color: #ffffff;
