@@ -1,4 +1,5 @@
 bin/genixbit-ai-center usr/bin/
 bin/genixbit-ai-center-gui usr/bin/
+usr/lib/genixbit-os/ai_center_gui.py usr/lib/genixbit-os/
 usr/share/applications/genixbit-ai-center.desktop usr/share/applications/
 usr/share/genixbit-os/models/catalog.json usr/share/genixbit-os/models/

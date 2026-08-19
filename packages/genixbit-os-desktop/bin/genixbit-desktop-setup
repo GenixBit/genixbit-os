@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# GenixBit OS Desktop Setup & Modern Ubuntu GNOME 46 Layout Provisioner
-# Configures authentic Ubuntu Top Bar (Activities Pill, Centered Clock, Quick Settings Hub)
-# and Left Vertical Ubuntu Dock with running indicator pips.
+# GenixBit OS Desktop Setup & Cyber Workstation Layout Provisioner
+# Configures exact pixel-perfect desktop layout matching os.genixbit.com:
+# - Translucent Top Bar with [G] GenixBit badge, Settings pill, and centered %a, %b %d, %I:%M %p clock
+# - Centered Floating Glass Bottom Dock with blue glowing active indicator dots
+# - Left-aligned large squircle desktop icons (AI Center, Terminal, App Store, Agents)
+# - Deep cyber midnight blue radial gradient wallpaper
 
 set -Eeuo pipefail
 
@@ -11,7 +14,7 @@ THEME_NAME="GenixBit-Dark"
 ICON_THEME="GenixBit-Icons"
 FONT_NAME="Ubuntu 11"
 
-echo "[GenixBit Desktop Setup] Initializing Ubuntu GNOME 46 style desktop environment..."
+echo "[GenixBit Desktop Setup] Initializing GenixBit OS Cyber Workstation desktop environment..."
 
 # 1. GNOME Desktop GSettings
 if command -v gsettings &>/dev/null; then
@@ -32,7 +35,7 @@ if command -v xfconf-query &>/dev/null; then
     xfconf-query -c xsettings -p /Net/IconThemeName -s "${ICON_THEME}" --create -t string 2>/dev/null || true
     xfconf-query -c xsettings -p /Gtk/FontName -s "${FONT_NAME}" --create -t string 2>/dev/null || true
     
-    # Set Dark Wallpaper
+    # Set Deep Cyber Midnight Radial Wallpaper
     if [[ -f "$WALLPAPER_PATH" ]]; then
         for prop in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep "last-image" || true); do
             xfconf-query -c xfce4-desktop -p "$prop" -s "${WALLPAPER_PATH}" 2>/dev/null || true
@@ -42,39 +45,39 @@ if command -v xfconf-query &>/dev/null; then
         done
     fi
 
-    # Set Window Manager Theme & Compositor
+    # Set Window Manager Theme (Traffic Lights 🔴 🟡 🟢) & Compositor
     xfconf-query -c xfwm4 -p /general/theme -s "${THEME_NAME}" --create -t string 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/button_layout -s "CHM|" --create -t string 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/use_compositing -s "true" --create -t bool 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/show_frame_shadow -s "true" --create -t bool 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/show_popup_shadow -s "true" --create -t bool 2>/dev/null || true
 
-    # Docked Top Bar (Panel 1) - Ubuntu GNOME 46 Header (30px)
+    # Docked Top Bar (Panel 1) - Slim Glass Header (32px)
     xfconf-query -c xfce4-panel -p /panels/panel-1/position -s "p=6;x=0;y=0" --create -t string 2>/dev/null || true
-    xfconf-query -c xfce4-panel -p /panels/panel-1/size -s 30 --create -t int 2>/dev/null || true
+    xfconf-query -c xfce4-panel -p /panels/panel-1/size -s 32 --create -t int 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /panels/panel-1/length -s 100 --create -t int 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /panels/panel-1/span-monitors -s true --create -t bool 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /panels/panel-1/autohide-behavior -s 0 --create -t int 2>/dev/null || true
 
-    # Whisker Menu configured as "Activities" pill
-    xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -s "Activities" --create -t string 2>/dev/null || true
+    # Whisker Menu configured as "[G] GenixBit" Branding Pill
+    xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-title -s "GenixBit" --create -t string 2>/dev/null || true
+    xfconf-query -c xfce4-panel -p /plugins/plugin-1/button-icon -s "genixbit-mark" --create -t string 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /plugins/plugin-1/show-button-title -s true --create -t bool 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /plugins/plugin-1/show-button-icon -s true --create -t bool 2>/dev/null || true
 
-    # Clock Centered Format
-    xfconf-query -c xfce4-panel -p /plugins/plugin-6/digital-format -s "%a %b %d  %H:%M" --create -t string 2>/dev/null || true
+    # Centered Clock Format (%a, %b %d, %I:%M %p e.g. "Wed, Aug 19, 09:44 AM")
+    xfconf-query -c xfce4-panel -p /plugins/plugin-6/digital-format -s "%a, %b %d, %I:%M %p" --create -t string 2>/dev/null || true
 fi
 
-# 3. Canonical Ubuntu Left Dock Setup (Position=0)
+# 3. Centered Floating Glass Bottom Dock (Position=3)
 PLANK_CONFIG_DIR="${HOME}/.config/plank/dock1"
-if [[ -d "$PLANK_CONFIG_DIR" ]]; then
-    mkdir -p "$PLANK_CONFIG_DIR"
-    cat <<EOF > "$PLANK_CONFIG_DIR/settings"
+mkdir -p "$PLANK_CONFIG_DIR"
+cat <<EOF > "$PLANK_CONFIG_DIR/settings"
 [PlankDockPreferences]
 Alignment=3
 AutoPinning=true
 CurrentWorkspaceOnly=false
-DockItems=genixbit-ai-center.dockitem;;genixbit-control-center.dockitem;;genixbit-launcher.dockitem;;genixbit-store.dockitem;;xfce4-terminal.dockitem;;thunar.dockitem;;
+DockItems=genixbit-ai-center.dockitem;;xfce4-terminal.dockitem;;genixbit-store.dockitem;;genixbit-agent.dockitem;;genixbit-control-center.dockitem;;
 HideDelay=0
 HideMode=1
 IconSize=48
@@ -83,23 +86,88 @@ LockItems=false
 Monitor=
 Offset=0
 PinnedOnly=false
-Position=0
+Position=3
 PressureReveal=false
 ShowDockItem=false
 Theme=GenixBit-Glass
 ZoomEnabled=true
 ZoomPercent=130
 EOF
-fi
 
-# 4. Clean up Desktop Icons
+# Create Dock Launchers
+mkdir -p "$PLANK_CONFIG_DIR/launchers"
+cat <<EOF > "$PLANK_CONFIG_DIR/launchers/genixbit-ai-center.dockitem"
+[PlankDockItemPreferences]
+Launcher=file:///usr/share/applications/genixbit-ai-center.desktop
+EOF
+cat <<EOF > "$PLANK_CONFIG_DIR/launchers/xfce4-terminal.dockitem"
+[PlankDockItemPreferences]
+Launcher=file:///usr/share/applications/xfce4-terminal.desktop
+EOF
+cat <<EOF > "$PLANK_CONFIG_DIR/launchers/genixbit-store.dockitem"
+[PlankDockItemPreferences]
+Launcher=file:///usr/share/applications/genixbit-store.desktop
+EOF
+cat <<EOF > "$PLANK_CONFIG_DIR/launchers/genixbit-agent.dockitem"
+[PlankDockItemPreferences]
+Launcher=file:///usr/share/applications/genixbit-agent.desktop
+EOF
+cat <<EOF > "$PLANK_CONFIG_DIR/launchers/genixbit-control-center.dockitem"
+[PlankDockItemPreferences]
+Launcher=file:///usr/share/applications/genixbit-control-center.desktop
+EOF
+
+# 4. Clean up Desktop Icons (AI Center, Terminal, App Store, Agents)
 DESKTOP_DIR="${HOME}/Desktop"
 mkdir -p "$DESKTOP_DIR"
-for app in genixbit-control-center genixbit-launcher genixbit-ai-center genixbit-store; do
-    if [[ -f "/usr/share/applications/${app}.desktop" ]]; then
-        cp -f "/usr/share/applications/${app}.desktop" "$DESKTOP_DIR/" 2>/dev/null || true
-        chmod +x "$DESKTOP_DIR/${app}.desktop" 2>/dev/null || true
-    fi
-done
+cat <<EOF > "$DESKTOP_DIR/genixbit-ai-center.desktop"
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=AI Center
+Comment=GenixBit OS AI Center
+Exec=genixbit-ai-center-gui
+Icon=genixbit-ai-center
+Terminal=false
+Categories=Utility;Development;
+EOF
 
-echo "[GenixBit Desktop Setup] Ubuntu GNOME 46 style desktop successfully configured."
+cat <<EOF > "$DESKTOP_DIR/xfce4-terminal.desktop"
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Terminal
+Comment=GenixBit Terminal
+Exec=xfce4-terminal
+Icon=xfce4-terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+EOF
+
+cat <<EOF > "$DESKTOP_DIR/genixbit-store.desktop"
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=App Store
+Comment=GenixBit App Store
+Exec=genixbit-store
+Icon=genixbit-store
+Terminal=false
+Categories=Utility;PackageManager;
+EOF
+
+cat <<EOF > "$DESKTOP_DIR/genixbit-agent.desktop"
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Agents
+Comment=GenixBit Multi-Agent Orchestrator
+Exec=genixbit-swarm
+Icon=genixbit-agent
+Terminal=false
+Categories=Development;
+EOF
+
+chmod +x "$DESKTOP_DIR"/*.desktop 2>/dev/null || true
+
+echo "[GenixBit Desktop Setup] GenixBit OS Cyber Workstation desktop successfully configured."
