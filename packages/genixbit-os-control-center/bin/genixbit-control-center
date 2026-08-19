@@ -14,6 +14,9 @@ import control_center
 
 def main():
     parser = argparse.ArgumentParser(description="GenixBit OS Control Center & Appearance Hub")
+    parser.add_argument("--toggle-theme", action="store_true", help="Toggle between dark and light themes")
+    parser.add_argument("--spec", action="store_true", help="Display Master Operating System Build Specification")
+    parser.add_argument("--architecture", action="store_true", help="Display Master Operating System Platform Architecture")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # get
@@ -32,6 +35,13 @@ def main():
     subparsers.add_parser("list-accents", help="List all available accent color palettes")
 
     args = parser.parse_args()
+
+    if args.toggle_theme:
+        control_center.toggle_theme()
+        sys.exit(0)
+    elif args.spec or args.architecture:
+        print(control_center.get_master_spec())
+        sys.exit(0)
 
     if args.command == "set-theme":
         res = control_center.set_theme_mode(args.mode)
