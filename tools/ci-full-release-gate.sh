@@ -58,10 +58,13 @@ echo ">>> [8/9] Running AI proxy & streaming SSE in-process unit tests..."
 python3 "$REPO_ROOT/tests/test-ai-runtime.py"
 
 # Stage 9: Model Downloader & Quantization Engine
-echo ">>> [9/9] Testing model pull & hardware quantization recommendation..."
+# Exercise the real downloader through deterministic loopback fixtures. CI must
+# never depend on a multi-gigabyte production model endpoint or accept a fake
+# placeholder file as proof that model acquisition and verification work.
+echo ">>> [9/9] Testing verified model downloader & hardware quantization recommendation..."
 python3 "$REPO_ROOT/packages/genixbit-os-ai-center/bin/genixbit-ai-center" quantize-recommend >/dev/null
-python3 "$REPO_ROOT/packages/genixbit-os-ai-center/bin/genixbit-ai-center" pull gemma-3-2b-it >/dev/null
-echo "[PASS] Model pull and quantization engine verified."
+python3 "$REPO_ROOT/tests/test_ai_center_model_download.py"
+echo "[PASS] Verified model downloader and quantization engine passed deterministic tests."
 
 # A validation gate must not rewrite tracked source/evidence as a side effect.
 if ! git -C "$REPO_ROOT" diff --quiet -- .; then
