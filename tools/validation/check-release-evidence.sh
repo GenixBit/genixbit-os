@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Validate machine-readable GenixBit OS release evidence.
 #
-# Two records are intentionally supported:
-#   1. legacy candidate-validation records used by historical validation branches;
-#   2. active-release records used by current LTS release automation.
+# Two evidence schemas are intentionally supported:
+#   1. historical candidate-validation records used by validation/* branches;
+#   2. the canonical active-release record in docs/VALIDATION-STATUS.env.
 #
-# Keeping the schemas explicit prevents historical evidence from being rewritten just
-# to satisfy current CI while allowing current release metadata to be validated.
+# Historical evidence must remain immutable. Current CI therefore validates the
+# active schema that actually exists in the repository instead of rewriting old
+# candidate records to match newer releases.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -21,8 +22,8 @@ usage() {
 Usage: check-release-evidence.sh [--require-complete] [--verify-git-candidate] [--status-file PATH]
 
 Options:
-  --require-complete     Require all gates to PASS and immutable release metadata to be complete.
-  --verify-git-candidate Verify the recorded git candidate against its branch.
+  --require-complete     Require every status gate to be PASS.
+  --verify-git-candidate Verify the recorded candidate against its branch.
   --status-file PATH     Read a different machine-readable status file.
   -h, --help             Show this help.
 EOF
@@ -71,8 +72,6 @@ import sys
 
 status_file = sys.argv[1]
 seen = set()
-# The checksum may stay empty until the immutable artifact is published.
-allow_empty = {"ISO_SHA256"}
 
 with open(status_file, "r", encoding="utf-8") as handle:
     for raw_line in handle:
@@ -90,7 +89,7 @@ with open(status_file, "r", encoding="utf-8") as handle:
             print("PARSE_ERROR=" + shlex.quote(f"Duplicate key in {status_file}: {key}"))
             continue
         seen.add(key)
-        if not value and key not in allow_empty:
+        if not value:
             print("PARSE_ERROR=" + shlex.quote(f"Empty value for {key} in {status_file}"))
             continue
         print(f"VAL_{key}=" + shlex.quote(value))
@@ -148,24 +147,36 @@ if [[ -n "${VAL_ACTIVE_RELEASE_VERSION:-}" ]]; then
         VALIDATION_VERSION
         ACTIVE_RELEASE_VERSION
         ACTIVE_RELEASE_MODE
-        ACTIVE_RELEASE_PROVENANCE
-        ISO_FILENAME
-        ISO_URL
-        ISO_SIZE_BYTES
-        SOURCE_COMMIT
-        HOST_PREP_STATUS
-        FRESH_INSTALL_AMD64_STATUS
-        UPGRADE_PATH_STATUS
-        BRANDING_SUITE_STATUS
-        PACKAGE_SUITE_STATUS
-        SECURITY_SUITE_STATUS
+        ACTIVE_RELEASE_PROVENANCE_FILE
+        ACTIVE_RELEASE_ISO_LOCAL
+        ACTIVE_RELEASE_ISO_URL
+        ACTIVE_RELEASE_SOURCE_COMMIT
         CANDIDATE_BRANCH
         CANDIDATE_SHA
-        LAST_REHEARSAL_AT_UTC
-        LAST_REHEARSAL_WORKFLOW
+        CANDIDATE_SELECTION_STATUS
+        HOST_STATUS
+        BUILD_STATUS
+        CHECKSUM_STATUS
+        SECURE_BOOT_STATUS
+        HYPERV_STATUS
+        PROXMOX_STATUS
+        LIVE_ENVIRONMENT_STATUS
+        CALAMARES_INSTALL_STATUS
+        OFFLINE_INSTALL_STATUS
+        INSTALLED_BOOT_STATUS
+        GPU_DRIVERS_STATUS
+        NETWORK_STACK_STATUS
+        AUDIO_STATUS
+        PACKAGE_ECOSYSTEM_STATUS
+        DESKTOP_UI_STATUS
+        UPSTREAM_PARITY_STATUS
+        RELEASE_ARTIFACT_STATUS
+        AUTOMATED_EVIDENCE_STATUS
+        VALIDATION_WORKFLOW_STATUS
+        EVIDENCE_PR_STATUS
+        OVERALL_VALIDATION_STATUS
     )
     require_keys "${active_required[@]}"
-    [[ ${VAL_ISO_SHA256+x} ]] || fail 'Required key is missing: ISO_SHA256'
 
     [[ "${VAL_VALIDATION_VERSION}" == "${VAL_ACTIVE_RELEASE_VERSION}" ]] \
         || fail "VALIDATION_VERSION (${VAL_VALIDATION_VERSION}) must match ACTIVE_RELEASE_VERSION (${VAL_ACTIVE_RELEASE_VERSION})."
@@ -177,38 +188,84 @@ if [[ -n "${VAL_ACTIVE_RELEASE_VERSION:-}" ]]; then
 
     [[ "$CANDIDATE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] \
         || fail 'CANDIDATE_SHA must be a full 40-character hexadecimal commit SHA.'
+    [[ "${VAL_ACTIVE_RELEASE_SOURCE_COMMIT}" =~ ^[0-9a-fA-F]{40}$ ]] \
+        || fail 'ACTIVE_RELEASE_SOURCE_COMMIT must be a full 40-character hexadecimal commit SHA.'
     [[ "$CANDIDATE_BRANCH" =~ ^[A-Za-z0-9._/-]+$ && "$CANDIDATE_BRANCH" != */../* ]] \
         || fail "CANDIDATE_BRANCH is not a valid branch name: $CANDIDATE_BRANCH"
 
-    [[ "${VAL_ISO_FILENAME}" == *"${VAL_ACTIVE_RELEASE_VERSION}"* ]] \
-        || fail "ISO_FILENAME (${VAL_ISO_FILENAME}) does not contain ACTIVE_RELEASE_VERSION (${VAL_ACTIVE_RELEASE_VERSION})."
-    [[ "${VAL_ISO_URL}" == *"$(basename "${VAL_ISO_FILENAME}")"* ]] \
-        || fail 'ISO_URL must reference ISO_FILENAME.'
-    [[ "${VAL_ISO_SIZE_BYTES}" =~ ^[0-9]+$ ]] \
-        || fail "ISO_SIZE_BYTES must be a non-negative integer: ${VAL_ISO_SIZE_BYTES}"
+    [[ -f "${VAL_ACTIVE_RELEASE_PROVENANCE_FILE}" ]] \
+        || fail "Active release provenance file does not exist: ${VAL_ACTIVE_RELEASE_PROVENANCE_FILE}"
+
+    python3 - \
+        "${VAL_ACTIVE_RELEASE_PROVENANCE_FILE}" \
+        "${VAL_ACTIVE_RELEASE_VERSION}" \
+        "${VAL_ACTIVE_RELEASE_SOURCE_COMMIT}" \
+        "${VAL_ACTIVE_RELEASE_ISO_LOCAL}" <<'PYEOF' || exit 1
+import json
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+expected_version = sys.argv[2]
+expected_source = sys.argv[3]
+expected_iso = pathlib.Path(sys.argv[4]).name
+
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except Exception as exc:
+    print(f"[FAIL] Could not parse active release provenance {path}: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+
+checks = [
+    (data.get("release_version") == expected_version,
+     f"provenance release_version ({data.get('release_version')}) does not match {expected_version}"),
+    (data.get("candidate_sha") == expected_source,
+     f"provenance candidate_sha ({data.get('candidate_sha')}) does not match ACTIVE_RELEASE_SOURCE_COMMIT ({expected_source})"),
+    (pathlib.Path(str(data.get("iso_filename", ""))).name == expected_iso,
+     f"provenance iso_filename ({data.get('iso_filename')}) does not match active ISO ({expected_iso})"),
+    (isinstance(data.get("iso_size_bytes"), int) and data["iso_size_bytes"] > 0,
+     "provenance iso_size_bytes must be a positive integer"),
+    (isinstance(data.get("iso_sha256"), str) and re.fullmatch(r"[0-9a-f]{64}", data["iso_sha256"]) is not None,
+     "provenance iso_sha256 must be 64 lowercase hexadecimal characters"),
+]
+for ok, message in checks:
+    if not ok:
+        print(f"[FAIL] {message}", file=sys.stderr)
+        raise SystemExit(1)
+PYEOF
 
     active_status_keys=(
-        HOST_PREP_STATUS
-        FRESH_INSTALL_AMD64_STATUS
-        UPGRADE_PATH_STATUS
-        BRANDING_SUITE_STATUS
-        PACKAGE_SUITE_STATUS
-        SECURITY_SUITE_STATUS
+        CANDIDATE_SELECTION_STATUS
+        HOST_STATUS
+        BUILD_STATUS
+        CHECKSUM_STATUS
+        SECURE_BOOT_STATUS
+        HYPERV_STATUS
+        PROXMOX_STATUS
+        LIVE_ENVIRONMENT_STATUS
+        CALAMARES_INSTALL_STATUS
+        OFFLINE_INSTALL_STATUS
+        INSTALLED_BOOT_STATUS
+        GPU_DRIVERS_STATUS
+        NETWORK_STACK_STATUS
+        AUDIO_STATUS
+        PACKAGE_ECOSYSTEM_STATUS
+        DESKTOP_UI_STATUS
+        UPSTREAM_PARITY_STATUS
+        RELEASE_ARTIFACT_STATUS
+        AUTOMATED_EVIDENCE_STATUS
+        VALIDATION_WORKFLOW_STATUS
+        EVIDENCE_PR_STATUS
+        OVERALL_VALIDATION_STATUS
     )
     validate_statuses "${active_status_keys[@]}"
-
-    [[ "${VAL_SOURCE_COMMIT}" =~ ^[0-9a-fA-F]{40}$ ]] \
-        || fail 'SOURCE_COMMIT must be a full 40-character hexadecimal commit SHA.'
 
     if [[ "$REQUIRE_COMPLETE" == true ]]; then
         incomplete=()
         for key in "${active_status_keys[@]}"; do
             [[ "$(value_for "$key")" == PASS ]] || incomplete+=("$key=$(value_for "$key")")
         done
-        [[ "${VAL_ISO_SIZE_BYTES}" =~ ^[1-9][0-9]*$ ]] || incomplete+=("ISO_SIZE_BYTES=${VAL_ISO_SIZE_BYTES}")
-        [[ "${VAL_ISO_SHA256:-}" =~ ^[0-9a-f]{64}$ ]] || incomplete+=("ISO_SHA256=missing-or-invalid")
-        [[ "${VAL_LAST_REHEARSAL_AT_UTC}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] \
-            || incomplete+=("LAST_REHEARSAL_AT_UTC=${VAL_LAST_REHEARSAL_AT_UTC}")
         if ((${#incomplete[@]} > 0)); then
             printf '[FAIL] Active-release evidence is incomplete:\n' >&2
             printf '  %s\n' "${incomplete[@]}" >&2
@@ -286,12 +343,15 @@ if [[ "$VERIFY_GIT_CANDIDATE" == true ]]; then
             || fail "Candidate branch $CANDIDATE_BRANCH HEAD ($branch_head) differs from CANDIDATE_SHA ($CANDIDATE_SHA)."
         pass "Candidate branch $CANDIDATE_BRANCH exactly matches CANDIDATE_SHA ($CANDIDATE_SHA)."
     else
+        if ! git cat-file -e "${CANDIDATE_SHA}^{commit}" 2>/dev/null; then
+            git fetch --quiet --no-tags "${GIT_REMOTE:-origin}" "$CANDIDATE_SHA" 2>/dev/null || true
+        fi
         if git cat-file -e "${CANDIDATE_SHA}^{commit}" 2>/dev/null; then
             git merge-base --is-ancestor "$CANDIDATE_SHA" "$branch_head" \
-                || fail "Released CANDIDATE_SHA $CANDIDATE_SHA is not reachable from $CANDIDATE_BRANCH HEAD $branch_head."
+                || fail "Recorded CANDIDATE_SHA $CANDIDATE_SHA is not reachable from $CANDIDATE_BRANCH HEAD $branch_head."
         elif [[ "$branch_head" != "$CANDIDATE_SHA" ]]; then
-            fail "Cannot prove released CANDIDATE_SHA $CANDIDATE_SHA is reachable from $CANDIDATE_BRANCH in this checkout."
+            fail "Cannot prove CANDIDATE_SHA $CANDIDATE_SHA is reachable from $CANDIDATE_BRANCH in this checkout."
         fi
-        pass "Released candidate $CANDIDATE_SHA is consistent with branch $CANDIDATE_BRANCH."
+        pass "Recorded candidate $CANDIDATE_SHA is consistent with branch $CANDIDATE_BRANCH."
     fi
 fi
