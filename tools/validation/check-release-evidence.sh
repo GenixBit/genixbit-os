@@ -71,8 +71,8 @@ import sys
 
 status_file = sys.argv[1]
 seen = set()
-# These are allowed to be empty while an active artifact is not yet published.
-allow_empty = {"ISO_SHA256", "ISO_URL", "SOURCE_COMMIT"}
+# The checksum may stay empty until the immutable artifact is published.
+allow_empty = {"ISO_SHA256"}
 
 with open(status_file, "r", encoding="utf-8") as handle:
     for raw_line in handle:
@@ -165,7 +165,6 @@ if [[ -n "${VAL_ACTIVE_RELEASE_VERSION:-}" ]]; then
         LAST_REHEARSAL_WORKFLOW
     )
     require_keys "${active_required[@]}"
-    # ISO_SHA256 is required as a key but may be empty until immutable publication.
     [[ ${VAL_ISO_SHA256+x} ]] || fail 'Required key is missing: ISO_SHA256'
 
     [[ "${VAL_VALIDATION_VERSION}" == "${VAL_ACTIVE_RELEASE_VERSION}" ]] \
@@ -198,10 +197,8 @@ if [[ -n "${VAL_ACTIVE_RELEASE_VERSION:-}" ]]; then
     )
     validate_statuses "${active_status_keys[@]}"
 
-    if [[ -n "${VAL_SOURCE_COMMIT:-}" ]]; then
-        [[ "${VAL_SOURCE_COMMIT}" =~ ^[0-9a-fA-F]{40}$ ]] \
-            || fail 'SOURCE_COMMIT must be a full 40-character hexadecimal commit SHA when present.'
-    fi
+    [[ "${VAL_SOURCE_COMMIT}" =~ ^[0-9a-fA-F]{40}$ ]] \
+        || fail 'SOURCE_COMMIT must be a full 40-character hexadecimal commit SHA.'
 
     if [[ "$REQUIRE_COMPLETE" == true ]]; then
         incomplete=()
@@ -210,7 +207,6 @@ if [[ -n "${VAL_ACTIVE_RELEASE_VERSION:-}" ]]; then
         done
         [[ "${VAL_ISO_SIZE_BYTES}" =~ ^[1-9][0-9]*$ ]] || incomplete+=("ISO_SIZE_BYTES=${VAL_ISO_SIZE_BYTES}")
         [[ "${VAL_ISO_SHA256:-}" =~ ^[0-9a-f]{64}$ ]] || incomplete+=("ISO_SHA256=missing-or-invalid")
-        [[ "${VAL_SOURCE_COMMIT:-}" =~ ^[0-9a-fA-F]{40}$ ]] || incomplete+=("SOURCE_COMMIT=missing-or-invalid")
         [[ "${VAL_LAST_REHEARSAL_AT_UTC}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] \
             || incomplete+=("LAST_REHEARSAL_AT_UTC=${VAL_LAST_REHEARSAL_AT_UTC}")
         if ((${#incomplete[@]} > 0)); then
@@ -290,8 +286,6 @@ if [[ "$VERIFY_GIT_CANDIDATE" == true ]]; then
             || fail "Candidate branch $CANDIDATE_BRANCH HEAD ($branch_head) differs from CANDIDATE_SHA ($CANDIDATE_SHA)."
         pass "Candidate branch $CANDIDATE_BRANCH exactly matches CANDIDATE_SHA ($CANDIDATE_SHA)."
     else
-        # Released evidence is immutable while its source branch is allowed to advance.
-        # If the recorded commit is available locally, require it to be an ancestor.
         if git cat-file -e "${CANDIDATE_SHA}^{commit}" 2>/dev/null; then
             git merge-base --is-ancestor "$CANDIDATE_SHA" "$branch_head" \
                 || fail "Released CANDIDATE_SHA $CANDIDATE_SHA is not reachable from $CANDIDATE_BRANCH HEAD $branch_head."
