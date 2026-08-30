@@ -8,6 +8,7 @@ on:
       - 'tools/validation/test-branding-packages-disposable.sh'
       - 'tools/validation/test-packages.sh'
       - 'tools/validation/generate-branding-assets.py'
+      - 'tools/validation/check-transparent-branding.py'
       - 'branding/source/**'
       - 'build.sh'
       - 'mods/06-install-genixbit-branding-mod/**'
@@ -18,6 +19,7 @@ on:
       - 'tools/validation/test-branding-packages-disposable.sh'
       - 'tools/validation/test-packages.sh'
       - 'tools/validation/generate-branding-assets.py'
+      - 'tools/validation/check-transparent-branding.py'
       - 'branding/source/**'
       - 'build.sh'
       - 'mods/06-install-genixbit-branding-mod/**'
@@ -37,6 +39,8 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install --yes librsvg2-bin
           python -m pip install --upgrade pip
           pip install Pillow
 
@@ -44,12 +48,16 @@ jobs:
         run: python3 tools/validation/generate-branding-assets.py
 
       - name: Run transparent-background validation
-        run: python3 tools/validation/check-transparent-branding.py
+        run: |
+          set -o pipefail
+          mkdir -p /tmp
+          python3 tools/validation/check-transparent-branding.py 2>&1 | tee /tmp/validation.log
 
       - name: Run disposable Ubuntu 26.04 package lifecycle test
         run: |
+          set -o pipefail
           mkdir -p /tmp
-          bash tools/validation/test-packages.sh 2>&1 | tee /tmp/validation.log
+          bash tools/validation/test-packages.sh 2>&1 | tee -a /tmp/validation.log
 
       - name: Verify no generated .deb files are tracked in Git
         run: |
