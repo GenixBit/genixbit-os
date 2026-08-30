@@ -138,6 +138,45 @@ resolve_branch_head() {
     printf '%s' "$head"
 }
 
+prove_commit_reachable_from_branch() {
+    local commit_sha=$1
+    local branch=$2
+    local branch_head=$3
+    local remote_name="${GIT_REMOTE:-origin}"
+    local remote_ref="refs/remotes/$remote_name/$branch"
+    local branch_refspec="refs/heads/$branch:$remote_ref"
+
+    if ! git cat-file -e "${commit_sha}^{commit}" 2>/dev/null; then
+        git fetch --quiet --no-tags "$remote_name" "$commit_sha" 2>/dev/null || true
+    fi
+
+    if git cat-file -e "${commit_sha}^{commit}" 2>/dev/null && \
+       git merge-base --is-ancestor "$commit_sha" "$branch_head" 2>/dev/null; then
+        return 0
+    fi
+
+    # A depth-1 checkout can know the remote HEAD but still lack the parent
+    # chain needed to prove ancestry. Fetch only this branch's history first;
+    # never treat missing shallow history as evidence of validity.
+    if [[ "$(git rev-parse --is-shallow-repository 2>/dev/null || printf false)" == true ]]; then
+        git fetch --quiet --no-tags --deepen=256 "$remote_name" "$branch_refspec" 2>/dev/null || true
+
+        if git cat-file -e "${commit_sha}^{commit}" 2>/dev/null && \
+           git merge-base --is-ancestor "$commit_sha" "$branch_head" 2>/dev/null; then
+            return 0
+        fi
+
+        # If 256 commits are insufficient, complete only the named branch's
+        # history. Any fetch failure leaves the verifier fail-closed below.
+        if [[ "$(git rev-parse --is-shallow-repository 2>/dev/null || printf false)" == true ]]; then
+            git fetch --quiet --no-tags --unshallow "$remote_name" "$branch_refspec" 2>/dev/null || true
+        fi
+    fi
+
+    git cat-file -e "${commit_sha}^{commit}" 2>/dev/null && \
+        git merge-base --is-ancestor "$commit_sha" "$branch_head" 2>/dev/null
+}
+
 CANDIDATE_SHA="${VAL_CANDIDATE_SHA:-}"
 CANDIDATE_BRANCH="${VAL_CANDIDATE_BRANCH:-}"
 
@@ -343,15 +382,8 @@ if [[ "$VERIFY_GIT_CANDIDATE" == true ]]; then
             || fail "Candidate branch $CANDIDATE_BRANCH HEAD ($branch_head) differs from CANDIDATE_SHA ($CANDIDATE_SHA)."
         pass "Candidate branch $CANDIDATE_BRANCH exactly matches CANDIDATE_SHA ($CANDIDATE_SHA)."
     else
-        if ! git cat-file -e "${CANDIDATE_SHA}^{commit}" 2>/dev/null; then
-            git fetch --quiet --no-tags "${GIT_REMOTE:-origin}" "$CANDIDATE_SHA" 2>/dev/null || true
-        fi
-        if git cat-file -e "${CANDIDATE_SHA}^{commit}" 2>/dev/null; then
-            git merge-base --is-ancestor "$CANDIDATE_SHA" "$branch_head" \
-                || fail "Recorded CANDIDATE_SHA $CANDIDATE_SHA is not reachable from $CANDIDATE_BRANCH HEAD $branch_head."
-        elif [[ "$branch_head" != "$CANDIDATE_SHA" ]]; then
-            fail "Cannot prove CANDIDATE_SHA $CANDIDATE_SHA is reachable from $CANDIDATE_BRANCH in this checkout."
-        fi
+        prove_commit_reachable_from_branch "$CANDIDATE_SHA" "$CANDIDATE_BRANCH" "$branch_head" \
+            || fail "Cannot prove recorded CANDIDATE_SHA $CANDIDATE_SHA is reachable from $CANDIDATE_BRANCH HEAD $branch_head."
         pass "Recorded candidate $CANDIDATE_SHA is consistent with branch $CANDIDATE_BRANCH."
     fi
 fi
