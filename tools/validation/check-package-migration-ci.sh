@@ -197,7 +197,6 @@ if [[ "$cand1_commit" != "26fb243ab1e54552bb3ba211c49b382ae4547562" ]]; then
 fi
 pass "Check 8 PASS: Immutable release tag and candidate branch pointers confirmed."
 
-
 # Check 9: Verify migration validation matrix fail-closed enforcement when ISO is missing
 info "Check 9: Verifying package migration validation fail-closed enforcement..."
 TMP_CHECK9_DIR=$(mktemp -d)
@@ -222,7 +221,6 @@ if [[ -d "$results_dir" ]]; then
 fi
 pass "Check 10 PASS: Evidence JSON integrity verified."
 
-
 # Check 11: Negative unit tests for evidence collector
 info "Check 11: Running evidence collector negative unit tests..."
 bash "$REPO_ROOT/tools/validation/test-evidence-collector-negative.sh" >/dev/null
@@ -240,18 +238,18 @@ pass "Check 13 PASS: 0.3.0 release gate JSON integrity verified."
 
 # Check 14: Release gate negative unit tests
 info "Check 14: Running release gate negative unit tests..."
-bash "$REPO_ROOT/tools/validation/test-release-gate-negative.sh" > /dev/null
+bash "$REPO_ROOT/tools/validation/test-release-gate-negative.sh" >/dev/null
 pass "Check 14 PASS: Release gate negative unit tests passed."
 
 # Check 15: Helper script interface compatibility tests
 info "Check 15: Running helper script interface compatibility tests..."
-bash "$REPO_ROOT/tools/validation/test-helper-interface.sh" > /dev/null
+bash "$REPO_ROOT/tools/validation/test-helper-interface.sh" >/dev/null
 pass "Check 15 PASS: Helper script interface compatibility tests passed."
 
-# Check 16: Integration runtime defect regression tests (D1-D14)
-info "Check 16: Running integration runtime regression tests (D1-D14)..."
-bash "$REPO_ROOT/tools/validation/test-integration-runtime.sh" > /dev/null
-pass "Check 16 PASS: All 18 integration runtime regression tests passed."
+# Check 16: Integration runtime defect regression tests
+info "Check 16: Running integration runtime regression tests..."
+bash "$REPO_ROOT/tools/validation/test-integration-runtime.sh"
+pass "Check 16 PASS: Integration runtime regression suite passed."
 
 pass "=== Package Migration & Staging CI Validation Passed ==="
 exit 0
