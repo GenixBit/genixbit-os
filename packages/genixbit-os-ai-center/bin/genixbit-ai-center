@@ -8,16 +8,21 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
-CATALOG_PATH = "/usr/share/genixbit-os/models/catalog.json"
-MODELS_CACHE_DIR = os.path.expanduser("~/.cache/genixbit/models")
-BENCHMARK_CACHE_DIR = os.path.expanduser("~/.cache/genixbit/benchmarks")
+CATALOG_PATH = os.environ.get("GENIXBIT_MODEL_CATALOG", "/usr/share/genixbit-os/models/catalog.json")
+MODELS_CACHE_DIR = os.path.expanduser(os.environ.get("GENIXBIT_MODELS_CACHE_DIR", "~/.cache/genixbit/models"))
+BENCHMARK_CACHE_DIR = os.path.expanduser(os.environ.get("GENIXBIT_BENCHMARK_CACHE_DIR", "~/.cache/genixbit/benchmarks"))
 PROXY_URL = os.environ.get("GENIXBIT_AI_PROXY_URL", "http://127.0.0.1:11434")
+MODEL_DOWNLOAD_TIMEOUT = int(os.environ.get("GENIXBIT_MODEL_DOWNLOAD_TIMEOUT", "60"))
+MODEL_DOWNLOAD_CHUNK_SIZE = 1024 * 1024
+
 
 def load_catalog():
     if os.path.exists(CATALOG_PATH):
@@ -88,6 +93,7 @@ def load_catalog():
         ]
     }
 
+
 def list_catalog():
     print("============================================================")
     print("           GenixBit OS Curated AI Model Catalog             ")
@@ -100,6 +106,7 @@ def list_catalog():
         print(f"   Recommended Specs: {m['recommended_ram_gb']}GB RAM | {m['recommended_vram_gb']}GB VRAM | License: {m['license']}")
         print(f"   Description: {m['description']}")
         print("-" * 60)
+
 
 def list_downloaded_models():
     print("============================================================")
@@ -117,13 +124,14 @@ def list_downloaded_models():
             print(f"• {f:<36} | Size: {size_mb:.1f} MB | Path: {p}")
     print("============================================================")
 
+
 def quantize_recommend():
     print("============================================================")
     print("      Hardware-Aware Model Quantization Recommendation      ")
     print("============================================================")
     mem_total_gb = 8
     try:
-        with open("/proc/meminfo") as f:
+        with open("/proc/meminfo", encoding="utf-8") as f:
             for line in f:
                 if line.startswith("MemTotal:"):
                     mem_total_gb = int(line.split()[1]) // (1024 * 1024)
@@ -151,6 +159,31 @@ def quantize_recommend():
         print("  • Optimal Quantization: Q4_K_M (Low memory footprint)")
     print("============================================================")
 
+
+def _sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(MODEL_DOWNLOAD_CHUNK_SIZE), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _valid_model_source(url):
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme == "https" and parsed.netloc:
+        return True
+    # Loopback HTTP is intentionally supported for deterministic offline CI tests.
+    return parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+
+
+def _is_gguf(path):
+    try:
+        with open(path, "rb") as handle:
+            return handle.read(4) == b"GGUF"
+    except OSError:
+        return False
+
+
 def pull_model(model_id):
     data = load_catalog()
     target = next((m for m in data.get("models", []) if m["id"].lower() == model_id.lower()), None)
@@ -158,7 +191,16 @@ def pull_model(model_id):
         print(f"[ERROR] Model '{model_id}' not found in catalog. Run 'genixbit-ai-center list' to view available IDs.")
         return 1
 
-    os.makedirs(MODELS_CACHE_DIR, exist_ok=True)
+    expected_sha = str(target.get("sha256", "")).lower()
+    source_url = str(target.get("download_url", ""))
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_sha):
+        print(f"[ERROR] Model '{model_id}' has an invalid catalog SHA256.")
+        return 1
+    if not _valid_model_source(source_url):
+        print(f"[ERROR] Model '{model_id}' has an unsupported or insecure download URL: {source_url}")
+        return 1
+
+    os.makedirs(MODELS_CACHE_DIR, mode=0o700, exist_ok=True)
     filename = f"{target['id']}-{target.get('quantization', 'Q4_K_M')}.gguf"
     dest_path = os.path.join(MODELS_CACHE_DIR, filename)
 
@@ -169,22 +211,71 @@ def pull_model(model_id):
     print(f"Format:        GGUF ({target.get('quantization', 'Q4_K_M')})")
     print(f"Expected Size: {target['size_mb']} MB")
     print(f"Destination:   {dest_path}")
-    print(f"Source URL:    {target.get('download_url', 'https://models.os.genixbit.com')}")
+    print(f"Source URL:    {source_url}")
     print("-" * 60)
 
-    if os.path.exists(dest_path):
-        print(f"[INFO] Model file already exists at {dest_path}. Verifying checksum...")
-    else:
-        print(f"[INFO] Initializing download stream for {filename}...")
-        with open(dest_path, "wb") as f:
-            header_content = f"GGUF_MAGIC_GENIXBIT_{target['id']}_{target['size_mb']}MB".encode("utf-8")
-            f.write(header_content)
-        print(f"[PASS] Model {target['name']} successfully registered in local cache.")
+    if os.path.isfile(dest_path):
+        existing_sha = _sha256_file(dest_path)
+        if existing_sha == expected_sha and _is_gguf(dest_path):
+            print("[PASS] Existing cached model has the expected SHA256 and GGUF header.")
+            print(f"[PASS] Model is ready for local acceleration with 'genixbit-ai-center run --model {target['id']}'")
+            print("============================================================")
+            return 0
+        print("[WARN] Existing cached model failed integrity verification; downloading a verified replacement.")
 
-    print(f"[PASS] Checksum verification: SHA256 matches catalog signature.")
-    print(f"[PASS] Model is ready for local acceleration with 'genixbit-ai-center run --model {target['id']}'")
-    print("============================================================")
-    return 0
+    part_path = f"{dest_path}.part.{os.getpid()}"
+    try:
+        try:
+            os.unlink(part_path)
+        except FileNotFoundError:
+            pass
+
+        request = urllib.request.Request(
+            source_url,
+            headers={"User-Agent": "genixbit-ai-center/1.0", "Accept": "application/octet-stream"},
+        )
+        digest = hashlib.sha256()
+        bytes_written = 0
+        print(f"[INFO] Downloading {filename} with streaming SHA256 verification...")
+        with urllib.request.urlopen(request, timeout=MODEL_DOWNLOAD_TIMEOUT) as response, open(part_path, "wb") as output:
+            while True:
+                chunk = response.read(MODEL_DOWNLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                output.write(chunk)
+                digest.update(chunk)
+                bytes_written += len(chunk)
+            output.flush()
+            os.fsync(output.fileno())
+
+        actual_sha = digest.hexdigest()
+        if bytes_written == 0:
+            print("[ERROR] Download returned an empty model file.")
+            return 1
+        if actual_sha != expected_sha:
+            print(f"[ERROR] SHA256 mismatch for {model_id}: expected {expected_sha}, got {actual_sha}")
+            return 1
+        if not _is_gguf(part_path):
+            print(f"[ERROR] Downloaded file for {model_id} is not a GGUF model (missing GGUF magic).")
+            return 1
+
+        os.chmod(part_path, 0o600)
+        os.replace(part_path, dest_path)
+        print(f"[PASS] Downloaded {bytes_written} bytes and verified SHA256: {actual_sha}")
+        print(f"[PASS] Model {target['name']} installed atomically in the local cache.")
+        print(f"[PASS] Model is ready for local acceleration with 'genixbit-ai-center run --model {target['id']}'")
+        print("============================================================")
+        return 0
+    except (OSError, urllib.error.URLError, TimeoutError) as exc:
+        print(f"[ERROR] Model download failed: {exc}")
+        return 1
+    finally:
+        if os.path.exists(part_path):
+            try:
+                os.unlink(part_path)
+            except OSError:
+                pass
+
 
 def check_status():
     print("============================================================")
@@ -204,6 +295,7 @@ def check_status():
         print("          Start service with: sudo systemctl start genixbit-ai-proxy")
     print("============================================================")
 
+
 def run_prompt(model_id, prompt_text):
     print(f"[INFO] Sending prompt to {model_id} via {PROXY_URL}...")
     payload = {
@@ -222,14 +314,17 @@ def run_prompt(model_id, prompt_text):
             choices = data.get("choices", [])
             if choices:
                 print("\n" + choices[0].get("message", {}).get("content", ""))
-            else:
-                print("\n[WARN] No completion choices returned.")
+                return 0
+            print("\n[ERROR] No completion choices returned.")
+            return 1
     except Exception as e:
         print(f"[ERROR] Inference request failed: {e}")
+        return 1
+
 
 def run_benchmark(model_id, iterations=3):
     print("============================================================")
-    print(f"      GenixBit OS AI Runtime Benchmark & Latency Profiler   ")
+    print("      GenixBit OS AI Runtime Benchmark & Latency Profiler   ")
     print("============================================================")
     print(f"Target Model:  {model_id}")
     print(f"Inference URL: {PROXY_URL}/v1")
@@ -265,31 +360,34 @@ def run_benchmark(model_id, iterations=3):
                 elapsed = time.time() - t0
                 data = json.loads(resp.read().decode("utf-8"))
                 usage = data.get("usage", {})
-                tokens = usage.get("completion_tokens", 80)
+                tokens = int(usage.get("completion_tokens", 0))
+                if tokens <= 0:
+                    print(f"[ERROR] Benchmark pass {i + 1} returned no completion token count.")
+                    return 1
                 total_tokens += tokens
                 total_time += elapsed
                 ttft_samples.append(elapsed * 0.25)
                 print(f"Pass {i+1}: {tokens} tokens generated in {elapsed:.3f}s (Speed: {tokens/max(elapsed,0.001):.1f} tok/s)")
-        except Exception:
-            # Synthetic benchmark simulation if server offline during test
-            elapsed = 0.12 + (i * 0.02)
-            tokens = 85
-            total_tokens += tokens
-            total_time += elapsed
-            ttft_samples.append(0.035)
-            print(f"Pass {i+1} (Simulated): {tokens} tokens in {elapsed:.3f}s (Speed: {tokens/elapsed:.1f} tok/s)")
+        except Exception as exc:
+            print(f"[ERROR] Benchmark pass {i + 1} failed; synthetic benchmark results are not accepted: {exc}")
+            return 1
+
+    if total_tokens <= 0 or not ttft_samples:
+        print("[ERROR] Benchmark produced no measured inference results.")
+        return 1
 
     avg_speed = total_tokens / max(total_time, 0.001)
-    avg_ttft = sum(ttft_samples) / max(len(ttft_samples), 1)
+    avg_ttft = sum(ttft_samples) / len(ttft_samples)
 
     print("-" * 60)
     print("Benchmark Results Summary:")
     print(f"  • Time-To-First-Token (TTFT): {avg_ttft*1000:.1f} ms")
     print(f"  • Average Generation Speed:   {avg_speed:.1f} tokens/sec")
     print(f"  • Total Tokens Processed:     {total_tokens} tokens")
-    print(f"  • Hardware Feasibility Score: EXCELLENT (Ready for local agent loops)")
+    print("  • Result Source:              MEASURED LOCAL RUNTIME")
     print("============================================================")
     return 0
+
 
 def finetune_prep(dataset_path):
     print("============================================================")
@@ -311,7 +409,6 @@ def finetune_prep(dataset_path):
                     continue
                 try:
                     obj = json.loads(line)
-                    # Check for messages format or prompt/completion format
                     if "messages" in obj or ("prompt" in obj and "completion" in obj):
                         valid_records += 1
                         total_tokens_est += len(line.split()) * 1.3
@@ -346,6 +443,7 @@ print("[GenixBit LoRA Trainer] Ready to fine-tune with Unsloth / Hugging Face PE
     print("============================================================")
     return 0
 
+
 BHARAT_LANGUAGES = [
     {"code": "hi", "name": "Hindi", "native": "हिन्दी", "script": "Devanagari"},
     {"code": "ta", "name": "Tamil", "native": "தமிழ்", "script": "Tamil"},
@@ -362,6 +460,7 @@ BHARAT_LANGUAGES = [
     {"code": "sa", "name": "Sanskrit", "native": "संस्कृतम्", "script": "Devanagari"}
 ]
 
+
 def list_bharat_languages():
     print("============================================================")
     print("   GenixBit OS 1.1.0 — Bharat AI (IndicLLM) Languages       ")
@@ -370,8 +469,8 @@ def list_bharat_languages():
         print(f"• [{l['code']}] {l['name']:<12} | Native: {l['native']:<12} | Script: {l['script']}")
     print("============================================================")
 
+
 def transliterate_indic(text):
-    # Rule-based phonetic transliteration to Devanagari
     charmap = {
         "namaste": "नमस्ते", "bharat": "भारत", "genixbit": "जेनिक्सबिट",
         "kaise": "कैसे", "ho": "हो", "aap": "आप", "dhanyawad": "धन्यवाद",
@@ -386,11 +485,12 @@ def transliterate_indic(text):
     print("============================================================")
     return 0
 
+
 def translate_bharat(text, target_lang="hi"):
     print(f"[Bharat AI] Translating '{text}' to language [{target_lang}]...")
     prompt = f"Translate the following text into natural {target_lang}: '{text}'"
-    run_prompt("indicllm-bharat-v1", prompt)
-    return 0
+    return run_prompt("indicllm-bharat-v1", prompt)
+
 
 def main():
     parser = argparse.ArgumentParser(description="GenixBit OS AI Center Model & Runtime Manager")
@@ -428,7 +528,8 @@ def main():
         check_status()
     elif args.command == "run":
         target_model = args.argument if args.argument != "gemma-3-2b-it" else args.model
-        run_prompt(target_model, args.prompt)
+        sys.exit(run_prompt(target_model, args.prompt))
+
 
 if __name__ == "__main__":
     main()
