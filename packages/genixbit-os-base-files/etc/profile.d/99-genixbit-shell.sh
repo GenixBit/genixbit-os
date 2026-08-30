@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # GenixBit OS 1.1.0 — High-Productivity Shell UI & Dynamic Terminal Environment
 # Configures Starship-inspired prompt, aliases, and terminal graphics.
 
