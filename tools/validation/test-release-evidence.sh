@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Exercise the release-evidence checker with complete and incomplete fixtures.
+# Exercise the release-evidence checker with historical and active-release fixtures.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -50,55 +50,80 @@ write_fixture "$incomplete_fixture" FAIL NOT_TESTED PARTIAL
 "$BASH" "$CHECKER" --require-complete --status-file "$complete_fixture"
 
 if "$BASH" "$CHECKER" --require-complete --status-file "$incomplete_fixture"; then
-    printf '[FAIL] Incomplete release evidence unexpectedly passed.\n' >&2
+    printf '[FAIL] Incomplete historical evidence unexpectedly passed.\n' >&2
     exit 1
 fi
 
-printf '[PASS] Release-evidence checker accepts complete legacy evidence and rejects incomplete evidence.\n'
+printf '[PASS] Release-evidence checker accepts complete historical evidence and rejects incomplete evidence.\n'
 
 write_active_fixture() {
     local path=$1
-    local iso_size=$2
-    local iso_sha=$3
-    local source_commit=$4
+    local artifact_status=$2
+    local overall_status=$3
+    local provenance="${path%.env}-artifact.json"
+    local source_commit="2222222222222222222222222222222222222222"
+
+    cat >"$provenance" <<EOF
+{
+  "release_version": "1.0.0-lts",
+  "candidate_branch": "feat/test-release-source",
+  "candidate_sha": "$source_commit",
+  "iso_filename": "GenixBitOS-1.0.0-lts-test.iso",
+  "iso_size_bytes": 1024,
+  "iso_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "validation_status": "PASS"
+}
+EOF
 
     cat >"$path" <<EOF
 VALIDATION_VERSION=1.0.0-lts
 ACTIVE_RELEASE_VERSION=1.0.0-lts
 ACTIVE_RELEASE_MODE=fresh-install-and-upgrade
-ACTIVE_RELEASE_PROVENANCE=docs/releases/1.0.0-lts-artifact.json
-ISO_FILENAME=dist/GenixBitOS-1.0.0-lts-test.iso
-ISO_URL=https://example.invalid/GenixBitOS-1.0.0-lts-test.iso
-ISO_SHA256=$iso_sha
-ISO_SIZE_BYTES=$iso_size
-SOURCE_COMMIT=$source_commit
-HOST_PREP_STATUS=PASS
-FRESH_INSTALL_AMD64_STATUS=PASS
-UPGRADE_PATH_STATUS=PASS
-BRANDING_SUITE_STATUS=PASS
-PACKAGE_SUITE_STATUS=PASS
-SECURITY_SUITE_STATUS=PASS
+ACTIVE_RELEASE_PROVENANCE_FILE=$provenance
+ACTIVE_RELEASE_ISO_LOCAL=dist/GenixBitOS-1.0.0-lts-test.iso
+ACTIVE_RELEASE_ISO_URL=https://example.invalid/GenixBitOS-1.0.0-lts-test.iso
+ACTIVE_RELEASE_SOURCE_COMMIT=$source_commit
 CANDIDATE_BRANCH=main
 CANDIDATE_SHA=1111111111111111111111111111111111111111
-LAST_REHEARSAL_AT_UTC=2026-08-17T12:00:00Z
-LAST_REHEARSAL_WORKFLOW=https://github.com/GenixBit/genixbit-os/actions/workflows/release-gate.yml
+CANDIDATE_SELECTION_STATUS=PASS
+HOST_STATUS=PASS
+BUILD_STATUS=PASS
+CHECKSUM_STATUS=PASS
+SECURE_BOOT_STATUS=PASS
+HYPERV_STATUS=PASS
+PROXMOX_STATUS=PASS
+LIVE_ENVIRONMENT_STATUS=PASS
+CALAMARES_INSTALL_STATUS=PASS
+OFFLINE_INSTALL_STATUS=PASS
+INSTALLED_BOOT_STATUS=PASS
+GPU_DRIVERS_STATUS=PASS
+NETWORK_STACK_STATUS=PASS
+AUDIO_STATUS=PASS
+PACKAGE_ECOSYSTEM_STATUS=PASS
+DESKTOP_UI_STATUS=PASS
+UPSTREAM_PARITY_STATUS=PASS
+RELEASE_ARTIFACT_STATUS=$artifact_status
+AUTOMATED_EVIDENCE_STATUS=PASS
+VALIDATION_WORKFLOW_STATUS=PASS
+EVIDENCE_PR_STATUS=PASS
+OVERALL_VALIDATION_STATUS=$overall_status
 EOF
 }
 
-active_pending="$TMP_DIR/active-pending.env"
+active_partial="$TMP_DIR/active-partial.env"
 active_complete="$TMP_DIR/active-complete.env"
-write_active_fixture "$active_pending" 0 "" "2222222222222222222222222222222222222222"
-write_active_fixture "$active_complete" 1024 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "2222222222222222222222222222222222222222"
+write_active_fixture "$active_partial" PENDING PARTIAL
+write_active_fixture "$active_complete" PASS PASS
 
-"$BASH" "$CHECKER" --status-file "$active_pending"
-if "$BASH" "$CHECKER" --require-complete --status-file "$active_pending"; then
+"$BASH" "$CHECKER" --status-file "$active_partial"
+if "$BASH" "$CHECKER" --require-complete --status-file "$active_partial"; then
     printf '[FAIL] Incomplete active-release evidence unexpectedly passed --require-complete.\n' >&2
     exit 1
 fi
 "$BASH" "$CHECKER" --require-complete --status-file "$active_complete"
-printf '[PASS] Active-release evidence supports pending publication and enforces completeness when requested.\n'
+printf '[PASS] Active-release evidence accepts in-progress status and enforces completeness when requested.\n'
 
-# Git-reference validation tests for legacy candidate records.
+# Git-reference validation tests for historical candidate records.
 ACTUAL_CANDIDATE_SHA="4888b05eda7528b1ff0c607b9799201999d61031"
 
 write_git_fixture() {
