@@ -128,10 +128,65 @@ def validate_retirement_file(root: pathlib.Path, retirement_file: pathlib.Path) 
     return failures
 
 
+def read_status_env(path: pathlib.Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key] = value
+    return values
+
+
+def active_replacement_is_valid(root: pathlib.Path) -> bool:
+    """Return True only when factual metadata proves a validated successor exists."""
+    status = read_status_env(root / "docs/VALIDATION-STATUS.env")
+    version = status.get("ACTIVE_RELEASE_VERSION", "")
+    provenance_raw = status.get("ACTIVE_RELEASE_PROVENANCE_FILE", "")
+    source_commit = status.get("ACTIVE_RELEASE_SOURCE_COMMIT", "")
+
+    if not version or version == "0.2.0-alpha" or not provenance_raw:
+        return False
+
+    provenance_path = pathlib.Path(provenance_raw)
+    if not provenance_path.is_absolute():
+        provenance_path = root / provenance_path
+    if not provenance_path.exists():
+        return False
+
+    try:
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+
+    return bool(
+        provenance.get("release_version") == version
+        and provenance.get("validation_status") == "PASS"
+        and isinstance(provenance.get("iso_size_bytes"), int)
+        and provenance["iso_size_bytes"] > 0
+        and isinstance(provenance.get("iso_sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", provenance["iso_sha256"])
+        and isinstance(provenance.get("candidate_sha"), str)
+        and re.fullmatch(r"[0-9a-f]{40}", provenance["candidate_sha"])
+        and (not source_commit or provenance["candidate_sha"] == source_commit)
+    )
+
+
 def validate_readme_blocked_state(root: pathlib.Path) -> list[str]:
     readme = root / "README.md"
     if not readme.exists():
         return [format_failure(root, readme, 1, "replacement-state", "README.md is missing")]
+
+    # The blocked-state wording was required while Candidate 2 had no valid
+    # replacement. Once machine-readable release metadata proves a validated
+    # successor exists, requiring README.md to keep saying "no replacement"
+    # would itself create a false current release claim.
+    if active_replacement_is_valid(root):
+        return []
+
     text = readme.read_text(encoding="utf-8")
     normalized = re.sub(r"[`*_]", "", text)
     if re.search(r"0\.3\.0-alpha|PASS_ALPHA_FRESH_INSTALL|GenixBitOS-0\.3\.0-alpha", normalized, re.I):
@@ -168,8 +223,6 @@ def scan_line(line: str, context: bool) -> list[tuple[str, str]]:
             matches.append((rule, line))
     if matches:
         return matches
-    # The allowlist is explicit documentation for permitted historical statements.
-    # It intentionally does not suppress active claims, which returned above.
     if context and allowed_historical_only(line):
         return []
     return []
@@ -262,7 +315,6 @@ def scan_json_object(root: pathlib.Path, path: pathlib.Path, value: Any, prefix:
 
 def scan_structured(root: pathlib.Path, path: pathlib.Path, lines: list[str]) -> list[str]:
     text = "\n".join(lines)
-    failures: list[str] = []
     if path.suffix == ".json":
         try:
             data = json.loads(text)
@@ -325,7 +377,7 @@ def main() -> int:
 
     print("Retired Candidate 2 claim check passed.")
     print("Retirement metadata validated: RETIRED_INVALID_ZERO_FILLED, release=false, migration=false, size=2540554240")
-    print("Replacement ISO claimed: NO")
+    print(f"Validated successor release metadata present: {'YES' if active_replacement_is_valid(root) else 'NO'}")
     return 0
 
 
