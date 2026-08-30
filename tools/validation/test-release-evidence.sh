@@ -87,7 +87,7 @@ EOF
 
 active_pending="$TMP_DIR/active-pending.env"
 active_complete="$TMP_DIR/active-complete.env"
-write_active_fixture "$active_pending" 0 "" ""
+write_active_fixture "$active_pending" 0 "" "2222222222222222222222222222222222222222"
 write_active_fixture "$active_complete" 1024 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "2222222222222222222222222222222222222222"
 
 "$BASH" "$CHECKER" --status-file "$active_pending"
