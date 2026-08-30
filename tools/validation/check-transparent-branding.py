@@ -52,7 +52,7 @@ def generate_previews(img, base_name):
         preview.save(os.path.join(PREVIEWS_DIR, f"{base_name}_preview_{suffix}.png"), "PNG")
 
 
-def check_png_transparency(img, file_path, is_light=False):
+def check_png_transparency(img, file_path, is_light=False, border_alpha_tolerance=0):
     rgba = img.convert("RGBA") if img.mode != "RGBA" else img
     if img.mode != "RGBA" and file_path.lower().endswith(".png"):
         print(f"[FAIL] {file_path} is in mode {img.mode}, expected RGBA")
@@ -66,25 +66,26 @@ def check_png_transparency(img, file_path, is_light=False):
     corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
     for x, y in corners:
         pixel = rgba.getpixel((x, y))
-        if pixel[3] != 0:
-            print(f"[FAIL] Corner ({x}, {y}) of {file_path} is opaque: {pixel}")
+        if pixel[3] > border_alpha_tolerance:
+            print(f"[FAIL] Corner ({x}, {y}) of {file_path} has alpha: {pixel[3]}")
             return False
 
     for x in range(w):
         for y in (0, h - 1):
             alpha = rgba.getpixel((x, y))[3]
-            if alpha != 0:
+            if alpha > border_alpha_tolerance:
                 print(f"[FAIL] Border pixel ({x}, {y}) of {file_path} has alpha: {alpha}")
                 return False
     for y in range(h):
         for x in (0, w - 1):
             alpha = rgba.getpixel((x, y))[3]
-            if alpha != 0:
+            if alpha > border_alpha_tolerance:
                 print(f"[FAIL] Border pixel ({x}, {y}) of {file_path} has alpha: {alpha}")
                 return False
 
     if is_light:
-        for i, pixel in enumerate(rgba.getdata()):
+        pixels = rgba.get_flattened_data() if hasattr(rgba, "get_flattened_data") else rgba.getdata()
+        for i, pixel in enumerate(pixels):
             if pixel[3] > 0 and (pixel[0] < 235 or pixel[1] < 235 or pixel[2] < 235):
                 x = i % w
                 y = i // w
@@ -203,7 +204,11 @@ def validate_svg(file_path, is_light):
         return False
 
     try:
-        if not check_png_transparency(rendered, file_path, is_light):
+        # librsvg can produce alpha=1 on the outermost pixel solely from
+        # anti-aliasing/rounding even when the vector canvas is transparent.
+        # Keep source PNGs strict (alpha must be exactly zero) while allowing
+        # only this visually transparent 1/255 renderer artifact for SVGs.
+        if not check_png_transparency(rendered, file_path, is_light, border_alpha_tolerance=1):
             return False
         generate_previews(rendered, f"{os.path.splitext(os.path.basename(file_path))[0]}_svg")
         return True
