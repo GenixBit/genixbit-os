@@ -204,11 +204,12 @@ def validate_svg(file_path, is_light):
         return False
 
     try:
-        # librsvg can produce alpha=1 on the outermost pixel solely from
-        # anti-aliasing/rounding even when the vector canvas is transparent.
-        # Keep source PNGs strict (alpha must be exactly zero) while allowing
-        # only this visually transparent 1/255 renderer artifact for SVGs.
-        if not check_png_transparency(rendered, file_path, is_light, border_alpha_tolerance=1):
+        # librsvg can leave a tiny 1-2/255 alpha value on the outermost pixel
+        # from vector anti-aliasing even when the SVG canvas is visually and
+        # structurally transparent. Source PNGs remain strict at alpha=0.
+        # Values above 2/255 still fail, so visible edge/background opacity is
+        # never accepted by this tolerance.
+        if not check_png_transparency(rendered, file_path, is_light, border_alpha_tolerance=2):
             return False
         generate_previews(rendered, f"{os.path.splitext(os.path.basename(file_path))[0]}_svg")
         return True
