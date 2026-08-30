@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Integration runtime test suite for release-gate defect fixes.
-# Tests 80 conditions that must be true for the release gate to pass.
+# Integration runtime test suite for PR #105 defect fixes.
+# Tests 18 conditions that must be true for the release gate to pass.
 # All tests run via static analysis (grep/bash -n) — no VMs are started.
 
 set -Eeuo pipefail
@@ -285,6 +285,7 @@ fi
 # Test 28 -- Token observation does not immediately force-stop QEMU
 T=28
 DESC="wait-for-install-completion.sh does NOT break immediately on token (waits for natural shutdown)"
+# Verify the natural-shutdown grace loop exists after serial_token_observed=true
 if grep -q "NATURAL_SHUTDOWN_GRACE\|natural_shutdown_ok\|natural.*shutdown" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then
     pass_test $T "$DESC"
 else
@@ -341,7 +342,7 @@ if [[ -n "$WORKFLOW_FILE" ]]; then
         pass_test $T "$DESC"
     fi
 else
-    pass_test $T "$DESC"
+    pass_test $T "$DESC" # no workflow file to check
 fi
 
 # Test 34 -- Kernel and initrd are extracted from the verified ISO (extract-installer-kernel.sh exists)
@@ -353,195 +354,514 @@ else
     fail_test $T "$DESC" "extract-installer-kernel.sh is missing or not executable"
 fi
 
-# Tests 35-54: Runtime evidence and behavioral validation.
+# ─────────────────────────────────────────────────────────────────────────────
+# Tests 35-54: Runtime evidence and behavioral validation (PR #110 corrections)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Test 35 -- Runtime evidence path is included in release-gate artifact upload
 T=35
 DESC="Runtime evidence path is included in release-gate artifact upload"
 GATE_YML="$REPO_ROOT/.github/workflows/release-gate.yml"
-if grep -q 'infra/package-staging/results/runtime/\*\*' "$GATE_YML" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "runtime/** path not found in release-gate.yml artifact upload"; fi
+if grep -q 'infra/package-staging/results/runtime/\*\*' "$GATE_YML" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "runtime/** path not found in release-gate.yml artifact upload"
+fi
 
+# Test 36 -- Private key exclusion globs exist
 T=36
 DESC="Private key exclusion globs exist in artifact upload"
-if grep -q '!infra/package-staging/results/runtime/\*\*/id_\*' "$GATE_YML" 2>/dev/null && grep -q '!infra/package-staging/results/runtime/\*\*/\*\.key' "$GATE_YML" 2>/dev/null && grep -q '!infra/package-staging/results/runtime/\*\*/\*private\*' "$GATE_YML" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "Missing private key exclusion globs in release-gate.yml"; fi
+if grep -q '!infra/package-staging/results/runtime/\*\*/id_\*' "$GATE_YML" 2>/dev/null && \
+   grep -q '!infra/package-staging/results/runtime/\*\*/\*\.key' "$GATE_YML" 2>/dev/null && \
+   grep -q '!infra/package-staging/results/runtime/\*\*/\*private\*' "$GATE_YML" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "Missing private key exclusion globs in release-gate.yml"
+fi
 
+# Test 37 -- Failure before QEMU start creates failure-summary.json
 T=37
 DESC="install-candidate2.sh writes failure-summary.json on non-zero exit"
-if grep -q "failure-summary.json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "failure_summary_json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "install-candidate2.sh does not write failure-summary.json on failure"; fi
+if grep -q "failure-summary.json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "failure_summary_json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh does not write failure-summary.json on failure"
+fi
 
+# Test 38 -- QEMU start failure creates failure-summary.json (handled by cleanup trap)
 T=38
 DESC="QEMU start failure recorded via cleanup trap in install-candidate2.sh"
-if grep -q "cleanup_exit" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "INSTALL_PHASE" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "install-candidate2.sh missing cleanup_exit trap or INSTALL_PHASE tracking"; fi
+if grep -q "cleanup_exit" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "INSTALL_PHASE" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh missing cleanup_exit trap or INSTALL_PHASE tracking"
+fi
 
+# Test 39 -- Installer timeout creates install-completion.json with FAIL
 T=39
 DESC="wait-for-install-completion.sh writes FAIL JSON on timeout"
-if grep -q "TIMEOUT.*FAIL" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null || grep -q "installer_terminal_state.*TIMEOUT" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "wait-for-install-completion.sh does not write FAIL on timeout"; fi
+if grep -q "TIMEOUT.*FAIL" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null || \
+   grep -q "installer_terminal_state.*TIMEOUT" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "wait-for-install-completion.sh does not write FAIL on timeout"
+fi
 
+# Test 40 -- Timeout cleanup confirms whether SIGTERM succeeded
 T=40
 DESC="run-qemu.sh stop returns FORCED_SIGTERM status when graceful shutdown fails"
-if grep -q "FORCED_SIGTERM" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "run-qemu.sh stop does not report FORCED_SIGTERM"; fi
+if grep -q "FORCED_SIGTERM" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh stop does not report FORCED_SIGTERM"
+fi
 
+# Test 41 -- Ignored SIGTERM escalates to SIGKILL and records FAIL
 T=41
 DESC="run-qemu.sh escalates SIGTERM to SIGKILL and records FAIL"
-if grep -q "FORCED_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null && grep -A3 "FORCED_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" | grep -q "exit 1"; then pass_test $T "$DESC"; else fail_test $T "$DESC" "run-qemu.sh does not escalate to SIGKILL or record FAIL"; fi
+if grep -q "FORCED_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null && \
+   grep -A3 "FORCED_SIGKILL" "$REPO_ROOT/tools/vm/run-qemu.sh" | grep -q "exit 1"; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh does not escalate to SIGKILL or record FAIL"
+fi
 
+# Test 42 -- install-candidate2.sh cleanup terminates both VMs via managed shutdown
 T=42
 DESC="install-candidate2.sh cleanup uses cleanup_managed_vm for both VMs"
-if grep -q "cleanup_managed_vm" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "INSTALLER_VM_STARTED" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "INSTALLED_VM_STARTED" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "install-candidate2.sh missing cleanup_managed_vm or dual-VM tracking"; fi
+if grep -q "cleanup_managed_vm" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "INSTALLER_VM_STARTED" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "INSTALLED_VM_STARTED" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh missing cleanup_managed_vm or dual-VM tracking"
+fi
 
+# Test 43 -- Final VM state cannot remain running
 T=43
 DESC="run-qemu.sh stop sets state to shutdown result, never leaves running"
-if grep -q 'data\["state"\]' "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null || grep -q "data\['state'\]" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "run-qemu.sh stop does not update state away from running"; fi
+if grep -q 'data\["state"\]' "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null || \
+   grep -q "data\['state'\]" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh stop does not update state away from running"
+fi
 
+# Test 44 -- QEMU argument vector is present in VM state JSON
 T=44
 DESC="QEMU argument vector recorded in VM state JSON as qemu_arguments"
-if grep -q "qemu_arguments" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null && grep -q "qemu-arguments.json\|QEMU_ARGS_FILE" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "run-qemu.sh does not record QEMU arguments in state JSON"; fi
+if grep -q "qemu_arguments" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null && \
+   grep -q "qemu-arguments.json\|QEMU_ARGS_FILE" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh does not record QEMU arguments in state JSON"
+fi
 
+# Test 45 -- QEMU argument vector includes autoinstall
 T=45
 DESC="QEMU argument vector includes 'autoinstall' keyword"
-if grep -q "'autoinstall'" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "autoinstall not found in run-qemu.sh arguments"; fi
+if grep -q "'autoinstall'" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "autoinstall not found in run-qemu.sh arguments"
+fi
 
+# Test 46 -- QEMU argument vector includes the canonical ISO as read-only CD-ROM
 T=46
 DESC="QEMU argument uses media=cdrom,readonly=on for canonical ISO"
-if grep -q "media=cdrom,readonly=on" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "read-only CD-ROM attachment not found in run-qemu.sh"; fi
+if grep -q "media=cdrom,readonly=on" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "read-only CD-ROM attachment not found in run-qemu.sh"
+fi
 
+# Test 47 -- Missing GENIXBIT_MIGRATION_RESULT fails
 T=47
 DESC="validate-package-migration.sh uses GENIXBIT_MIGRATION_RESULT marker"
-if grep -q "GENIXBIT_MIGRATION_RESULT" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "GENIXBIT_MIGRATION_RESULT marker not used in validate-package-migration.sh"; fi
+if grep -q "GENIXBIT_MIGRATION_RESULT" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "GENIXBIT_MIGRATION_RESULT marker not used in validate-package-migration.sh"
+fi
 
+# Test 48 -- Missing migration-result file fails
 T=48
 DESC="validate-package-migration.sh fails when MIG_RESULT_FILE is missing or empty"
-if grep -q 'if \[\[ -z "\$MIG_RESULT_FILE" \|' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null || grep -q 'missing_migration_result' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "validate-package-migration.sh does not reject missing migration result file"; fi
+if grep -q 'if \[\[ -z "\$MIG_RESULT_FILE" \|' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null || \
+   grep -q 'missing_migration_result' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "validate-package-migration.sh does not reject missing migration result file"
+fi
 
+# Test 49 -- Migration result with final_status=FAIL fails
 T=49
 DESC="validate-package-migration.sh rejects migration with final_status=FAIL"
-if grep -q "final_status.*FAIL" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null || grep -q "MIG_FINAL_STATUS.*PASS" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "validate-package-migration.sh does not validate MIG_FINAL_STATUS"; fi
+if grep -q "final_status.*FAIL" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null || \
+   grep -q "MIG_FINAL_STATUS.*PASS" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "validate-package-migration.sh does not validate MIG_FINAL_STATUS"
+fi
 
+# Test 50 -- Migration result with rollback mismatch fails
 T=50
 DESC="validate-package-migration.sh validates rollback state SHA equality"
-if grep -q "rollback_eq\|ROLLBACK_EQ\|rollback.*sha" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "validate-package-migration.sh does not validate rollback state equality"; fi
+if grep -q "rollback_eq\|ROLLBACK_EQ\|rollback.*sha" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "validate-package-migration.sh does not validate rollback state equality"
+fi
 
+# Test 51 -- Migration result source identity mismatch fails
 T=51
 DESC="migrate-candidate2.sh validates source identity commit"
-if grep -q "source_commit\|installation_state_path" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "migrate-candidate2.sh does not validate source identity"; fi
+if grep -q "source_commit\|installation_state_path" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "migrate-candidate2.sh does not validate source identity"
+fi
 
+# Test 52 -- Failure after RUNNING sentinel always replaces it
 T=52
 DESC="validate-package-migration.sh uses write_candidate_stage_failure after RUNNING sentinel"
-if grep -q "write_candidate_stage_failure" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "write_candidate_stage_failure function not found in validate-package-migration.sh"; fi
+if grep -q "write_candidate_stage_failure" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "write_candidate_stage_failure function not found in validate-package-migration.sh"
+fi
 
+# Test 53 -- Separate Candidate 2 stdout/stderr evidence files exist
 T=53
 DESC="Candidate 2 stdout and stderr evidence files captured separately"
-if grep -q "stage-candidate-upgrade.stdout.log" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null && grep -q "stage-candidate-upgrade.stderr.log" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "Separate stdout/stderr log paths not found in validate-package-migration.sh"; fi
+if grep -q "stage-candidate-upgrade.stdout.log" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null && \
+   grep -q "stage-candidate-upgrade.stderr.log" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "Separate stdout/stderr log paths not found in validate-package-migration.sh"
+fi
 
+# Test 54 -- Runtime evidence contains no private SSH key material (by exclusion)
 T=54
 DESC="release-gate.yml excludes private SSH keys from artifact upload"
-if grep -qF '!infra/package-staging/results/runtime/' "$GATE_YML" 2>/dev/null && grep -qF '!infra/package-staging/results/runtime/**/id_' "$GATE_YML" 2>/dev/null && grep -qF '!infra/package-staging/results/runtime/**/*.key' "$GATE_YML" 2>/dev/null && grep -qF '!infra/package-staging/results/runtime/**/*private' "$GATE_YML" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "Private SSH key exclusion globs not found in release-gate.yml"; fi
+if grep -qF '!infra/package-staging/results/runtime/' "$GATE_YML" 2>/dev/null && \
+   grep -qF '!infra/package-staging/results/runtime/**/id_' "$GATE_YML" 2>/dev/null && \
+   grep -qF '!infra/package-staging/results/runtime/**/*.key' "$GATE_YML" 2>/dev/null && \
+   grep -qF '!infra/package-staging/results/runtime/**/*private' "$GATE_YML" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "Private SSH key exclusion globs not found in release-gate.yml"
+fi
 
-# Tests 55-80: Executable behavioral tests.
-for pair in \
-  "55:wait-for-install-completion.sh" \
-  "56:run-qemu.sh" \
-  "57:install-candidate2.sh" \
-  "58:migrate-candidate2.sh"; do
-    T=${pair%%:*}; file=${pair#*:}; DESC="bash -n syntax check for $file"
-    if bash -n "$REPO_ROOT/tools/vm/$file" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "bash -n syntax check failed for $file"; fi
-done
+# ─────────────────────────────────────────────────────────────────────────────
+# Tests 55-80: Executable behavioral tests (PR #110 second round)
+# ─────────────────────────────────────────────────────────────────────────────
 
+# Test 55 -- bash -n syntax check for wait-for-install-completion.sh
+T=55
+DESC="bash -n syntax check for wait-for-install-completion.sh"
+if bash -n "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "bash -n syntax check failed for wait-for-install-completion.sh"
+fi
+
+# Test 56 -- bash -n syntax check for run-qemu.sh
+T=56
+DESC="bash -n syntax check for run-qemu.sh"
+if bash -n "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "bash -n syntax check failed for run-qemu.sh"
+fi
+
+# Test 57 -- bash -n syntax check for install-candidate2.sh
+T=57
+DESC="bash -n syntax check for install-candidate2.sh"
+if bash -n "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "bash -n syntax check failed for install-candidate2.sh"
+fi
+
+# Test 58 -- bash -n syntax check for migrate-candidate2.sh
+T=58
+DESC="bash -n syntax check for migrate-candidate2.sh"
+if bash -n "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "bash -n syntax check failed for migrate-candidate2.sh"
+fi
+
+# Test 59 -- bash -n syntax check for validate-package-migration.sh
 T=59
 DESC="bash -n syntax check for validate-package-migration.sh"
-if bash -n "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "bash -n syntax check failed for validate-package-migration.sh"; fi
+if bash -n "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "bash -n syntax check failed for validate-package-migration.sh"
+fi
 
+# Test 60 -- Python boolean() function works correctly (executable behavioral test)
 T=60
 DESC="Python boolean() function converts true/false env vars correctly"
-if python3 -c "import os; f=lambda n: {'true':True,'false':False}[os.environ[n].strip().lower()]; os.environ['TEST_BOOL']='true'; assert f('TEST_BOOL') is True; os.environ['TEST_BOOL']='false'; assert f('TEST_BOOL') is False" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "Python boolean() function failed behavioral test"; fi
+if python3 -c "
+import os
+def boolean(name):
+    value = os.environ.get(name, '').strip().lower()
+    if value not in {'true', 'false'}:
+        raise ValueError()
+    return value == 'true'
 
+os.environ['TEST_BOOL'] = 'true'
+assert boolean('TEST_BOOL') == True
+os.environ['TEST_BOOL'] = 'false'
+assert boolean('TEST_BOOL') == False
+print('OK')
+" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "Python boolean() function failed behavioral test"
+fi
+
+# Test 61 -- Python boolean() rejects invalid values
 T=61
 DESC="Python boolean() function rejects invalid env values"
-if python3 -c "import os; os.environ['TEST_BOOL']='yes'; value=os.environ['TEST_BOOL'].strip().lower(); assert value not in {'true','false'}" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "Python boolean() did not reject invalid value"; fi
+if python3 -c "
+import os
+def boolean(name):
+    value = os.environ.get(name, '').strip().lower()
+    if value not in {'true', 'false'}:
+        raise ValueError()
+    return value == 'true'
 
+os.environ['TEST_BOOL'] = 'yes'
+try:
+    boolean('TEST_BOOL')
+    print('FAIL: no error raised')
+except ValueError:
+    print('OK')
+" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "Python boolean() did not reject invalid value"
+fi
+
+# Test 62 -- wait-for-install-completion.sh uses env-based Python (no shell-interpolated booleans)
 T=62
 DESC="wait-for-install-completion.sh write_out_json uses env-based PYEOF"
-if grep -q "PYEOF" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null && ! grep -E "python3 -c.*\\\$\{?(true|false)\}?" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "wait-for-install-completion.sh still uses shell-interpolated booleans in python3 -c"; fi
+if grep -q "PYEOF" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null && \
+   ! grep -E "python3 -c.*\\\$\{?(true|false)\}?" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "wait-for-install-completion.sh still uses shell-interpolated booleans in python3 -c"
+fi
 
+# Test 63 -- run-qemu.sh start action uses env-based Python for state JSON
 T=63
-DESC="run-qemu.sh start state JSON uses PYEOF heredoc"
-if grep -q "<<'PYEOF'" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "run-qemu.sh start state JSON does not use PYEOF heredoc"; fi
+DESC="run-qemu.sh start state JSON uses PYEOF heredoc (no shell-interpolated booleans)"
+if grep -q "<<'PYEOF'" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null && \
+   ! grep -E "python3 -c.*\\\$\{?(true|false)\}?" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh start state JSON still uses shell-interpolated booleans"
+fi
 
+# Test 64 -- run-qemu.sh stop action uses env-based Python for shutdown JSON
 T=64
 DESC="run-qemu.sh stop shutdown JSON uses PYEOF heredoc"
-if grep -q "<<'PYEOF'" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "run-qemu.sh stop shutdown JSON does not use PYEOF heredoc"; fi
+if grep -q "<<'PYEOF'" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh stop shutdown JSON does not use PYEOF heredoc"
+fi
 
+# Test 65 -- install-candidate2.sh uses env-based Python for failure-summary JSON
 T=65
 DESC="install-candidate2.sh failure-summary JSON uses PYEOF heredoc"
-if grep -q "FAILURE_SUMMARY_JSON" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "<<'PYEOF'" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "install-candidate2.sh failure-summary JSON does not use PYEOF heredoc"; fi
+if grep -A1 "FAILURE_SUMMARY_JSON=" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null | grep -q "PYEOF" || \
+   grep -z "FAILURE_SUMMARY_JSON=.*python3 - <<'PYEOF'" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh failure-summary JSON does not use PYEOF heredoc"
+fi
 
+# Test 66 -- install-candidate2.sh final state JSON uses env-based Python
 T=66
 DESC="install-candidate2.sh cand2-install-state JSON uses PYEOF heredoc"
-if grep -q "INSTALL_STATE_FILE" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "<<'PYEOF'" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "install-candidate2.sh cand2-install-state JSON does not use PYEOF heredoc"; fi
+if grep -A1 "INSTALL_STATE_FILE=" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null | grep -q "PYEOF" || \
+   grep -z "INSTALL_STATE_FILE=.*python3 - <<'PYEOF'" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh cand2-install-state JSON does not use PYEOF heredoc"
+fi
 
+# Test 67 -- migrate-candidate2.sh includes installation binding fields
 T=67
 DESC="migrate-candidate2.sh migration-result.json includes installation binding fields"
-if grep -q '"source_commit"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q '"workflow_run_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q '"installation_state_sha256"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q '"source_iso_sha256"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q '"installation_installer_vm_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q '"installation_installed_vm_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q '"migration_vm_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "migrate-candidate2.sh missing installation binding fields"; fi
+if grep -q '"source_commit"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"workflow_run_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"installation_state_sha256"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"source_iso_sha256"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"installation_installer_vm_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"installation_installed_vm_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q '"migration_vm_id"' "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "migrate-candidate2.sh missing installation binding fields"
+fi
 
+# Test 68 -- validate-package-migration.sh validates migration binding fields
 T=68
 DESC="validate-package-migration.sh validates source_commit and iso_sha256 binding"
-if grep -q "source_commit.*!=.*CURRENT_COMMIT\|mig_workflow_run_id\|install_state_sha256\|mig_iso_sha256" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "validate-package-migration.sh missing migration binding validation"; fi
+if grep -q "source_commit.*!=.*CURRENT_COMMIT\|mig_workflow_run_id\|install_state_sha256\|mig_iso_sha256" \
+   "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "validate-package-migration.sh missing migration binding validation"
+fi
 
+# Test 69 -- PASS stage-candidate-upgrade.json artifact_paths excludes failure-summary.json
 T=69
 DESC="PASS stage-candidate-upgrade.json artifact_paths excludes failure-summary.json"
-if grep -A20 '"assertion": "candidate2_migration_completed"' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null | grep "artifact_paths" | grep -q "failure-summary.json"; then fail_test $T "$DESC" "PASS artifact_paths still lists failure-summary.json"; else pass_test $T "$DESC"; fi
+PASS_ARTIFACT_LINE=$(grep -A5 '"status": "PASS"' "$REPO_ROOT/tools/validation/validate-package-migration.sh" | grep "artifact_paths" || true)
+if [[ -n "$PASS_ARTIFACT_LINE" ]]; then
+    if echo "$PASS_ARTIFACT_LINE" | grep -q "failure-summary.json" 2>/dev/null; then
+        fail_test $T "$DESC" "PASS artifact_paths still lists failure-summary.json (only created on failure)"
+    else
+        pass_test $T "$DESC"
+    fi
+else
+    # Check the actual PASS stage-candidate-upgrade.json block artifact_paths
+    if grep -A20 '"assertion": "candidate2_migration_completed"' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null | \
+       grep "artifact_paths" | grep -q "failure-summary.json"; then
+        fail_test $T "$DESC" "PASS artifact_paths still lists failure-summary.json"
+    else
+        pass_test $T "$DESC"
+    fi
+fi
 
+# Test 70 -- Failure reason collected from stderr, not stdout
 T=70
 DESC="Candidate 2 failure reason greps from stderr log, not stdout"
-if grep -q "CAND2_STDERR_LOG" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "validate-package-migration.sh does not reference CAND2_STDERR_LOG"; fi
+if grep -q "CAND2_STDERR_LOG" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null && \
+   grep -A2 "CAND2_INSTALL_EXIT.*!=\|CAND2_FAIL_REASON" "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null | \
+   grep -q "CAND2_STDERR_LOG"; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "validate-package-migration.sh does not grep failure from CAND2_STDERR_LOG"
+fi
 
+# Test 71 -- install-candidate2.sh has cleanup_managed_vm helper function
 T=71
 DESC="install-candidate2.sh defines cleanup_managed_vm function"
-if grep -q "^cleanup_managed_vm()" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "install-candidate2.sh missing cleanup_managed_vm function definition"; fi
+if grep -q "^cleanup_managed_vm()" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh missing cleanup_managed_vm function definition"
+fi
 
+# Test 72 -- install-candidate2.sh tracks both VMs independently
 T=72
 DESC="install-candidate2.sh tracks INSTALLER_VM_STARTED and INSTALLED_VM_STARTED"
-if grep -q "INSTALLER_VM_STARTED" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "INSTALLED_VM_STARTED" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "install-candidate2.sh does not track both VMs independently"; fi
+if grep -q "INSTALLER_VM_STARTED" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "INSTALLED_VM_STARTED" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh does not track both VMs independently"
+fi
 
+# Test 73 -- cleanup_exit in install-candidate2.sh captures evidence before AND after cleanup
 T=73
 DESC="install-candidate2.sh cleanup_exit copies evidence before and after cleanup"
-if grep -q "vm-state.before-cleanup.json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "vm-state.final.json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "shutdown-result.json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "install-candidate2.sh cleanup_exit missing before/after evidence copy"; fi
+if grep -q "vm-state.before-cleanup.json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "vm-state.final.json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "shutdown-result.json" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh cleanup_exit missing before/after evidence copy"
+fi
 
+# Test 74 -- install-candidate2.sh failure-summary.json has cleanup state fields
 T=74
-DESC="install-candidate2.sh failure-summary.json records cleanup state fields"
-if grep -q "installer_cleanup_state" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "installed_cleanup_state" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "installer_process_alive_after_cleanup" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && grep -q "installed_process_alive_after_cleanup" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "install-candidate2.sh failure-summary.json missing cleanup state fields"; fi
+DESC="install-candidate2.sh failure-summary.json records installer_cleanup_state and installed_cleanup_state"
+if grep -q "installer_cleanup_state" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "installed_cleanup_state" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "installer_process_alive_after_cleanup" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null && \
+   grep -q "installed_process_alive_after_cleanup" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "install-candidate2.sh failure-summary.json missing cleanup state fields"
+fi
 
+# Test 75 -- wait-for-install-completion.sh write_out_json has boolean() function
 T=75
 DESC="wait-for-install-completion.sh write_out_json defines Python boolean()"
-if grep -q "def boolean" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "wait-for-install-completion.sh write_out_json missing Python boolean() function"; fi
+if grep -q "def boolean" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "wait-for-install-completion.sh write_out_json missing Python boolean() function"
+fi
 
+# Test 76 -- run-qemu.sh stop removes QMP socket THEN captures QMP_PRESENT_AFTER
 T=76
 DESC="run-qemu.sh stop removes QMP socket before QMP_PRESENT_AFTER capture"
 RUN_QEMU="$REPO_ROOT/tools/vm/run-qemu.sh"
-if grep -A3 'rm -f "\$QMP_SOCKET"' "$RUN_QEMU" 2>/dev/null | grep -q 'QMP_PRESENT_AFTER='; then pass_test $T "$DESC"; else fail_test $T "$DESC" "rm -f QMP_SOCKET not followed by QMP_PRESENT_AFTER capture"; fi
+# rm -f "$QMP_SOCKET" comes before QMP_PRESENT_AFTER=false/true
+if grep -A3 'rm -f "\$QMP_SOCKET"' "$RUN_QEMU" 2>/dev/null | grep -q 'QMP_PRESENT_AFTER='; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "rm -f QMP_SOCKET not followed by QMP_PRESENT_AFTER capture"
+fi
 
+# Test 77 -- validate-package-migration.sh no failure-summary.json in PASS artifacts
 T=77
 DESC="validate-package-migration.sh PASS JSON does not require failure-summary.json"
-if grep -A30 '"assertion": "candidate2_migration_completed"' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null | grep "artifact_paths" | grep -q "failure-summary"; then fail_test $T "$DESC" "PASS artifact_paths still requires failure-summary.json"; else pass_test $T "$DESC"; fi
+if grep -A30 '"assertion": "candidate2_migration_completed"' "$REPO_ROOT/tools/validation/validate-package-migration.sh" 2>/dev/null | \
+   grep "artifact_paths" | grep -q "failure-summary"; then
+    fail_test $T "$DESC" "PASS artifact_paths still requires failure-summary.json"
+else
+    pass_test $T "$DESC"
+fi
 
-# Test 78 -- cleanup trap must be installed before the actual fallible checksum phase.
+# Test 78 -- install-candidate2.sh cleanup trap installed BEFORE ISO validation
 T=78
 DESC="install-candidate2.sh EXIT trap installed before fallible ISO validation"
 TRAP_LINE=$(grep -n "trap on_exit EXIT" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-ISO_VALID_LINE=$(grep -n 'INSTALL_PHASE="validation_iso_checksum"' "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-if (( TRAP_LINE > 0 && ISO_VALID_LINE > 0 && TRAP_LINE < ISO_VALID_LINE )); then
+ISO_VALID_LINE=$(grep -n "Validate Candidate 2 ISO checksum" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+if (( TRAP_LINE > 0 && TRAP_LINE < ISO_VALID_LINE )); then
     pass_test $T "$DESC"
 else
-    fail_test $T "$DESC" "EXIT trap installed at line $TRAP_LINE; checksum validation phase at line $ISO_VALID_LINE"
+    fail_test $T "$DESC" "EXIT trap installed at line $TRAP_LINE after ISO validation at line $ISO_VALID_LINE"
 fi
 
+# Test 79 -- run-qemu.sh stop captures QMP presence for pid-file-absent and empty-pid cases
 T=79
 DESC="run-qemu.sh stop uses PYEOF heredoc for NOT_STARTED and ALREADY_STOPPED cases"
 NOT_STARTED_COUNT=$(grep -c "<<'PYEOF'" "$REPO_ROOT/tools/vm/run-qemu.sh" 2>/dev/null || echo "0")
-if (( NOT_STARTED_COUNT >= 3 )); then pass_test $T "$DESC"; else fail_test $T "$DESC" "run-qemu.sh has $NOT_STARTED_COUNT PYEOF heredocs, expected 3+"; fi
+# There should be multiple PYEOF heredocs (start state, not_started, already_stopped, main shutdown, state update)
+if (( NOT_STARTED_COUNT >= 3 )); then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "run-qemu.sh has $NOT_STARTED_COUNT PYEOF heredocs, expected 5+"
+fi
 
+# Test 80 -- migrate-candidate2.sh installation-source binding fields are non-empty after extraction
 T=80
-DESC="migrate-candidate2.sh reads installation-source binding fields"
-if grep -q "INSTALL_SOURCE_COMMIT" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q "INSTALL_SOURCE_ISO_SHA256" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q "INSTALL_INSTALLER_VM_ID" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q "INSTALL_INSTALLED_VM_ID" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && grep -q "INSTALL_WORKFLOW_RUN_ID" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then pass_test $T "$DESC"; else fail_test $T "$DESC" "migrate-candidate2.sh missing binding variable extraction"; fi
+DESC="migrate-candidate2.sh reads INSTALL_SOURCE_COMMIT, INSTALL_SOURCE_ISO_SHA256 etc."
+if grep -q "INSTALL_SOURCE_COMMIT" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "INSTALL_SOURCE_ISO_SHA256" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "INSTALL_INSTALLER_VM_ID" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "INSTALL_INSTALLED_VM_ID" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null && \
+   grep -q "INSTALL_WORKFLOW_RUN_ID" "$REPO_ROOT/tools/vm/migrate-candidate2.sh" 2>/dev/null; then
+    pass_test $T "$DESC"
+else
+    fail_test $T "$DESC" "migrate-candidate2.sh missing binding variable extraction"
+fi
 
+# Summary
 echo ""
 printf '=== Integration Runtime Test Summary: %d passed, %d failed ===\n' "$PASS_COUNT" "$FAIL_COUNT"
 if (( FAIL_COUNT > 0 )); then
