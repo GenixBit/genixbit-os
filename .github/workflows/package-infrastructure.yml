@@ -41,8 +41,7 @@ jobs:
           shellcheck -e SC1091 tests/repository/*.sh
 
       - name: Test path safety library rules
-        run: |
-          bash tests/repository/test-path-safety.sh
+        run: bash tests/repository/test-path-safety.sh
 
       - name: Run negative security tests
         run: |
@@ -51,8 +50,7 @@ jobs:
           grep -q "TAMPERED_METADATA_REJECTED=PASS" negative_security.log
 
       - name: Run end-to-end signed repository lifecycle test
-        run: |
-          bash tests/repository/test-signed-repository-lifecycle.sh
+        run: bash tests/repository/test-signed-repository-lifecycle.sh
 
       - name: Inspect Docker environment and pull Ubuntu 26.04
         run: |
@@ -72,8 +70,7 @@ jobs:
           grep -q "ROLLBACK_APT_VALIDATION=PASS" disposable_test.log
 
       - name: Validate JSON manifest schemas
-        run: |
-          jq . docs/schemas/*.json
+        run: jq . docs/schemas/*.json
 
       - name: Verify absence of committed private keys or secrets
         run: |
@@ -89,17 +86,40 @@ jobs:
             exit 1
           fi
 
-      - name: Run release-gate behavioral preflights
-        run: |
-          bash tests/infrastructure/test-qmp-json-parsing.sh
-          bash tests/infrastructure/test-candidate2-failure-evidence.sh
-          bash tests/infrastructure/test-mksquashfs-runner.sh
-          bash tools/validation/test-iso-structure.sh
-          bash tools/validation/test-release-preflight-evidence.sh
-          bash tools/validation/test-candidate2-retirement.sh
-          bash tools/validation/test-active-release-artifact.sh
-          bash tools/validation/test-candidate-validation-gate.sh
-          python3 -m py_compile tools/validation/generate-candidate-gate.py
-          bash tools/validation/test-candidate-validation-execution.sh
-          python3 tools/validation/check-retired-candidate-claims.py
-          bash tools/validation/test-retired-candidate-claims.sh
+      # Keep each release-gate regression isolated so CI identifies the exact
+      # broken contract instead of reporting one opaque aggregate preflight.
+      - name: Test QMP JSON parsing
+        run: bash tests/infrastructure/test-qmp-json-parsing.sh
+
+      - name: Test Candidate 2 failure evidence
+        run: bash tests/infrastructure/test-candidate2-failure-evidence.sh
+
+      - name: Test mksquashfs runner compatibility
+        run: bash tests/infrastructure/test-mksquashfs-runner.sh
+
+      - name: Test ISO structure validation
+        run: bash tools/validation/test-iso-structure.sh
+
+      - name: Test release preflight evidence
+        run: bash tools/validation/test-release-preflight-evidence.sh
+
+      - name: Test Candidate 2 retirement behavior
+        run: bash tools/validation/test-candidate2-retirement.sh
+
+      - name: Test active release artifact behavior
+        run: bash tools/validation/test-active-release-artifact.sh
+
+      - name: Test candidate validation gate behavior
+        run: bash tools/validation/test-candidate-validation-gate.sh
+
+      - name: Compile candidate gate generator
+        run: python3 -m py_compile tools/validation/generate-candidate-gate.py
+
+      - name: Test candidate validation execution
+        run: bash tools/validation/test-candidate-validation-execution.sh
+
+      - name: Validate retired Candidate 2 documentation claims
+        run: python3 tools/validation/check-retired-candidate-claims.py
+
+      - name: Test retired Candidate 2 documentation claim checker
+        run: bash tools/validation/test-retired-candidate-claims.sh
