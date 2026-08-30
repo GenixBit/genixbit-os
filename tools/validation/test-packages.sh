@@ -12,7 +12,7 @@ docker run --rm -v "$WORKSPACE_DIR":/workspace -w /workspace ubuntu:26.04 bash -
   set -Eeuo pipefail
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y && \
-  apt-get install -y --no-install-recommends python3 dpkg-dev && \
+  apt-get install -y --no-install-recommends python3 dpkg-dev build-essential && \
   bash /workspace/tools/validation/build-branding-packages.sh && \
   bash /workspace/tools/validation/test-branding-packages-disposable.sh
 "
