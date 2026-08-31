@@ -8,10 +8,10 @@ Homepage: https://os.genixbit.com
 
 Package: genixbit-os-desktop
 Architecture: all
-Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-apt-config, genixbit-os-theme, genixbit-os-wallpapers
+Depends: ${misc:Depends}, genixbit-os-base-files, genixbit-os-apt-config, genixbit-os-theme, genixbit-os-wallpapers, genixbit-os-icons, xfce4, xfce4-goodies, xfce4-terminal, lightdm, lightdm-gtk-greeter, network-manager, network-manager-gnome, plank, pavucontrol, gvfs-backends, udisks2, xorg, dbus-x11, pipewire-audio, wireplumber
 Replaces: anduinos-desktop, anduinos-desktop-apps, anduinos-gnome-extensions, anduinos-appstore, anduinos-fonts, anduinos-no-snapd, anduinos-session, anduinos-software-properties-common, anduinos-software-properties-gtk, anduinos-system-tweaks, firefox-anduinos, gnome-shell-extension-appindicator-anduinos, gnome-shell-extension-dash-to-panel-anduinos, gnome-shell-extension-desktop-icons-ng-anduinos, alsa-ucm-conf-anduinos, firmware-sof-anduinos
-Provides: anduinos-desktop, anduinos-desktop-apps, anduinos-gnome-extensions, anduinos-appstore, anduinos-fonts, anduinos-no-snapd, anduinos-session, anduinos-software-properties-common, anduinos-software-properties-gtk, anduinos-system-tweaks, firefox-anduinos, gnome-shell-extension-appindicator-anduinos, gnome-shell-extension-dash-to-panel-anduinos, gnome-shell-extension-desktop-icons-ng-anduinos, alsa-ucm-conf-anduinos, firmware-sof-anduinos, firefox-genixbit
 Conflicts: anduinos-desktop, anduinos-desktop-apps, anduinos-gnome-extensions, anduinos-appstore, anduinos-fonts, anduinos-no-snapd, anduinos-session, anduinos-software-properties-common, anduinos-software-properties-gtk, anduinos-system-tweaks, firefox-anduinos, gnome-shell-extension-appindicator-anduinos, gnome-shell-extension-dash-to-panel-anduinos, gnome-shell-extension-desktop-icons-ng-anduinos, alsa-ucm-conf-anduinos, firmware-sof-anduinos
-Description: Desktop metapackage for GenixBit OS
- Provides core desktop environment dependencies and replaces upstream
- AnduinOS desktop packages with GenixBit OS native metapackage.
+Description: Native XFCE desktop for GenixBit OS
+ Provides the GenixBit OS XFCE desktop foundation, LightDM login stack,
+ networking, audio, removable-media integration, Plank dock, and the
+ GenixBit desktop configuration and top-bar experience.
