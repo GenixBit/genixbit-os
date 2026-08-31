@@ -23,9 +23,9 @@ apt install $INTERACTIVE \
     --no-install-recommends
 judge "Install kernel"
 
-mode="${PACKAGE_SOURCE_MODE:-upstream}"
+mode="${PACKAGE_SOURCE_MODE:-local}"
 
-if [[ "$mode" == "upstream" ]]; then
+if [[ "$mode" == "local" ]]; then
     print_ok "Installing Ubuntu XFCE desktop foundation for GenixBit OS..."
     apt install $INTERACTIVE \
         xfce4 \
@@ -48,13 +48,6 @@ if [[ "$mode" == "upstream" ]]; then
         initramfs-tools \
         --install-recommends
     judge "Install native XFCE desktop foundation"
-
-    # The native GenixBit Calamares configuration is not complete yet. Keep the
-    # upstream installer engine/config as a narrow compatibility dependency only;
-    # do not pull in the upstream desktop, app store, themes, session, or browser.
-    print_ok "Installing temporary installer compatibility package..."
-    apt install $INTERACTIVE anduinos-installer-config --no-install-recommends
-    judge "Install temporary installer compatibility package"
 
 elif [[ "$mode" == "genixbit-staging" ]]; then
     print_ok "Installing genixbit-os-desktop (full GenixBit OS desktop metapackage)..."
