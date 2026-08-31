@@ -82,7 +82,7 @@ nl_NL|Dutch
 sv_SE|Swedish
 pl_PL|Polish
 tr_TR|Turkish
-ro_RO|Romanână
+ro_RO|Romanian
 da_DK|Danish
 uk_UA|Ukrainian
 id_ID|Indonesian
