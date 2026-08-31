@@ -113,7 +113,7 @@ jobs:
               test -L /etc/calamares/branding/genixbit/genixbit-logo.svg
               test -x /usr/bin/genixbit-os-installer
               test -f /usr/share/applications/genixbit-os-installer.desktop
-              dpkg-query -W -f="${Package} ${Version}\n" genixbit-os-installer-config calamares calamares-settings-ubuntu-common
+              dpkg-query -W genixbit-os-installer-config calamares calamares-settings-ubuntu-common
             '
 
       # Keep each release-gate regression isolated so CI identifies the exact
