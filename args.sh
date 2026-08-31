@@ -3,12 +3,11 @@
 #=================================================
 #           PLEASE READ THIS BEFORE EDITING
 #=================================================
-# This file is used to set the environment variables for the build process.
-# Before building AnduinOS, you should edit this file to customize the build process.
+# This file defines the GenixBit OS build environment.
 # It is sourced by the build script and should not be executed directly.
-# You can edit this file to customize the build process.
-# However, you should not change the variable names or the structure of the file.
-# After editing this file, you can run the build script `make` to start the build process.
+# You can edit supported values here to customize a local image build.
+# Keep variable names and structure stable because validation tooling depends on them.
+# Run `make` or `make current` after making supported build configuration changes.
 
 #==========================
 # Builder Environment Variables
@@ -107,11 +106,8 @@ el_GR|Greek
 # Can be: jammy noble oracular plucky questing resolute
 export TARGET_UBUNTU_VERSION="resolute"
 
-# This is the apt source for both the build process and the live system.
-# It can be any Ubuntu mirror that you prefer.
-# The default is the Aiursoft mirror.
-# You can change it to any other mirror that you prefer.
-# See https://docs.anduinos.com/Install/Select-Best-Apt-Source.html
+# Ubuntu archive mirror used by both the build process and the live system.
+# It can be changed to another compatible Ubuntu mirror when required.
 export APT_SOURCE="http://archive.ubuntu.com/ubuntu/"
 
 # This is the name of the target OS.
@@ -131,8 +127,9 @@ export TARGET_BUILD_VERSION="1.0.0-lts"
 # Installer customization
 #===========================
 
-# Packages will be uninstalled during the installation process
-# Note: anduinos-installer-config and anduinos-bwrap-hack are temporary upstream installer dependencies.
+# Packages will be uninstalled during the installation process.
+# anduinos-installer-config / anduinos-bwrap-hack remain temporary installer-only
+# compatibility dependencies until the native GenixBit Calamares stack is complete.
 export TARGET_PACKAGE_REMOVE="
     ubiquity \
     casper \
@@ -149,6 +146,8 @@ export TARGET_PACKAGE_REMOVE="
 # Package Source Mode Configuration
 #============================
 # PACKAGE_SOURCE_MODE can be 'upstream' or 'genixbit-staging'.
+# In upstream mode, GenixBit uses Ubuntu for the desktop foundation and keeps the
+# upstream package source only for the temporary installer compatibility component.
 # Production mode (packages.os.genixbit.com) remains NOT DEPLOYED.
 export PACKAGE_SOURCE_MODE="${PACKAGE_SOURCE_MODE:-upstream}"
 
@@ -164,7 +163,3 @@ else
     echo "Error: Invalid or un-deployed PACKAGE_SOURCE_MODE='$PACKAGE_SOURCE_MODE'. Must be 'upstream' or 'genixbit-staging'." >&2
     exit 1
 fi
-
-
-
-
