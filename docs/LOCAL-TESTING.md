@@ -31,7 +31,7 @@ The current GenixBit OS ISO is x86_64. On Apple Silicon Macs it can still run th
 ## 1. Build from a clean checkout
 
 ```bash
-git clone <your GenixBit OS repository checkout URL>
+git clone https://github.com/GenixBit/genixbit-os.git
 cd genixbit-os
 make current
 ```
@@ -40,12 +40,13 @@ make current
 
 1. Validates the Ubuntu build host.
 2. Requests sudo credentials once.
-3. Installs any missing build dependencies.
-4. Builds the native GenixBit `.deb` packages into `packages/build-debs/`.
-5. Runs the OS image builder.
-6. Writes the resulting ISO and release-side build artifacts under `dist/`.
+3. Installs any missing ISO and standard Debian package-build dependencies.
+4. Builds every native GenixBit package from its repository `debian/` metadata with `dpkg-buildpackage`.
+5. Places only generated `.deb` outputs into `packages/build-debs/`.
+6. Runs the OS image builder.
+7. Writes the resulting ISO and release-side build artifacts under `dist/`.
 
-Generated package and ISO outputs are ignored by Git.
+Using the real Debian packaging rules preserves runtime dependencies, package relationships, package-specific install manifests, maintainer scripts, and debhelper substitutions. Generated package and ISO outputs are ignored by Git.
 
 ## 2. Boot the newest ISO in a local VM
 
@@ -55,7 +56,7 @@ After a successful build, run this as your normal user:
 make vm
 ```
 
-The VM runner automatically selects the newest `dist/GenixBitOS-*.iso` and creates a persistent test disk at:
+The VM runner automatically selects a `dist/GenixBitOS-*.iso` and creates a persistent test disk at:
 
 ```text
 .local-artifacts/genixbit-test.qcow2
@@ -117,7 +118,7 @@ After the VM opens, verify at least:
 make clean
 ```
 
-This removes generated ISO/build/package output. It intentionally does **not** remove `.local-artifacts/`, so your persistent installed test VM is preserved.
+This removes generated ISO/build/package output. Cleanup is restricted to known build directories inside the repository. It intentionally does **not** remove `.local-artifacts/`, so your persistent installed test VM is preserved.
 
 To reset the VM completely, remove its qcow2 disk yourself only when you intentionally want to destroy that local test installation.
 
