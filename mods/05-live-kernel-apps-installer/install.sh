@@ -6,7 +6,7 @@ set -u                  # treat unset variable as error
 
 wait_network
 
-print_ok "Installing capser (live-boot)..."
+print_ok "Installing casper (live-boot)..."
 apt install $INTERACTIVE \
     casper \
     discover \
@@ -26,34 +26,35 @@ judge "Install kernel"
 mode="${PACKAGE_SOURCE_MODE:-upstream}"
 
 if [[ "$mode" == "upstream" ]]; then
-    print_ok "Installing anduinos-desktop (full Upstream AnduinOS desktop metapackage)..."
+    print_ok "Installing Ubuntu XFCE desktop foundation for GenixBit OS..."
     apt install $INTERACTIVE \
-        anduinos-desktop \
-        anduinos-desktop-apps \
-        anduinos-gnome-extensions \
-        anduinos-appstore \
-        anduinos-theme \
-        anduinos-wallpapers \
-        anduinos-fonts \
-        anduinos-no-snapd \
-        anduinos-session \
-        anduinos-software-properties-common \
-        anduinos-software-properties-gtk \
-        anduinos-system-tweaks \
-        firefox-anduinos \
-        gnome-shell-extension-appindicator-anduinos \
-        gnome-shell-extension-dash-to-panel-anduinos \
-        gnome-shell-extension-desktop-icons-ng-anduinos \
-        plymouth-anduinos \
-        alsa-ucm-conf-anduinos \
-        firmware-sof-anduinos \
+        xfce4 \
+        xfce4-goodies \
+        xfce4-terminal \
+        lightdm \
+        lightdm-gtk-greeter \
+        network-manager \
+        network-manager-gnome \
+        plank \
+        pavucontrol \
+        gvfs-backends \
+        udisks2 \
+        xorg \
+        dbus-x11 \
+        pipewire-audio \
+        wireplumber \
+        alsa-ucm-conf \
+        firmware-sof-signed \
         initramfs-tools \
         --install-recommends
-    judge "Install anduinos-desktop"
+    judge "Install native XFCE desktop foundation"
 
-    print_ok "Installing AnduinOS installer config..."
+    # The native GenixBit Calamares configuration is not complete yet. Keep the
+    # upstream installer engine/config as a narrow compatibility dependency only;
+    # do not pull in the upstream desktop, app store, themes, session, or browser.
+    print_ok "Installing temporary installer compatibility package..."
     apt install $INTERACTIVE anduinos-installer-config --no-install-recommends
-    judge "Install anduinos-installer-config"
+    judge "Install temporary installer compatibility package"
 
 elif [[ "$mode" == "genixbit-staging" ]]; then
     print_ok "Installing genixbit-os-desktop (full GenixBit OS desktop metapackage)..."
@@ -80,5 +81,3 @@ else
     echo "Error: Invalid PACKAGE_SOURCE_MODE: $mode" >&2
     exit 1
 fi
-
-

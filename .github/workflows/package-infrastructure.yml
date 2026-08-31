@@ -86,6 +86,9 @@ jobs:
             exit 1
           fi
 
+      - name: Test native desktop bootstrap contract
+        run: bash tests/infrastructure/test-native-desktop-bootstrap.sh
+
       # Keep each release-gate regression isolated so CI identifies the exact
       # broken contract instead of reporting one opaque aggregate preflight.
       - name: Test QMP JSON parsing
