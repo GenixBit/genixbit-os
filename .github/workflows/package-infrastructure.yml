@@ -26,7 +26,7 @@ jobs:
       - name: Install ShellCheck, GnuPG, APT and Packaging tools
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y shellcheck jq gnupg gpgv apt-utils dpkg-dev devscripts lintian python3-jsonschema squashfs-tools xorriso mtools
+          sudo apt-get install -y shellcheck jq gnupg gpgv apt-utils dpkg-dev devscripts lintian python3-jsonschema python3-yaml squashfs-tools xorriso mtools
 
       - name: Validate shell syntax for repository tooling
         run: |
@@ -88,6 +88,9 @@ jobs:
 
       - name: Test native desktop bootstrap contract
         run: bash tests/infrastructure/test-native-desktop-bootstrap.sh
+
+      - name: Test native Calamares installer contract
+        run: bash tests/infrastructure/test-native-calamares-installer.sh
 
       # Keep each release-gate regression isolated so CI identifies the exact
       # broken contract instead of reporting one opaque aggregate preflight.
