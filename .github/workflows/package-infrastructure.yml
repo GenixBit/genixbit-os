@@ -92,6 +92,30 @@ jobs:
       - name: Test native Calamares installer contract
         run: bash tests/infrastructure/test-native-calamares-installer.sh
 
+      - name: Build and install native installer package on Ubuntu 26.04
+        run: |
+          docker run --rm \
+            -v "$PWD:/src:ro" \
+            ubuntu:26.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential debhelper fakeroot dpkg-dev ca-certificates
+              cp -a /src/packages/genixbit-os-installer-config /tmp/genixbit-os-installer-config
+              cd /tmp/genixbit-os-installer-config
+              dpkg-buildpackage -b -us -uc
+              apt-get install -y /tmp/genixbit-os-installer-config_*.deb
+              command -v calamares
+              test -f /etc/calamares/settings.conf
+              test -f /etc/calamares/modules/unpackfs.conf
+              test -f /etc/calamares/modules/displaymanager.conf
+              test -f /etc/calamares/branding/genixbit/branding.desc
+              test -L /etc/calamares/branding/genixbit/genixbit-logo.svg
+              test -x /usr/bin/genixbit-os-installer
+              test -f /usr/share/applications/genixbit-os-installer.desktop
+              dpkg-query -W -f="${Package} ${Version}\n" genixbit-os-installer-config calamares calamares-settings-ubuntu-common
+            '
+
       # Keep each release-gate regression isolated so CI identifies the exact
       # broken contract instead of reporting one opaque aggregate preflight.
       - name: Test QMP JSON parsing
