@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Build all 20 native GenixBit OS Debian packages (.deb) into packages/build-debs."""
+"""Build all native GenixBit OS Debian packages (.deb) into packages/build-debs."""
 
 import os
 import pathlib
@@ -102,7 +102,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print("============================================================")
-    print("      GenixBit OS 20-Package Native Debian Builder          ")
+    print("        GenixBit OS Native Debian Package Builder           ")
     print("============================================================")
 
     built = []
