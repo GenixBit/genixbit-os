@@ -3,11 +3,11 @@ set -e                  # exit on error
 set -o pipefail         # exit on pipeline error
 set -u                  # treat unset variable as error
 
-print_ok "Installing native GenixBit desktop packages..."
+print_ok "Installing native GenixBit desktop and installer packages..."
 
-# Keep this list limited to the live desktop foundation. AI/runtime/profile
-# packages are installed by their dedicated build paths and should not become
-# accidental dependencies of every local desktop image.
+# Keep this list limited to the live desktop foundation and installer. AI/runtime/
+# profile packages are installed by their dedicated build paths and should not
+# become accidental dependencies of every local desktop image.
 packages=(
     "genixbit-os-archive-keyring"
     "genixbit-os-apt-config"
@@ -16,6 +16,7 @@ packages=(
     "genixbit-os-wallpapers"
     "genixbit-os-icons"
     "genixbit-os-desktop"
+    "genixbit-os-installer-config"
 )
 
 DEBS_DIR="/root/debs"
@@ -31,15 +32,11 @@ for pkg in "${packages[@]}"; do
     deb_files+=("${matches[0]}")
 done
 
-# Install the native packages together so APT can resolve their Ubuntu runtime
-# dependencies atomically instead of leaving a half-configured dpkg state.
+# Install the native packages together so APT can resolve Ubuntu runtime
+# dependencies (including Calamares) atomically instead of leaving a
+# half-configured dpkg state.
 apt-get install -y --no-install-recommends "${deb_files[@]}"
-judge "Install native GenixBit desktop packages"
-
-# Do not install genixbit-os-installer-config in upstream/local builds yet. The
-# current package contains GenixBit branding assets but not a complete native
-# Calamares module stack. Replacing the temporary compatibility installer before
-# that stack is complete would leave the live image without a dependable installer.
+judge "Install native GenixBit desktop and installer packages"
 
 print_ok "Verifying package manager states..."
 dpkg --audit
@@ -48,4 +45,4 @@ judge "Verify dpkg audit"
 apt-get check
 judge "Verify apt check"
 
-print_ok "Native GenixBit desktop packages installed successfully."
+print_ok "Native GenixBit desktop and installer packages installed successfully."
