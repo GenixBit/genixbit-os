@@ -1,48 +1,55 @@
-# Makefile —— GenixBit OS build orchestrator
+# Makefile — GenixBit OS build orchestrator
 SHELL         := /usr/bin/env bash
 .DEFAULT_GOAL := current
 
 DEPS := \
   binutils \
+  build-essential \
   curl \
   debootstrap \
+  debhelper \
+  dosfstools \
+  dpkg \
+  dpkg-dev \
+  fakeroot \
   gnupg \
-  squashfs-tools \
-  xorriso \
-  grub-pc-bin \
   grub-efi-amd64 \
+  grub-pc-bin \
   grub2-common \
   mtools \
-  dosfstools
+  python3 \
+  squashfs-tools \
+  xorriso
 
-.PHONY: current clean bootstrap menuconfig buildtorrent help
+.PHONY: current packages vm clean bootstrap menuconfig buildtorrent help
 
 help:
 	@echo "Usage:"
-	@echo "  make          (or make current)   Build current language"
+	@echo "  make          (or make current)   Build the current GenixBit OS ISO"
+	@echo "  make packages                     Build native GenixBit .deb packages"
+	@echo "  make vm                           Boot the newest dist/ ISO in QEMU"
 	@echo "  make menuconfig                   Configure build options (TUI)"
-	@echo "  make clean                        Remove build artifacts"
-	@echo "  make bootstrap                    Validate environment and deps"
+	@echo "  make clean                        Remove generated build artifacts"
+	@echo "  make bootstrap                    Validate environment and dependencies"
 	@echo "  make buildtorrent                 Generate torrents for dist/*.iso"
 
 bootstrap:
-	@if [ "$$(id -u)" -eq 0 ]; then \
-	  echo "Error: Do not run as root"; \
+	@if [ ! -r /etc/os-release ]; then \
+	  echo "Error: /etc/os-release is unavailable. ISO builds require a Linux build host."; \
 	  exit 1; \
 	fi
-	@if ! lsb_release -i | grep -qE "(Ubuntu|Debian|Tuxedo|Anduin|GenixBit)"; then \
-	  echo "Error: Unsupported OS — only Ubuntu, Debian, Tuxedo, AnduinOS or GenixBit OS allowed"; \
+	@host="$$(. /etc/os-release; printf '%s' "$${VERSION_CODENAME:-}")"; \
+	target="$$(sed -n 's/^export TARGET_UBUNTU_VERSION="\([^"]*\)"/\1/p' args.sh | head -n 1)"; \
+	if [ -z "$$target" ]; then \
+	  echo "Error: TARGET_UBUNTU_VERSION is not defined in args.sh"; \
 	  exit 1; \
-	fi
-	@host=$$(lsb_release -cs); \
-	target=$$(grep -oP 'export TARGET_UBUNTU_VERSION="\K[^"]+' args.sh); \
+	fi; \
 	if [ "$$host" != "$$target" ]; then \
 	  echo "Error: Host codename '$$host' != target '$$target'"; \
-	  echo "Build machine must run the same Ubuntu release as the target ISO."; \
+	  echo "Build the ISO on the matching Ubuntu release. You can still boot an existing ISO with 'make vm'."; \
 	  exit 1; \
 	fi
-	@sudo -n true
-
+	@sudo -v
 	@missing="" ; \
 	for pkg in $(DEPS); do \
 	  if ! dpkg -s $$pkg >/dev/null 2>&1; then \
@@ -60,9 +67,16 @@ bootstrap:
 menuconfig:
 	@./menuconfig.sh
 
-current: bootstrap
-	@echo "[MAKE] Building current language..."
+packages: bootstrap
+	@echo "[MAKE] Building native GenixBit OS packages..."
+	@python3 ./tools/build-all-debs.py
+
+current: packages
+	@echo "[MAKE] Building GenixBit OS ISO..."
 	@./build.sh
+
+vm:
+	@bash ./tools/local/run-vm.sh
 
 buildtorrent:
 	@if [ ! -d dist ]; then \
@@ -95,6 +109,8 @@ buildtorrent:
 	echo "[MAKE] Torrent generation complete."
 
 clean:
-	@echo "[MAKE] Cleaning build artifacts..."
+	@echo "[MAKE] Cleaning generated build artifacts..."
 	@./clean_all.sh
-	@echo "[MAKE] Clean complete."
+	@rm -rf ./build ./dist
+	@find ./packages/build-debs -mindepth 1 ! -name .gitkeep -delete 2>/dev/null || true
+	@echo "[MAKE] Clean complete. Local VM disks under .local-artifacts/ are preserved."

@@ -41,6 +41,34 @@ Experience GenixBit OS instantly in your browser without installation:
 
 ---
 
+## 💻 Build and Test Locally
+
+A clean checkout now has one supported path to build the native packages and OS image, plus a separate non-root QEMU path for local testing.
+
+On the Ubuntu release matching `TARGET_UBUNTU_VERSION` in `args.sh` (currently Ubuntu 26.04 `resolute`):
+
+```bash
+make current
+```
+
+`make current` validates the host, builds the native GenixBit `.deb` packages first, and then creates the GenixBit OS ISO under `dist/`.
+
+After the ISO is built, boot the newest image in a persistent local QEMU VM as your normal user:
+
+```bash
+make vm
+```
+
+To boot an ISO that was built elsewhere:
+
+```bash
+bash tools/local/run-vm.sh --iso /path/to/GenixBitOS.iso
+```
+
+See [Build and Test GenixBit OS Locally](docs/LOCAL-TESTING.md) for QEMU setup, macOS notes, VM resource options, cleanup, and the smoke-test checklist.
+
+---
+
 ## 🏗️ Master Operating System Architecture
 
 ```mermaid
