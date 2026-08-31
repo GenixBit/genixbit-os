@@ -24,7 +24,9 @@ apt-get update -y
 apt-get install -y debhelper dpkg-dev apt-utils --no-install-recommends
 
 DEBS_DIR="/workspace/packages/build-debs"
+BASE_SOURCE_DIR="/workspace/packages/genixbit-os-base-files"
 [[ -d "$DEBS_DIR" ]] || fail "Build directory $DEBS_DIR does not exist"
+[[ -f "$BASE_SOURCE_DIR/usr/lib/os-release" ]] || fail "Base identity source is missing"
 
 packages=(
     "genixbit-os-base-files"
@@ -32,6 +34,14 @@ packages=(
     "genixbit-os-wallpapers"
     "genixbit-os-installer-config"
 )
+
+base_deb=$(find "$DEBS_DIR" -maxdepth 1 -name 'genixbit-os-base-files_*.deb' | head -n 1)
+[[ -n "$base_deb" ]] || fail "Missing built genixbit-os-base-files package"
+base_package_version=$(dpkg-deb -f "$base_deb" Version)
+[[ -n "$base_package_version" ]] || fail "Could not read built base-files package version"
+expected_os_version=$(sed -n 's/^VERSION="\(.*\)"$/\1/p' "$BASE_SOURCE_DIR/usr/lib/os-release" | head -n 1)
+expected_os_version_id=$(sed -n 's/^VERSION_ID="\(.*\)"$/\1/p' "$BASE_SOURCE_DIR/usr/lib/os-release" | head -n 1)
+[[ -n "$expected_os_version" && -n "$expected_os_version_id" ]] || fail "Could not read expected OS identity version"
 
 # Keep track of original Ubuntu base identity contents
 orig_os_release=$(cat /etc/os-release)
@@ -53,8 +63,7 @@ for pkg in "${packages[@]}"; do
     [[ -n "$deb_file" ]] || fail "Missing deb file for $pkg"
     info "Installing $deb_file..."
     dpkg -i --force-confnew "$deb_file"
-    
-    # Run audit checks
+
     dpkg --audit
     apt-get check
 done
@@ -71,10 +80,7 @@ diverted_files=(
 )
 
 for f in "${diverted_files[@]}"; do
-    # Check that dpkg-divert output shows our package holds the diversion
     dpkg-divert --list "$f" | grep -q "genixbit-os-base-files" || fail "$f is not diverted by genixbit-os-base-files"
-    
-    # Verify that dpkg reports our package owns the active file
     dpkg -S "$f" | grep -q "genixbit-os-base-files" || fail "$f is not owned by genixbit-os-base-files in dpkg database"
 done
 
@@ -83,10 +89,9 @@ pass "File ownership and diversions verified."
 # 4. VERIFY IDENTITY CONTENTS
 info "Validating branding identity contents..."
 grep -q 'NAME="GenixBit OS"' /etc/os-release || fail "NAME was not updated in /etc/os-release"
-grep -q 'VERSION="0.2.0-alpha"' /etc/os-release || fail "VERSION was not updated in /etc/os-release"
-grep -q 'VERSION_ID="0.2.0-alpha"' /etc/os-release || fail "VERSION_ID was not updated in /etc/os-release"
+grep -Fq "VERSION=\"$expected_os_version\"" /etc/os-release || fail "VERSION does not match packaged identity ($expected_os_version)"
+grep -Fq "VERSION_ID=\"$expected_os_version_id\"" /etc/os-release || fail "VERSION_ID does not match packaged identity ($expected_os_version_id)"
 
-# Check icon paths
 [[ -f "/usr/share/pixmaps/genixbit-mark.svg" ]] || fail "Theme icon is missing"
 [[ -f "/usr/share/backgrounds/genixbit/genixbit-wallpaper-dark.svg" ]] || fail "Dark wallpaper is missing"
 [[ -f "/usr/share/genixbit-os-installer-config/slides/welcome.html" ]] || fail "Welcome slide is missing"
@@ -95,18 +100,17 @@ pass "Identity contents verified."
 
 # 5. VERIFY UPGRADE
 info "Verifying package upgrade cycle..."
-# Prepare upgrade deb package by copying base-files source, changing version to 0.2.0-alpha-2
 UPGRADE_TEMP=$(mktemp -d)
-cp -r /workspace/packages/genixbit-os-base-files "$UPGRADE_TEMP/"
+cp -r "$BASE_SOURCE_DIR" "$UPGRADE_TEMP/"
 ch_path="$UPGRADE_TEMP/genixbit-os-base-files/debian/changelog"
+upgrade_version="${base_package_version}+ci1"
 
-# Prepend entry
-cat - "$ch_path" <<'EOF' > "$UPGRADE_TEMP/new_changelog"
-genixbit-os-base-files (0.2.0-alpha-2) resolute; urgency=medium
+cat - "$ch_path" <<EOF > "$UPGRADE_TEMP/new_changelog"
+genixbit-os-base-files ($upgrade_version) resolute; urgency=medium
 
-  * Simulated upgrade build.
+  * Disposable lifecycle upgrade validation.
 
- -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Wed, 22 Jul 2026 03:00:00 +0530
+ -- GenixBit Labs Private Limited <maintainers@genixbit.com>  Sun, 30 Aug 2026 00:00:00 +0000
 
 EOF
 mv "$UPGRADE_TEMP/new_changelog" "$ch_path"
@@ -117,38 +121,31 @@ mv "$UPGRADE_TEMP/new_changelog" "$ch_path"
     dpkg-buildpackage -us -uc -b
 )
 
-upgrade_deb=$(find "$UPGRADE_TEMP" -maxdepth 1 -name "genixbit-os-base-files_0.2.0-alpha-2_*.deb" | head -n 1)
-[[ -n "$upgrade_deb" ]] || fail "Failed to build upgrade deb package"
+upgrade_deb=$(find "$UPGRADE_TEMP" -maxdepth 1 -name "genixbit-os-base-files_${upgrade_version}_*.deb" | head -n 1)
+[[ -n "$upgrade_deb" ]] || fail "Failed to build upgrade deb package for $upgrade_version"
 
 info "Upgrading package with $upgrade_deb..."
 dpkg -i --force-confnew "$upgrade_deb"
 
-# Check active version and integrity
 installed_ver=$(dpkg-query -W -f='${Version}' genixbit-os-base-files)
-if [[ "$installed_ver" != "0.2.0-alpha-2" ]]; then
-    fail "Upgrade failed: version is $installed_ver, expected 0.2.0-alpha-2"
+if [[ "$installed_ver" != "$upgrade_version" ]]; then
+    fail "Upgrade failed: version is $installed_ver, expected $upgrade_version"
 fi
 
-# Audit checks
 dpkg --audit
 apt-get check
 pass "Package upgrade verified."
 
 # 6. VERIFY ROLLBACK / DOWNGRADE
 info "Verifying package rollback (downgrade) cycle..."
-old_deb=$(find "$DEBS_DIR" -maxdepth 1 -name "genixbit-os-base-files_0.2.0-alpha-1_*.deb" | head -n 1)
-[[ -n "$old_deb" ]] || fail "Could not find old package for rollback"
+info "Downgrading to original built version $base_package_version using $base_deb..."
+dpkg -i --force-confnew "$base_deb"
 
-info "Downgrading to version 0.2.0-alpha-1 using $old_deb..."
-dpkg -i --force-confnew "$old_deb"
-
-# Check active version and integrity
 rolled_ver=$(dpkg-query -W -f='${Version}' genixbit-os-base-files)
-if [[ "$rolled_ver" != "0.2.0-alpha-1" ]]; then
-    fail "Rollback failed: version is $rolled_ver, expected 0.2.0-alpha-1"
+if [[ "$rolled_ver" != "$base_package_version" ]]; then
+    fail "Rollback failed: version is $rolled_ver, expected $base_package_version"
 fi
 
-# Audit checks
 dpkg --audit
 apt-get check
 pass "Package rollback verified."
@@ -158,18 +155,14 @@ info "Verifying package removal, purge, and identity restoration..."
 for pkg in "${packages[@]}"; do
     info "Purging package: $pkg..."
     dpkg -P "$pkg"
-    
-    # Audit checks
     dpkg --audit
     apt-get check
 done
 
-# Confirm original files are restored
 if grep -q "GenixBit" /etc/os-release 2>/dev/null; then
     fail "/etc/os-release was not restored to original state"
 fi
 
-# Compare the exact content of restored files
 restored_os_release=$(cat /etc/os-release)
 if [[ "$restored_os_release" != "$orig_os_release" ]]; then
     fail "Restored /etc/os-release contents do not match original"
@@ -180,12 +173,10 @@ if [[ "$restored_issue" != "$orig_issue" ]]; then
     fail "Restored /etc/issue contents do not match original"
 fi
 
-# Verify no file is left missing
 for f in "${diverted_files[@]}"; do
     [[ -f "$f" ]] || fail "Diverted file $f is missing after package purge"
 done
 
-# Clean up temp build dirs
 rm -rf "$UPGRADE_TEMP"
 
 pass "Package removal and identity restoration verified successfully!"

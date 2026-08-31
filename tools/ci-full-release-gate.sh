@@ -2,24 +2,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # GenixBit OS 1.0.0 LTS - Unified Pre-Release CI Gate Runner
 # Runs all 9 verification stages with exit code enforcement.
+#
+# This gate is intentionally read-only with respect to committed release evidence.
+# Candidate selection/build workflows are responsible for producing new evidence;
+# validation must never rewrite historical provenance to match the current CI ref.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Ensure HOME is set for git commands in isolated environments
+# Ensure HOME is set for git commands in isolated environments.
 export HOME="${HOME:-$REPO_ROOT}"
-
-CURRENT_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "")"
-CURRENT_BRANCH="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")"
-
-if [ -n "$CURRENT_SHA" ]; then
-    sed -i '' -e "s/^CANDIDATE_SHA=.*/CANDIDATE_SHA=$CURRENT_SHA/" "$REPO_ROOT/docs/releases/1.0.0-lts.env" 2>/dev/null || sed -i -e "s/^CANDIDATE_SHA=.*/CANDIDATE_SHA=$CURRENT_SHA/" "$REPO_ROOT/docs/releases/1.0.0-lts.env" 2>/dev/null || true
-    sed -i '' -e "s/^CANDIDATE_BRANCH=.*/CANDIDATE_BRANCH=$CURRENT_BRANCH/" "$REPO_ROOT/docs/releases/1.0.0-lts.env" 2>/dev/null || sed -i -e "s/^CANDIDATE_BRANCH=.*/CANDIDATE_BRANCH=$CURRENT_BRANCH/" "$REPO_ROOT/docs/releases/1.0.0-lts.env" 2>/dev/null || true
-    sed -i '' -e "s/^CANDIDATE_SHA=.*/CANDIDATE_SHA=$CURRENT_SHA/" "$REPO_ROOT/docs/VALIDATION-STATUS.env" 2>/dev/null || sed -i -e "s/^CANDIDATE_SHA=.*/CANDIDATE_SHA=$CURRENT_SHA/" "$REPO_ROOT/docs/VALIDATION-STATUS.env" 2>/dev/null || true
-    sed -i '' -e "s/^CANDIDATE_BRANCH=.*/CANDIDATE_BRANCH=$CURRENT_BRANCH/" "$REPO_ROOT/docs/VALIDATION-STATUS.env" 2>/dev/null || sed -i -e "s/^CANDIDATE_BRANCH=.*/CANDIDATE_BRANCH=$CURRENT_BRANCH/" "$REPO_ROOT/docs/VALIDATION-STATUS.env" 2>/dev/null || true
-fi
 
 echo "============================================================"
 echo "    GenixBit OS 1.0.0 LTS - Unified Pre-Release CI Gate     "
@@ -27,16 +21,16 @@ echo "============================================================"
 
 # Stage 1: Shell Syntax
 echo ">>> [1/9] Verifying shell script syntax (bash -n)..."
-for f in $(git -C "$REPO_ROOT" ls-files '*.sh'); do
+while IFS= read -r f; do
     bash -n "$REPO_ROOT/$f" || { echo "[FAIL] Syntax error in $f"; exit 1; }
-done
+done < <(git -C "$REPO_ROOT" ls-files '*.sh')
 echo "[PASS] All shell scripts verified cleanly."
 
 # Stage 2: Python Compilation
 echo ">>> [2/9] Compiling all Python sources (py_compile)..."
-for f in $(git -C "$REPO_ROOT" ls-files '*.py'); do
+while IFS= read -r f; do
     python3 -m py_compile "$REPO_ROOT/$f" || { echo "[FAIL] Compilation failed in $f"; exit 1; }
-done
+done < <(git -C "$REPO_ROOT" ls-files '*.py')
 echo "[PASS] All Python sources compiled cleanly."
 
 # Stage 3: Security & License Audit
@@ -68,6 +62,13 @@ echo ">>> [9/9] Testing model pull & hardware quantization recommendation..."
 python3 "$REPO_ROOT/packages/genixbit-os-ai-center/bin/genixbit-ai-center" quantize-recommend >/dev/null
 python3 "$REPO_ROOT/packages/genixbit-os-ai-center/bin/genixbit-ai-center" pull gemma-3-2b-it >/dev/null
 echo "[PASS] Model pull and quantization engine verified."
+
+# A validation gate must not rewrite tracked source/evidence as a side effect.
+if ! git -C "$REPO_ROOT" diff --quiet -- .; then
+    echo "[FAIL] Release gate modified tracked repository files." >&2
+    git -C "$REPO_ROOT" diff --stat >&2
+    exit 1
+fi
 
 echo "============================================================"
 echo "    >>> ALL 9 RELEASE CI GATES PASSED (100% SUCCESS) <<<    "

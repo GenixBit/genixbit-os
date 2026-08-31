@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Integration runtime test suite for PR #105 defect fixes.
-# Tests 18 conditions that must be true for the release gate to pass.
+# Static integration/runtime regression checks for release-gate safety and orchestration behavior.
 # All tests run via static analysis (grep/bash -n) — no VMs are started.
 
 set -Eeuo pipefail
@@ -217,7 +216,6 @@ if grep -q "rm -rf.*STAGE_LOGS_DIR\|rm -rf.*stage-logs" "$REPO_ROOT/tools/valida
 else
     pass_test $T "$DESC"
 fi
-
 # Test 21 -- allow-passwords is rejected in create-autoinstall-seed.sh
 T=21
 DESC="create-autoinstall-seed.sh rejects allow-passwords (uses allow-pw)"
@@ -328,21 +326,25 @@ else
     fail_test $T "$DESC" "install-candidate2.sh does not preserve serial log in runtime evidence dir"
 fi
 
-# Test 33 -- Private SSH keys excluded from state JSON (key is in state but upload excludes it)
+# Test 33 -- Every workflow that uploads runtime evidence must exclude private key patterns
 T=33
-DESC="infra artifact upload path does not include private SSH keys"
-WORKFLOW_FILE=$(find "$REPO_ROOT/.github/workflows" -name "*.yml" | head -1 || echo "")
-if [[ -n "$WORKFLOW_FILE" ]]; then
-    if grep -q '!infra/package-staging/results/runtime/\*\*/id_\*' "$WORKFLOW_FILE" 2>/dev/null; then
-        pass_test $T "$DESC"
-    elif grep -q "id_rsa\|\.key\|private_key" "$WORKFLOW_FILE" 2>/dev/null && \
-       ! grep -q "exclude.*id_rsa\|exclude.*private_key\|exclude.*\.key" "$WORKFLOW_FILE" 2>/dev/null; then
-        fail_test $T "$DESC" "Workflow may upload private keys without exclusion filter"
-    else
-        pass_test $T "$DESC"
+DESC="all runtime artifact uploads exclude private SSH keys"
+UNSAFE_RUNTIME_WORKFLOWS=()
+while IFS= read -r workflow; do
+    if grep -q 'infra/package-staging/results/runtime/' "$workflow" 2>/dev/null; then
+        if ! grep -qF '!infra/package-staging/results/runtime/**/id_*' "$workflow" 2>/dev/null || \
+           ! grep -qF '!infra/package-staging/results/runtime/**/*.key' "$workflow" 2>/dev/null || \
+           ! grep -qF '!infra/package-staging/results/runtime/**/*private*' "$workflow" 2>/dev/null; then
+            UNSAFE_RUNTIME_WORKFLOWS+=("$(basename "$workflow")")
+        fi
     fi
+done < <(find "$REPO_ROOT/.github/workflows" -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+
+if ((${#UNSAFE_RUNTIME_WORKFLOWS[@]} == 0)); then
+    pass_test $T "$DESC"
 else
-    pass_test $T "$DESC" # no workflow file to check
+    unsafe_list=$(IFS=,; echo "${UNSAFE_RUNTIME_WORKFLOWS[*]}")
+    fail_test $T "$DESC" "Runtime evidence upload lacks private-key exclusions in: $unsafe_list"
 fi
 
 # Test 34 -- Kernel and initrd are extracted from the verified ISO (extract-installer-kernel.sh exists)
@@ -438,7 +440,6 @@ if grep -q "cleanup_managed_vm" "$REPO_ROOT/tools/vm/install-candidate2.sh" 2>/d
 else
     fail_test $T "$DESC" "install-candidate2.sh missing cleanup_managed_vm or dual-VM tracking"
 fi
-
 # Test 43 -- Final VM state cannot remain running
 T=43
 DESC="run-qemu.sh stop sets state to shutdown result, never leaves running"
@@ -658,7 +659,6 @@ if grep -q "PYEOF" "$REPO_ROOT/tools/vm/wait-for-install-completion.sh" 2>/dev/n
 else
     fail_test $T "$DESC" "wait-for-install-completion.sh still uses shell-interpolated booleans in python3 -c"
 fi
-
 # Test 63 -- run-qemu.sh start action uses env-based Python for state JSON
 T=63
 DESC="run-qemu.sh start state JSON uses PYEOF heredoc (no shell-interpolated booleans)"

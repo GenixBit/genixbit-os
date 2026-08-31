@@ -13,6 +13,7 @@ import agent_guard
 import agent_sandbox
 import zram_manager
 
+
 class TestSecurityGuard(unittest.TestCase):
     def test_safe_command_audit(self):
         res = agent_guard.audit_command("python3 -m unittest")
@@ -29,7 +30,10 @@ class TestSecurityGuard(unittest.TestCase):
         self.assertFalse(clean_res["has_secrets"])
         self.assertEqual(clean_res["status"], "CLEAN")
 
-        leaked_res = agent_guard.scan_for_secrets("export GITHUB_TOKEN=ghp_123456789012345678901234567890123456")
+        # Construct the token-shaped fixture at runtime so repository-level
+        # credential scanners do not mistake this test data for a real secret.
+        token_fixture = "ghp_" + ("1" * 36)
+        leaked_res = agent_guard.scan_for_secrets(f"export GITHUB_TOKEN={token_fixture}")
         self.assertTrue(leaked_res["has_secrets"])
         self.assertEqual(leaked_res["status"], "BLOCKED")
 
@@ -43,6 +47,7 @@ class TestSecurityGuard(unittest.TestCase):
         status = zram_manager.get_zram_status()
         self.assertTrue(status["zram_enabled"])
         self.assertGreater(status["disksize_mb"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

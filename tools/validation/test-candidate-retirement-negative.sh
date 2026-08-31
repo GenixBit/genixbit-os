@@ -88,12 +88,17 @@ if [[ "$BRANCH_SHA" != "26fb243ab1e54552bb3ba211c49b382ae4547562" ]]; then
 fi
 pass "Test 4 PASS: Candidate 1 branch immutability confirmed."
 
-# Test 5: Verify no v0.3.0-alpha tag exists
-info "Test 5: Verifying absence of v0.3.0-alpha release tag..."
-if git -C "$REPO_ROOT" tag -l "v0.3.0-alpha" | grep -q "v0.3.0-alpha"; then
-    fail "Release tag v0.3.0-alpha exists! Candidate 1 was retired and v0.3.0-alpha MUST NOT be created."
+# Test 5: A later 0.3.0-alpha release must never resolve to retired Candidate 1.
+info "Test 5: Verifying v0.3.0-alpha does not resolve to retired Candidate 1..."
+TAG_SHA=$(git -C "$REPO_ROOT" rev-list -n 1 "v0.3.0-alpha" 2>/dev/null || true)
+if [[ -n "$TAG_SHA" && "$TAG_SHA" == "26fb243ab1e54552bb3ba211c49b382ae4547562" ]]; then
+    fail "Release tag v0.3.0-alpha resolves to retired Candidate 1!"
 fi
-pass "Test 5 PASS: No v0.3.0-alpha tag created."
+if [[ -n "$TAG_SHA" ]]; then
+    pass "Test 5 PASS: v0.3.0-alpha resolves to a successor commit, not retired Candidate 1."
+else
+    pass "Test 5 PASS: No v0.3.0-alpha tag exists in this checkout; Candidate 1 remains retired."
+fi
 
 # Test 6: Verify evidence collector rejects mismatched source commit
 info "Test 6: Testing evidence collector rejection of mismatched build command or commit..."

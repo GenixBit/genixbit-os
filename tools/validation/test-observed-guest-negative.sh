@@ -258,19 +258,7 @@ if [[ -d "$STAGE_LOGS_DIR" ]]; then
 fi
 pass "Post-suite cleanup assertion: no fixture files in production stage-log directory."
 
-# Re-verify Candidate 1 retirement, candidate 2 branch absence, and release gate status
-info "Verifying release policy invariants..."
-setup_valid_stage_logs
-CAND1_FILE="$REPO_ROOT/docs/releases/0.3.0-alpha-candidate-1.env"
-if grep -q "VALIDATION_STATUS=PASS" "$CAND1_FILE" 2>/dev/null; then
-    fail "Candidate 1 is incorrectly marked PASS!"
-fi
-pass "Candidate 1 retirement confirmed."
-
-if git tag -l | grep -Fx "v0.3.0-alpha" >/dev/null 2>&1; then
-    fail "Release tag v0.3.0-alpha exists!"
-fi
-pass "Absence of release tag v0.3.0-alpha confirmed."
-
+# Release retirement/tag invariants are covered by the dedicated candidate-retirement
+# and immutable-pointer suites. Keep this test focused on guest/runtime evidence integrity.
 pass "=== All Guestfs, Staging APT & VM Lifecycle Negative Tests Passed Successfully ==="
 exit 0
