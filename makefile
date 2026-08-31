@@ -4,10 +4,14 @@ SHELL         := /usr/bin/env bash
 
 DEPS := \
   binutils \
+  build-essential \
   curl \
   debootstrap \
+  debhelper \
   dosfstools \
   dpkg \
+  dpkg-dev \
+  fakeroot \
   gnupg \
   grub-efi-amd64 \
   grub-pc-bin \
