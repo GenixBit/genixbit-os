@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Install GenixBit OS
+Comment=Install GenixBit OS to this computer
+Exec=/usr/bin/genixbit-os-installer
+Icon=system-software-install
+Terminal=false
+Categories=System;Settings;
+Keywords=install;installer;system;
+StartupNotify=true
