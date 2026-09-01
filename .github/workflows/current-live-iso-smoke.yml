@@ -1,0 +1,136 @@
+name: Current Live ISO Runtime Smoke
+
+on:
+  push:
+    branches:
+      - 'fix/real-vm-validation'
+    paths:
+      - 'build.sh'
+      - 'args.sh'
+      - 'mods/**'
+      - 'packages/**'
+      - 'tools/vm/**'
+      - 'tools/validation/build-branding-packages.sh'
+      - 'tests/infrastructure/test-current-vm-evidence-contract.sh'
+      - '.github/workflows/current-live-iso-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke-live-iso:
+    name: Build and boot current live ISO
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Pull Ubuntu 26.04 build environment
+        run: docker pull ubuntu:26.04
+
+      - name: Build current local GenixBit ISO on Ubuntu 26.04
+        run: |
+          set -o pipefail
+          docker run --rm --privileged \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            ubuntu:26.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                sudo ca-certificates curl gnupg git python3 rsync file \
+                debootstrap dpkg-dev debhelper fakeroot build-essential \
+                squashfs-tools xorriso dosfstools mtools \
+                grub-pc-bin grub-efi-amd64-bin \
+                qemu-system-x86 qemu-utils ovmf
+              bash tests/infrastructure/test-current-vm-evidence-contract.sh
+              bash build.sh
+            ' 2>&1 | tee current-iso-build.log
+
+      - name: Locate and structurally validate built ISO
+        id: iso
+        run: |
+          set -euo pipefail
+          ISO_PATH=$(find dist -maxdepth 1 -type f -name 'GenixBitOS-*.iso' -print | sort | tail -n 1)
+          test -n "$ISO_PATH"
+          test -s "$ISO_PATH"
+          echo "path=$ISO_PATH" >> "$GITHUB_OUTPUT"
+          sha256sum "$ISO_PATH" | tee current-iso.sha256
+          bash tools/validation/check-iso-structure.sh "$ISO_PATH"
+
+      - name: Boot live ISO under QEMU in BIOS mode
+        run: |
+          set -o pipefail
+          docker run --rm --privileged \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            ubuntu:26.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                python3 qemu-system-x86 qemu-utils xorriso ovmf
+              bash tools/vm/smoke-current-live-iso.sh \
+                --iso "${{ steps.iso.outputs.path }}" \
+                --mode bios \
+                --timeout 900 \
+                --state-dir vm-smoke/bios
+            ' 2>&1 | tee live-smoke-bios.log
+
+      - name: Boot live ISO under QEMU in UEFI mode
+        run: |
+          set -o pipefail
+          docker run --rm --privileged \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            ubuntu:26.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                python3 qemu-system-x86 qemu-utils xorriso ovmf
+              bash tools/vm/smoke-current-live-iso.sh \
+                --iso "${{ steps.iso.outputs.path }}" \
+                --mode uefi \
+                --timeout 900 \
+                --state-dir vm-smoke/uefi
+            ' 2>&1 | tee live-smoke-uefi.log
+
+      - name: Validate observed runtime evidence
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          from pathlib import Path
+
+          for mode in ("bios", "uefi"):
+              path = Path("vm-smoke") / mode / f"live-smoke-{mode}.json"
+              data = json.loads(path.read_text())
+              assert data["status"] == "PASS", data
+              assert data["qmp_ready"] is True, data
+              assert data["graphical_target_observed"] is True, data
+              assert data["lightdm_started_observed"] is True, data
+              assert data["framebuffer_width"] >= 640, data
+              assert data["framebuffer_height"] >= 480, data
+              assert data["framebuffer_sampled_colors"] >= 2, data
+              assert data["evidence_sources"] == ["qmp", "serial_console", "qmp_screendump"], data
+              print(f"[PASS] {mode}: real live runtime evidence validated")
+          PYEOF
+
+      - name: Upload live runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-live-iso-runtime-evidence
+          path: |
+            current-iso-build.log
+            current-iso.sha256
+            live-smoke-bios.log
+            live-smoke-uefi.log
+            vm-smoke/**/*.json
+            vm-smoke/**/*.log
+            vm-smoke/**/*.ppm
+          retention-days: 7

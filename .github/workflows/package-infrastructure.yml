@@ -92,6 +92,9 @@ jobs:
       - name: Test native Calamares installer contract
         run: bash tests/infrastructure/test-native-calamares-installer.sh
 
+      - name: Test current VM evidence integrity contract
+        run: bash tests/infrastructure/test-current-vm-evidence-contract.sh
+
       - name: Build and install native installer package on Ubuntu 26.04
         run: |
           docker run --rm \
