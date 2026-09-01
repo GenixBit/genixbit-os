@@ -61,8 +61,10 @@ info "Performing clean installation of branding packages..."
 for pkg in "${packages[@]}"; do
     deb_file=$(find "$DEBS_DIR" -maxdepth 1 -name "${pkg}_*.deb" | head -n 1)
     [[ -n "$deb_file" ]] || fail "Missing deb file for $pkg"
-    info "Installing $deb_file..."
-    dpkg -i --force-confnew "$deb_file"
+    info "Installing $deb_file with dependency resolution..."
+    apt-get install -y --no-install-recommends \
+        -o Dpkg::Options::="--force-confnew" \
+        "$deb_file"
 
     dpkg --audit
     apt-get check
