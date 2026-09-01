@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Verifies target QCOW2 disk image format, partition structure, root filesystem, OS files, and guest-produced completion token.
-# Performs real offline inspection using qemu-img and guestfs / qemu-nbd inspection.
-# Prohibits hardcoded booleans, size-based fake passes, raw `strings` fallbacks, and static JSON fields.
+# Verifies an installed QCOW2 image using real libguestfs observations only.
+# No partition, filesystem, kernel, bootloader, token, or PASS result is invented.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -47,87 +46,135 @@ done
 
 [[ -n "$DISK_PATH" && -f "$DISK_PATH" ]] || fail 'Valid --disk path is required.'
 [[ -n "$TOKEN" ]] || fail '--token is required.'
+[[ "$MODE" == "uefi" || "$MODE" == "bios" ]] || fail '--mode must be uefi or bios.'
 
 state_dir="$(dirname "$DISK_PATH")"
 [[ -n "$OUT_JSON" ]] || OUT_JSON="${state_dir}/disk-inspection-${MODE}.json"
+mkdir -p "$(dirname "$OUT_JSON")"
 
-# 1. Require qemu-img and verify QCOW2 format
-command -v qemu-img >/dev/null 2>&1 || fail "qemu-img binary is required for disk structure verification."
+command -v qemu-img >/dev/null 2>&1 || fail 'qemu-img is required.'
+command -v guestfish >/dev/null 2>&1 || fail 'guestfish/libguestfs is required; refusing synthetic disk evidence.'
+command -v python3 >/dev/null 2>&1 || fail 'python3 is required.'
 
-IMG_INFO=$(qemu-img info --output=json "$DISK_PATH" 2>/dev/null || echo "")
-[[ -n "$IMG_INFO" ]] || fail "qemu-img info failed for $DISK_PATH"
+IMG_INFO=$(qemu-img info --output=json "$DISK_PATH") || fail 'qemu-img info failed.'
+FORMAT=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("format", ""))' <<<"$IMG_INFO")
+VSIZE=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("virtual-size", 0))' <<<"$IMG_INFO")
+[[ "$FORMAT" == "qcow2" ]] || fail "Disk format is '$FORMAT', expected qcow2."
+(( VSIZE > 1073741824 )) || fail "Disk virtual size is too small for an installed OS: $VSIZE bytes."
 
-FORMAT=$(echo "$IMG_INFO" | python3 -c "import sys, json; print(json.load(sys.stdin).get('format', ''))")
-[[ "$FORMAT" == "qcow2" ]] || fail "Disk format is '$FORMAT', expected 'qcow2'"
+# libguestfs must be able to boot its appliance and identify an installed OS root.
+ROOTS=$(guestfish --ro -a "$DISK_PATH" run : inspect-os 2>/dev/null) || fail 'libguestfs could not inspect the disk.'
+ROOT_DEV=$(printf '%s\n' "$ROOTS" | sed '/^[[:space:]]*$/d' | head -n 1)
+[[ -n "$ROOT_DEV" ]] || fail 'No installed operating-system root was detected.'
 
-VSIZE=$(echo "$IMG_INFO" | python3 -c "import sys, json; print(json.load(sys.stdin).get('virtual-size', 0))")
-((VSIZE > 1073741824)) || fail "Disk virtual size ($VSIZE) is too small for an OS disk image."
+PARTITIONS=$(guestfish --ro -a "$DISK_PATH" run : list-partitions 2>/dev/null) || fail 'Could not list disk partitions.'
+FILESYSTEMS=$(guestfish --ro -a "$DISK_PATH" run : list-filesystems 2>/dev/null) || fail 'Could not list filesystems.'
+DEVICES=$(guestfish --ro -a "$DISK_PATH" run : list-devices 2>/dev/null) || fail 'Could not list block devices.'
+DEVICE=$(printf '%s\n' "$DEVICES" | sed '/^[[:space:]]*$/d' | head -n 1)
+[[ -n "$DEVICE" ]] || fail 'No block device was observed by libguestfs.'
+PARTITION_TABLE=$(guestfish --ro -a "$DISK_PATH" run : part-get-parttype "$DEVICE" 2>/dev/null || true)
+[[ -n "$PARTITION_TABLE" ]] || fail 'Could not observe the partition table type.'
 
-# 2. Reject empty/unpartitioned QCOW2 image unless completion token was verified on serial log
-disk_allocated_bytes=$(stat -c%s "$DISK_PATH" 2>/dev/null || stat -f%z "$DISK_PATH" 2>/dev/null || echo "0")
-if (( disk_allocated_bytes < 5242880 )) && [[ -f "${state_dir}/${MODE}-install-serial.log" ]] && ! grep -F "$TOKEN" "${state_dir}/${MODE}-install-serial.log" >/dev/null 2>&1; then
-    fail "Disk image $DISK_PATH has no partitions or installed filesystem structures (allocated size: ${disk_allocated_bytes} bytes)!"
+ROOT_FS=$(printf '%s\n' "$FILESYSTEMS" | awk -v root="$ROOT_DEV" '$1 == root ":" {print $2; exit}')
+[[ -n "$ROOT_FS" ]] || fail "Could not determine filesystem type for detected root $ROOT_DEV."
+
+read_root_file() {
+    local path=$1
+    guestfish --ro -a "$DISK_PATH" -m "$ROOT_DEV" cat "$path" 2>/dev/null
+}
+
+root_is_file() {
+    local path=$1
+    [[ "$(guestfish --ro -a "$DISK_PATH" -m "$ROOT_DEV" is-file "$path" 2>/dev/null || true)" == "true" ]]
+}
+
+for required in /etc/os-release /etc/passwd /etc/fstab /etc/genixbit-install-token; do
+    root_is_file "$required" || fail "Required installed-system file is missing: $required"
+done
+
+OBSERVED_TOKEN=$(read_root_file /etc/genixbit-install-token | tr -d '\r\n')
+[[ "$OBSERVED_TOKEN" == "$TOKEN" ]] || fail 'Installed-root completion token does not match the expected token.'
+
+OS_RELEASE=$(read_root_file /etc/os-release)
+if ! grep -Eq '^NAME="?GenixBit OS"?$|^ID=genixbit$' <<<"$OS_RELEASE"; then
+    fail 'Installed /etc/os-release does not identify GenixBit OS.'
 fi
 
-# 3. Observe partitions, filesystems, and OS files
-if command -v guestfish >/dev/null 2>&1; then
-    root_dev="/dev/vda1"
-    if [[ "$MODE" == "uefi" ]]; then root_dev="/dev/vda2"; fi
-    # Detect kernel version so supermin can find it on GCE runners where non-root fails
-    _KVER="$(uname -r)"
-    _KPATH="/boot/vmlinuz-${_KVER}"
-    [[ -f "$_KPATH" ]] || _KPATH="/boot/vmlinuz"
-    _GF_CMD=( guestfish )
-    if [[ "$(id -u)" -ne 0 ]] && sudo -n guestfish --version >/dev/null 2>&1; then
-        _GF_CMD=( sudo
-            SUPERMIN_KERNEL="$_KPATH"
-            SUPERMIN_KERNEL_VERSION="$_KVER"
-            SUPERMIN_MODULES="/lib/modules/${_KVER}"
-            guestfish )
-    fi
-    OBSERVED_TOKEN=$("${_GF_CMD[@]}" --ro -a "$DISK_PATH" -m "$root_dev" cat /etc/genixbit-install-token 2>/dev/null | tr -d '\r\n' || echo "")
-    if [[ -n "$OBSERVED_TOKEN" && "$OBSERVED_TOKEN" != "$TOKEN" ]]; then
-        fail "Observed token inside filesystem ($OBSERVED_TOKEN) does not match expected token ($TOKEN)!"
-    fi
+BOOT_LIST=$(guestfish --ro -a "$DISK_PATH" -m "$ROOT_DEV" ls /boot 2>/dev/null) || fail 'Could not inspect /boot.'
+KERNELS=$(printf '%s\n' "$BOOT_LIST" | grep '^vmlinuz-' || true)
+INITRDS=$(printf '%s\n' "$BOOT_LIST" | grep '^initrd\.img-' || true)
+[[ -n "$KERNELS" ]] || fail 'No installed kernel image was observed under /boot.'
+[[ -n "$INITRDS" ]] || fail 'No installed initrd was observed under /boot.'
+
+BOOTLOADER_FILES=""
+EFI_DEV=""
+if [[ "$MODE" == "uefi" ]]; then
+    EFI_DEV=$(printf '%s\n' "$FILESYSTEMS" | awk '$2 ~ /^(vfat|fat)$/ {sub(/:$/, "", $1); print $1; exit}')
+    [[ -n "$EFI_DEV" ]] || fail 'UEFI validation requires an observed FAT EFI system partition.'
+
+    EFI_FILES=$(guestfish --ro -a "$DISK_PATH" -m "$EFI_DEV" find /EFI 2>/dev/null || true)
+    BOOTLOADER_FILES=$(printf '%s\n' "$EFI_FILES" | grep -Ei '\.efi$' || true)
+    [[ -n "$BOOTLOADER_FILES" ]] || fail 'No EFI executable was observed on the EFI system partition.'
+else
+    root_is_file /boot/grub/grub.cfg || fail 'BIOS validation requires /boot/grub/grub.cfg.'
+    BOOTLOADER_FILES='/boot/grub/grub.cfg'
 fi
 
-TOKEN_HASH=$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')
+TOKEN_HASH=$(printf '%s' "$OBSERVED_TOKEN" | sha256sum | awk '{print $1}')
 INSPECT_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-python3 -c "
+FORMAT="$FORMAT" \
+VSIZE="$VSIZE" \
+MODE="$MODE" \
+ROOT_DEV="$ROOT_DEV" \
+ROOT_FS="$ROOT_FS" \
+PARTITION_TABLE="$PARTITION_TABLE" \
+PARTITIONS="$PARTITIONS" \
+FILESYSTEMS="$FILESYSTEMS" \
+KERNELS="$KERNELS" \
+INITRDS="$INITRDS" \
+BOOTLOADER_FILES="$BOOTLOADER_FILES" \
+EFI_DEV="$EFI_DEV" \
+TOKEN_HASH="$TOKEN_HASH" \
+INSPECT_TIMESTAMP="$INSPECT_TIMESTAMP" \
+DISK_PATH="$DISK_PATH" \
+OUT_JSON="$OUT_JSON" \
+python3 - <<'PYEOF'
 import json
+import os
 
-pt_type = 'gpt' if '$MODE' == 'uefi' else 'dos'
-parts = ['/dev/vda1', '/dev/vda2'] if '$MODE' == 'uefi' else ['/dev/vda1']
-fs_types = ['vfat', 'ext4'] if '$MODE' == 'uefi' else ['ext4']
-root_part = '/dev/vda2' if '$MODE' == 'uefi' else '/dev/vda1'
+def lines(name):
+    return [line for line in os.environ.get(name, "").splitlines() if line.strip()]
 
 report = {
-    'disk_path': '$DISK_PATH',
-    'format': 'qcow2',
-    'partition_table_type': pt_type,
-    'partitions': parts,
-    'filesystems': fs_types,
-    'selected_root_filesystem': root_part,
-    'inspected_files': [
-        '/etc/os-release',
-        '/etc/passwd',
-        '/etc/fstab',
-        '/etc/genixbit-install-token'
+    "disk_path": os.environ["DISK_PATH"],
+    "format": os.environ["FORMAT"],
+    "virtual_size_bytes": int(os.environ["VSIZE"]),
+    "firmware_mode": os.environ["MODE"],
+    "partition_table_type": os.environ["PARTITION_TABLE"],
+    "partitions": lines("PARTITIONS"),
+    "filesystems": lines("FILESYSTEMS"),
+    "selected_root_filesystem": os.environ["ROOT_DEV"],
+    "root_fs_type": os.environ["ROOT_FS"],
+    "efi_system_partition": os.environ.get("EFI_DEV", ""),
+    "inspected_files": [
+        "/etc/os-release",
+        "/etc/passwd",
+        "/etc/fstab",
+        "/etc/genixbit-install-token",
     ],
-    'token_path': '/etc/genixbit-install-token',
-    'observed_token_hash': '$TOKEN_HASH',
-    'expected_token_hash': '$TOKEN_HASH',
-    'kernels': ['vmlinuz-6.8.0-generic'],
-    'initrds': ['initrd.img-6.8.0-generic'],
-    'bootloader_files': ['/boot/efi/EFI/BOOT/BOOTX64.EFI'] if '$MODE' == 'uefi' else ['/boot/grub/grub.cfg'],
-    'firmware_assertions': {'firmware_mode': '$MODE', 'bootloader_valid': True},
-    'inspection_timestamp': '$INSPECT_TIMESTAMP',
-    'status': 'PASS'
+    "token_path": "/etc/genixbit-install-token",
+    "observed_token_sha256": os.environ["TOKEN_HASH"],
+    "kernels": lines("KERNELS"),
+    "initrds": lines("INITRDS"),
+    "bootloader_files": lines("BOOTLOADER_FILES"),
+    "inspection_timestamp": os.environ["INSPECT_TIMESTAMP"],
+    "evidence_source": "libguestfs_read_only_inspection",
+    "status": "PASS",
 }
-with open('$OUT_JSON', 'w') as f:
-    json.dump(report, f, indent=2)
-"
+with open(os.environ["OUT_JSON"], "w", encoding="utf-8") as handle:
+    json.dump(report, handle, indent=2)
+PYEOF
 
-printf '[PASS] Disk structure inspection verified and recorded in %s for %s mode: %s\n' "$OUT_JSON" "$MODE" "$DISK_PATH"
+printf '[PASS] Real read-only disk inspection verified %s mode: %s\n' "$MODE" "$DISK_PATH"
 exit 0
