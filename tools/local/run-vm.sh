@@ -139,10 +139,10 @@ cmd=(
     -accel "$accel"
     -m "$memory_mb"
     -smp "$cpus"
-    -boot once=d,menu=on
+    -boot "once=d,menu=on"
     -cdrom "$iso"
     -drive "file=$disk,if=virtio,format=qcow2"
-    -nic user,model=e1000e
+    -nic "user,model=e1000e"
 )
 
 exec "${cmd[@]}"
