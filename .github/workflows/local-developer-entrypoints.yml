@@ -1,0 +1,51 @@
+name: Local Developer Entrypoints
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+      - 'feat/**'
+    paths:
+      - 'Makefile'
+      - 'tools/local/**'
+      - 'args.sh'
+      - 'build.sh'
+      - 'tests/infrastructure/test-local-developer-entrypoints.sh'
+      - '.github/workflows/local-developer-entrypoints.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Makefile'
+      - 'tools/local/**'
+      - 'args.sh'
+      - 'build.sh'
+      - 'tests/infrastructure/test-local-developer-entrypoints.sh'
+      - '.github/workflows/local-developer-entrypoints.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-entrypoints:
+    name: Validate local build and VM commands
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y make shellcheck
+
+      - name: Validate shell syntax and Make routing
+        run: bash tests/infrastructure/test-local-developer-entrypoints.sh
+
+      - name: Run ShellCheck on local developer scripts
+        run: |
+          shellcheck tools/local/build-current.sh
+          shellcheck tools/local/clean-build.sh
+          shellcheck tools/local/run-vm.sh
