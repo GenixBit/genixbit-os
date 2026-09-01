@@ -1,0 +1,25 @@
+---
+componentName: genixbit
+welcomeStyleCalamares: true
+welcomeExpandingLogo: true
+
+strings:
+  productName: "GenixBit OS"
+  shortProductName: "GenixBit"
+  version: "1.0.0 LTS"
+  shortVersion: "1.0.0"
+  versionedName: "GenixBit OS 1.0.0 LTS"
+  shortVersionedName: "GenixBit 1.0.0"
+  bootloaderEntryName: "GenixBit OS"
+  productUrl: "https://os.genixbit.com"
+  supportUrl: "https://os.genixbit.com"
+
+images:
+  productIcon: "genixbit-logo.svg"
+  productLogo: "genixbit-wordmark.svg"
+  productWelcome: "genixbit-wordmark.svg"
+
+style:
+  sidebarBackground: "#111318"
+  sidebarText: "#f5f7fa"
+  sidebarTextSelect: "#ffffff"

@@ -105,30 +105,11 @@ EOF
     # Ubuntu 24.04+ uses deb822 .sources files in sources.list.d/ instead.
     sudo rm -f new_building_os/etc/apt/sources.list
 
-    local mode="${PACKAGE_SOURCE_MODE:-upstream}"
+    local mode="${PACKAGE_SOURCE_MODE:-local}"
 
-    if [[ "$mode" == "upstream" ]]; then
-        print_ok "Setting up Upstream AnduinOS APKG apt source in chroot (mode: upstream)..."
-        local keyring_path="new_building_os/usr/share/keyrings/anduinos-archive-keyring.gpg"
-        local cert_url="$APKG_SERVER/artifacts/certs/$APKG_CERT_NAME"
-
-        print_ok "Downloading GPG keyring from $cert_url ..."
-        sudo mkdir -p new_building_os/usr/share/keyrings
-        curl -sL "$cert_url" | sed '1s/^\xEF\xBB\xBF//' | gpg --dearmor | sudo tee "$keyring_path" > /dev/null
-        judge "Download and dearmor keyring"
-
-        print_ok "Generating anduinos.sources for $APKG_SERVER (suite: $TARGET_UBUNTU_VERSION-addon)..."
-        sudo mkdir -p new_building_os/etc/apt/sources.list.d
-        sudo tee new_building_os/etc/apt/sources.list.d/anduinos.sources > /dev/null <<EOF
-Types: deb
-URIs: $APKG_SERVER/artifacts/anduinos/
-Suites: $TARGET_UBUNTU_VERSION-addon
-Components: main
-Architectures: amd64
-Signed-By: /usr/share/keyrings/anduinos-archive-keyring.gpg
-EOF
-        judge "Generate sources"
-
+    if [[ "$mode" == "local" ]]; then
+        print_ok "Using Ubuntu archives plus locally built GenixBit packages (mode: local)."
+        print_ok "No external derivative package repository is configured for local builds."
     elif [[ "$mode" == "genixbit-staging" ]]; then
         print_ok "Setting up GenixBit Signed Staging APT source in chroot (mode: genixbit-staging)..."
         local keyring_dest="new_building_os/usr/share/keyrings/genixbit-os-archive-keyring.pgp"
@@ -160,10 +141,9 @@ EOF
         print_error "Production package repository (packages.os.genixbit.com) is NOT DEPLOYED yet! Aborting build."
         exit 1
     else
-        print_error "Invalid PACKAGE_SOURCE_MODE: '$mode'. Must be 'upstream' or 'genixbit-staging'."
+        print_error "Invalid PACKAGE_SOURCE_MODE: '$mode'. Must be 'local' or 'genixbit-staging'."
         exit 1
     fi
-
 
     print_ok "Enabling apt recommends in chroot..."
     echo 'APT::Install-Recommends "true";' | sudo tee new_building_os/etc/apt/apt.conf.d/99-enable-recommends > /dev/null
@@ -173,9 +153,7 @@ EOF
     sudo chroot new_building_os apt update
     judge "Apt update in chroot"
 
-    # Upgrade base system BEFORE mods run.  Swap packages (mod 01)
-    # must not be visible to this upgrade — apt would try to
-    # "normalize" them back to Ubuntu's lower version and fail.
+    # Upgrade the Ubuntu base before local GenixBit packages are installed.
     print_ok "Upgrading base system packages..."
     sudo chroot new_building_os apt -y upgrade
     judge "Upgrade base system"
@@ -364,7 +342,6 @@ fi
 EOF
     judge "Generate grub.cfg"
 
-
     # generate manifest
     print_ok "Generating manifes for filesystem..."
     sudo chroot new_building_os dpkg-query -W --showformat='${Package} ${Version}\n' | sudo tee image/casper/filesystem.manifest >/dev/null 2>&1
@@ -395,7 +372,7 @@ EOF
         print_error "Verification FAILED! The squashfs file is likely corrupt."
         exit 1
     fi
-    
+
     print_ok "Generating filesystem.size on /casper/filesystem.size..."
     sudo find new_building_os -type f -printf "%s\n" 2>/dev/null | awk '{s+=$1} END {printf "%s", s}' > image/casper/filesystem.size
     judge "Generate filesystem.size"
@@ -418,7 +395,7 @@ EOF
     cat << EOF > image/README.md
 # GenixBit OS $TARGET_BUILD_VERSION
 
-GenixBit OS is an AI-first, developer-focused Ubuntu-based Linux distribution maintained by GenixBit Labs Private Limited. It is currently based on Ubuntu and AnduinOS 2.
+GenixBit OS is an AI-first, developer-focused Ubuntu-based Linux distribution maintained by GenixBit Labs Private Limited. The live image is built directly on Ubuntu $TARGET_UBUNTU_VERSION with native GenixBit desktop and installer packages.
 
 This image is built with the following configurations:
 

@@ -121,15 +121,11 @@ export TARGET_BUSINESS_NAME="GenixBitOS"
 # Version number. Supports semantic versions and prerelease identifiers (e.g., 0.1.0-alpha, 0.1.0, 0.2.0-beta1, 0.3.0-alpha-dev).
 export TARGET_BUILD_VERSION="1.0.0-lts"
 
-
-
 #===========================
 # Installer customization
 #===========================
 
-# Packages will be uninstalled during the installation process.
-# anduinos-installer-config / anduinos-bwrap-hack remain temporary installer-only
-# compatibility dependencies until the native GenixBit Calamares stack is complete.
+# Live-only packages removed from the installed target system.
 export TARGET_PACKAGE_REMOVE="
     ubiquity \
     casper \
@@ -138,28 +134,25 @@ export TARGET_PACKAGE_REMOVE="
     os-prober \
     gparted \
     genixbit-os-installer-config \
-    anduinos-installer-config \
-    anduinos-bwrap-hack \
 "
 
 #============================
 # Package Source Mode Configuration
 #============================
-# PACKAGE_SOURCE_MODE can be 'upstream' or 'genixbit-staging'.
-# In upstream mode, GenixBit uses Ubuntu for the desktop foundation and keeps the
-# upstream package source only for the temporary installer compatibility component.
+# local: Ubuntu archive + locally built GenixBit .deb packages (default).
+# genixbit-staging: signed internal GenixBit staging repository for release testing.
 # Production mode (packages.os.genixbit.com) remains NOT DEPLOYED.
-export PACKAGE_SOURCE_MODE="${PACKAGE_SOURCE_MODE:-upstream}"
+export PACKAGE_SOURCE_MODE="${PACKAGE_SOURCE_MODE:-local}"
 
-if [[ "$PACKAGE_SOURCE_MODE" == "upstream" ]]; then
-    export APT_CONFIG_PACKAGE="anduinos-apt-config"
-    export APKG_SERVER="https://packages.anduinos.com"
-    export APKG_CERT_NAME="anduinos"
+if [[ "$PACKAGE_SOURCE_MODE" == "local" ]]; then
+    export APT_CONFIG_PACKAGE="genixbit-os-apt-config"
+    export APKG_SERVER=""
+    export APKG_CERT_NAME=""
 elif [[ "$PACKAGE_SOURCE_MODE" == "genixbit-staging" ]]; then
     export APT_CONFIG_PACKAGE="genixbit-os-apt-config"
     export APKG_SERVER="${GENIXBIT_STAGING_SERVER:-http://staging-packages.os.genixbit.internal}"
     export APKG_CERT_NAME="genixbit-os"
 else
-    echo "Error: Invalid or un-deployed PACKAGE_SOURCE_MODE='$PACKAGE_SOURCE_MODE'. Must be 'upstream' or 'genixbit-staging'." >&2
+    echo "Error: Invalid or un-deployed PACKAGE_SOURCE_MODE='$PACKAGE_SOURCE_MODE'. Must be 'local' or 'genixbit-staging'." >&2
     exit 1
 fi
